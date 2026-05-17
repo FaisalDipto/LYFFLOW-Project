@@ -508,23 +508,34 @@ const ConversationList = ({ pages, user }) => {
         if (normalized.length > 0) setActiveContact(normalized[0]);
         else setActiveContact(null);
 
-        // Fetch conversation info asynchronously to populate name, is_human_needed, updated_time
+        // Fetch info + last message in parallel for each conversation
         normalized.forEach(conv => {
           const cId = conv.conversation_id || conv.id;
           if (!cId) return;
-          apiService.getConversationInfo(cId)
-            .then(info => {
-              setContacts(prev => prev.map(c =>
-                (c.conversation_id || c.id) === cId
-                  ? {
-                      ...c,
+          Promise.allSettled([
+            apiService.getConversationInfo(cId),
+            apiService.getConversationDetails(selectedPageId, cId, null, 1),
+          ]).then(([infoRes, detailsRes]) => {
+            const info    = infoRes.status    === 'fulfilled' ? infoRes.value    : null;
+            const details = detailsRes.status === 'fulfilled' ? detailsRes.value : null;
+            const msgs = details?.messages?.data || details?.messages || details?.data || [];
+            const lastMsg = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
+            setContacts(prev => prev.map(c =>
+              (c.conversation_id || c.id) === cId
+                ? {
+                    ...c,
+                    ...(info ? {
                       _info_name: info.name || null,
                       is_human_needed: info.is_human_needed ?? c.is_human_needed,
                       updated_time: info.updated_time || c.updated_time,
-                    }
-                  : c
-              ));
-            }).catch(() => { });
+                    } : {}),
+                    ...(lastMsg ? {
+                      last_message: lastMsg.message || lastMsg.text || '',
+                    } : {}),
+                  }
+                : c
+            ));
+          });
         });
       })
       .catch(err => console.error("Failed to fetch conversations", err))
@@ -579,19 +590,30 @@ const ConversationList = ({ pages, user }) => {
         normalized.forEach(conv => {
           const cId = conv.conversation_id || conv.id;
           if (!cId) return;
-          apiService.getConversationInfo(cId)
-            .then(info => {
-              setContacts(prev => prev.map(c =>
-                (c.conversation_id || c.id) === cId
-                  ? {
-                      ...c,
+          Promise.allSettled([
+            apiService.getConversationInfo(cId),
+            apiService.getConversationDetails(selectedPageId, cId, null, 1),
+          ]).then(([infoRes, detailsRes]) => {
+            const info    = infoRes.status    === 'fulfilled' ? infoRes.value    : null;
+            const details = detailsRes.status === 'fulfilled' ? detailsRes.value : null;
+            const msgs = details?.messages?.data || details?.messages || details?.data || [];
+            const lastMsg = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
+            setContacts(prev => prev.map(c =>
+              (c.conversation_id || c.id) === cId
+                ? {
+                    ...c,
+                    ...(info ? {
                       _info_name: info.name || null,
                       is_human_needed: info.is_human_needed ?? c.is_human_needed,
                       updated_time: info.updated_time || c.updated_time,
-                    }
-                  : c
-              ));
-            }).catch(() => { });
+                    } : {}),
+                    ...(lastMsg ? {
+                      last_message: lastMsg.message || lastMsg.text || '',
+                    } : {}),
+                  }
+                : c
+            ));
+          });
         });
       })
       .catch(err => console.error("Failed to load more conversations", err))
