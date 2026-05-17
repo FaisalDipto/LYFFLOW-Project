@@ -508,21 +508,22 @@ const ConversationList = ({ pages, user }) => {
         if (normalized.length > 0) setActiveContact(normalized[0]);
         else setActiveContact(null);
 
-        // Fetch snippets asynchronously to populate last message without blocking UI
+        // Fetch conversation info asynchronously to populate name, is_human_needed, updated_time
         normalized.forEach(conv => {
           const cId = conv.conversation_id || conv.id;
           if (!cId) return;
-          apiService.getConversationDetails(selectedPageId, cId)
-            .then(details => {
-              const msgs = details?.messages?.data || details?.messages || details?.data || [];
-              if (Array.isArray(msgs) && msgs.length > 0) {
-                const lastMsg = msgs[0]; // FB returns newest first
-                setContacts(prev => prev.map(c =>
-                  (c.conversation_id || c.id) === cId
-                    ? { ...c, last_message: lastMsg.message, updated_time: lastMsg.created_at || lastMsg.created_time || lastMsg.timestamp || Date.now() }
-                    : c
-                ));
-              }
+          apiService.getConversationInfo(cId)
+            .then(info => {
+              setContacts(prev => prev.map(c =>
+                (c.conversation_id || c.id) === cId
+                  ? {
+                      ...c,
+                      _info_name: info.name || null,
+                      is_human_needed: info.is_human_needed ?? c.is_human_needed,
+                      updated_time: info.updated_time || c.updated_time,
+                    }
+                  : c
+              ));
             }).catch(() => { });
         });
       })
@@ -578,17 +579,18 @@ const ConversationList = ({ pages, user }) => {
         normalized.forEach(conv => {
           const cId = conv.conversation_id || conv.id;
           if (!cId) return;
-          apiService.getConversationDetails(selectedPageId, cId)
-            .then(details => {
-              const msgs = details?.messages?.data || details?.messages || details?.data || [];
-              if (Array.isArray(msgs) && msgs.length > 0) {
-                const lastMsg = msgs[0];
-                setContacts(prev => prev.map(c =>
-                  (c.conversation_id || c.id) === cId
-                    ? { ...c, last_message: lastMsg.message, updated_time: lastMsg.created_at || lastMsg.created_time || lastMsg.timestamp || Date.now() }
-                    : c
-                ));
-              }
+          apiService.getConversationInfo(cId)
+            .then(info => {
+              setContacts(prev => prev.map(c =>
+                (c.conversation_id || c.id) === cId
+                  ? {
+                      ...c,
+                      _info_name: info.name || null,
+                      is_human_needed: info.is_human_needed ?? c.is_human_needed,
+                      updated_time: info.updated_time || c.updated_time,
+                    }
+                  : c
+              ));
             }).catch(() => { });
         });
       })
@@ -740,31 +742,65 @@ const ConversationList = ({ pages, user }) => {
 
     const rawTime = msg.created_at || msg.created_time || msg.timestamp;
     const timeStr = formatMessageTime(rawTime);
+    const msgId = msg.id || msg.message_id;
+    const convId = activeContact?.conversation_id || activeContact?.id;
+
+    // Fetch message info lazily and cache on the msg object itself
+    if (msgId && convId && msg._infoFetched === undefined) {
+      msg._infoFetched = false; // mark as in-flight
+      apiService.getMessageInfo(convId, msgId)
+        .then(info => {
+          msg._infoFetched = true;
+          msg._hasAttachment = info.has_attachment;
+          msg._isAiMsg = info.is_ai_msg;
+          // Force a re-render by nudging messages state
+          setMessages(prev => [...prev]);
+        })
+        .catch(() => { msg._infoFetched = true; });
+    }
+
+    const hasAttachment = msg._hasAttachment ?? msg.has_attachment ?? false;
+    const isAiSource   = msg._isAiMsg    ?? msg.is_ai_msg    ?? isMe;
 
     if (isMe) {
-      // Sent message
+      // Sent message (AI or agent)
       return (
-        <div key={msg.id || msg.message_id || Math.random()} className="flex gap-4 max-w-2xl ml-auto flex-row-reverse group">
+        <div key={msgId || Math.random()} className="flex gap-4 max-w-2xl ml-auto flex-row-reverse group">
           <div className="space-y-2 flex flex-col items-end">
             <div className="bg-slate-900 text-white p-5 rounded-t-3xl rounded-bl-3xl text-[15px] leading-relaxed shadow-xl">
               {msg.message || msg.text || ''}
+              {hasAttachment && (
+                <span className="ml-2 inline-flex items-center gap-0.5 text-[11px] bg-white/20 text-white rounded-full px-2 py-0.5">
+                  <span className="material-symbols-outlined text-[12px]">attach_file</span>Attachment
+                </span>
+              )}
             </div>
             <p className="text-[10px] text-slate-400 font-medium px-2 flex items-center gap-1 transition-opacity">
+              {isAiSource && (
+                <span className="inline-flex items-center gap-0.5 bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 font-bold" style={{ fontSize: '9px' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '9px' }}>smart_toy</span>AI
+                </span>
+              )}
               {timeStr} <span className="material-symbols-outlined text-[12px] text-emerald-500" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
             </p>
           </div>
         </div>
       );
     } else {
-      // Received message
+      // Received message (customer)
       return (
-        <div key={msg.id || msg.message_id || Math.random()} className="flex gap-4 max-w-2xl group">
+        <div key={msgId || Math.random()} className="flex gap-4 max-w-2xl group">
           {renderAvatar(activeContact, "w-8 h-8 rounded-full self-end")}
           <div className="space-y-2">
             <div className="bg-slate-50 text-slate-900 p-5 rounded-t-3xl rounded-br-3xl text-[15px] leading-relaxed shadow-sm border border-slate-200">
               {msg.message || msg.text || ''}
+              {hasAttachment && (
+                <span className="ml-2 inline-flex items-center gap-0.5 text-[11px] bg-slate-200 text-slate-600 rounded-full px-2 py-0.5">
+                  <span className="material-symbols-outlined text-[12px]">attach_file</span>Attachment
+                </span>
+              )}
             </div>
-            <p className="text-[10px] text-slate-400 font-medium px-2 transition-opacity">
+            <p className="text-[10px] text-slate-400 font-medium px-2 transition-opacity flex items-center gap-1">
               {timeStr}
             </p>
           </div>
@@ -842,7 +878,8 @@ const ConversationList = ({ pages, user }) => {
           ) : contacts.length === 0 ? (
             <div className="p-8 text-center text-slate-400 font-medium text-sm">No ongoing conversations.</div>
           ) : contacts.map((contact, i) => {
-            const contactName = resolveContactName(contact, `User ${i}`);
+            // Prefer the name from /info endpoint, fall back to FB graph resolution
+            const contactName = contact._info_name || resolveContactName(contact, `User ${i}`);
             const snippet = contact.snippet || contact.last_message || contact.messages?.data?.[0]?.message || contact.messages?.[0]?.message || 'No messages';
             const updatedTimeValue = contact.updated_time || contact.last_message_at || contact.updated;
             const updated = formatListTime(updatedTimeValue);
@@ -1941,6 +1978,352 @@ const PERSONAS = [
   },
 ];
 
+/* ─────────────────────────────────────────
+   AGENT LOG COMPONENT
+───────────────────────────────────────── */
+const AgentLog = ({ agents }) => {
+  const [selectedAgentId, setSelectedAgentId] = useState('');
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Detail drawer state
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [convInfo, setConvInfo] = useState(null);
+  const [triggerMsgInfo, setTriggerMsgInfo] = useState(null);
+  const [responseMsgInfo, setResponseMsgInfo] = useState(null);
+
+  useEffect(() => {
+    if (agents && agents.length > 0 && !selectedAgentId) {
+      setSelectedAgentId(agents[0].agent_id);
+    }
+  }, [agents]);
+
+  useEffect(() => {
+    if (!selectedAgentId) return;
+    setLoading(true);
+    setActivities([]);
+    setPagination(null);
+    apiService.getAgentActivity(selectedAgentId, null, 20)
+      .then(data => {
+        setActivities(data?.agent_activities || []);
+        setPagination(data?.pagination || null);
+      })
+      .catch(err => console.error('Failed to load agent activity', err))
+      .finally(() => setLoading(false));
+  }, [selectedAgentId]);
+
+  const handleLoadMore = () => {
+    if (!pagination?.has_more || !pagination?.next_cursor || loadingMore) return;
+    setLoadingMore(true);
+    apiService.getAgentActivity(selectedAgentId, pagination.next_cursor, 20)
+      .then(data => {
+        setActivities(prev => [...prev, ...(data?.agent_activities || [])]);
+        setPagination(data?.pagination || null);
+      })
+      .catch(err => console.error('Failed to load more activity', err))
+      .finally(() => setLoadingMore(false));
+  };
+
+  const handleRowClick = async (activity) => {
+    setSelectedActivity(activity);
+    setConvInfo(null);
+    setTriggerMsgInfo(null);
+    setResponseMsgInfo(null);
+    setDetailLoading(true);
+
+    const convId = activity.conversation_id;
+    const trigId = activity.trigger_message_id;
+    const respId = activity.response_message_id;
+
+    try {
+      // Fire all three requests in parallel
+      const [ci, ti, ri] = await Promise.allSettled([
+        convId ? apiService.getConversationInfo(convId) : Promise.resolve(null),
+        (convId && trigId) ? apiService.getMessageInfo(convId, trigId) : Promise.resolve(null),
+        (convId && respId) ? apiService.getMessageInfo(convId, respId) : Promise.resolve(null),
+      ]);
+      if (ci.status === 'fulfilled') setConvInfo(ci.value);
+      if (ti.status === 'fulfilled') setTriggerMsgInfo(ti.value);
+      if (ri.status === 'fulfilled') setResponseMsgInfo(ri.value);
+    } catch (err) {
+      console.error('Failed to fetch activity details', err);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const statusConfig = {
+    success: { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Success' },
+    error:   { bg: 'bg-red-100',     text: 'text-red-700',     dot: 'bg-red-500',     label: 'Error'   },
+    pending: { bg: 'bg-amber-100',   text: 'text-amber-700',   dot: 'bg-amber-400',   label: 'Pending' },
+  };
+  const getStatusCfg = (s) => statusConfig[s?.toLowerCase()] || { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400', label: s || '—' };
+
+  const fmt = (ts) => {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  if (!agents || agents.length === 0) {
+    return (
+      <div className="mt-16 text-center py-16 bg-white rounded-[2rem] border border-dashed border-slate-200">
+        <span className="material-symbols-outlined text-4xl text-slate-300 mb-3 block">history</span>
+        <p className="text-slate-500 font-medium text-sm">No agents available to display logs.</p>
+      </div>
+    );
+  }
+
+  return (
+    <section className="mt-16 pb-20">
+      {/* Section Header */}
+      <div className="flex items-end justify-between mb-8 flex-wrap gap-4">
+        <div>
+          <span className="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-[#45464d] mb-2 block font-bold">Audit Trail</span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-[#000000] font-['Epilogue']">Agent Log</h2>
+          <p className="text-sm text-[#45464d] mt-2 max-w-md">Every decision your agent makes — trigger, response, handover, and timing — recorded here.</p>
+        </div>
+        {/* Agent selector */}
+        <select
+          value={selectedAgentId}
+          onChange={e => setSelectedAgentId(e.target.value)}
+          className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-black/10 cursor-pointer"
+        >
+          {agents.map(a => <option key={a.agent_id} value={a.agent_id}>{a.name}</option>)}
+        </select>
+      </div>
+
+      {/* Log Table */}
+      <div className="bg-white rounded-[2rem] border border-[#e0e3e5] overflow-hidden shadow-sm">
+        {/* Table Head */}
+        <div className="grid grid-cols-[2fr_1.5fr_1fr_1.5fr] gap-4 px-6 py-4 bg-[#f7f9fb] border-b border-[#e0e3e5]">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Response Time</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Handover</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Time</span>
+        </div>
+
+        {/* Rows */}
+        {loading ? (
+          <div className="py-16 text-center text-slate-400 text-sm font-medium">
+            <span className="material-symbols-outlined animate-spin text-3xl block mb-2">sync</span>
+            Loading activity...
+          </div>
+        ) : activities.length === 0 ? (
+          <div className="py-16 text-center text-slate-400 text-sm font-medium">
+            <span className="material-symbols-outlined text-3xl block mb-2 text-slate-300">history_toggle_off</span>
+            No activity found for this agent.
+          </div>
+        ) : (
+          activities.map((act) => {
+            const sc = getStatusCfg(act.status);
+            return (
+              <div
+                key={act.activity_id}
+                onClick={() => handleRowClick(act)}
+                className="grid grid-cols-[2fr_1.5fr_1fr_1.5fr] gap-4 items-center px-6 py-4 border-b border-[#f0f2f4] last:border-0 hover:bg-[#f7f9fb] cursor-pointer transition-colors group"
+              >
+                {/* Status */}
+                <div className="flex items-center gap-2.5">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${sc.bg} ${sc.text}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`}></span>
+                    {sc.label}
+                  </span>
+                  {act.error_message && (
+                    <span className="text-[10px] text-red-400 font-medium truncate max-w-[120px]" title={act.error_message}>{act.error_message}</span>
+                  )}
+                </div>
+                {/* Response Time */}
+                <span className="text-sm font-semibold text-slate-700">
+                  {act.response_time_ms != null ? `${act.response_time_ms} ms` : '—'}
+                </span>
+                {/* Handover */}
+                <div>
+                  {act.is_human_handover ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full">
+                      <span className="material-symbols-outlined text-[12px]">support_agent</span>Yes
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-full">No</span>
+                  )}
+                </div>
+                {/* Time */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium">{fmt(act.created_at)}</span>
+                  <span className="material-symbols-outlined text-slate-300 group-hover:text-slate-500 transition-colors text-[16px]">chevron_right</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+
+        {/* Load More */}
+        {pagination?.has_more && (
+          <div className="px-6 py-4 border-t border-[#f0f2f4] flex justify-center">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 px-5 py-2.5 rounded-xl transition-colors border border-slate-200 flex items-center gap-2 disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <><span className="material-symbols-outlined text-[14px] animate-spin">sync</span>Loading...</>
+              ) : (
+                <><span className="material-symbols-outlined text-[14px]">expand_more</span>Load More ({pagination.total - activities.length} remaining)</>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Detail Drawer */}
+      {selectedActivity && (
+        <div className="fixed inset-0 z-[9990] flex" onClick={() => setSelectedActivity(null)}>
+          <div className="flex-1 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="w-full max-w-lg bg-white h-full overflow-y-auto shadow-2xl flex flex-col animate-fade-in-right"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 sticky top-0 bg-white z-10">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Activity Detail</p>
+                <h3 className="text-lg font-extrabold text-slate-900 font-['Epilogue'] tracking-tight">Log Entry</h3>
+              </div>
+              <button
+                onClick={() => setSelectedActivity(null)}
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border-none cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-slate-400">
+                  <span className="material-symbols-outlined animate-spin text-4xl block mb-3">sync</span>
+                  <p className="text-sm font-medium">Fetching details...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 space-y-8">
+
+                {/* Raw Activity Fields */}
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-100">Activity Fields</h4>
+                  <ul className="space-y-3">
+                    {[
+                      { label: 'Activity ID',    value: selectedActivity.activity_id },
+                      { label: 'Status',         value: selectedActivity.status },
+                      { label: 'Response Time',  value: selectedActivity.response_time_ms != null ? `${selectedActivity.response_time_ms} ms` : '—' },
+                      { label: 'Input Tokens',   value: selectedActivity.input_tokens ?? '—' },
+                      { label: 'Output Tokens',  value: selectedActivity.output_tokens ?? '—' },
+                      { label: 'Error Message',  value: selectedActivity.error_message || '—' },
+                      { label: 'Handover',       value: selectedActivity.is_human_handover ? 'Yes' : 'No' },
+                      { label: 'Handover Reason',value: selectedActivity.human_handover_reason || '—' },
+                      { label: 'Knowledge Used', value: selectedActivity.knowledge_source?.join(', ') || '—' },
+                      { label: 'Created At',     value: fmt(selectedActivity.created_at) },
+                    ].map(({ label, value }) => (
+                      <li key={label} className="flex items-start gap-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-32 shrink-0 pt-0.5">{label}</span>
+                        <span className="text-xs font-semibold text-slate-800 break-all">{String(value)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Conversation Info */}
+                {selectedActivity.conversation_id && (
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[14px]">forum</span>Conversation
+                    </h4>
+                    {convInfo ? (
+                      <ul className="space-y-3">
+                        {[
+                          { label: 'ID',           value: convInfo.conversation_id },
+                          { label: 'Name',         value: convInfo.name || '—' },
+                          { label: 'Human Needed', value: convInfo.is_human_needed ? 'Yes' : 'No' },
+                          { label: 'Updated',      value: fmt(convInfo.updated_time) },
+                        ].map(({ label, value }) => (
+                          <li key={label} className="flex items-start gap-3">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-32 shrink-0 pt-0.5">{label}</span>
+                            <span className="text-xs font-semibold text-slate-800 break-all">{String(value)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400 font-mono bg-slate-50 px-3 py-2 rounded-lg">{selectedActivity.conversation_id}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Trigger Message Info */}
+                {selectedActivity.trigger_message_id && (
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[14px]">person</span>Trigger Message (User)
+                    </h4>
+                    {triggerMsgInfo ? (
+                      <ul className="space-y-3">
+                        {[
+                          { label: 'Message ID',    value: triggerMsgInfo.message_id },
+                          { label: 'Content',       value: triggerMsgInfo.message || '—' },
+                          { label: 'Role',          value: triggerMsgInfo.role || '—' },
+                          { label: 'Has Attachment',value: triggerMsgInfo.has_attachment ? 'Yes' : 'No' },
+                          { label: 'Sent At',       value: fmt(triggerMsgInfo.created_at) },
+                        ].map(({ label, value }) => (
+                          <li key={label} className="flex items-start gap-3">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-32 shrink-0 pt-0.5">{label}</span>
+                            <span className="text-xs font-semibold text-slate-800 break-all">{String(value)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400 font-mono bg-slate-50 px-3 py-2 rounded-lg">{selectedActivity.trigger_message_id}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Response Message Info */}
+                {selectedActivity.response_message_id && (
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[14px]">smart_toy</span>Agent Response
+                    </h4>
+                    {responseMsgInfo ? (
+                      <ul className="space-y-3">
+                        {[
+                          { label: 'Message ID',    value: responseMsgInfo.message_id },
+                          { label: 'Content',       value: responseMsgInfo.message || '—' },
+                          { label: 'Role',          value: responseMsgInfo.role || '—' },
+                          { label: 'Is AI Message', value: responseMsgInfo.is_ai_msg ? 'Yes' : 'No' },
+                          { label: 'Has Attachment',value: responseMsgInfo.has_attachment ? 'Yes' : 'No' },
+                          { label: 'Sent At',       value: fmt(responseMsgInfo.created_at) },
+                        ].map(({ label, value }) => (
+                          <li key={label} className="flex items-start gap-3">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-32 shrink-0 pt-0.5">{label}</span>
+                            <span className="text-xs font-semibold text-slate-800 break-all">{String(value)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400 font-mono bg-slate-50 px-3 py-2 rounded-lg">{selectedActivity.response_message_id}</p>
+                    )}
+                  </div>
+                )}
+
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+};
+
 const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) => {
   const agents = user?.agents || [];
   const [isCreating, setIsCreating] = useState(false);
@@ -1975,7 +2358,7 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
     tone: 'All'
   });
 
-  const activeSelectedAgents = JSON.parse(localStorage.getItem('qchat_assigned_agents') || '{}');
+  const activeSelectedAgents = JSON.parse(localStorage.getItem('lyfflow_assigned_agents') || '{}');
 
   const filteredAgents = agents.filter(agent => {
     // Role filter
@@ -2003,9 +2386,9 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
     setAssigningId(agentId);
     try {
       await apiService.assignAgentToPage(pageId, agentId);
-      const activeSelectedAgents = JSON.parse(localStorage.getItem('qchat_assigned_agents') || '{}');
+      const activeSelectedAgents = JSON.parse(localStorage.getItem('lyfflow_assigned_agents') || '{}');
       activeSelectedAgents[pageId] = agentId;
-      localStorage.setItem('qchat_assigned_agents', JSON.stringify(activeSelectedAgents));
+      localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(activeSelectedAgents));
       addToast('Agent assigned successfully', 'success');
       setAssignModalAgent(null);
       if (onUpdate) onUpdate();
@@ -2030,10 +2413,10 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
     setUnassigningId(agentId);
     try {
       await apiService.unassignAgentFromPage(pageId);
-      const activeSelectedAgents = JSON.parse(localStorage.getItem('qchat_assigned_agents') || '{}');
+      const activeSelectedAgents = JSON.parse(localStorage.getItem('lyfflow_assigned_agents') || '{}');
       if (activeSelectedAgents[pageId]) {
         delete activeSelectedAgents[pageId];
-        localStorage.setItem('qchat_assigned_agents', JSON.stringify(activeSelectedAgents));
+        localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(activeSelectedAgents));
       }
       addToast('Agent unassigned successfully', 'success');
       if (onUpdate) onUpdate();
@@ -2055,7 +2438,7 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
     setDeleteConfirmItem(null);
     try {
       await apiService.deleteAgent(agent.agent_id);
-      const activeSelectedAgents = JSON.parse(localStorage.getItem('qchat_assigned_agents') || '{}');
+      const activeSelectedAgents = JSON.parse(localStorage.getItem('lyfflow_assigned_agents') || '{}');
       let changed = false;
       Object.keys(activeSelectedAgents).forEach(pageId => {
         if (activeSelectedAgents[pageId] === agent.agent_id) {
@@ -2064,7 +2447,7 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
         }
       });
       if (changed) {
-        localStorage.setItem('qchat_assigned_agents', JSON.stringify(activeSelectedAgents));
+        localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(activeSelectedAgents));
       }
       addToast('Agent deleted successfully', 'delete');
       if (onUpdate) onUpdate();
@@ -2303,15 +2686,15 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
 
   if (!isCreating && !isEditing) {
     return (
-      <div className="flex-1 w-full p-6 md:p-8 xl:p-12 min-h-screen bg-[#f7f9fb] animate-fade-in-up">
+      <div className="flex-1 w-full p-4 md:p-6 xl:p-8 min-h-screen bg-[#f7f9fb] animate-fade-in-up">
         <div className="max-w-[1400px] mx-auto">
           {/* Header Section */}
-          <section className="mb-16">
-            <div className="flex justify-between items-end flex-wrap gap-6">
+          <section className="mb-6">
+            <div className="flex justify-between items-center flex-wrap gap-4">
               <div className="max-w-2xl">
-                <span className="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-[#45464d] mb-4 block font-bold">Fleet Management</span>
-                <h2 className="text-5xl font-extrabold tracking-tight text-primary font-['Epilogue'] mb-6">AI Agents</h2>
-                <p className="text-lg text-[#45464d] leading-relaxed">
+                <span className="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-[#45464d] mb-1 block font-bold">Fleet Management</span>
+                <h2 className="text-3xl font-extrabold tracking-tight text-primary font-['Epilogue'] mb-1">AI Agents</h2>
+                <p className="text-sm text-[#45464d] leading-relaxed">
                   Deploy, monitor, and scale your autonomous intelligence fleet. Your agents are currently handling <span className="text-emerald-600 font-bold">84%</span> of all support traffic.
                 </p>
               </div>
@@ -2389,20 +2772,20 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
           </section>
 
           {/* Agents Bento Grid */}
-          <div className="grid grid-cols-12 gap-6 pb-20 auto-rows-fr">
+          <div className="grid grid-cols-12 gap-4">
 
             {/* Create Agent Card */}
             <div
               onClick={() => setIsCreating(true)}
-              className="col-span-12 md:col-span-6 lg:col-span-4 min-h-[360px] relative group overflow-hidden bg-[#000000] rounded-[2rem] cursor-pointer shadow-lg"
+              className="col-span-6 md:col-span-4 lg:col-span-3 min-h-[220px] relative group overflow-hidden bg-[#000000] rounded-[2rem] cursor-pointer shadow-lg"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-[#000000] to-[#131b2e] opacity-90"></div>
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center border border-white/10 m-3 rounded-[1.5rem] border-dashed transition-colors group-hover:border-emerald-500/50">
-                <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-emerald-500/20 transition-all duration-300 shadow-lg">
-                  <span className="material-symbols-outlined text-white text-3xl group-hover:text-emerald-400">add</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center border border-white/10 m-3 rounded-[1.5rem] border-dashed transition-colors group-hover:border-emerald-500/50">
+                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:bg-emerald-500/20 transition-all duration-300 shadow-lg">
+                  <span className="material-symbols-outlined text-white text-2xl group-hover:text-emerald-400">add</span>
                 </div>
-                <h3 className="text-white text-xl font-bold mb-2 font-['Epilogue'] tracking-tight">New Intelligence</h3>
-                <p className="text-[#bec6e0] text-sm font-medium">Deploy a custom trained model to handle specific logic.</p>
+                <h3 className="text-white text-base font-bold mb-1 font-['Epilogue'] tracking-tight">New Intelligence</h3>
+                <p className="text-[#bec6e0] text-xs font-medium">Deploy a custom trained model to handle specific logic.</p>
               </div>
             </div>
 
@@ -2426,9 +2809,9 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
               const successRate = totalDialog > 0 ? (((totalDialog - handoverCount) / totalDialog) * 100).toFixed(1) + '%' : 'N/A';
 
               return (
-                <div key={agent.agent_id} className="col-span-12 md:col-span-6 lg:col-span-4 bg-white rounded-[2rem] p-8 flex flex-col justify-between group hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 border border-[#e0e3e5] relative break-inside-avoid min-h-[360px]">
+                <div key={agent.agent_id} className="col-span-6 md:col-span-4 lg:col-span-3 bg-white rounded-[2rem] p-5 flex flex-col justify-between group hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 border border-[#e0e3e5] relative break-inside-avoid min-h-[220px]">
 
-                  <div className="flex justify-between items-start mb-6">
+                  <div className="flex justify-between items-start mb-3">
                     <div className="flex gap-4">
                       {isAssigned ? (
                         <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:scale-105 transition-transform">
@@ -2468,8 +2851,8 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
                     </button>
                   </div>
 
-                  <div className="mb-6 flex-1 mt-4">
-                    <div className="grid grid-cols-2 gap-8 my-8">
+                  <div className="mb-2 flex-1 mt-2">
+                    <div className="grid grid-cols-2 gap-4 my-3">
                       <div>
                         <p className="font-['Inter'] text-[10px] uppercase tracking-widest text-[#45464d] mb-2 font-bold">Core Function</p>
                         <p className="text-sm font-semibold text-[#000000]">{agent.role}</p>
@@ -2481,9 +2864,9 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
                     </div>
                   </div>
 
-                  <div className="pt-6 border-t border-[#eceef0] mt-auto space-y-6">
+                  <div className="pt-3 border-t border-[#eceef0] mt-auto space-y-2">
                     {/* Stats Row */}
-                    <div className="flex gap-6 sm:gap-8 justify-start">
+                    <div className="flex gap-4 sm:gap-6 justify-start">
                       <div>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-[#76777d] block mb-1">Dialogues</span>
                         <span className="text-lg font-bold text-[#000000]">{totalDialog.toLocaleString()}</span>
@@ -2527,6 +2910,8 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
             })}
 
           </div>
+          {/* Agent Log Section */}
+          <AgentLog agents={agents} />
         </div>
         {overlays}
       </div>

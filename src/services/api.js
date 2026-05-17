@@ -19,7 +19,7 @@ const mockData = {
     { agent_id: 'agent_2', name: 'SupportBot', role: 'Support' }
   ],
   '/api/subscription': { is_active: true, plan: { plan_name: 'Enterprise', price: 99 } },
-  '/api/page/page_1': {
+  '/api/page/page_1/conversations': {
     conversations: [
       { id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', updated_time: new Date().toISOString() },
       { id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', updated_time: new Date().toISOString() }
@@ -146,6 +146,15 @@ export const apiService = {
   // Agent Management
   getAgents: () => apiFetch('/api/agents'),
 
+  // Returns paginated activity log for a specific agent
+  getAgentActivity: (agentId, cursor = null, page_size = null) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return apiFetch(`/api/agent/${agentId}/agent_activity${qs}`);
+  },
+
   createAgent: (agentData) => apiFetch('/api/agent/create', {
     method: 'POST',
     body: JSON.stringify(agentData),
@@ -182,7 +191,7 @@ export const apiService = {
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return apiFetch(`/api/page/${pageId}${qs}`);
+    return apiFetch(`/api/page/${pageId}/conversations${qs}`);
   },
   getConversationDetails: (pageId, conversationId, cursor = null, page_size = null) => {
     const q = new URLSearchParams();
@@ -195,6 +204,12 @@ export const apiService = {
     method: 'POST',
     body: JSON.stringify({ message }),
   }),
+  // Returns basic info for a conversation (name, is_human_needed, updated_time)
+  getConversationInfo: (conversationId) => apiFetch(`/api/conversations/${conversationId}/info`),
+
+  // Returns basic info for a specific message (role, has_attachment, is_ai_msg, created_at)
+  getMessageInfo: (conversationId, messageId) => apiFetch(`/api/conversations/${conversationId}/messages/${messageId}/info`),
+
   setConversationPauseStatus: (pageId, conversationId, pauseStatus) => apiFetch(`/api/agent/page/${pageId}/conversation/${conversationId}/pause`, {
     method: 'PATCH',
     body: JSON.stringify({ pause_status: pauseStatus }),
