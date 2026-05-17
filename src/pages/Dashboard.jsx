@@ -2799,137 +2799,95 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
             {/* Create Agent Card */}
             <div
               onClick={() => setIsCreating(true)}
-              className="col-span-6 md:col-span-4 lg:col-span-3 min-h-[220px] relative group overflow-hidden bg-[#000000] rounded-[2rem] cursor-pointer shadow-lg"
+              className="col-span-6 md:col-span-4 lg:col-span-3 min-h-[200px] relative group overflow-hidden bg-[#0f172a] rounded-2xl cursor-pointer"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#000000] to-[#131b2e] opacity-90"></div>
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center border border-white/10 m-3 rounded-[1.5rem] border-dashed transition-colors group-hover:border-emerald-500/50">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:bg-emerald-500/20 transition-all duration-300 shadow-lg">
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center border-2 border-white/10 m-3 rounded-xl border-dashed transition-colors group-hover:border-emerald-400/50">
+                <div className="w-12 h-12 rounded-full border-2 border-white/30 flex items-center justify-center mb-3 group-hover:border-emerald-400 group-hover:scale-110 transition-all duration-300">
                   <span className="material-symbols-outlined text-white text-2xl group-hover:text-emerald-400">add</span>
                 </div>
-                <h3 className="text-white text-base font-bold mb-1 font-['Epilogue'] tracking-tight">New Intelligence</h3>
-                <p className="text-[#bec6e0] text-xs font-medium">Deploy a custom trained model to handle specific logic.</p>
+                <h3 className="text-white text-sm font-bold mb-1 tracking-tight">New Intelligence</h3>
+                <p className="text-white/50 text-xs">Deploy a custom trained model</p>
               </div>
             </div>
 
             {/* Dynamic Agents List */}
             {filteredAgents.length === 0 && activeFiltersCount > 0 ? (
-              <div className="col-span-12 py-20 text-center bg-white rounded-[2rem] border border-dashed border-slate-200">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="material-symbols-outlined text-slate-300 text-3xl">filter_list_off</span>
-                </div>
-                <h4 className="text-xl font-bold text-slate-900 mb-2">No agents match your filters</h4>
-                <p className="text-slate-500 text-sm mb-6">Try adjusting your criteria or clearing all filters.</p>
+              <div className="col-span-12 py-16 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+                <span className="material-symbols-outlined text-slate-300 text-3xl block mb-3">filter_list_off</span>
+                <h4 className="text-base font-bold text-slate-900 mb-1">No agents match your filters</h4>
+                <p className="text-slate-500 text-sm mb-4">Try adjusting your criteria or clearing all filters.</p>
                 <button onClick={clearFilters} className="text-emerald-600 font-bold text-sm hover:underline">Clear all filters</button>
               </div>
             ) : filteredAgents.map((agent) => {
-              // Read assigned agents state globally
               const assignedPageId = Object.keys(activeSelectedAgents).find(key => activeSelectedAgents[key] === agent.agent_id);
               const isAssigned = !!assignedPageId;
-
               const totalDialog = agent.total_dialog || 0;
-              const handoverCount = agent.handover_count || 0;
-              const successRate = totalDialog > 0 ? (((totalDialog - handoverCount) / totalDialog) * 100).toFixed(1) + '%' : 'N/A';
+              const initial = (agent.name || '?').charAt(0).toUpperCase();
 
               return (
-                <div key={agent.agent_id} className="col-span-6 md:col-span-4 lg:col-span-3 bg-white rounded-[2rem] p-5 flex flex-col justify-between group hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 border border-[#e0e3e5] relative break-inside-avoid min-h-[220px]">
+                <div key={agent.agent_id} className="col-span-6 md:col-span-4 lg:col-span-3 bg-white rounded-2xl p-5 flex flex-col group hover:shadow-lg transition-all duration-300 border border-[#e8eaed] relative min-h-[200px]">
 
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex gap-4">
-                      {isAssigned ? (
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:scale-105 transition-transform">
-                          <span className="material-symbols-outlined text-emerald-600 text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>support_agent</span>
-                        </div>
-                      ) : (
-                        <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 group-hover:scale-105 transition-transform">
-                          <span className="material-symbols-outlined text-slate-600 text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
-                        </div>
-                      )}
-
-                      <div className="flex flex-col justify-center min-w-0">
-                        <h3 className="text-2xl font-bold text-[#000000] leading-tight font-['Epilogue'] truncate pr-4">{agent.name}</h3>
-                        {isAssigned ? (
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></span>
-                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Active</span>
-                          </div>
-                        ) : (
-                          <div className="bg-slate-50 px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 flex items-center gap-1 border border-slate-200 w-fit mt-2">
-                            <span className="material-symbols-outlined text-[14px]">pause_circle</span>
-                            IDLE
-                          </div>
-                        )}
-                      </div>
+                  {/* Top row: avatar + status dot */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-11 h-11 rounded-full bg-[#0f172a] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <span className="text-white font-bold text-lg leading-none">{initial}</span>
                     </div>
+                    <div className="flex items-center gap-2">
+                      {/* Delete — visible on hover */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400"
+                        title="Delete Agent"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                      {/* Status dot */}
+                      <span className={`w-2.5 h-2.5 rounded-full mt-0.5 shrink-0 ${isAssigned ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-amber-400'}`}></span>
+                    </div>
+                  </div>
 
+                  {/* Agent name */}
+                  <h3 className="text-base font-bold text-[#0f172a] leading-tight mb-0.5 truncate">{agent.name}</h3>
+
+                  {/* Role */}
+                  <p className="text-xs text-slate-500 mb-3 truncate">{agent.role}</p>
+
+                  {/* Dialogue count */}
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-auto">
+                    <span className="material-symbols-outlined text-[14px] text-slate-400">chat_bubble_outline</span>
+                    <span>{totalDialog} dialogues</span>
+                  </div>
+
+                  {/* Actions — shown on hover */}
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {isAssigned ? (
+                      <button
+                        onClick={() => handleUnassign(agent.agent_id, assignedPageId)}
+                        disabled={unassigningId === agent.agent_id}
+                        className="text-[11px] font-bold text-red-500 px-2.5 py-1.5 hover:bg-red-50 rounded-lg disabled:opacity-50 whitespace-nowrap transition-colors"
+                      >
+                        {unassigningId === agent.agent_id ? 'Wait...' : 'Unassign'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setAssignModalAgent(agent)}
+                        className="text-[11px] font-bold text-blue-600 px-2.5 py-1.5 hover:bg-blue-50 rounded-lg whitespace-nowrap transition-colors"
+                      >
+                        Assign
+                      </button>
+                    )}
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteAgent(agent);
-                      }}
-                      className="p-2 -mt-2 -mr-2 rounded-xl hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors z-20"
-                      title="Delete Agent"
+                      onClick={() => handleEditClick(agent)}
+                      className="text-[11px] font-bold text-emerald-600 px-2.5 py-1.5 hover:bg-emerald-50 rounded-lg whitespace-nowrap transition-colors ml-auto flex items-center gap-1"
                     >
-                      <span className="material-symbols-outlined text-xl">delete</span>
+                      Configure <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
                     </button>
                   </div>
 
-                  <div className="mb-2 flex-1 mt-2">
-                    <div className="grid grid-cols-2 gap-4 my-3">
-                      <div>
-                        <p className="font-['Inter'] text-[10px] uppercase tracking-widest text-[#45464d] mb-2 font-bold">Core Function</p>
-                        <p className="text-sm font-semibold text-[#000000]">{agent.role}</p>
-                      </div>
-                      <div>
-                        <p className="font-['Inter'] text-[10px] uppercase tracking-widest text-[#45464d] mb-2 font-bold">Tone Setup</p>
-                        <p className="text-sm font-semibold text-[#000000] max-w-[120px] truncate">{agent.tone} Profile</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-[#eceef0] mt-auto space-y-2">
-                    {/* Stats Row */}
-                    <div className="flex gap-4 sm:gap-6 justify-start">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#76777d] block mb-1">Dialogues</span>
-                        <span className="text-lg font-bold text-[#000000]">{totalDialog.toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#76777d] block mb-1">Success</span>
-                        <span className="text-lg font-bold text-[#000000]">{successRate}</span>
-                      </div>
-                    </div>
-
-                    {/* Actions Row */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1">
-                        {isAssigned ? (
-                          <button
-                            onClick={() => handleUnassign(agent.agent_id, assignedPageId)}
-                            disabled={unassigningId === agent.agent_id}
-                            className="text-[13px] font-bold text-red-500 flex items-center gap-1.5 transition-all px-3 py-1.5 hover:bg-red-50 rounded-lg disabled:opacity-50 whitespace-nowrap"
-                          >
-                            {unassigningId === agent.agent_id ? 'Wait...' : 'Unassign'}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setAssignModalAgent(agent)}
-                            className="text-[13px] font-bold text-blue-600 flex items-center gap-1.5 transition-all px-3 py-1.5 hover:bg-blue-50 rounded-lg whitespace-nowrap"
-                          >
-                            Assign
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleEditClick(agent)}
-                          className="text-[13px] font-bold text-emerald-600 flex items-center gap-1.5 hover:gap-2 transition-all px-3 py-1.5 hover:bg-emerald-50 rounded-lg whitespace-nowrap"
-                        >
-                          Configure <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               );
             })}
+
 
           </div>
           {/* Agent Log Section */}
