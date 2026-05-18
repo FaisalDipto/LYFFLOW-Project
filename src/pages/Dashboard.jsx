@@ -2122,10 +2122,10 @@ const AgentLog = ({ agents }) => {
       <div className="bg-white rounded-[2rem] border border-[#e0e3e5] overflow-hidden shadow-sm">
         {/* Table Head */}
         <div className="grid grid-cols-[2fr_1.5fr_1fr_1.5fr] gap-4 px-6 py-4 bg-[#f7f9fb] border-b border-[#e0e3e5]">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</span>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Response Time</span>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Handover</span>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Time</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Status</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Response Time</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Handover</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Time</span>
         </div>
 
         {/* Rows */}
