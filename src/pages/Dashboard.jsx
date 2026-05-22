@@ -420,6 +420,7 @@ const ConversationList = ({ pages, user }) => {
   const [messagesPagination, setMessagesPagination] = useState(null);
   const [loadingMoreContacts, setLoadingMoreContacts] = useState(false);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   const isLoadingOlderMsgsRef = useRef(false);
 
   const currentPageName = pages?.find(p => p.page_id === selectedPageId)?.name || '';
@@ -797,9 +798,9 @@ const ConversationList = ({ pages, user }) => {
                     const isImage = att.attachment_type?.startsWith('image/');
                     const url = `/api/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
                     return isImage ? (
-                      <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                        <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-white/20" />
-                      </a>
+                      <div key={att.attachment_id || att.attachment_key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
+                        <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-white/20 hover:opacity-90 transition-opacity" />
+                      </div>
                     ) : (
                       <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center w-fit gap-1 text-[11px] bg-white/20 text-white rounded-full px-2 py-0.5 hover:bg-white/30 transition-colors">
                         <span className="material-symbols-outlined text-[12px]">attach_file</span>
@@ -839,9 +840,9 @@ const ConversationList = ({ pages, user }) => {
                     const isImage = att.attachment_type?.startsWith('image/');
                     const url = `/api/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
                     return isImage ? (
-                      <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                        <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-slate-200" />
-                      </a>
+                      <div key={att.attachment_id || att.attachment_key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
+                        <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-slate-200 hover:opacity-90 transition-opacity" />
+                      </div>
                     ) : (
                       <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center w-fit gap-1 text-[11px] bg-slate-200 text-slate-600 rounded-full px-2 py-0.5 hover:bg-slate-300 transition-colors">
                         <span className="material-symbols-outlined text-[12px]">attach_file</span>
@@ -1220,6 +1221,29 @@ const ConversationList = ({ pages, user }) => {
             </div>
           ) : null}
         </aside>
+      )}
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-5xl max-h-full w-full h-full flex items-center justify-center">
+            <button 
+              className="absolute top-4 right-4 text-white hover:text-slate-300 transition-colors bg-black/50 hover:bg-black/80 rounded-full w-10 h-10 flex items-center justify-center z-10"
+              onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            <img 
+              src={selectedImage} 
+              alt="Attachment Viewer" 
+              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()} 
+            />
+          </div>
+        </div>
       )}
     </div>
   );
