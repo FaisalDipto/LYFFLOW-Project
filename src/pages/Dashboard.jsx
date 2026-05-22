@@ -2750,9 +2750,11 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
               <div className="max-w-2xl">
                 <span className="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-[#45464d] mb-1 block font-bold">Fleet Management</span>
                 <h2 className="text-3xl font-extrabold tracking-tight text-primary font-['Epilogue'] mb-1">AI Agents</h2>
+                {/* TODO: 
                 <p className="text-sm text-[#45464d] leading-relaxed">
                   Deploy, monitor, and scale your autonomous intelligence fleet. Your agents are currently handling <span className="text-emerald-600 font-bold">84%</span> of all support traffic.
                 </p>
+                */}
               </div>
               <div className="flex gap-4">
                 <button
