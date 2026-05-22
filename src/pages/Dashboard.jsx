@@ -791,8 +791,25 @@ const ConversationList = ({ pages, user }) => {
           <div className="space-y-2 flex flex-col items-end">
             <div className="bg-slate-900 text-white p-5 rounded-t-3xl rounded-bl-3xl text-[15px] leading-relaxed shadow-xl">
               {msg.message || msg.text || ''}
-              {hasAttachment && (
-                <span className="ml-2 inline-flex items-center gap-0.5 text-[11px] bg-white/20 text-white rounded-full px-2 py-0.5">
+              {msg.attachments && msg.attachments.length > 0 ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  {msg.attachments.map(att => {
+                    const isImage = att.attachment_type?.startsWith('image/');
+                    const url = `/api/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
+                    return isImage ? (
+                      <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-white/20" />
+                      </a>
+                    ) : (
+                      <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center w-fit gap-1 text-[11px] bg-white/20 text-white rounded-full px-2 py-0.5 hover:bg-white/30 transition-colors">
+                        <span className="material-symbols-outlined text-[12px]">attach_file</span>
+                        Attachment {att.attachment_size ? `(${Math.round(att.attachment_size / 1024)}KB)` : ''}
+                      </a>
+                    );
+                  })}
+                </div>
+              ) : hasAttachment && (
+                <span className="ml-2 inline-flex items-center gap-0.5 text-[11px] bg-white/20 text-white rounded-full px-2 py-0.5 mt-1">
                   <span className="material-symbols-outlined text-[12px]">attach_file</span>Attachment
                 </span>
               )}
@@ -816,8 +833,25 @@ const ConversationList = ({ pages, user }) => {
           <div className="space-y-2">
             <div className="bg-slate-50 text-slate-900 p-5 rounded-t-3xl rounded-br-3xl text-[15px] leading-relaxed shadow-sm border border-slate-200">
               {msg.message || msg.text || ''}
-              {hasAttachment && (
-                <span className="ml-2 inline-flex items-center gap-0.5 text-[11px] bg-slate-200 text-slate-600 rounded-full px-2 py-0.5">
+              {msg.attachments && msg.attachments.length > 0 ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  {msg.attachments.map(att => {
+                    const isImage = att.attachment_type?.startsWith('image/');
+                    const url = `/api/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
+                    return isImage ? (
+                      <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-slate-200" />
+                      </a>
+                    ) : (
+                      <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center w-fit gap-1 text-[11px] bg-slate-200 text-slate-600 rounded-full px-2 py-0.5 hover:bg-slate-300 transition-colors">
+                        <span className="material-symbols-outlined text-[12px]">attach_file</span>
+                        Attachment {att.attachment_size ? `(${Math.round(att.attachment_size / 1024)}KB)` : ''}
+                      </a>
+                    );
+                  })}
+                </div>
+              ) : hasAttachment && (
+                <span className="ml-2 inline-flex items-center gap-0.5 text-[11px] bg-slate-200 text-slate-600 rounded-full px-2 py-0.5 mt-1">
                   <span className="material-symbols-outlined text-[12px]">attach_file</span>Attachment
                 </span>
               )}
