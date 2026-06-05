@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/v1/(.*)",
+      "destination": "https://api.lyfflow.com/v1/$1"
+    },
+    {
+      "source": "/api/auth/(.*)",
+      "destination": "https://api.lyfflow.com/v1/auth/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

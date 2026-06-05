@@ -13,7 +13,7 @@ export default function Navbar() {
 
   const handleAboutClick = () => {
     if (isMobileMenuOpen) setIsMobileMenuOpen(false);
-    if (location.pathname === '/app') {
+    if (location.pathname === '/') {
       // Already on home — smooth scroll directly
       document.getElementById('about')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
@@ -42,7 +42,7 @@ export default function Navbar() {
     <div className="navbar-container">
       <nav className={`navbar ${isScrolled ? 'scrolled' : ''}`}>
         {/* Logo Section */}
-        <Link to="/app" className="nav-logo">
+        <Link to="/" className="nav-logo">
           <img src={logoImg} alt="LYFFLOW Logo" className="brand-logo-img" />
           <img src={titleImg} alt="LYFFLOW" className="brand-title-img" />
         </Link>
@@ -122,7 +122,7 @@ export default function Navbar() {
                     <p className="dropdown-desc">Guides and documentation.</p>
                   </div>
                 </div>
-                <Link to="/app/sales" className="dropdown-item" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link to="/sales" className="dropdown-item" onClick={() => setIsMobileMenuOpen(false)}>
                   <div className="dropdown-icon-container res-contact">
                     <svg className="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                   </div>
@@ -156,14 +156,14 @@ export default function Navbar() {
               <button className="nav-link-text" onClick={handleAboutClick} style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', padding: 0 }}>About</button>
             </li>
             <li className="nav-item">
-              <Link to="/app/pricing" className="nav-link-text" onClick={() => isMobileMenuOpen && setIsMobileMenuOpen(false)}>Pricing</Link>
+              <Link to="/pricing" className="nav-link-text" onClick={() => isMobileMenuOpen && setIsMobileMenuOpen(false)}>Pricing</Link>
             </li>
           </ul>
 
           {/* Action Section */}
           <div className="nav-actions">
-            <Link to="/app/login" className="btn-signin">Sign In</Link>
-            <Link to="/app/get-started" className="btn-get-started">Get Started</Link>
+            <Link to="/login" className="btn-signin">Sign In</Link>
+            <Link to="/get-started" className="btn-get-started">Get Started</Link>
           </div>
         </div>
       </nav>

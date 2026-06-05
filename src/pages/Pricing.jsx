@@ -9,7 +9,7 @@ export default function Pricing() {
   const handleSubscribe = async (planType) => {
     try {
       await apiService.subscribe({ subscription_type: planType, num_months: 1 });
-      navigate('/app/dashboard');
+      navigate('/dashboard');
     } catch (e) {
       alert("Failed to subscribe: " + e.message);
     }
@@ -257,7 +257,7 @@ export default function Pricing() {
           <h2 className="font-headline text-3xl font-bold mb-4">Have questions about our plans?</h2>
           <p className="text-on-surface-variant mb-10">Our sales team is ready to help you find the perfect fit for your workflow.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/app/sales" className="px-8 py-3 bg-on-surface text-surface rounded-full font-bold hover:bg-surface-variant hover:text-on-surface transition-colors">Contact Sales</Link>
+            <Link to="/sales" className="px-8 py-3 bg-on-surface text-surface rounded-full font-bold hover:bg-surface-variant hover:text-on-surface transition-colors">Contact Sales</Link>
             <Link to="/app#faq" className="px-8 py-3 border border-outline text-on-surface rounded-full font-bold hover:bg-surface-container-low transition-colors">View All FAQs</Link>
           </div>
         </section>

@@ -10,28 +10,28 @@ const API_BASE = '';
 const MOCK_MODE = window.location.search.includes('mock=true');
 
 const mockData = {
-  '/api/user/': { user: { id: 'mock_123', first_name: 'Demo', last_name: 'User', display_name: 'Demo User', email: 'demo@lyfflow.com' } },
-  '/api/pages': [
+  '/v1/user/': { user: { id: 'mock_123', first_name: 'Demo', last_name: 'User', display_name: 'Demo User', email: 'demo@lyfflow.com' } },
+  '/v1/pages': [
     { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot' }
   ],
-  '/api/agents': [
+  '/v1/agents': [
     { agent_id: 'agent_1', name: 'SalesBot', role: 'Sales' },
     { agent_id: 'agent_2', name: 'SupportBot', role: 'Support' }
   ],
-  '/api/subscription': { is_active: true, plan: { plan_name: 'Enterprise', price: 99 } },
-  '/api/page/page_1/conversations': {
+  '/v1/subscription': { is_active: true, plan: { plan_name: 'Enterprise', price: 99 } },
+  '/v1/page/page_1/conversations': {
     conversations: [
       { id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', updated_time: new Date().toISOString() },
       { id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', updated_time: new Date().toISOString() }
     ]
   },
-  '/api/page/page_1/conversation/conv_1': {
+  '/v1/page/page_1/conversation/conv_1': {
     messages: [
       { id: 'm1', message: 'Hello, I need help with my order.', role: 'user', created_at: new Date(Date.now() - 100000).toISOString() },
       { id: 'm2', message: 'Sure, I can help with that. What is your order number?', role: 'agent', created_at: new Date(Date.now() - 50000).toISOString() }
     ]
   },
-  '/api/page/page_1/conversation/conv_2': {
+  '/v1/page/page_1/conversation/conv_2': {
     messages: [
       { id: 'm3', message: 'Is the product in stock?', role: 'user', created_at: new Date(Date.now() - 200000).toISOString() }
     ]
@@ -111,40 +111,40 @@ const apiFetch = async (endpoint, options = {}) => {
 
 export const apiService = {
   // Returns current logged-in user details
-  getUserProfile: () => apiFetch('/api/user/'),
+  getUserProfile: () => apiFetch('/v1/user/'),
 
   // Explicit logout
-  logout: () => apiFetch('/api/logout'),
+  logout: () => apiFetch('/v1/logout'),
 
   // Gets the connected Facebook Pages
-  getPages: () => apiFetch('/api/pages'),
+  getPages: () => apiFetch('/v1/pages'),
 
   // Knowledge Base
-  getKnowledge: (pageId) => apiFetch(`/api/knowledge/${pageId}`),
+  getKnowledge: (pageId) => apiFetch(`/v1/knowledge/${pageId}`),
 
-  getKnowledgeItem: (pageId, knowledgeId) => apiFetch(`/api/knowledge/${pageId}/${knowledgeId}`),
+  getKnowledgeItem: (pageId, knowledgeId) => apiFetch(`/v1/knowledge/${pageId}/${knowledgeId}`),
 
-  createKnowledge: (pageId, payload) => apiFetch(`/api/knowledge/${pageId}/create`, {
+  createKnowledge: (pageId, payload) => apiFetch(`/v1/knowledge/${pageId}/create`, {
     method: 'POST',
     body: JSON.stringify(payload),
   }),
 
-  uploadKnowledgeFiles: (pageId, formData) => apiFetch(`/api/knowledge/${pageId}/upload`, {
+  uploadKnowledgeFiles: (pageId, formData) => apiFetch(`/v1/knowledge/${pageId}/upload`, {
     method: 'POST',
     body: formData,
   }),
 
-  editKnowledge: (pageId, knowledgeId, updateData) => apiFetch(`/api/knowledge/${pageId}/${knowledgeId}`, {
+  editKnowledge: (pageId, knowledgeId, updateData) => apiFetch(`/v1/knowledge/${pageId}/${knowledgeId}`, {
     method: 'PATCH',
     body: JSON.stringify(updateData),
   }),
 
-  deleteKnowledge: (pageId, knowledgeId) => apiFetch(`/api/knowledge/${pageId}/${knowledgeId}`, {
+  deleteKnowledge: (pageId, knowledgeId) => apiFetch(`/v1/knowledge/${pageId}/${knowledgeId}`, {
     method: 'DELETE',
   }),
 
   // Agent Management
-  getAgents: () => apiFetch('/api/agents'),
+  getAgents: () => apiFetch('/v1/agents'),
 
   // Returns paginated activity log for a specific agent
   getAgentActivity: (agentId, cursor = null, page_size = null) => {
@@ -152,35 +152,35 @@ export const apiService = {
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return apiFetch(`/api/agent/${agentId}/agent_activity${qs}`);
+    return apiFetch(`/v1/agent/${agentId}/agent_activity${qs}`);
   },
 
-  createAgent: (agentData) => apiFetch('/api/agent/create', {
+  createAgent: (agentData) => apiFetch('/v1/agent/create', {
     method: 'POST',
     body: JSON.stringify(agentData),
   }),
 
-  updateAgent: (agentId, agentData) => apiFetch(`/api/agent/update/${agentId}`, {
+  updateAgent: (agentId, agentData) => apiFetch(`/v1/agent/update/${agentId}`, {
     method: 'PATCH',
     body: JSON.stringify(agentData),
   }),
 
-  deleteAgent: (agentId) => apiFetch(`/api/agent/delete?agent_id=${encodeURIComponent(agentId)}`, {
+  deleteAgent: (agentId) => apiFetch(`/v1/agent/delete?agent_id=${encodeURIComponent(agentId)}`, {
     method: 'DELETE',
   }),
 
-  assignAgentToPage: (pageId, agentId) => apiFetch(`/api/page/${pageId}/assign-agent`, {
+  assignAgentToPage: (pageId, agentId) => apiFetch(`/v1/page/${pageId}/assign-agent`, {
     method: 'PATCH',
     body: JSON.stringify({ agent_id: agentId }),
   }),
 
-  unassignAgentFromPage: (pageId) => apiFetch(`/api/page/${pageId}/unassign-agent`, {
+  unassignAgentFromPage: (pageId) => apiFetch(`/v1/page/${pageId}/unassign-agent`, {
     method: 'PATCH',
   }),
 
   // Profile
-  getProfilePic: (userId) => apiFetch(`/api/user/profile_pic/${userId}`),
-  updateUserProfile: (profileData) => apiFetch('/api/user/profile/update', {
+  getProfilePic: (userId) => apiFetch(`/v1/user/profile_pic/${userId}`),
+  updateUserProfile: (profileData) => apiFetch('/v1/user/profile/update', {
     method: 'PATCH',
     body: JSON.stringify(profileData),
   }),
@@ -191,72 +191,72 @@ export const apiService = {
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return apiFetch(`/api/page/${pageId}/conversations${qs}`);
+    return apiFetch(`/v1/page/${pageId}/conversations${qs}`);
   },
   getConversationDetails: (pageId, conversationId, cursor = null, page_size = null) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return apiFetch(`/api/page/${pageId}/conversation/${conversationId}${qs}`);
+    return apiFetch(`/v1/page/${pageId}/conversation/${conversationId}${qs}`);
   },
-  replyToConversation: (pageId, conversationId, message) => apiFetch(`/api/facebook/${pageId}/messenger/${conversationId}/reply`, {
+  replyToConversation: (pageId, conversationId, message) => apiFetch(`/v1/facebook/${pageId}/messenger/${conversationId}/reply`, {
     method: 'POST',
     body: JSON.stringify({ message }),
   }),
   // Returns basic info for a conversation (name, is_human_needed, updated_time)
-  getConversationInfo: (conversationId) => apiFetch(`/api/conversations/${conversationId}/info`),
+  getConversationInfo: (conversationId) => apiFetch(`/v1/conversations/${conversationId}/info`),
 
   // Returns basic info for a specific message (role, has_attachment, is_ai_msg, created_at)
-  getMessageInfo: (conversationId, messageId) => apiFetch(`/api/conversations/${conversationId}/messages/${messageId}/info`),
+  getMessageInfo: (conversationId, messageId) => apiFetch(`/v1/conversations/${conversationId}/messages/${messageId}/info`),
 
-  setConversationPauseStatus: (pageId, conversationId, pauseStatus) => apiFetch(`/api/agent/page/${pageId}/conversation/${conversationId}/pause`, {
+  setConversationPauseStatus: (pageId, conversationId, pauseStatus) => apiFetch(`/v1/agent/page/${pageId}/conversation/${conversationId}/pause`, {
     method: 'PATCH',
     body: JSON.stringify({ pause_status: pauseStatus }),
   }),
 
   // Auth / Reauth
-  getFacebookReauthUrl: () => apiFetch('/api/auth/facebook/reauth'),
+  getFacebookReauthUrl: () => apiFetch('/v1/auth/facebook/reauth'),
 
   // General AI Chat
-  aiChat: (prompt) => apiFetch(`/api/chat?prompt=${encodeURIComponent(prompt)}`, {
+  aiChat: (prompt) => apiFetch(`/v1/chat?prompt=${encodeURIComponent(prompt)}`, {
     method: 'POST',
   }),
 
   // Leads
-  createLead: (leadData) => apiFetch('/api/leads/create', {
+  createLead: (leadData) => apiFetch('/v1/leads/create', {
     method: 'POST',
     body: JSON.stringify(leadData),
   }),
 
   // Feedback
-  submitFeedback: (feedbackData) => apiFetch('/api/feedback', {
+  submitFeedback: (feedbackData) => apiFetch('/v1/feedback', {
     method: 'POST',
     body: JSON.stringify(feedbackData),
   }),
 
   // Subscriptions
-  getPlans: () => apiFetch('/api/plans'),
-  getSubscription: () => apiFetch('/api/subscription'),
+  getPlans: () => apiFetch('/v1/plans'),
+  getSubscription: () => apiFetch('/v1/subscription'),
 
-  subscribe: (subscriptionData) => apiFetch('/api/subscription/subscribe', {
+  subscribe: (subscriptionData) => apiFetch('/v1/subscription/subscribe', {
     method: 'POST',
     body: JSON.stringify(subscriptionData),
   }),
 
   // Admin
-  adminLogin: (credentials) => apiFetch('/api/admin/login', { method: 'POST', body: JSON.stringify(credentials) }),
-  adminMe: () => apiFetch('/api/admin/me'),
-  adminDashboard: () => apiFetch('/api/admin/dashboard'),
+  adminLogin: (credentials) => apiFetch('/v1/admin/login', { method: 'POST', body: JSON.stringify(credentials) }),
+  adminMe: () => apiFetch('/v1/admin/me'),
+  adminDashboard: () => apiFetch('/v1/admin/dashboard'),
   adminUsers: ({ cursor, page_size, status, search } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     if (status) q.set('status', status);
     if (search) q.set('search', search);
-    return apiFetch(`/api/admin/users?${q}`);
+    return apiFetch(`/v1/admin/users?${q}`);
   },
-  adminChangeUserStatus: (userId, status) => apiFetch(`/api/admin/users/${userId}/status`, {
+  adminChangeUserStatus: (userId, status) => apiFetch(`/v1/admin/users/${userId}/status`, {
     method: 'PATCH', body: JSON.stringify({ status }),
   }),
   adminSubscriptions: ({ cursor, page_size, plan_type, active_only } = {}) => {
@@ -265,53 +265,53 @@ export const apiService = {
     if (page_size) q.set('page_size', page_size);
     if (plan_type) q.set('plan_type', plan_type);
     if (active_only !== undefined) q.set('active_only', active_only);
-    return apiFetch(`/api/admin/subscriptions?${q}`);
+    return apiFetch(`/v1/admin/subscriptions?${q}`);
   },
-  adminRevenue: () => apiFetch('/api/admin/revenue'),
+  adminRevenue: () => apiFetch('/v1/admin/revenue'),
   adminAgents: ({ cursor, page_size, user_id } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     if (user_id) q.set('user_id', user_id);
-    return apiFetch(`/api/admin/agents?${q}`);
+    return apiFetch(`/v1/admin/agents?${q}`);
   },
   adminPages: ({ cursor, page_size, user_id } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     if (user_id) q.set('user_id', user_id);
-    return apiFetch(`/api/admin/pages?${q}`);
+    return apiFetch(`/v1/admin/pages?${q}`);
   },
   adminConversations: ({ cursor, page_size, page_id } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     if (page_id) q.set('page_id', page_id);
-    return apiFetch(`/api/admin/conversations?${q}`);
+    return apiFetch(`/v1/admin/conversations?${q}`);
   },
   adminFeedbacks: ({ cursor, page_size, type } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     if (type) q.set('type', type);
-    return apiFetch(`/api/admin/feedbacks?${q}`);
+    return apiFetch(`/v1/admin/feedbacks?${q}`);
   },
   adminLeads: ({ cursor, page_size } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
-    return apiFetch(`/api/admin/leads?${q}`);
+    return apiFetch(`/v1/admin/leads?${q}`);
   },
   adminActivityStats: (start_date, end_date) => {
     const q = new URLSearchParams();
     if (start_date) q.set('start_date', start_date);
     if (end_date) q.set('end_date', end_date);
-    return apiFetch(`/api/admin/activity/stats?${q}`);
+    return apiFetch(`/v1/admin/activity/stats?${q}`);
   },
   adminActivityDaily: (start_date, end_date) => {
     const q = new URLSearchParams();
     if (start_date) q.set('start_date', start_date);
     if (end_date) q.set('end_date', end_date);
-    return apiFetch(`/api/admin/activity/daily?${q}`);
+    return apiFetch(`/v1/admin/activity/daily?${q}`);
   },
 };

@@ -215,7 +215,7 @@ export default function GetStarted() {
         .then(sub => {
           if (sub && sub.is_active) {
             // Has an active plan → go straight to dashboard
-            navigate('/app/dashboard', { replace: true });
+            navigate('/dashboard', { replace: true });
           } else {
             // No active plan → show pricing
             setCurrentStep('pricing');
@@ -240,7 +240,7 @@ export default function GetStarted() {
     try {
       // Post the selected plan to the backend
       await apiService.subscribe({ subscription_type: packageName, num_months: 1 });
-      navigate('/app/dashboard');
+      navigate('/dashboard');
     } catch (error) {
       console.error("Failed to subscribe to plan:", error, "Status:", error.status);
       alert("Failed to subscribe: " + error.message + " (Status: " + (error.status || "unknown") + ")");
@@ -255,9 +255,9 @@ export default function GetStarted() {
 
     // After FB auth, come back to GetStarted with ?check=sub so we can
     // verify the subscription via the API before allowing dashboard access.
-    const nextPath = '/app/get-started?check=sub';
+    const nextPath = '/get-started?check=sub';
     const redirectUrl = encodeURIComponent(window.location.origin + nextPath);
-    window.location.href = `https://www.lyfflow.com/api/auth/facebook/login?redirect_uri=${redirectUrl}&next=${nextPath}`;
+    window.location.href = `/v1/auth/facebook/login?redirect_uri=${redirectUrl}&next=${nextPath}`;
   };
 
   const handleConnectInstagram = () => {
@@ -320,7 +320,7 @@ export default function GetStarted() {
       {/* Main Connection Interface */}
       <div className="left-panel">
         <div className="left-panel-header">
-          <Link to="/app" className="gs-logo-container">
+          <Link to="/" className="gs-logo-container">
             <img src={logoImg} alt="LYFFLOW Logo" style={{ height: '40px', width: 'auto' }} />
             <img src={titleImg} alt="LYFFLOW" style={{ height: '20px', width: 'auto', marginLeft: '8px' }} />
           </Link>
@@ -340,7 +340,7 @@ export default function GetStarted() {
         </div>
 
         <div className="left-panel-footer">
-          <Link to="/app" className="back-link">&lt; Choose Another Channel</Link>
+          <Link to="/" className="back-link">&lt; Choose Another Channel</Link>
         </div>
       </div>
 
@@ -378,9 +378,9 @@ export default function GetStarted() {
                 />
                 <div className={`text-xs sm:text-sm text-left leading-relaxed flex-1 min-w-0 break-words ${showError ? 'text-red-700' : 'text-slate-600'}`}>
                   By proceeding, I acknowledge that I have read and agree to the Lyfflow{' '}
-                  <Link to="/app/legal" target="_blank" className="font-bold hover:text-primary transition-colors text-inherit underline underline-offset-2">Terms of Service</Link>
+                  <Link to="/legal" target="_blank" className="font-bold hover:text-primary transition-colors text-inherit underline underline-offset-2">Terms of Service</Link>
                   {' '}and{' '}
-                  <Link to="/app/legal" target="_blank" className="font-bold hover:text-primary transition-colors text-inherit underline underline-offset-2">Privacy Policy</Link>.
+                  <Link to="/legal" target="_blank" className="font-bold hover:text-primary transition-colors text-inherit underline underline-offset-2">Privacy Policy</Link>.
                 </div>
               </div>
               {showError && (

@@ -1088,13 +1088,13 @@ export default function AdminPanel() {
       .catch(err => {
         // If 401/403, redirect to login
         if (err?.status === 401 || err?.status === 403) {
-          navigate('/app/admin/login');
+          navigate('/admin/login');
         }
       });
   }, []);
 
 
-  const handleLogout = () => navigate('/app/admin/login');
+  const handleLogout = () => navigate('/admin/login');
 
   const currentLabel = NAV.find(n => n.id === section)?.label || 'Dashboard';
 

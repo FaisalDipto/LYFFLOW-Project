@@ -21,7 +21,7 @@ export default function AdminLogin() {
       const response = await apiService.adminLogin({ email, password });
       if (response.status) {
         // You could store the admin profile somewhere or navigate to an admin dashboard
-        navigate('/app/admin'); 
+        navigate('/admin'); 
       } else {
         setError(response.message || 'Login failed.');
       }
@@ -43,7 +43,7 @@ export default function AdminLogin() {
       <div className="login-card-wrapper animate-fade-in-up">
         {/* Header / Logo */}
         <div className="login-header">
-          <Link to="/app" className="login-logo-container">
+          <Link to="/" className="login-logo-container">
             <img src={logoImg} alt="LYFFLOW Logo" className="brand-logo-img-login" style={{ height: '50px', width: 'auto' }} />
             <img src={titleImg} alt="LYFFLOW" className="brand-title-img-login" style={{ height: '28px', width: 'auto', marginLeft: '10px' }} />
           </Link>
@@ -119,7 +119,7 @@ export default function AdminLogin() {
 
         {/* Footer Links */}
         <div className="login-footer mt-6">
-          <Link to="/app" className="text-slate-500 hover:text-slate-800 transition-colors text-sm font-medium">← Back to Main App</Link>
+          <Link to="/" className="text-slate-500 hover:text-slate-800 transition-colors text-sm font-medium">← Back to Main App</Link>
         </div>
       </div>
     </div>

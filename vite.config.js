@@ -1,33 +1,30 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-// Custom middleware to redirect backend hardcoded paths locally
-function redirectPlugin() {
-  return {
-    name: 'redirect-dashboard',
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.url === '/dashboard' || req.url.startsWith('/dashboard?')) {
-          res.writeHead(302, { Location: '/app' + req.url });
-          res.end();
-        } else {
-          next();
-        }
-      });
-    }
-  }
-}
-
 export default defineConfig({
-  plugins: [react(), redirectPlugin()],
-  base: '/app',        // ← uncomment this
+  plugins: [react()],
   server: {
     host: '127.0.0.1',
     port: 3000,
     allowedHosts: ['lyfflow.com', 'www.lyfflow.com'],
     proxy: {
-      '/api': {
-        target: 'http://www.lyfflow.com',
-        changeOrigin: true
+      '/v1': {
+        target: 'https://api.lyfflow.com',
+        changeOrigin: true,
+        secure: false,
+        headers: {
+          'X-Forwarded-Proto': 'https',
+          'X-Forwarded-Host': 'api.lyfflow.com'
+        }
+      },
+      '/api/auth': {
+        target: 'https://api.lyfflow.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/auth/, '/v1/auth'),
+        headers: {
+          'X-Forwarded-Proto': 'https',
+          'X-Forwarded-Host': 'api.lyfflow.com'
+        }
       }
     }
   }

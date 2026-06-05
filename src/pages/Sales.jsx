@@ -89,7 +89,7 @@ export default function Sales() {
                   </div>
                   <h2 className="font-headline text-3xl font-black tracking-tight text-primary mb-3">Message Received!</h2>
                   <p className="text-on-surface-variant mb-8">Our sales team will reach out within one business day. In the meantime, feel free to explore our platform.</p>
-                  <Link to="/app/pricing" className="inline-block bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-800 transition-colors">
+                  <Link to="/pricing" className="inline-block bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-800 transition-colors">
                     View Pricing →
                   </Link>
                 </div>
@@ -236,10 +236,10 @@ export default function Sales() {
             Start for free and upgrade when you're ready — or let our team build a custom plan for you.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/app/get-started" className="bg-primary text-white px-10 py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02]">
+            <Link to="/get-started" className="bg-primary text-white px-10 py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02]">
               Start Free Trial
             </Link>
-            <Link to="/app/pricing" className="border-2 border-slate-200 text-primary px-10 py-4 rounded-xl font-bold hover:bg-white transition-all hover:border-primary">
+            <Link to="/pricing" className="border-2 border-slate-200 text-primary px-10 py-4 rounded-xl font-bold hover:bg-white transition-all hover:border-primary">
               View Pricing
             </Link>
           </div>

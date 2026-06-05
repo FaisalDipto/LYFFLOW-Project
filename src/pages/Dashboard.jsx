@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Book, CheckCircle2, ChevronDown, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Settings, ShieldCheck, Trash2, TrendingUp, User, UserRound, X, Zap } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { LayoutDashboard, MessageSquare, Book, UserRound, MessageCircleWarning, Settings, Plus, User, LogOut, ChevronDown, TrendingUp, Headphones, HelpCircle, Palette, Monitor, Users, Trash2, Mail, Menu, X, Edit2, CreditCard, Zap, CheckCircle2, ShieldCheck, Clock } from 'lucide-react';
-import { useWidget } from '../context/WidgetContext';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { apiService } from '../services/api';
-import './Dashboard.css';
+import { useLocation, useNavigate } from 'react-router-dom';
 import logoImg from '../assets/logo1.png';
 import titleImg from '../assets/title.png';
+import { useWidget } from '../context/WidgetContext';
+import { apiService } from '../services/api';
+import './Dashboard.css';
 
 // Sub-components
 const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
@@ -141,7 +141,7 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
       if (onAddPage) {
         onAddPage(); // Show the pre-warning modal in parent
       } else {
-        window.location.href = '/api/auth/facebook/reauth';
+        window.location.href = '/v1/auth/facebook/reauth';
       }
     } else {
       setShowInstaComingSoon(true);
@@ -796,7 +796,7 @@ const ConversationList = ({ pages, user }) => {
                 <div className="mt-2 flex flex-col gap-2">
                   {msg.attachments.map(att => {
                     const isImage = att.attachment_type?.startsWith('image/');
-                    const url = `/api/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
+                    const url = `/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
                     return isImage ? (
                       <div key={att.attachment_id || att.attachment_key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
                         <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-white/20 hover:opacity-90 transition-opacity" />
@@ -838,7 +838,7 @@ const ConversationList = ({ pages, user }) => {
                 <div className="mt-2 flex flex-col gap-2">
                   {msg.attachments.map(att => {
                     const isImage = att.attachment_type?.startsWith('image/');
-                    const url = `/api/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
+                    const url = `/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
                     return isImage ? (
                       <div key={att.attachment_id || att.attachment_key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
                         <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-slate-200 hover:opacity-90 transition-opacity" />
@@ -1461,7 +1461,7 @@ const Knowledge = ({ pages }) => {
     console.log('Page ID:', selectedPageId);
     console.log('Knowledge type evaluated as:', type);
     console.log('Deleting ID:', actualId);
-    console.log('Endpoint called:', `/api/knowledge/${selectedPageId}/${actualId}`);
+    console.log('Endpoint called:', `/v1/knowledge/${selectedPageId}/${actualId}`);
     console.log('----------------------');
 
     try {
@@ -4059,7 +4059,7 @@ export default function Dashboard() {
           const uid = parsedUser.id || parsedUser.user_id || parsedUser._id || parsedUser.uuid;
           if (uid) {
             try {
-              const picResponse = await fetch(`/api/user/profile_pic/${uid}`, { credentials: 'include' });
+              const picResponse = await fetch(`/v1/user/profile_pic/${uid}`, { credentials: 'include' });
 
               if (picResponse.ok) {
                 const contentType = picResponse.headers.get('content-type') || '';
@@ -4083,7 +4083,7 @@ export default function Dashboard() {
                       parsedUser.profile_pic_url = parsed.url || parsed.profile_pic || parsed.profile_pic_url || parsed.image_url || null;
                     } catch (e) {
                       // Just fallback to the URL directly and hope the browser can figure it out
-                      parsedUser.profile_pic_url = `/api/user/profile_pic/${uid}`;
+                      parsedUser.profile_pic_url = `/v1/user/profile_pic/${uid}`;
                     }
                   }
                 }
@@ -4100,13 +4100,13 @@ export default function Dashboard() {
       // Check subscription via API — if user has no active plan, send them
       // to the plan-selection screen so they can pick one before using the dashboard.
       if (!subscriptionData || !subscriptionData.is_active) {
-        navigate('/app/get-started?step=pricing');
+        navigate('/get-started?step=pricing');
         return;
       }
     } catch (err) {
       console.error("Failed to fetch user data:", err);
       if (err.status === 401) {
-        navigate('/app/get-started');
+        navigate('/get-started');
       }
     } finally {
       setLoading(false);
@@ -4362,7 +4362,7 @@ export default function Dashboard() {
                   <button
                     onClick={() => {
                       setRevokedPagesModal(null);
-                      window.location.href = '/api/auth/facebook/reauth';
+                      window.location.href = '/v1/auth/facebook/reauth';
                     }}
                     className="flex-1 py-3 px-4 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm text-sm flex items-center justify-center gap-2"
                   >
@@ -4429,7 +4429,7 @@ export default function Dashboard() {
                   <button
                     onClick={() => {
                       setPreReauthModal(false);
-                      window.location.href = '/api/auth/facebook/reauth';
+                      window.location.href = '/v1/auth/facebook/reauth';
                     }}
                     className="flex-1 py-3 px-4 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm text-sm flex items-center justify-center gap-2"
                   >
@@ -4467,7 +4467,7 @@ export default function Dashboard() {
                     onClick={async () => {
                       setIsLoggingOut(true);
                       await apiService.logout().catch(() => { });
-                      window.location.href = '/app/login';
+                      window.location.href = '/login';
                     }}
                     disabled={isLoggingOut}
                     className="flex-1 py-3 px-4 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"

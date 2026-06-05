@@ -12,7 +12,7 @@ export default function Login() {
   const handleSubmit = (e) => {
     e.preventDefault();
     // Dummy login logic: redirect to dashboard
-    navigate('/app/dashboard');
+    navigate('/dashboard');
   };
 
   return (
@@ -25,7 +25,7 @@ export default function Login() {
       <div className="login-card-wrapper animate-fade-in-up">
         {/* Header / Logo */}
         <div className="login-header">
-          <Link to="/app" className="login-logo-container">
+          <Link to="/" className="login-logo-container">
             <img src={logoImg} alt="LYFFLOW Logo" className="brand-logo-img-login" style={{ height: '50px', width: 'auto' }} />
             <img src={titleImg} alt="LYFFLOW" className="brand-title-img-login" style={{ height: '28px', width: 'auto', marginLeft: '10px' }} />
           </Link>
@@ -68,7 +68,7 @@ export default function Login() {
         {/* Footer Links */}
         <div className="login-footer">
           <p>Don't have an account?</p>
-          <Link to="/app/get-started" className="signup-link">Get Started</Link>
+          <Link to="/get-started" className="signup-link">Get Started</Link>
         </div>
       </div>
     </div>

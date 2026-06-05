@@ -130,7 +130,7 @@ export default function Hero() {
               Scale your customer engagement with instant AI-powered replies, automated lead capture, and hyper-growth sales funnels that work 24/7.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Link to="/app/get-started" className="bg-primary text-on-primary px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all group shadow-xl shadow-primary/10">
+              <Link to="/get-started" className="bg-primary text-on-primary px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all group shadow-xl shadow-primary/10">
                 Start Free Trial
                 <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
               </Link>
@@ -430,10 +430,10 @@ export default function Hero() {
               Join 10,000+ businesses automating their growth with Lyfflow. Start your 14-day free trial today.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Link to="/app/get-started" className="bg-white text-primary px-12 py-5 rounded-2xl font-black text-xl hover:scale-105 transition-all shadow-2xl shadow-white/5">
+              <Link to="/get-started" className="bg-white text-primary px-12 py-5 rounded-2xl font-black text-xl hover:scale-105 transition-all shadow-2xl shadow-white/5">
                 Create Free Account
               </Link>
-              <Link to="/app/sales" className="bg-transparent border-2 border-white/20 text-white px-12 py-5 rounded-2xl font-bold text-xl hover:bg-white/5 transition-all">
+              <Link to="/sales" className="bg-transparent border-2 border-white/20 text-white px-12 py-5 rounded-2xl font-bold text-xl hover:bg-white/5 transition-all">
                 Talk to Sales
               </Link>
             </div>

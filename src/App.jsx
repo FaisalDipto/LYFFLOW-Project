@@ -21,9 +21,14 @@ function ScrollManager() {
     if (hash) {
       // Give the page time to render before scrolling to the element
       const timer = setTimeout(() => {
-        const el = document.querySelector(hash);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        try {
+          if (hash === '#_=_') return;
+          const el = document.querySelector(hash);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        } catch (e) {
+          // ignore invalid selectors
         }
       }, 80);
       return () => clearTimeout(timer);
@@ -86,20 +91,20 @@ function App() {
       <RateLimitModal />
       <ScrollManager />
       <Routes>
-        <Route path="/app" element={<Home />} />
-        <Route path="/app/get-started" element={<GetStarted />} />
-        <Route path="/app/login" element={<Login />} />
-        <Route path="/app/dashboard/*" element={<Dashboard />} />
-        <Route path="/app/feedback" element={<Feedback />} />
-        <Route path="/app/legal" element={<Legal />} />
-        <Route path="/app/pricing" element={<Pricing />} />
-        <Route path="/app/sales" element={<Sales />} />
-        <Route path="/app/admin/login" element={<AdminLogin />} />
-        <Route path="/app/admin" element={<AdminPanel />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/get-started" element={<GetStarted />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard/*" element={<Dashboard />} />
+        <Route path="/feedback" element={<Feedback />} />
+        <Route path="/legal" element={<Legal />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/sales" element={<Sales />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin" element={<AdminPanel />} />
         
         
         {/* Redirect hardcoded backend callbacks back to /app prefix */}
-        <Route path="/dashboard/*" element={<Navigate to={`/app${location.pathname}${location.search}`} replace />} />
+
       </Routes>
     </WidgetProvider>
   )
