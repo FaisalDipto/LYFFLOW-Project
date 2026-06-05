@@ -4,7 +4,8 @@
 
 // Since we setup a proxy in Vite, we can just use relative paths locally
 // In production, this might need to be an absolute URL if the frontend and backend servers differ
-const API_BASE = '';
+// const API_BASE = '';
+const API_BASE = 'https://api.lyfflow.com';
 
 // Set to true to test frontend without a running backend
 const MOCK_MODE = window.location.search.includes('mock=true');
