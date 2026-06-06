@@ -4,7 +4,7 @@
 
 // Since we setup a proxy in Vite, we can just use relative paths locally
 // In production, this might need to be an absolute URL if the frontend and backend servers differ
-const API_BASE = '';
+const API_BASE = 'https://api.lyfflow.com';
 
 // Set to true to test frontend without a running backend
 const MOCK_MODE = window.location.search.includes('mock=true');
@@ -242,6 +242,22 @@ export const apiService = {
   subscribe: (subscriptionData) => apiFetch('/v1/subscription/subscribe', {
     method: 'POST',
     body: JSON.stringify(subscriptionData),
+  }),
+
+  // Customer Records
+  getCustomerRecords: (pageId, { record_type, record_status, cursor, page_size } = {}) => {
+    const q = new URLSearchParams();
+    if (record_type) q.set('record_type', record_type);
+    if (record_status) q.set('record_status', record_status);
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return apiFetch(`/v1/pages/${pageId}/customer-records${qs}`);
+  },
+  getCustomerRecord: (pageId, recordId) => apiFetch(`/v1/pages/${pageId}/customer-records/${recordId}`),
+  updateCustomerRecordStatus: (pageId, recordId, status) => apiFetch(`/v1/pages/${pageId}/customer-records/${recordId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
   }),
 
   // Admin

@@ -1,4 +1,4 @@
-import { Book, CheckCircle2, ChevronDown, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Settings, ShieldCheck, Trash2, TrendingUp, User, UserRound, X, Zap } from 'lucide-react';
+import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Settings, ShieldCheck, Trash2, TrendingUp, User, UserRound, X, Zap } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -6,6 +6,7 @@ import logoImg from '../assets/logo1.png';
 import titleImg from '../assets/title.png';
 import { useWidget } from '../context/WidgetContext';
 import { apiService } from '../services/api';
+import CustomerRecords from '../components/CustomerRecords';
 import './Dashboard.css';
 
 // Sub-components
@@ -4145,6 +4146,7 @@ export default function Dashboard() {
 
     switch (activeTab) {
       case 'overview': return <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={fetchData} onAddPage={() => setPreReauthModal(true)} />;
+      case 'records': return <CustomerRecords pages={pages} />;
       case 'conversation': return <ConversationList pages={pages} user={user} />;
       case 'knowledge': return <Knowledge pages={pages} />;
       case 'agent': return <AgentPanel user={user} pages={pages} onUpdate={fetchData} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />;
@@ -4186,6 +4188,7 @@ export default function Dashboard() {
         <nav className="flex-1 space-y-1">
           {[
             { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
+            { id: 'records', icon: ClipboardList, label: 'Customer Records' },
             { id: 'conversation', icon: MessageSquare, label: 'Conversations' },
             { id: 'knowledge', icon: Book, label: 'Knowledge' },
             { id: 'agent', icon: UserRound, label: 'Agents' },

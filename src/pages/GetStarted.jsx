@@ -257,7 +257,7 @@ export default function GetStarted() {
     // verify the subscription via the API before allowing dashboard access.
     const nextPath = '/get-started?check=sub';
     const redirectUrl = encodeURIComponent(window.location.origin + nextPath);
-    window.location.href = `/v1/auth/facebook/login?redirect_uri=${redirectUrl}&next=${nextPath}`;
+    window.location.href = `https://api.lyfflow.com/v1/auth/facebook/login?redirect_uri=${redirectUrl}&next=${nextPath}`;
   };
 
   const handleConnectInstagram = () => {
