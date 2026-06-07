@@ -17,7 +17,7 @@ export default function Footer() {
           <p className="font-['Inter'] text-slate-500 text-sm">© {new Date().getFullYear()} LYFFLOW, Inc. All rights reserved.</p>
         </div>
         <div className="flex flex-wrap justify-center gap-10">
-          <Link className="text-sm font-medium text-slate-500 hover:text-primary transition-colors" to="/legal#sec-9">Privacy Policy</Link>
+          <Link className="text-sm font-medium text-slate-500 hover:text-primary transition-colors" to="legal#privacy_policy_and_security">Privacy Policy</Link>
           <Link className="text-sm font-medium text-slate-500 hover:text-primary transition-colors" to="/legal">Terms of Service</Link>
           <Link className="text-sm font-medium text-slate-500 hover:text-primary transition-colors" to="/sales">Contact Sales</Link>
           <a className="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="#">API Docs</a>
