@@ -116,7 +116,7 @@ const CustomerRecords = ({ pages }) => {
             <select
               value={selectedPageId}
               onChange={e => setSelectedPageId(e.target.value)}
-              className="bg-transparent border-none text-sm font-bold focus:ring-0 text-slate-700 cursor-pointer p-0 pr-4 outline-none"
+              className="bg-transparent border-none text-sm font-bold focus:ring-0 text-slate-700 cursor-pointer p-0 pl-1 pr-8 outline-none"
             >
               {pages?.map(page => (
                 <option key={page.page_id} value={page.page_id}>
@@ -131,7 +131,7 @@ const CustomerRecords = ({ pages }) => {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="bg-transparent border-none text-sm font-medium focus:ring-0 text-slate-700 cursor-pointer p-0 pr-4"
+              className="bg-transparent border-none text-sm font-medium focus:ring-0 text-slate-700 cursor-pointer p-0 pl-1 pr-8"
             >
               <option value="">All Types</option>
               <option value="lead">Leads</option>
@@ -144,7 +144,7 @@ const CustomerRecords = ({ pages }) => {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="bg-transparent border-none text-sm font-medium focus:ring-0 text-slate-700 cursor-pointer p-0 pr-4"
+              className="bg-transparent border-none text-sm font-medium focus:ring-0 text-slate-700 cursor-pointer p-0 pl-1 pr-8"
             >
               <option value="">All Statuses</option>
               <option value="new">New</option>
