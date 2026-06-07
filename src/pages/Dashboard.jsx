@@ -4188,10 +4188,10 @@ export default function Dashboard() {
         <nav className="flex-1 space-y-1">
           {[
             { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
-            { id: 'records', icon: ClipboardList, label: 'Customer Records' },
             { id: 'conversation', icon: MessageSquare, label: 'Conversations' },
-            { id: 'knowledge', icon: Book, label: 'Knowledge' },
+            { id: 'records', icon: ClipboardList, label: 'Customer Records' },
             { id: 'agent', icon: UserRound, label: 'Agents' },
+            { id: 'knowledge', icon: Book, label: 'Knowledge' },
             { id: 'subscription', icon: CreditCard, label: 'Subscription' },
             { id: 'feedback', icon: MessageCircleWarning, label: 'Feedback' },
             { id: 'tutorial', icon: Headphones, label: 'Tutorial' }
