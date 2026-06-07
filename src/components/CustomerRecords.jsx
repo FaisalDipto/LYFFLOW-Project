@@ -176,9 +176,10 @@ const CustomerRecords = ({ pages }) => {
                   <tr className="bg-slate-50/50 border-b border-slate-100">
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Items</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
+                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-12">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -202,6 +203,19 @@ const CustomerRecords = ({ pages }) => {
                           {getTypeIcon(record.record_type)}
                           {record.record_type}
                         </div>
+                      </td>
+                      <td className="p-4">
+                        {record.order_items && record.order_items.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 max-w-[300px]">
+                            {record.order_items.map((item, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-white border border-slate-200 text-slate-600 rounded-md text-[11px] font-semibold whitespace-nowrap shadow-sm">
+                                {item.quantity}x {item.name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-slate-400">-</span>
+                        )}
                       </td>
                       <td className="p-4">
                         <span className={`px-2.5 py-1 rounded-md text-xs font-bold border capitalize ${getStatusColor(record.record_status)}`}>
