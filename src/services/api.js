@@ -121,31 +121,36 @@ export const apiService = {
   getPages: () => apiFetch('/v1/pages'),
 
   // Knowledge Base
-  getKnowledge: (pageId) => apiFetch(`/v1/knowledge/${pageId}`),
+  generateNamespace: () => apiFetch('/v1/knowledge/generate-namespace', { method: 'POST', body: JSON.stringify({}) }),
+  getNamespaces: () => apiFetch('/v1/knowledge/get-namespaces'),
 
-  getKnowledgeItem: (pageId, knowledgeId) => apiFetch(`/v1/knowledge/${pageId}/${knowledgeId}`),
+  getKnowledge: (namespaceId) => apiFetch(`/v1/knowledge/${namespaceId}`),
 
-  createKnowledge: (pageId, payload) => apiFetch(`/v1/knowledge/${pageId}/create`, {
+  getKnowledgeItem: (namespaceId, knowledgeId) => apiFetch(`/v1/knowledge/${namespaceId}/${knowledgeId}`),
+
+  createKnowledge: (namespaceId, payload) => apiFetch(`/v1/knowledge/${namespaceId}/create`, {
     method: 'POST',
     body: JSON.stringify(payload),
   }),
 
-  uploadKnowledgeFiles: (pageId, formData) => apiFetch(`/v1/knowledge/${pageId}/upload`, {
+  uploadKnowledgeFiles: (namespaceId, formData) => apiFetch(`/v1/knowledge/${namespaceId}/upload`, {
     method: 'POST',
     body: formData,
   }),
 
-  editKnowledge: (pageId, knowledgeId, updateData) => apiFetch(`/v1/knowledge/${pageId}/${knowledgeId}`, {
+  editKnowledge: (namespaceId, knowledgeId, updateData) => apiFetch(`/v1/knowledge/${namespaceId}/${knowledgeId}`, {
     method: 'PATCH',
     body: JSON.stringify(updateData),
   }),
 
-  deleteKnowledge: (pageId, knowledgeId) => apiFetch(`/v1/knowledge/${pageId}/${knowledgeId}`, {
+  deleteKnowledge: (namespaceId, knowledgeId) => apiFetch(`/v1/knowledge/${namespaceId}/${knowledgeId}`, {
     method: 'DELETE',
   }),
 
   // Agent Management
   getAgents: () => apiFetch('/v1/agents'),
+  setAgentNamespace: (agentId, namespaceId) => apiFetch(`/v1/agent/${agentId}/set-namespace/${namespaceId}`, { method: 'PATCH' }),
+  unsetAgentNamespace: (agentId) => apiFetch(`/v1/agent/${agentId}/unset-namespace`, { method: 'PATCH' }),
 
   // Returns paginated activity log for a specific agent
   getAgentActivity: (agentId, cursor = null, page_size = null) => {

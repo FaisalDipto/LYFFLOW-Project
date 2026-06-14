@@ -1371,9 +1371,9 @@ const FeedbackPanel = () => {
   );
 };
 
-const Knowledge = ({ pages }) => {
+const Knowledge = ({ namespaces, onUpdate }) => {
   const [showModal, setShowModal] = useState(false);
-  const [selectedPageId, setSelectedPageId] = useState('');
+  const [selectedNamespaceId, setSelectedNamespaceId] = useState('');
   const [knowledgeList, setKnowledgeList] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -1409,7 +1409,7 @@ const Knowledge = ({ pages }) => {
 
     setFetchingDetails(true);
     try {
-      const details = await apiService.getKnowledgeItem(selectedPageId, actualId);
+      const details = await apiService.getKnowledgeItem(selectedNamespaceId, actualId);
       setViewingItem(details);
     } catch (err) {
       console.error(err);
@@ -1433,7 +1433,7 @@ const Knowledge = ({ pages }) => {
     // Fetch the full detailed item just in case the list view omitted the heavy description field
     if (!item.description && !item.data_source?.text) {
       try {
-        const details = await apiService.getKnowledgeItem(selectedPageId, actualId);
+        const details = await apiService.getKnowledgeItem(selectedNamespaceId, actualId);
         if (details.description) setDescription(details.description);
         if (details.title && !item.title) setTitle(details.title);
       } catch (err) {
@@ -1459,14 +1459,14 @@ const Knowledge = ({ pages }) => {
     const type = (item.knowledge_type === 'file' || item.file_name) ? 'file' : 'text';
 
     console.log('--- DELETION DEBUG ---');
-    console.log('Page ID:', selectedPageId);
+    console.log('Namespace ID:', selectedNamespaceId);
     console.log('Knowledge type evaluated as:', type);
     console.log('Deleting ID:', actualId);
-    console.log('Endpoint called:', `/v1/knowledge/${selectedPageId}/${actualId}`);
+    console.log('Endpoint called:', `/v1/knowledge/${selectedNamespaceId}/${actualId}`);
     console.log('----------------------');
 
     try {
-      await apiService.deleteKnowledge(selectedPageId, actualId);
+      await apiService.deleteKnowledge(selectedNamespaceId, actualId);
       setKnowledgeList(prev => prev.filter(k => (k.knowledge_usage_id || k.id || k.knowledge_id || k.knowledgeId || k.uuid) !== actualId));
       addToast('Knowledge deleted successfully', 'delete');
     } catch (error) {
@@ -1476,27 +1476,27 @@ const Knowledge = ({ pages }) => {
   };
 
   useEffect(() => {
-    if (pages && pages.length > 0 && !selectedPageId) {
-      setSelectedPageId(pages[0].page_id);
+    if (namespaces && namespaces.length > 0 && !selectedNamespaceId) {
+      setSelectedNamespaceId(namespaces[0].namespace_id || namespaces[0].namespace);
     }
-  }, [pages]);
+  }, [namespaces, selectedNamespaceId]);
 
   useEffect(() => {
-    if (!selectedPageId) return;
+    if (!selectedNamespaceId) return;
     setLoading(true);
-    apiService.getKnowledge(selectedPageId)
+    apiService.getKnowledge(selectedNamespaceId)
       .then(data => {
         // Assume data is an array or { results: [] }
         setKnowledgeList(Array.isArray(data) ? data : (data.results || data.items || []));
       })
       .catch(err => console.error("Failed to load knowledge", err))
       .finally(() => setLoading(false));
-  }, [selectedPageId]);
+  }, [selectedNamespaceId]);
 
   const handleAddKnowledge = async (e) => {
     e.preventDefault();
-    if (!selectedPageId) {
-      addToast('Please select a page first', 'error');
+    if (!selectedNamespaceId) {
+      addToast('Please select a namespace first', 'error');
       return;
     }
 
@@ -1513,9 +1513,9 @@ const Knowledge = ({ pages }) => {
           title: title.trim(),
           description: description.trim()
         };
-        await apiService.editKnowledge(selectedPageId, editingItemId, updateData);
+        await apiService.editKnowledge(selectedNamespaceId, editingItemId, updateData);
         // Refresh list
-        const updatedList = await apiService.getKnowledge(selectedPageId);
+        const updatedList = await apiService.getKnowledge(selectedNamespaceId);
         setKnowledgeList(Array.isArray(updatedList) ? updatedList : (updatedList.results || updatedList.items || []));
 
         setShowModal(false);
@@ -1551,12 +1551,12 @@ const Knowledge = ({ pages }) => {
       }]);
 
       // Background process: Poll the backend to wait for data (Pinecone sync)
-      apiService.createKnowledge(selectedPageId, payload)
+      apiService.createKnowledge(selectedNamespaceId, payload)
         .then(async () => {
           addToast('Document added successfully!', 'success');
           for (let i = 0; i < 5; i++) {
             await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 2000));
-            const rawList = await apiService.getKnowledge(selectedPageId);
+            const rawList = await apiService.getKnowledge(selectedNamespaceId);
             const arr = Array.isArray(rawList) ? rawList : (rawList.results || rawList.items || []);
 
             setKnowledgeList(prev => {
@@ -1594,12 +1594,12 @@ const Knowledge = ({ pages }) => {
       setKnowledgeList(prev => [...prev, ...tempItems]);
 
       // Background process: Poll the backend to wait for data (Pinecone sync)
-      apiService.uploadKnowledgeFiles(selectedPageId, formData)
+      apiService.uploadKnowledgeFiles(selectedNamespaceId, formData)
         .then(async () => {
           addToast('File(s) uploaded successfully!', 'success');
           for (let i = 0; i < 5; i++) {
             await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 2000));
-            const rawList = await apiService.getKnowledge(selectedPageId);
+            const rawList = await apiService.getKnowledge(selectedNamespaceId);
             const arr = Array.isArray(rawList) ? rawList : (rawList.results || rawList.items || []);
 
             setKnowledgeList(prev => {
@@ -1631,12 +1631,26 @@ const Knowledge = ({ pages }) => {
     setEditingItemId(null);
   };
 
-  if (!pages || pages.length === 0) {
+  if (!namespaces || namespaces.length === 0) {
     return (
       <div className="dashboard-content-area animate-fade-in-up">
         <div className="dashboard-header">
-          <h2>Knowledge Base Test</h2>
-          <p>Please connect a Facebook page before adding knowledge. The API requires a linked page context.</p>
+          <h2>Knowledge Base</h2>
+          <p>Please generate a namespace before adding knowledge. The API requires a namespace context.</p>
+          <button
+              className="bg-emerald-500 text-white text-sm font-bold py-3 px-6 rounded-xl mt-4 hover:bg-emerald-600 transition-all shadow-lg"
+              onClick={async () => {
+                try {
+                  const res = await apiService.generateNamespace();
+                  addToast('Namespace generated successfully!', 'success');
+                  if (onUpdate) onUpdate();
+                } catch (e) {
+                  addToast('Failed to generate namespace: ' + e.message, 'error');
+                }
+              }}
+            >
+              Generate Namespace
+            </button>
         </div>
       </div>
     );
@@ -1663,8 +1677,8 @@ const Knowledge = ({ pages }) => {
 
           <div className="flex items-center gap-4">
             <select
-              value={selectedPageId}
-              onChange={e => setSelectedPageId(e.target.value)}
+              value={selectedNamespaceId}
+              onChange={e => setSelectedNamespaceId(e.target.value)}
               className="text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none cursor-pointer focus:ring-2 focus:ring-emerald-500 transition-all appearance-none pr-8 relative"
               style={{
                 backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
@@ -1673,8 +1687,30 @@ const Knowledge = ({ pages }) => {
                 backgroundSize: '16px'
               }}
             >
-              {pages.map(p => <option key={p.page_id} value={p.page_id}>{p.name}</option>)}
+              {namespaces.length === 0 && <option value="">No namespaces</option>}
+              {namespaces.map((ns, idx) => {
+                const nsId = ns.namespace_id || ns.namespace;
+                return <option key={idx} value={nsId}>{nsId.split('-')[0]}...{nsId.slice(-4)}</option>;
+              })}
             </select>
+
+            <button
+              className="bg-emerald-50 text-emerald-600 text-sm font-bold py-3 px-4 rounded-xl flex items-center gap-2 hover:bg-emerald-100 transition-all border border-emerald-200"
+              onClick={async () => {
+                try {
+                  const res = await apiService.generateNamespace();
+                  addToast('Namespace generated successfully!', 'success');
+                  if (res && res.namespace) {
+                    setSelectedNamespaceId(res.namespace);
+                  }
+                  if (onUpdate) onUpdate();
+                } catch (e) {
+                  addToast('Failed to generate namespace: ' + e.message, 'error');
+                }
+              }}
+            >
+              Generate Namespace
+            </button>
 
             <button
               className="bg-emerald-500 text-white text-sm font-bold py-3 px-6 rounded-xl flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/40 hover:-translate-y-0.5"
@@ -2405,7 +2441,7 @@ const AgentLog = ({ agents }) => {
   );
 };
 
-const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) => {
+const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgentEdited }) => {
   const agents = user?.agents || [];
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -2450,8 +2486,7 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
 
     // Status filter
     if (filters.status !== 'All') {
-      const assignedPageId = Object.keys(activeSelectedAgents).find(key => activeSelectedAgents[key] === agent.agent_id);
-      const isActive = !!assignedPageId;
+      const isActive = !!agent.namespace_id;
       if (filters.status === 'Active' && !isActive) return false;
       if (filters.status === 'IDLE' && isActive) return false;
     }
@@ -2462,14 +2497,11 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
   const clearFilters = () => setFilters({ status: 'All', role: 'All', tone: 'All' });
   const activeFiltersCount = Object.values(filters).filter(v => v !== 'All').length;
 
-  const handleAssign = async (agentId, pageId) => {
-    if (!pageId) return;
+  const handleAssign = async (agentId, namespaceId) => {
+    if (!namespaceId) return;
     setAssigningId(agentId);
     try {
-      await apiService.assignAgentToPage(pageId, agentId);
-      const activeSelectedAgents = JSON.parse(localStorage.getItem('lyfflow_assigned_agents') || '{}');
-      activeSelectedAgents[pageId] = agentId;
-      localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(activeSelectedAgents));
+      await apiService.setAgentNamespace(agentId, namespaceId);
       addToast('Agent assigned successfully', 'success');
       setAssignModalAgent(null);
       if (onUpdate) onUpdate();
@@ -2489,16 +2521,10 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
     }, 4000);
   };
 
-  const handleUnassign = async (agentId, pageId) => {
-    if (!pageId) return;
+  const handleUnassign = async (agentId) => {
     setUnassigningId(agentId);
     try {
-      await apiService.unassignAgentFromPage(pageId);
-      const activeSelectedAgents = JSON.parse(localStorage.getItem('lyfflow_assigned_agents') || '{}');
-      if (activeSelectedAgents[pageId]) {
-        delete activeSelectedAgents[pageId];
-        localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(activeSelectedAgents));
-      }
+      await apiService.unsetAgentNamespace(agentId);
       addToast('Agent unassigned successfully', 'success');
       if (onUpdate) onUpdate();
     } catch (e) {
@@ -2519,17 +2545,6 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
     setDeleteConfirmItem(null);
     try {
       await apiService.deleteAgent(agent.agent_id);
-      const activeSelectedAgents = JSON.parse(localStorage.getItem('lyfflow_assigned_agents') || '{}');
-      let changed = false;
-      Object.keys(activeSelectedAgents).forEach(pageId => {
-        if (activeSelectedAgents[pageId] === agent.agent_id) {
-          delete activeSelectedAgents[pageId];
-          changed = true;
-        }
-      });
-      if (changed) {
-        localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(activeSelectedAgents));
-      }
       addToast('Agent deleted successfully', 'delete');
       if (onUpdate) onUpdate();
     } catch (e) {
@@ -2690,22 +2705,25 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
             borderLeft: '4px solid #0ea5e9'
           }}>
             <div style={{ marginBottom: '14px', fontWeight: 600, fontSize: '14.5px' }}>
-              Assign "{assignModalAgent.name}" to Page
+              Assign "{assignModalAgent.name}" to Namespace
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px', maxHeight: '200px', overflowY: 'auto' }}>
-              {pages?.length > 0 ? pages.map(p => (
-                <button
-                  key={p.page_id}
-                  onClick={() => handleAssign(assignModalAgent.agent_id, p.page_id)}
-                  disabled={assigningId === assignModalAgent.agent_id}
-                  style={{ textAlign: 'left', padding: '10px 14px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', cursor: assigningId === assignModalAgent.agent_id ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s' }}
-                  onMouseEnter={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#e0f2fe'; e.currentTarget.style.borderColor = '#bae6fd'; }}
-                  onMouseLeave={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
-                >
-                  {p.name} {assigningId === assignModalAgent.agent_id && '(Assigning...)'}
-                </button>
-              )) : (
-                <div style={{ fontSize: '13px', color: '#64748b', textAlign: 'center', padding: '10px 0' }}>No pages connected.</div>
+              {namespaces?.length > 0 ? namespaces.map((ns, idx) => {
+                const nsId = ns.namespace_id || ns.namespace;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleAssign(assignModalAgent.agent_id, nsId)}
+                    disabled={assigningId === assignModalAgent.agent_id}
+                    style={{ textAlign: 'left', padding: '10px 14px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', cursor: assigningId === assignModalAgent.agent_id ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#f1f5f9' }}
+                    onMouseLeave={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#f8fafc' }}
+                  >
+                    Namespace: {nsId.split('-')[0]}...{nsId.slice(-4)}
+                  </button>
+                );
+              }) : (
+                <div style={{ fontSize: '13px', color: '#64748b', textAlign: 'center', padding: '10px' }}>No namespaces available. Please generate one in the Knowledge Base first.</div>
               )}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -2880,8 +2898,7 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
                 <button onClick={clearFilters} className="text-emerald-600 font-bold text-sm hover:underline">Clear all filters</button>
               </div>
             ) : filteredAgents.map((agent) => {
-              const assignedPageId = Object.keys(activeSelectedAgents).find(key => activeSelectedAgents[key] === agent.agent_id);
-              const isAssigned = !!assignedPageId;
+              const isAssigned = !!agent.namespace_id;
               const totalDialog = agent.total_dialog || 0;
               const initial = (agent.name || '?').charAt(0).toUpperCase();
 
@@ -2919,11 +2936,19 @@ const AgentPanel = ({ user, pages, onUpdate, onAgentCreated, onAgentEdited }) =>
                     <span>{totalDialog} dialogues</span>
                   </div>
 
+                  {/* Namespace Display */}
+                  {isAssigned && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-md mt-2 w-max border border-emerald-100 uppercase tracking-wider">
+                      <span className="material-symbols-outlined text-[12px]">dns</span>
+                      <span>NS: {agent.namespace_id.split('-')[0]}...</span>
+                    </div>
+                  )}
+
                   {/* Actions — shown on hover */}
                   <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {isAssigned ? (
                       <button
-                        onClick={() => handleUnassign(agent.agent_id, assignedPageId)}
+                        onClick={() => handleUnassign(agent.agent_id)}
                         disabled={unassigningId === agent.agent_id}
                         className="text-[11px] font-bold text-red-500 px-2.5 py-1.5 hover:bg-red-50 rounded-lg disabled:opacity-50 whitespace-nowrap transition-colors"
                       >
@@ -4030,6 +4055,7 @@ export default function Dashboard() {
 
   const [user, setUser] = useState(null);
   const [pages, setPages] = useState([]);
+  const [namespaces, setNamespaces] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -4038,6 +4064,12 @@ export default function Dashboard() {
       const pagesData = await apiService.getPages();
       console.log("API Pages Response:", pagesData);
       const agentsData = await apiService.getAgents();
+      let namespacesData = { namespaces: [] };
+      try {
+        namespacesData = await apiService.getNamespaces();
+      } catch (e) {
+        console.warn("Could not fetch namespaces", e);
+      }
       let subscriptionData = null;
       try {
         subscriptionData = await apiService.getSubscription();
@@ -4048,6 +4080,7 @@ export default function Dashboard() {
       const parsedUser = userData?.user || userData || null;
       const parsedPages = Array.isArray(pagesData) ? pagesData : (pagesData?.pages || pagesData?.data || []);
       const parsedAgents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || agentsData?.data || []);
+      const parsedNamespaces = Array.isArray(namespacesData) ? namespacesData : (namespacesData?.namespaces || namespacesData?.data || []);
 
       if (parsedUser) {
         parsedUser.agents = parsedAgents;
@@ -4097,6 +4130,7 @@ export default function Dashboard() {
       }
       setUser(parsedUser);
       setPages(parsedPages);
+      setNamespaces(parsedNamespaces);
 
       // Check subscription via API — if user has no active plan, send them
       // to the plan-selection screen so they can pick one before using the dashboard.
@@ -4148,8 +4182,8 @@ export default function Dashboard() {
       case 'overview': return <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={fetchData} onAddPage={() => setPreReauthModal(true)} />;
       case 'records': return <CustomerRecords pages={pages} />;
       case 'conversation': return <ConversationList pages={pages} user={user} />;
-      case 'knowledge': return <Knowledge pages={pages} />;
-      case 'agent': return <AgentPanel user={user} pages={pages} onUpdate={fetchData} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />;
+      case 'knowledge': return <Knowledge namespaces={namespaces} onUpdate={fetchData} />;
+      case 'agent': return <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={fetchData} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />;
       case 'feedback': return <FeedbackPanel />;
       case 'settings': return <SettingsPanel user={user} onUpdate={fetchData} />;
       case 'subscription': return <SubscriptionPanel />;
