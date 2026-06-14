@@ -1,0 +1,314 @@
+{
+  "Body_create_product_v1_products__namespace_id__create_post": {
+    "properties": {
+      "name": {
+        "type": "string",
+        "title": "Name"
+      },
+      "code": {
+        "type": "string",
+        "title": "Code"
+      },
+      "description": {
+        "type": "string",
+        "title": "Description"
+      },
+      "price": {
+        "type": "number",
+        "title": "Price"
+      },
+      "category": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Category"
+      },
+      "tags": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Tags"
+      },
+      "variants": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Variants"
+      },
+      "availability": {
+        "type": "boolean",
+        "title": "Availability",
+        "default": true
+      },
+      "files": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Files"
+      }
+    },
+    "type": "object",
+    "required": [
+      "name",
+      "code",
+      "description",
+      "price"
+    ],
+    "title": "Body_create_product_v1_products__namespace_id__create_post"
+  },
+  "ProductDetailResponse": {
+    "properties": {
+      "product_id": {
+        "type": "string",
+        "format": "uuid",
+        "title": "Product Id"
+      },
+      "user_id": {
+        "type": "string",
+        "format": "uuid",
+        "title": "User Id"
+      },
+      "namespace_id": {
+        "type": "string",
+        "format": "uuid",
+        "title": "Namespace Id"
+      },
+      "name": {
+        "type": "string",
+        "title": "Name"
+      },
+      "code": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Code"
+      },
+      "description": {
+        "type": "string",
+        "title": "Description"
+      },
+      "category": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Category"
+      },
+      "tags": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
+        "title": "Tags"
+      },
+      "price": {
+        "type": "string",
+        "title": "Price"
+      },
+      "variants": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Variants"
+      },
+      "availability": {
+        "type": "boolean",
+        "title": "Availability"
+      },
+      "pinecone_vector_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Pinecone Vector Id"
+      },
+      "import_source": {
+        "$ref": "#/components/schemas/ImportSource"
+      },
+      "import_batch_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "uuid"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Import Batch Id"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "title": "Created At"
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "title": "Updated At"
+      },
+      "assets": {
+        "items": {
+          "$ref": "#/components/schemas/ProductAssetResponse"
+        },
+        "type": "array",
+        "title": "Assets"
+      }
+    },
+    "type": "object",
+    "required": [
+      "product_id",
+      "user_id",
+      "namespace_id",
+      "name",
+      "code",
+      "description",
+      "category",
+      "tags",
+      "price",
+      "variants",
+      "availability",
+      "pinecone_vector_id",
+      "import_source",
+      "import_batch_id",
+      "created_at",
+      "updated_at",
+      "assets"
+    ],
+    "title": "ProductDetailResponse"
+  },
+  "ProductListResponse": {
+    "properties": {
+      "items": {
+        "items": {
+          "$ref": "#/components/schemas/ProductListItem"
+        },
+        "type": "array",
+        "title": "Items"
+      },
+      "pagination": {
+        "$ref": "#/components/schemas/CursorPaginationMeta"
+      }
+    },
+    "type": "object",
+    "required": [
+      "items",
+      "pagination"
+    ],
+    "title": "ProductListResponse"
+  },
+  "Body_add_product_assets_v1_products__namespace_id__update__product_id__add_assets_post": {
+    "properties": {
+      "files": {
+        "items": {
+          "type": "string",
+          "format": "binary"
+        },
+        "type": "array",
+        "title": "Files"
+      }
+    },
+    "type": "object",
+    "required": [
+      "files"
+    ],
+    "title": "Body_add_product_assets_v1_products__namespace_id__update__product_id__add_assets_post"
+  },
+  "ProductAssetResponse": {
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "title": "Id"
+      },
+      "product_id": {
+        "type": "string",
+        "format": "uuid",
+        "title": "Product Id"
+      },
+      "url": {
+        "type": "string",
+        "title": "Url"
+      },
+      "file_type": {
+        "$ref": "#/components/schemas/FileType"
+      },
+      "mime_type": {
+        "type": "string",
+        "title": "Mime Type"
+      },
+      "original_filename": {
+        "type": "string",
+        "title": "Original Filename"
+      },
+      "file_size_bytes": {
+        "type": "integer",
+        "title": "File Size Bytes"
+      },
+      "is_primary": {
+        "type": "boolean",
+        "title": "Is Primary"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "title": "Created At"
+      }
+    },
+    "type": "object",
+    "required": [
+      "id",
+      "product_id",
+      "url",
+      "file_type",
+      "mime_type",
+      "original_filename",
+      "file_size_bytes",
+      "is_primary",
+      "created_at"
+    ],
+    "title": "ProductAssetResponse"
+  }
+}

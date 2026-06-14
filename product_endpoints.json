@@ -1,0 +1,594 @@
+{
+  "/v1/products/{namespace_id}/create": {
+    "post": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Create Product",
+      "description": "Manually create a new product under the specified namespace.\n\nAccepts product metadata as form parameters and an optional list of up to 3 asset files.\nTriggers an asynchronous background job to generate and index vectors for the product.\n```\n    ALLOWED_IMAGE_TYPES = {\"image/jpeg\", \"image/png\", \"image/webp\"}\n    ALLOWED_VIDEO_TYPES = {\"video/mp4\"}\n    ALLOWED_FILE_TYPES = {\"application/pdf\"}\n    MAX_PRODUCT_ASSETS = 3\n    MAX_IMAGE_SIZE = 5MB\n    MAX_VIDEO_SIZE = 25MB\n    MAX_FILE_SIZE = 10MB\n    MAX_CSV_SIZE = 5MB\n\n```",
+      "operationId": "create_product_v1_products__namespace_id__create_post",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "multipart/form-data": {
+            "schema": {
+              "$ref": "#/components/schemas/Body_create_product_v1_products__namespace_id__create_post"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDetailResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/v1/products/{namespace_id}/all-products": {
+    "get": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Get Products",
+      "description": "Retrieve a cursor-paginated list of products for the given namespace.\n\nReturns basic product details along with up to three primary assets per product.",
+      "operationId": "get_products_v1_products__namespace_id__all_products_get",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cursor for pagination",
+            "title": "Cursor"
+          },
+          "description": "Cursor for pagination"
+        },
+        {
+          "name": "page_size",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "maximum": 100,
+            "minimum": 1,
+            "description": "Items per page",
+            "default": 20,
+            "title": "Page Size"
+          },
+          "description": "Items per page"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductListResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/v1/products/{namespace_id}/detail/{product_id}": {
+    "get": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Get Product Detail",
+      "description": "Retrieve comprehensive details, including all assets, for a specific product.",
+      "operationId": "get_product_detail_v1_products__namespace_id__detail__product_id__get",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        },
+        {
+          "name": "product_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDetailResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/v1/products/{namespace_id}/update/{product_id}": {
+    "patch": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Update Product",
+      "description": "Update product details and trigger an asynchronous embedding update in Pinecone.",
+      "operationId": "update_product_v1_products__namespace_id__update__product_id__patch",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        },
+        {
+          "name": "product_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/UpdateProductRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDetailResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/v1/products/{namespace_id}/delete/{product_id}": {
+    "delete": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Delete Product Endpoint",
+      "description": "Permanently delete a product, remove all associated physical assets from disk,\nand remove the product's vector representation from Pinecone.",
+      "operationId": "delete_product_endpoint_v1_products__namespace_id__delete__product_id__delete",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        },
+        {
+          "name": "product_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id"
+          }
+        }
+      ],
+      "responses": {
+        "204": {
+          "description": "Successful Response"
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/v1/products/{namespace_id}/update/{product_id}/add-assets": {
+    "post": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Add Product Assets",
+      "description": "Upload and associate new asset files (images, videos, or files) with an existing product.\n\nValidates file sizes, content types, and enforces the asset count limit (max 3 total).",
+      "operationId": "add_product_assets_v1_products__namespace_id__update__product_id__add_assets_post",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        },
+        {
+          "name": "product_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "multipart/form-data": {
+            "schema": {
+              "$ref": "#/components/schemas/Body_add_product_assets_v1_products__namespace_id__update__product_id__add_assets_post"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProductAssetResponse"
+                },
+                "title": "Response Add Product Assets V1 Products  Namespace Id  Update  Product Id  Add Assets Post"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/v1/products/{namespace_id}/update/{product_id}/delete-assets/{asset_id}": {
+    "delete": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Delete Product Asset Endpoint",
+      "description": "Delete a specific asset of a product, removing the physical file from disk.\n\nIf the deleted asset was primary, designates another remaining asset as primary.",
+      "operationId": "delete_product_asset_endpoint_v1_products__namespace_id__update__product_id__delete_assets__asset_id__delete",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        },
+        {
+          "name": "product_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id"
+          }
+        },
+        {
+          "name": "asset_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Asset Id"
+          }
+        }
+      ],
+      "responses": {
+        "204": {
+          "description": "Successful Response"
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/v1/products/{namespace_id}/update/{product_id}/set-assets/primary": {
+    "patch": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Set Primary Asset Endpoint",
+      "description": "Set a specific asset as the primary asset for the product.",
+      "operationId": "set_primary_asset_endpoint_v1_products__namespace_id__update__product_id__set_assets_primary_patch",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        },
+        {
+          "name": "product_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SetPrimaryAssetRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDetailResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/v1/products/{namespace_id}/import/csv": {
+    "post": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Import Csv Endpoint",
+      "description": "Upload a CSV file to import products in bulk.\n\nInitiates a background worker task to parse the CSV and register products asynchronously.",
+      "operationId": "import_csv_endpoint_v1_products__namespace_id__import_csv_post",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "multipart/form-data": {
+            "schema": {
+              "$ref": "#/components/schemas/Body_import_csv_endpoint_v1_products__namespace_id__import_csv_post"
+            }
+          }
+        }
+      },
+      "responses": {
+        "202": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportBatchResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/v1/products/{namespace_id}/import/csv/{batch_id}": {
+    "get": {
+      "tags": [
+        "Products"
+      ],
+      "summary": "Get Import Batch Endpoint",
+      "description": "Retrieve the status and error logs of a specific CSV import batch.",
+      "operationId": "get_import_batch_endpoint_v1_products__namespace_id__import_csv__batch_id__get",
+      "parameters": [
+        {
+          "name": "namespace_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Namespace Id"
+          }
+        },
+        {
+          "name": "batch_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Batch Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportBatchResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

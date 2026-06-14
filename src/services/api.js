@@ -147,6 +147,41 @@ export const apiService = {
     method: 'DELETE',
   }),
 
+  // Products
+  createProduct: (namespaceId, formData) => apiFetch(`/v1/products/${namespaceId}/create`, {
+    method: 'POST',
+    body: formData, // FormData handles its own Content-Type boundary
+  }),
+  getProducts: (namespaceId, cursor = null, pageSize = 20) => {
+    let url = `/v1/products/${namespaceId}/all-products?page_size=${pageSize}`;
+    if (cursor) url += `&cursor=${cursor}`;
+    return apiFetch(url);
+  },
+  getProductDetail: (namespaceId, productId) => apiFetch(`/v1/products/${namespaceId}/detail/${productId}`),
+  updateProduct: (namespaceId, productId, updateData) => apiFetch(`/v1/products/${namespaceId}/update/${productId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updateData),
+  }),
+  deleteProduct: (namespaceId, productId) => apiFetch(`/v1/products/${namespaceId}/delete/${productId}`, {
+    method: 'DELETE',
+  }),
+  addProductAssets: (namespaceId, productId, formData) => apiFetch(`/v1/products/${namespaceId}/update/${productId}/add-assets`, {
+    method: 'POST',
+    body: formData,
+  }),
+  deleteProductAsset: (namespaceId, productId, assetId) => apiFetch(`/v1/products/${namespaceId}/update/${productId}/delete-assets/${assetId}`, {
+    method: 'DELETE',
+  }),
+  setPrimaryAsset: (namespaceId, productId, assetId) => apiFetch(`/v1/products/${namespaceId}/update/${productId}/set-assets/primary`, {
+    method: 'PATCH',
+    body: JSON.stringify({ asset_id: assetId }),
+  }),
+  importProductsCsv: (namespaceId, formData) => apiFetch(`/v1/products/${namespaceId}/import/csv`, {
+    method: 'POST',
+    body: formData,
+  }),
+  getImportBatch: (namespaceId, batchId) => apiFetch(`/v1/products/${namespaceId}/import/csv/${batchId}`),
+
   // Agent Management
   getAgents: () => apiFetch('/v1/agents'),
   setAgentNamespace: (agentId, namespaceId) => apiFetch(`/v1/agent/${agentId}/set-namespace/${namespaceId}`, { method: 'PATCH' }),

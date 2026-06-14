@@ -7,6 +7,7 @@ import titleImg from '../assets/title.png';
 import { useWidget } from '../context/WidgetContext';
 import { apiService } from '../services/api';
 import CustomerRecords from '../components/CustomerRecords';
+import ProductsTab from '../components/ProductsTab';
 import './Dashboard.css';
 
 // Sub-components
@@ -1372,6 +1373,7 @@ const FeedbackPanel = () => {
 };
 
 const Knowledge = ({ namespaces, onUpdate }) => {
+  const [activeKnowledgeTab, setActiveKnowledgeTab] = useState('documents');
   const [showModal, setShowModal] = useState(false);
   const [selectedNamespaceId, setSelectedNamespaceId] = useState('');
   const [knowledgeList, setKnowledgeList] = useState([]);
@@ -1670,8 +1672,26 @@ const Knowledge = ({ namespaces, onUpdate }) => {
           <div>
             <p className="text-[10px] font-bold tracking-[0.2em] text-slate-400 uppercase mb-2">Resource Library</p>
             <h1 className="text-4xl font-black font-['Epilogue'] tracking-tighter text-slate-900 mb-4">Knowledge Base</h1>
+            
+            <div className="flex gap-2 mb-8 bg-slate-50 p-1.5 rounded-xl w-fit border border-slate-200 shadow-inner">
+              <button 
+                onClick={() => setActiveKnowledgeTab('documents')}
+                className={`px-8 py-2.5 font-black text-sm rounded-lg transition-all flex items-center gap-2 ${activeKnowledgeTab === 'documents' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+              >
+                <span className="material-symbols-outlined text-[18px]">description</span>
+                Documents
+              </button>
+              <button 
+                onClick={() => setActiveKnowledgeTab('products')}
+                className={`px-8 py-2.5 font-black text-sm rounded-lg transition-all flex items-center gap-2 ${activeKnowledgeTab === 'products' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 border border-emerald-400' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
+              >
+                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                Products
+              </button>
+            </div>
+
             <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
-              Upload and manage the documents that power your agents. These resources provide the semantic context for all AI interactions.
+              Upload and manage the documents and products that power your agents. These resources provide the semantic context for all AI interactions.
             </p>
           </div>
 
@@ -1730,8 +1750,10 @@ const Knowledge = ({ namespaces, onUpdate }) => {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {activeKnowledgeTab === 'documents' ? (
+          <>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col gap-4 transition-transform hover:scale-[1.02]">
             <span className="material-symbols-outlined text-emerald-500 text-3xl">description</span>
             <div>
@@ -1860,6 +1882,10 @@ const Knowledge = ({ namespaces, onUpdate }) => {
             <button className="text-slate-900 hover:underline transition-all">Next</button>
           </div>
         </div>
+          </>
+        ) : (
+          <ProductsTab selectedNamespaceId={selectedNamespaceId} />
+        )}
       </div>
 
       {viewingItem && (
