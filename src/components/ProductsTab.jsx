@@ -33,6 +33,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [editingProductId, setEditingProductId] = useState(null);
   
   // Create Product Form State
   const [formData, setFormData] = useState({
@@ -76,36 +77,77 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     fetchProducts();
   }, [selectedNamespaceId]);
 
-  const handleCreateProduct = async (e) => {
+  const handleEditProductClick = (product) => {
+    setEditingProductId(product.product_id);
+    setFormData({
+      name: product.name || '',
+      code: product.code || '',
+      description: product.description || '',
+      price: product.price || '',
+      category: product.category || '',
+      tags: product.tags ? product.tags.join(', ') : '',
+      variants: product.variants || '',
+      availability: product.availability !== false
+    });
+    setSelectedFiles([]);
+    setShowCreateModal(true);
+  };
+
+  const handleSubmitProduct = async (e) => {
     e.preventDefault();
     if (!selectedNamespaceId) {
       addToast('Please select a namespace first', 'error');
       return;
     }
 
-    const data = new FormData();
-    data.append('name', formData.name);
-    data.append('code', formData.code);
-    data.append('description', formData.description);
-    data.append('price', formData.price);
-    if (formData.category) data.append('category', formData.category);
-    if (formData.tags) data.append('tags', formData.tags);
-    if (formData.variants) data.append('variants', formData.variants);
-    data.append('availability', formData.availability);
-
-    for (let i = 0; i < selectedFiles.length; i++) {
-      data.append('files', selectedFiles[i]);
-    }
-
     try {
-      await apiService.createProduct(selectedNamespaceId, data);
-      addToast('Product created successfully!', 'success');
+      if (editingProductId) {
+        const updateData = {
+          name: formData.name,
+          code: formData.code,
+          description: formData.description,
+          price: formData.price,
+          category: formData.category,
+          tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          variants: formData.variants,
+          availability: formData.availability
+        };
+        await apiService.updateProduct(selectedNamespaceId, editingProductId, updateData);
+        
+        if (selectedFiles && selectedFiles.length > 0) {
+          const fileData = new FormData();
+          for (let i = 0; i < selectedFiles.length; i++) {
+            fileData.append('files', selectedFiles[i]);
+          }
+          await apiService.addProductAssets(selectedNamespaceId, editingProductId, fileData);
+        }
+        
+        addToast('Product updated successfully!', 'success');
+      } else {
+        const data = new FormData();
+        data.append('name', formData.name);
+        data.append('code', formData.code);
+        data.append('description', formData.description);
+        data.append('price', formData.price);
+        if (formData.category) data.append('category', formData.category);
+        if (formData.tags) data.append('tags', formData.tags);
+        if (formData.variants) data.append('variants', formData.variants);
+        data.append('availability', formData.availability);
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+          data.append('files', selectedFiles[i]);
+        }
+        await apiService.createProduct(selectedNamespaceId, data);
+        addToast('Product created successfully!', 'success');
+      }
+      
       setShowCreateModal(false);
       setFormData({ name: '', code: '', description: '', price: '', category: '', tags: '', variants: '', availability: true });
       setSelectedFiles([]);
+      setEditingProductId(null);
       fetchProducts();
     } catch (err) {
-      addToast('Failed to create product: ' + err.message, 'error');
+      addToast(`Failed to ${editingProductId ? 'update' : 'create'} product: ` + err.message, 'error');
     }
   };
 
@@ -179,7 +221,12 @@ const ProductsTab = ({ selectedNamespaceId }) => {
               <Upload size={16} /> Import CSV
             </button>
             <button 
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                setEditingProductId(null);
+                setFormData({ name: '', code: '', description: '', price: '', category: '', tags: '', variants: '', availability: true });
+                setSelectedFiles([]);
+                setShowCreateModal(true);
+              }}
               className="flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm shadow-xl"
             >
               <Plus size={16} /> Create Product
@@ -246,6 +293,9 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                   )}
                 </div>
                 <div className="col-span-1 text-right pr-6 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={(e) => { e.stopPropagation(); handleEditProductClick(product); }} className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-colors" title="Edit">
+                    <Edit3 size={16} />
+                  </button>
                   <button onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product.product_id); }} className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors" title="Delete">
                     <Trash2 size={16} />
                   </button>
@@ -270,53 +320,53 @@ const ProductsTab = ({ selectedNamespaceId }) => {
             ))}
           </div>
 
-      {/* Create Product Modal */}
+      {/* Create / Edit Product Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowCreateModal(false)}></div>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center p-6 border-b border-slate-100">
-              <h3 className="text-2xl font-black font-['Epilogue'] tracking-tight text-slate-900">Create New Product</h3>
+              <h3 className="text-2xl font-black font-['Epilogue'] tracking-tight text-slate-900">{editingProductId ? 'Edit Product' : 'Create New Product'}</h3>
               <button onClick={() => setShowCreateModal(false)} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             
-            <div className="overflow-y-auto p-6 flex-1">
-              <form id="createProductForm" onSubmit={handleCreateProduct} className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <div className="space-y-2 w-full">
+            <div className="overflow-y-auto overflow-x-hidden p-6 flex-1 no-scrollbar">
+              <form id="createProductForm" onSubmit={handleSubmitProduct} className="space-y-4 sm:px-8">
+                <div className="flex flex-col sm:flex-row w-full">
+                  <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
                     <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product Name *</label>
-                    <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Premium T-Shirt" />
+                    <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Premium T-Shirt" />
                   </div>
-                  <div className="space-y-2 w-full">
+                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
                     <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product Code *</label>
-                    <input type="text" required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. SKU-12345" />
+                    <input type="text" required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. SKU-12345" />
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <div className="space-y-2 w-full">
+                <div className="flex flex-col sm:flex-row w-full">
+                  <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
                     <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Price *</label>
-                    <input type="number" step="0.01" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. 29.99" />
+                    <input type="number" step="0.01" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. 29.99" />
                   </div>
-                  <div className="space-y-2 w-full">
+                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
                     <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Category</label>
-                    <input type="text" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Apparel" />
+                    <input type="text" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Apparel" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Description *</label>
-                  <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500 transition-all resize-none" placeholder="Detailed product description..."></textarea>
+                  <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500 transition-all resize-none" placeholder="Detailed product description..."></textarea>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <div className="space-y-2 w-full">
+                <div className="flex flex-col sm:flex-row w-full">
+                  <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
                     <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Tags (comma separated)</label>
-                    <input type="text" value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="cotton, summer, blue" />
+                    <input type="text" value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="cotton, summer, blue" />
                   </div>
-                  <div className="space-y-2 w-full flex flex-col justify-center">
+                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4 flex flex-col justify-center">
                     <div className="flex items-center justify-between pt-6">
                       <label className="text-sm font-bold text-slate-700">In Stock / Available</label>
                       <div 
@@ -374,7 +424,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
             <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
               <button onClick={() => setShowCreateModal(false)} className="px-6 py-3 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancel</button>
               <button form="createProductForm" type="submit" className="px-6 py-3 rounded-xl font-bold text-sm bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2">
-                Save Product
+                {editingProductId ? 'Update Product' : 'Save Product'}
               </button>
             </div>
           </div>
