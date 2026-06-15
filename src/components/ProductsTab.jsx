@@ -33,6 +33,9 @@ const ProductsTab = ({ selectedNamespaceId }) => {
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  
+  // Delete Confirm State
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, productId: null });
   const [editingProductId, setEditingProductId] = useState(null);
   
   // Create Product Form State
@@ -53,6 +56,16 @@ const ProductsTab = ({ selectedNamespaceId }) => {
   // Import CSV State
   const [csvFile, setCsvFile] = useState(null);
 
+  // Filter State
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'active', 'inactive'
+
+  // Pagination State
+  const [history, setHistory] = useState([null]); // Array of cursors
+  const [currentIndex, setCurrentIndex] = useState(0); // Current page index
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState(null);
+  const PAGE_SIZE = 10;
+
   const addToast = (message, type = 'success') => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -61,12 +74,18 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     }, 4000);
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (cursor = null) => {
     if (!selectedNamespaceId) return;
     setLoading(true);
     try {
-      const data = await apiService.getProducts(selectedNamespaceId);
+      let isActiveParam = null;
+      if (activeFilter === 'active') isActiveParam = true;
+      if (activeFilter === 'inactive') isActiveParam = false;
+      
+      const data = await apiService.getProducts(selectedNamespaceId, cursor, PAGE_SIZE, isActiveParam);
       setProducts(data.items || []);
+      setHasMore(data.pagination?.has_more || false);
+      setNextCursor(data.pagination?.next_cursor || null);
     } catch (err) {
       console.error(err);
       addToast('Failed to load products: ' + err.message, 'error');
@@ -76,8 +95,10 @@ const ProductsTab = ({ selectedNamespaceId }) => {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, [selectedNamespaceId]);
+    setHistory([null]);
+    setCurrentIndex(0);
+    fetchProducts(null);
+  }, [selectedNamespaceId, activeFilter]);
 
   const handleEditProductClick = async (product) => {
     setEditingProductId(product.product_id);
@@ -199,7 +220,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
       setSelectedFiles([]);
       setExistingAssets([]);
       setEditingProductId(null);
-      fetchProducts();
+      fetchProducts(history[currentIndex]);
     } catch (err) {
       addToast(`Failed to ${editingProductId ? 'update' : 'create'} product: ` + err.message, 'error');
     }
@@ -220,7 +241,11 @@ const ProductsTab = ({ selectedNamespaceId }) => {
       addToast('CSV Import started in the background!', 'success');
       setShowImportModal(false);
       setCsvFile(null);
-      setTimeout(fetchProducts, 3000); // Check for results after a bit
+      setTimeout(() => {
+        setHistory([null]);
+        setCurrentIndex(0);
+        fetchProducts(null);
+      }, 3000); // Check for results after a bit
     } catch (err) {
       addToast('Failed to import CSV: ' + err.message, 'error');
     }
@@ -239,14 +264,24 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     }
   };
 
-  const handleDeleteProduct = async (productId) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
+  const handleDeleteProduct = (productId) => {
+    setDeleteConfirmModal({ show: true, productId });
+  };
+
+  const executeDeleteProduct = async () => {
+    const { productId } = deleteConfirmModal;
+    if (!productId) return;
+
+    // Optimistic UI update
+    setProducts(prev => prev.filter(p => p.product_id !== productId));
+    setDeleteConfirmModal({ show: false, productId: null });
+
     try {
       await apiService.deleteProduct(selectedNamespaceId, productId);
       addToast('Product deleted successfully', 'success');
-      fetchProducts();
     } catch (err) {
       addToast('Failed to delete product: ' + err.message, 'error');
+      fetchProducts(history[currentIndex]); // Refresh table to restore product if delete failed
     }
   };
 
@@ -268,6 +303,21 @@ const ProductsTab = ({ selectedNamespaceId }) => {
             </div>
           </div>
           <div className="flex gap-3">
+            <div className="relative">
+              <select 
+                value={activeFilter} 
+                onChange={(e) => setActiveFilter(e.target.value)}
+                style={{ backgroundImage: 'none' }}
+                className="appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
+              >
+                <option value="all" className="text-slate-800 font-semibold">All Products</option>
+                <option value="active" className="text-slate-800 font-semibold">Active</option>
+                <option value="inactive" className="text-slate-800 font-semibold">Inactive</option>
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/70">
+                <span className="material-symbols-outlined text-[20px]">expand_more</span>
+              </div>
+            </div>
             <button 
               onClick={() => setShowImportModal(true)}
               className="flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg"
@@ -365,10 +415,48 @@ const ProductsTab = ({ selectedNamespaceId }) => {
             ))
           )}
         </div>
+        
+        {/* Pagination Controls */}
+        {!loading && products.length > 0 && (
+          <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Page {currentIndex + 1}
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  if (currentIndex === 0) return;
+                  const prevIndex = currentIndex - 1;
+                  setCurrentIndex(prevIndex);
+                  fetchProducts(history[prevIndex]);
+                }}
+                disabled={currentIndex === 0}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[18px]">chevron_left</span> Prev
+              </button>
+              <button 
+                onClick={() => {
+                  if (!hasMore || !nextCursor) return;
+                  const newHistory = history.slice(0, currentIndex + 1);
+                  newHistory.push(nextCursor);
+                  setHistory(newHistory);
+                  setCurrentIndex(currentIndex + 1);
+                  fetchProducts(nextCursor);
+                }}
+                disabled={!hasMore}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-sm"
+              >
+                Next <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 </div>
 
       {/* Portals for Modals and Toasts */}
@@ -779,6 +867,37 @@ const ProductsTab = ({ selectedNamespaceId }) => {
               <button onClick={() => { setShowDetailModal(false); setSelectedProductDetail(null); }} className="px-8 py-2.5 rounded-[12px] font-bold text-sm bg-slate-900 text-white hover:bg-slate-800 shadow-md transition-all">
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDeleteConfirmModal({ show: false, productId: null })}></div>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative z-10 animate-in fade-in zoom-in duration-200">
+            <div className="p-8 flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                <Trash2 size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 mb-2">Delete Product?</h3>
+              <p className="text-slate-500 font-medium text-sm mb-8">This action cannot be undone. This product will be permanently removed from your inventory.</p>
+              
+              <div className="flex w-full gap-3">
+                <button 
+                  onClick={() => setDeleteConfirmModal({ show: false, productId: null })} 
+                  className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={executeDeleteProduct} 
+                  className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all"
+                >
+                  Yes, Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -148,13 +148,25 @@ export const apiService = {
   }),
 
   // Products
-  createProduct: (namespaceId, productData) => apiFetch(`/v1/products/${namespaceId}/create`, {
-    method: 'POST',
-    body: JSON.stringify(productData),
-  }),
-  getProducts: (namespaceId, cursor = null, pageSize = 20) => {
+  createProduct: (namespaceId, productData) => {
+    const formData = new FormData();
+    Object.keys(productData).forEach(key => {
+      if (Array.isArray(productData[key])) {
+        // Append array items individually (e.g. tags)
+        productData[key].forEach(val => formData.append(key, val));
+      } else {
+        formData.append(key, productData[key]);
+      }
+    });
+    return apiFetch(`/v1/products/${namespaceId}/create`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+  getProducts: (namespaceId, cursor = null, pageSize = 20, isActive = null) => {
     let url = `/v1/products/${namespaceId}/all-products?page_size=${pageSize}&_t=${Date.now()}`;
-    if (cursor) url += `&cursor=${cursor}`;
+    if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+    if (isActive !== null) url += `&is_active=${isActive}`;
     return apiFetch(url);
   },
   getProductDetail: (namespaceId, productId) => apiFetch(`/v1/products/${namespaceId}/detail/${productId}`),
