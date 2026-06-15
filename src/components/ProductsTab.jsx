@@ -314,6 +314,28 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     }
   };
 
+  const handleDeleteAsset = async (assetId) => {
+    if (!editingProductId) return;
+    try {
+      await apiService.deleteProductAsset(selectedNamespaceId, editingProductId, assetId);
+      addToast('Asset deleted successfully', 'success');
+      
+      setExistingAssets(prev => prev.filter(asset => asset.id !== assetId));
+      
+      setProducts(prevProducts => prevProducts.map(p => {
+        if (p.product_id === editingProductId) {
+          return { 
+            ...p, 
+            primary_assets: p.primary_assets?.filter(a => a.id !== assetId) || []
+          };
+        }
+        return p;
+      }));
+    } catch (err) {
+      addToast('Failed to delete asset: ' + err.message, 'error');
+    }
+  };
+
   return (
     <>
       <div className="animate-fade-in-up mt-6 p-8 rounded-[40px] bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-2xl shadow-emerald-500/20 relative overflow-hidden">
@@ -623,19 +645,29 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                               </div>
                             )}
 
-                            {/* Hover Overlay */}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                              {!asset.is_primary && (
+                            {/* Delete Asset Button (Always in top right) */}
+                            <button 
+                              type="button" 
+                              onClick={(e) => { e.stopPropagation(); handleDeleteAsset(asset.id); }}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-rose-500/90 text-white flex items-center justify-center hover:bg-rose-600 transition-colors shadow-sm z-20 opacity-0 group-hover:opacity-100"
+                              title="Delete Asset"
+                            >
+                              <span className="material-symbols-outlined text-[12px] font-bold">close</span>
+                            </button>
+
+                            {/* Hover Overlay for Primary Action */}
+                            {!asset.is_primary && (
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 z-10">
                                 <button 
                                   type="button" 
                                   onClick={(e) => { e.stopPropagation(); handleSetPrimaryAsset(asset.id); }}
-                                  className="w-6 h-6 rounded-full bg-white/20 text-white hover:bg-yellow-400 flex items-center justify-center transition-colors"
+                                  className="w-7 h-7 rounded-full bg-white/20 text-white hover:bg-yellow-400 flex items-center justify-center transition-colors shadow-sm"
                                   title="Set as Primary"
                                 >
-                                  <span className="material-symbols-outlined text-[14px]">star</span>
+                                  <span className="material-symbols-outlined text-[16px]">star</span>
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
