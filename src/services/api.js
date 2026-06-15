@@ -105,7 +105,13 @@ const apiFetch = async (endpoint, options = {}) => {
   // Parse JSON response body if content-type matches
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
-    return response.json();
+    const text = await response.text();
+    if (!text) return {}; // Handle empty responses gracefully
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return text; // Fallback to returning text if JSON is malformed
+    }
   }
   return response.text();
 };
