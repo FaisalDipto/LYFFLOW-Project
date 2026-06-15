@@ -148,12 +148,12 @@ export const apiService = {
   }),
 
   // Products
-  createProduct: (namespaceId, formData) => apiFetch(`/v1/products/${namespaceId}/create`, {
+  createProduct: (namespaceId, productData) => apiFetch(`/v1/products/${namespaceId}/create`, {
     method: 'POST',
-    body: formData, // FormData handles its own Content-Type boundary
+    body: JSON.stringify(productData),
   }),
   getProducts: (namespaceId, cursor = null, pageSize = 20) => {
-    let url = `/v1/products/${namespaceId}/all-products?page_size=${pageSize}`;
+    let url = `/v1/products/${namespaceId}/all-products?page_size=${pageSize}&_t=${Date.now()}`;
     if (cursor) url += `&cursor=${cursor}`;
     return apiFetch(url);
   },

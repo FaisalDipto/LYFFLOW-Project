@@ -41,12 +41,14 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     code: '',
     description: '',
     price: '',
+    currency: 'USD',
     category: '',
     tags: '',
     variants: '',
     availability: true
   });
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [existingAssets, setExistingAssets] = useState([]);
 
   // Import CSV State
   const [csvFile, setCsvFile] = useState(null);
@@ -77,20 +79,51 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     fetchProducts();
   }, [selectedNamespaceId]);
 
-  const handleEditProductClick = (product) => {
+  const handleEditProductClick = async (product) => {
     setEditingProductId(product.product_id);
+    
+    // Parse currency and price if price contains a space (e.g., "USD 29.99")
+    let parsedPrice = product.price || '';
+    let parsedCurrency = 'USD';
+    
+    if (typeof parsedPrice === 'string' && parsedPrice.includes(' ')) {
+      const parts = parsedPrice.split(' ');
+      if (parts.length >= 2 && /^[A-Z]{3}$/.test(parts[0])) {
+        parsedCurrency = parts[0];
+        parsedPrice = parts.slice(1).join(' ');
+      }
+    }
+
     setFormData({
       name: product.name || '',
       code: product.code || '',
       description: product.description || '',
-      price: product.price || '',
+      price: parsedPrice,
+      currency: parsedCurrency,
       category: product.category || '',
-      tags: product.tags ? product.tags.join(', ') : '',
-      variants: product.variants || '',
+      tags: Array.isArray(product.tags) ? product.tags.join(', ') : (product.tags || ''),
+      variants: product.variants || product.variant || '',
       availability: product.availability !== false
     });
     setSelectedFiles([]);
+    setExistingAssets(product.primary_assets || product.assets || []);
     setShowCreateModal(true);
+
+    try {
+      const detail = await apiService.getProductDetail(selectedNamespaceId, product.product_id);
+      setFormData(prev => ({
+        ...prev,
+        description: detail.description || prev.description,
+        category: detail.category || prev.category,
+        tags: Array.isArray(detail.tags) ? detail.tags.join(', ') : (detail.tags || prev.tags),
+        variants: detail.variants || prev.variants
+      }));
+      if (detail.assets || detail.primary_assets) {
+        setExistingAssets(detail.assets || detail.primary_assets);
+      }
+    } catch (err) {
+      console.error("Failed to fetch full details for edit", err);
+    }
   };
 
   const handleSubmitProduct = async (e) => {
@@ -106,13 +139,22 @@ const ProductsTab = ({ selectedNamespaceId }) => {
           name: formData.name,
           code: formData.code,
           description: formData.description,
-          price: formData.price,
-          category: formData.category,
+          price: `${formData.currency} ${formData.price}`.trim(),
+          category: formData.category || "",
           tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-          variants: formData.variants,
-          availability: formData.availability
+          variants: formData.variants || "",
+          availability: formData.availability !== false
         };
+        
+        console.log("=== SENDING UPDATE PAYLOAD ===");
+        console.log(JSON.stringify(updateData, null, 2));
+        
         await apiService.updateProduct(selectedNamespaceId, editingProductId, updateData);
+        
+        // Optimistic UI Update to make it instantly appear on the table
+        setProducts(prevProducts => prevProducts.map(p => 
+          p.product_id === editingProductId ? { ...p, ...updateData } : p
+        ));
         
         if (selectedFiles && selectedFiles.length > 0) {
           const fileData = new FormData();
@@ -124,26 +166,38 @@ const ProductsTab = ({ selectedNamespaceId }) => {
         
         addToast('Product updated successfully!', 'success');
       } else {
-        const data = new FormData();
-        data.append('name', formData.name);
-        data.append('code', formData.code);
-        data.append('description', formData.description);
-        data.append('price', formData.price);
-        if (formData.category) data.append('category', formData.category);
-        if (formData.tags) data.append('tags', formData.tags);
-        if (formData.variants) data.append('variants', formData.variants);
-        data.append('availability', formData.availability);
+        const createData = {
+          name: formData.name,
+          code: formData.code,
+          description: formData.description,
+          price: `${formData.currency} ${formData.price}`.trim(),
+          category: formData.category || "",
+          tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          variants: formData.variants || "",
+          availability: formData.availability !== false
+        };
 
-        for (let i = 0; i < selectedFiles.length; i++) {
-          data.append('files', selectedFiles[i]);
+        const newProduct = await apiService.createProduct(selectedNamespaceId, createData);
+        const newProductId = newProduct.product_id || newProduct.id;
+        
+        // Optimistic UI Update for creation
+        setProducts(prevProducts => [{ ...createData, product_id: newProductId || Date.now().toString() }, ...prevProducts]);
+        
+        if (selectedFiles && selectedFiles.length > 0 && newProductId) {
+          const fileData = new FormData();
+          for (let i = 0; i < selectedFiles.length; i++) {
+            fileData.append('files', selectedFiles[i]);
+          }
+          await apiService.addProductAssets(selectedNamespaceId, newProductId, fileData);
         }
-        await apiService.createProduct(selectedNamespaceId, data);
+        
         addToast('Product created successfully!', 'success');
       }
       
       setShowCreateModal(false);
-      setFormData({ name: '', code: '', description: '', price: '', category: '', tags: '', variants: '', availability: true });
+      setFormData({ name: '', code: '', description: '', price: '', currency: 'USD', category: '', tags: '', variants: '', availability: true });
       setSelectedFiles([]);
+      setExistingAssets([]);
       setEditingProductId(null);
       fetchProducts();
     } catch (err) {
@@ -223,8 +277,9 @@ const ProductsTab = ({ selectedNamespaceId }) => {
             <button 
               onClick={() => {
                 setEditingProductId(null);
-                setFormData({ name: '', code: '', description: '', price: '', category: '', tags: '', variants: '', availability: true });
+                setFormData({ name: '', code: '', description: '', price: '', currency: 'USD', category: '', tags: '', variants: '', availability: true });
                 setSelectedFiles([]);
+                setExistingAssets([]);
                 setShowCreateModal(true);
               }}
               className="flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm shadow-xl"
@@ -236,14 +291,17 @@ const ProductsTab = ({ selectedNamespaceId }) => {
 
         {/* Data Table */}
         <div className="bg-white/95 backdrop-blur-2xl rounded-3xl border border-white/50 overflow-hidden shadow-2xl">
-        <div className="grid grid-cols-12 gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm">
-          <div className="col-span-3 pl-6 flex items-center">Product Name</div>
-          <div className="col-span-2 flex items-center">Code</div>
-          <div className="col-span-2 flex items-center">Price</div>
-          <div className="col-span-2 flex items-center">Status</div>
-          <div className="col-span-2 flex items-center">Assets</div>
-          <div className="col-span-1 text-right pr-6 flex items-center justify-end">Actions</div>
-        </div>
+          <div className="overflow-x-auto w-full no-scrollbar">
+            <div className="min-w-[900px] w-full">
+              <div className="grid grid-cols-[3fr_2fr_2fr_2fr_2fr_2fr_100px] gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm">
+                <div className="pl-6 flex items-center">Product Name</div>
+                <div className="flex items-center">Code</div>
+                <div className="flex items-center">Variant</div>
+                <div className="flex items-center">Price</div>
+                <div className="flex items-center">Status</div>
+                <div className="flex items-center">Assets</div>
+                <div className="text-right pr-6 flex items-center justify-end">Actions</div>
+              </div>
 
         <div className="divide-y divide-slate-100">
           {loading ? (
@@ -260,22 +318,25 @@ const ProductsTab = ({ selectedNamespaceId }) => {
             </div>
           ) : (
             products.map((product) => (
-              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className="grid grid-cols-12 gap-4 p-5 items-center hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer">
-                <div className="col-span-3 pl-6 font-bold text-sm text-slate-800 truncate pr-4 group-hover:text-emerald-700 transition-colors">
+              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className="grid grid-cols-[3fr_2fr_2fr_2fr_2fr_2fr_100px] gap-4 p-5 items-center hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer">
+                <div className="pl-6 font-bold text-sm text-slate-800 truncate pr-4 group-hover:text-emerald-700 transition-colors">
                   {product.name}
                 </div>
-                <div className="col-span-2 text-sm text-slate-500 font-mono text-xs bg-slate-100 px-2 py-1 rounded-md inline-block w-fit border border-slate-200 shadow-sm">
+                <div className="text-sm text-slate-500 font-mono text-xs bg-slate-100 px-2 py-1 rounded-md inline-block w-fit border border-slate-200 shadow-sm">
                   {product.code || 'N/A'}
                 </div>
-                <div className="col-span-2 text-sm font-black text-slate-700">
-                  ${product.price}
+                <div className="text-sm text-slate-500 truncate pr-2 font-medium">
+                  {product.variants || product.variant || '-'}
                 </div>
-                <div className="col-span-2 flex items-center">
+                <div className="font-semibold text-slate-700">
+                  {product.price}
+                </div>
+                <div className="flex items-center">
                   <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm ${product.availability ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
                     {product.availability ? 'Available' : 'Out of Stock'}
                   </span>
                 </div>
-                <div className="col-span-2 flex gap-1.5 items-center">
+                <div className="flex gap-1.5 items-center">
                   {product.primary_assets && product.primary_assets.length > 0 ? (
                     product.primary_assets.map((asset, i) => (
                       <div key={i} className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200 overflow-hidden shadow-sm group-hover:border-emerald-200 transition-colors" title={asset.original_filename}>
@@ -292,7 +353,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">0 assets</span>
                   )}
                 </div>
-                <div className="col-span-1 text-right pr-6 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="text-right pr-6 flex items-center justify-end gap-2 transition-opacity">
                   <button onClick={(e) => { e.stopPropagation(); handleEditProductClick(product); }} className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-colors" title="Edit">
                     <Edit3 size={16} />
                   </button>
@@ -305,8 +366,10 @@ const ProductsTab = ({ selectedNamespaceId }) => {
           )}
         </div>
       </div>
-      </div>
-      </div>
+    </div>
+  </div>
+</div>
+</div>
 
       {/* Portals for Modals and Toasts */}
       {createPortal(
@@ -348,7 +411,23 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                 <div className="flex flex-col sm:flex-row w-full">
                   <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
                     <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Price *</label>
-                    <input type="number" step="0.01" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. 29.99" />
+                    <div className="flex items-stretch w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 transition-all">
+                      <select 
+                        value={formData.currency} 
+                        onChange={e => setFormData({...formData, currency: e.target.value})} 
+                        className="bg-slate-100 border-r border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-200 transition-colors"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="BDT">BDT</option>
+                        <option value="INR">INR</option>
+                        <option value="AUD">AUD</option>
+                        <option value="CAD">CAD</option>
+                        <option value="JPY">JPY</option>
+                      </select>
+                      <input type="number" step="0.01" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-slate-700 outline-none" placeholder="E.g. 29.99" />
+                    </div>
                   </div>
                   <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
                     <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Category</label>
@@ -363,26 +442,29 @@ const ProductsTab = ({ selectedNamespaceId }) => {
 
                 <div className="flex flex-col sm:flex-row w-full">
                   <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
+                    <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Variants</label>
+                    <input type="text" value={formData.variants} onChange={e => setFormData({...formData, variants: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Red, XL" />
+                  </div>
+                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
                     <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Tags (comma separated)</label>
                     <input type="text" value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="cotton, summer, blue" />
                   </div>
-                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4 flex flex-col justify-center">
-                    <div className="flex items-center justify-between pt-6">
-                      <label className="text-sm font-bold text-slate-700">In Stock / Available</label>
-                      <div 
-                        className={`w-12 h-6 rounded-full cursor-pointer relative transition-colors ${formData.availability ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                        onClick={() => setFormData({...formData, availability: !formData.availability})}
-                      >
-                        <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${formData.availability ? 'translate-x-6' : ''}`}></div>
-                      </div>
-                    </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <label className="text-sm font-bold text-slate-700">In Stock / Available</label>
+                  <div 
+                    className={`w-12 h-6 rounded-full cursor-pointer relative transition-colors ${formData.availability ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                    onClick={() => setFormData({...formData, availability: !formData.availability})}
+                  >
+                    <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${formData.availability ? 'translate-x-6' : ''}`}></div>
                   </div>
                 </div>
 
                 <div className="space-y-2 pt-2">
                   <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase flex justify-between">
                     <span>Product Assets (Max 3)</span>
-                    <span>{selectedFiles.length} / 3 selected</span>
+                    <span>{selectedFiles.length + existingAssets.length} / 3 total</span>
                   </label>
                   <label className="w-full h-24 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all">
                     <span className="material-symbols-outlined text-slate-400 mb-1">upload_file</span>
@@ -393,16 +475,40 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                       accept="image/*,video/mp4,application/pdf"
                       className="hidden" 
                       onChange={e => {
-                        if (e.target.files.length > 3) {
-                          addToast('You can only select a maximum of 3 files.', 'error');
+                        if (e.target.files.length + existingAssets.length > 3) {
+                          addToast('You can only have a maximum of 3 files total.', 'error');
                           return;
                         }
                         setSelectedFiles(Array.from(e.target.files));
                       }}
                     />
                   </label>
+                  
+                  {/* Display Existing Assets */}
+                  {existingAssets.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Currently Uploaded</p>
+                      <div className="flex gap-4 flex-wrap">
+                        {existingAssets.map((asset, idx) => (
+                          <div key={asset.id || idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 flex items-center justify-center group" title={asset.original_filename}>
+                            {asset.file_type === 'image' || asset.mime_type?.includes('image') ? (
+                              <FallbackImage src={asset.url?.startsWith('http') ? asset.url : `https://api.lyfflow.com${asset.url?.startsWith('/') ? '' : '/'}${asset.url}`} className="w-full h-full object-cover" />
+                            ) : asset.file_type === 'video' || asset.mime_type?.includes('video') ? (
+                              <Video size={20} className="text-emerald-500" />
+                            ) : (
+                              <FileText size={20} className="text-blue-500" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Display Newly Selected Files */}
                   {selectedFiles.length > 0 && (
-                    <div className="flex gap-4 flex-wrap mt-4">
+                    <div className="mt-4">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">New Files to Upload</p>
+                      <div className="flex gap-4 flex-wrap">
                       {selectedFiles.map((f, i) => (
                         <div key={i} className="flex flex-col items-center gap-2">
                           {f.type.startsWith('image/') ? (
@@ -415,6 +521,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                           <span className="text-[10px] text-slate-500 truncate w-20 text-center font-medium">{f.name}</span>
                         </div>
                       ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -544,7 +651,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                               <span className="material-symbols-outlined text-[120px]">payments</span>
                             </div>
                             <h4 className="text-xs font-bold tracking-[0.2em] text-emerald-100 uppercase mb-2">Price</h4>
-                            <div className="text-5xl font-black drop-shadow-md">${selectedProductDetail.price}</div>
+                            <div className="text-5xl font-black drop-shadow-md">{selectedProductDetail.price}</div>
                           </div>
 
                           <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[32px] border border-slate-200/60 shadow-xl shadow-slate-200/50 hover:-translate-y-1 transition-transform">
