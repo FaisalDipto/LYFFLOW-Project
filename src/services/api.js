@@ -187,6 +187,11 @@ export const apiService = {
     method: 'POST',
     body: formData,
   }),
+  setPrimaryAsset: (namespaceId, productId, assetId) => apiFetch(`/v1/products/${namespaceId}/update/${productId}/set-assets/primary`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ asset_id: assetId }),
+  }),
   deleteProductAsset: (namespaceId, productId, assetId) => apiFetch(`/v1/products/${namespaceId}/update/${productId}/delete-assets/${assetId}`, {
     method: 'DELETE',
   }),

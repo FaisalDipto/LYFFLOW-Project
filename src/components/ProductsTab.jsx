@@ -285,6 +285,35 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     }
   };
 
+  const handleSetPrimaryAsset = async (assetId) => {
+    if (!editingProductId) return;
+    try {
+      await apiService.setPrimaryAsset(selectedNamespaceId, editingProductId, assetId);
+      addToast('Primary asset updated successfully', 'success');
+      
+      const selectedAsset = existingAssets.find(a => a.id === assetId);
+
+      setExistingAssets(prev => prev.map(asset => ({
+        ...asset,
+        is_primary: asset.id === assetId
+      })));
+      
+      if (selectedAsset) {
+        setProducts(prevProducts => prevProducts.map(p => {
+          if (p.product_id === editingProductId) {
+            return { 
+              ...p, 
+              primary_assets: [{...selectedAsset, is_primary: true}] 
+            };
+          }
+          return p;
+        }));
+      }
+    } catch (err) {
+      addToast('Failed to set primary asset: ' + err.message, 'error');
+    }
+  };
+
   return (
     <>
       <div className="animate-fade-in-up mt-6 p-8 rounded-[40px] bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-2xl shadow-emerald-500/20 relative overflow-hidden">
@@ -586,6 +615,27 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                             ) : (
                               <FileText size={20} className="text-blue-500" />
                             )}
+                            
+                            {/* Primary Badge */}
+                            {asset.is_primary && (
+                              <div className="absolute top-1 left-1 bg-yellow-400 text-white rounded-full p-0.5 shadow-sm z-10" title="Primary Asset">
+                                <span className="material-symbols-outlined text-[10px] block">star</span>
+                              </div>
+                            )}
+
+                            {/* Hover Overlay */}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                              {!asset.is_primary && (
+                                <button 
+                                  type="button" 
+                                  onClick={(e) => { e.stopPropagation(); handleSetPrimaryAsset(asset.id); }}
+                                  className="w-6 h-6 rounded-full bg-white/20 text-white hover:bg-yellow-400 flex items-center justify-center transition-colors"
+                                  title="Set as Primary"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">star</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
