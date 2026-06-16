@@ -3570,7 +3570,8 @@ const SubscriptionPanel = () => {
           price: apiPlan.price_per_month,
           color: color,
           features: [
-            `${apiPlan.max_pages === -1 ? 'Unlimited' : apiPlan.max_pages} Pages`,
+            `${apiPlan.max_namespaces === -1 ? 'Unlimited' : apiPlan.max_namespaces} Namespaces`,
+            `${apiPlan.max_products === -1 ? 'Unlimited' : apiPlan.max_products} Products`,
             `${apiPlan.max_agents === -1 ? 'Unlimited' : apiPlan.max_agents} Agents`,
             `${apiPlan.max_tokens_per_month === -1 ? 'Unlimited Tokens' : (apiPlan.max_tokens_per_month >= 1000000 ? (apiPlan.max_tokens_per_month / 1000000) + 'M Tokens/mo' : (apiPlan.max_tokens_per_month / 1000) + 'K Tokens/mo')}`,
             `${apiPlan.max_storage_bytes === -1 ? 'Unlimited Storage' : (apiPlan.max_storage_bytes >= 1073741824 ? (apiPlan.max_storage_bytes / 1073741824) + ' GB Storage' : (apiPlan.max_storage_bytes / 1048576) + ' MB Storage')}`
