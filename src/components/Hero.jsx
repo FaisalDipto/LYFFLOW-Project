@@ -115,7 +115,7 @@ export default function Hero() {
           </div>
 
         {/* CONTENT LAYER */}
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center relative z-10 w-full overflow-x-hidden sm:overflow-visible">
+        <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center relative z-10 w-full overflow-x-hidden sm:overflow-visible">
           <div className="space-y-8 animate-fade-up min-w-0 w-full max-w-full">
             <span className="inline-block px-4 py-1.5 bg-secondary text-white text-[10px] font-bold tracking-[0.2em] uppercase rounded-full shadow-lg shadow-secondary/20">Automate Everything</span>
             <h1 className="font-headline text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-tighter leading-[1.1] text-primary break-words">

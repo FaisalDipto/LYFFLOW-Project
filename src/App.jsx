@@ -1,17 +1,23 @@
-import { useEffect, useState } from 'react' // Final check on imports
+import { useEffect, useState, lazy, Suspense } from 'react' // Final check on imports
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import Home from './pages/Home'
-import GetStarted from './pages/GetStarted'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Feedback from './pages/Feedback'
-import Legal from './pages/Legal'
-import Pricing from './pages/Pricing'
-import Sales from './pages/Sales'
-import AdminLogin from './pages/AdminLogin'
-import AdminPanel from './pages/AdminPanel'
 import { WidgetProvider } from './context/WidgetContext'
 import './App.css'
+import './pages/GetStarted.css'
+import './pages/Login.css'
+import './pages/Dashboard.css'
+import './pages/Feedback.css'
+import './pages/AdminPanel.css'
+
+const Home = lazy(() => import('./pages/Home'))
+const GetStarted = lazy(() => import('./pages/GetStarted'))
+const Login = lazy(() => import('./pages/Login'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Feedback = lazy(() => import('./pages/Feedback'))
+const Legal = lazy(() => import('./pages/Legal'))
+const Pricing = lazy(() => import('./pages/Pricing'))
+const Sales = lazy(() => import('./pages/Sales'))
+const AdminLogin = lazy(() => import('./pages/AdminLogin'))
+const AdminPanel = lazy(() => import('./pages/AdminPanel'))
 
 // Handles scroll-to-top on route change and smooth-scroll to hash sections
 function ScrollManager() {
@@ -90,22 +96,24 @@ function App() {
     <WidgetProvider>
       <RateLimitModal />
       <ScrollManager />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/get-started" element={<GetStarted />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/dashboard/*" element={<Dashboard />} />
-        <Route path="/feedback" element={<Feedback />} />
-        <Route path="/legal" element={<Legal />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/sales" element={<Sales />} />
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin" element={<AdminPanel />} />
-        
-        
-        {/* Redirect hardcoded backend callbacks back to /app prefix */}
+      <Suspense fallback={<div className="h-screen w-full flex items-center justify-center"><div className="animate-pulse text-slate-400 font-bold">Loading LYFFLOW...</div></div>}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/get-started" element={<GetStarted />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/dashboard/*" element={<Dashboard />} />
+          <Route path="/feedback" element={<Feedback />} />
+          <Route path="/legal" element={<Legal />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/sales" element={<Sales />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminPanel />} />
+          
+          
+          {/* Redirect hardcoded backend callbacks back to /app prefix */}
 
-      </Routes>
+        </Routes>
+      </Suspense>
     </WidgetProvider>
   )
 }

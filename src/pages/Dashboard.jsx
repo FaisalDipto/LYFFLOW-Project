@@ -4220,34 +4220,34 @@ export default function Dashboard() {
 
     return (
       <>
-        <div style={{ display: activeTab === 'overview' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'overview' ? 'contents' : 'none' }}>
           <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={fetchData} onAddPage={() => setPreReauthModal(true)} />
         </div>
-        <div style={{ display: activeTab === 'records' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'records' ? 'contents' : 'none' }}>
           <CustomerRecords pages={pages} />
         </div>
-        <div style={{ display: activeTab === 'conversation' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
           <ConversationList pages={pages} user={user} />
         </div>
-        <div style={{ display: activeTab === 'knowledge' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'knowledge' ? 'contents' : 'none' }}>
           <Knowledge namespaces={namespaces} onUpdate={fetchData} />
         </div>
-        <div style={{ display: activeTab === 'agent' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'agent' ? 'contents' : 'none' }}>
           <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={fetchData} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />
         </div>
-        <div style={{ display: activeTab === 'feedback' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'feedback' ? 'contents' : 'none' }}>
           <FeedbackPanel />
         </div>
-        <div style={{ display: activeTab === 'settings' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'settings' ? 'contents' : 'none' }}>
           <SettingsPanel user={user} onUpdate={fetchData} />
         </div>
-        <div style={{ display: activeTab === 'subscription' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'subscription' ? 'contents' : 'none' }}>
           <SubscriptionPanel />
         </div>
-        <div style={{ display: activeTab === 'support' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'support' ? 'contents' : 'none' }}>
           <SupportPanel />
         </div>
-        <div style={{ display: activeTab === 'tutorial' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+        <div style={{ display: activeTab === 'tutorial' ? 'contents' : 'none' }}>
           <TutorialPanel />
         </div>
       </>
