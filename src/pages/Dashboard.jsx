@@ -99,7 +99,7 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
       setTimeout(() => {
         setSuccess(prev => ({ ...prev, [pageId]: false }));
       }, 3000);
-      if (onUpdate) onUpdate();
+      // Removed onUpdate() to prevent excessive API calls. Local state handles UI update.
     } catch (error) {
       console.error("Failed to assign agent:", error);
       alert("Failed to assign agent: " + error.message);
@@ -124,7 +124,7 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
       setTimeout(() => {
         setSuccess(prev => ({ ...prev, [pageId]: false }));
       }, 3000);
-      if (onUpdate) onUpdate();
+      // Removed onUpdate() to prevent excessive API calls. Local state handles UI update.
     } catch (error) {
       console.error("Failed to unassign agent:", error);
       alert("Failed to unassign agent: " + error.message);
@@ -2530,7 +2530,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       await apiService.setAgentNamespace(agentId, namespaceId);
       addToast('Agent assigned successfully', 'success');
       setAssignModalAgent(null);
-      if (onUpdate) onUpdate();
+      if (onAgentEdited) onAgentEdited(agentId, { namespace_id: namespaceId });
     } catch (e) {
       console.error(e);
       addToast('Failed to assign: ' + e.message, 'error');
@@ -2552,7 +2552,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     try {
       await apiService.unsetAgentNamespace(agentId);
       addToast('Agent unassigned successfully', 'success');
-      if (onUpdate) onUpdate();
+      if (onAgentEdited) onAgentEdited(agentId, { namespace_id: null });
     } catch (e) {
       console.error(e);
       addToast('Failed to unassign: ' + e.message, 'error');
@@ -2572,7 +2572,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     try {
       await apiService.deleteAgent(agent.agent_id);
       addToast('Agent deleted successfully', 'delete');
-      if (onUpdate) onUpdate();
+      if (onUpdate) onUpdate(); // We can keep onUpdate here or use a delete specific handler. Since deleting might affect dialogue counts elsewhere, onUpdate is okay, but ideal is local. Let's keep onUpdate for delete for now as it's less common.
     } catch (e) {
       console.error(e);
       addToast('Failed to delete agent: ' + e.message, 'error');
@@ -4218,19 +4218,40 @@ export default function Dashboard() {
       return <div className="dashboard-content-area"><h2>Loading workspace...</h2></div>;
     }
 
-    switch (activeTab) {
-      case 'overview': return <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={fetchData} onAddPage={() => setPreReauthModal(true)} />;
-      case 'records': return <CustomerRecords pages={pages} />;
-      case 'conversation': return <ConversationList pages={pages} user={user} />;
-      case 'knowledge': return <Knowledge namespaces={namespaces} onUpdate={fetchData} />;
-      case 'agent': return <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={fetchData} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />;
-      case 'feedback': return <FeedbackPanel />;
-      case 'settings': return <SettingsPanel user={user} onUpdate={fetchData} />;
-      case 'subscription': return <SubscriptionPanel />;
-      case 'support': return <SupportPanel />;
-      case 'tutorial': return <TutorialPanel />;
-      default: return <div className="dashboard-content-area"><h2>Coming Soon</h2></div>;
-    }
+    return (
+      <>
+        <div style={{ display: activeTab === 'overview' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={fetchData} onAddPage={() => setPreReauthModal(true)} />
+        </div>
+        <div style={{ display: activeTab === 'records' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <CustomerRecords pages={pages} />
+        </div>
+        <div style={{ display: activeTab === 'conversation' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <ConversationList pages={pages} user={user} />
+        </div>
+        <div style={{ display: activeTab === 'knowledge' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <Knowledge namespaces={namespaces} onUpdate={fetchData} />
+        </div>
+        <div style={{ display: activeTab === 'agent' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={fetchData} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />
+        </div>
+        <div style={{ display: activeTab === 'feedback' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <FeedbackPanel />
+        </div>
+        <div style={{ display: activeTab === 'settings' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <SettingsPanel user={user} onUpdate={fetchData} />
+        </div>
+        <div style={{ display: activeTab === 'subscription' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <SubscriptionPanel />
+        </div>
+        <div style={{ display: activeTab === 'support' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <SupportPanel />
+        </div>
+        <div style={{ display: activeTab === 'tutorial' ? 'block' : 'none', height: '100%', width: '100%', flex: 1 }}>
+          <TutorialPanel />
+        </div>
+      </>
+    );
   };
 
   return (
