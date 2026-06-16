@@ -1691,7 +1691,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
             </div>
 
             <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
-              Upload and manage the documents and products that power your agents. These resources provide the semantic context for all AI interactions.
+              Upload and manage the documents and products that power your agents. These resources provide the context for all AI interactions.
             </p>
           </div>
 
