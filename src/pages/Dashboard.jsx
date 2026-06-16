@@ -2963,11 +2963,24 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                   </div>
 
                   {/* Namespace Display */}
-                  {isAssigned && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-md mt-2 w-max border border-emerald-100 uppercase tracking-wider">
+                  {isAssigned ? (
+                    <button 
+                      onClick={() => setAssignModalAgent(agent)}
+                      className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-md mt-2 w-max border border-emerald-100 uppercase tracking-wider hover:bg-emerald-100 transition-colors"
+                      title="Change Namespace"
+                    >
                       <span className="material-symbols-outlined text-[12px]">dns</span>
                       <span>NS: {agent.namespace_id.split('-')[0]}...</span>
-                    </div>
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => setAssignModalAgent(agent)}
+                      className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded-md mt-2 w-max border border-slate-200 uppercase tracking-wider hover:bg-slate-100 transition-colors"
+                      title="Connect Namespace"
+                    >
+                      <span className="material-symbols-outlined text-[12px]">add_link</span>
+                      <span>Connect Namespace</span>
+                    </button>
                   )}
 
                   {/* Actions — shown on hover */}
