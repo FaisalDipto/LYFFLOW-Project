@@ -169,10 +169,11 @@ export const apiService = {
       body: formData,
     });
   },
-  getProducts: (namespaceId, cursor = null, pageSize = 20, isActive = null) => {
+  getProducts: (namespaceId, cursor = null, pageSize = 20, isActive = null, importSource = null) => {
     let url = `/v1/products/${namespaceId}/all-products?page_size=${pageSize}&_t=${Date.now()}`;
     if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
     if (isActive !== null) url += `&is_active=${isActive}`;
+    if (importSource && importSource !== 'all') url += `&import_source=${importSource}`;
     return apiFetch(url);
   },
   getProductDetail: (namespaceId, productId) => apiFetch(`/v1/products/${namespaceId}/detail/${productId}`),
@@ -204,6 +205,12 @@ export const apiService = {
     body: formData,
   }),
   getImportBatch: (namespaceId, batchId) => apiFetch(`/v1/products/${namespaceId}/import/csv/${batchId}`),
+  getImportCsvHistory: (namespaceId, status = null, cursor = null, pageSize = 10) => {
+    let url = `/v1/products/${namespaceId}/import/csv/history?page_size=${pageSize}&_t=${Date.now()}`;
+    if (status && status !== 'all') url += `&status=${status}`;
+    if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+    return apiFetch(url);
+  },
 
   // Agent Management
   getAgents: () => apiFetch('/v1/agents'),

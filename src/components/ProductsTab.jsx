@@ -58,6 +58,16 @@ const ProductsTab = ({ selectedNamespaceId }) => {
 
   // Filter State
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'active', 'inactive'
+  const [sourceFilter, setSourceFilter] = useState('all'); // 'all', 'csv', 'manual'
+
+  // History Modal State
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyBatches, setHistoryBatches] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyCursor, setHistoryCursor] = useState(null);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyCursors, setHistoryCursors] = useState([null]);
+  const [historyIndex, setHistoryIndex] = useState(0);
 
   // Pagination State
   const [history, setHistory] = useState([null]); // Array of cursors
@@ -82,7 +92,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
       if (activeFilter === 'active') isActiveParam = true;
       if (activeFilter === 'inactive') isActiveParam = false;
       
-      const data = await apiService.getProducts(selectedNamespaceId, cursor, PAGE_SIZE, isActiveParam);
+      const data = await apiService.getProducts(selectedNamespaceId, cursor, PAGE_SIZE, isActiveParam, sourceFilter);
       setProducts(data.items || []);
       setHasMore(data.pagination?.has_more || false);
       setNextCursor(data.pagination?.next_cursor || null);
@@ -94,11 +104,29 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     }
   };
 
+  const fetchHistoryBatches = async (cursor = null) => {
+    if (!selectedNamespaceId) return;
+    setLoadingHistory(true);
+    try {
+      // Assuming we just fetch all history (no status filter for now, or could add one later)
+      const data = await apiService.getImportCsvHistory(selectedNamespaceId, null, cursor, PAGE_SIZE);
+      setHistoryBatches(data.batches || []);
+      setHistoryHasMore(data.pagination?.has_more || false);
+      setHistoryCursor(data.pagination?.next_cursor || null);
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to load import history: ' + err.message, 'error');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   useEffect(() => {
     setHistory([null]);
     setCurrentIndex(0);
     fetchProducts(null);
-  }, [selectedNamespaceId, activeFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNamespaceId, activeFilter, sourceFilter]);
 
   const handleEditProductClick = async (product) => {
     setEditingProductId(product.product_id);
@@ -361,9 +389,24 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                 style={{ backgroundImage: 'none' }}
                 className="appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
               >
-                <option value="all" className="text-slate-800 font-semibold">All Products</option>
+                <option value="all" className="text-slate-800 font-semibold">All Status</option>
                 <option value="active" className="text-slate-800 font-semibold">Active</option>
                 <option value="inactive" className="text-slate-800 font-semibold">Inactive</option>
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/70">
+                <span className="material-symbols-outlined text-[20px]">expand_more</span>
+              </div>
+            </div>
+            <div className="relative">
+              <select 
+                value={sourceFilter} 
+                onChange={(e) => setSourceFilter(e.target.value)}
+                style={{ backgroundImage: 'none' }}
+                className="appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
+              >
+                <option value="all" className="text-slate-800 font-semibold">All Sources</option>
+                <option value="manual" className="text-slate-800 font-semibold">Manual</option>
+                <option value="csv" className="text-slate-800 font-semibold">CSV Import</option>
               </select>
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/70">
                 <span className="material-symbols-outlined text-[20px]">expand_more</span>
@@ -721,6 +764,25 @@ const ProductsTab = ({ selectedNamespaceId }) => {
             </div>
             
             <div className="p-6">
+              <div className="mb-6 flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800">Import History</h4>
+                  <p className="text-xs text-slate-500">View past batch uploads</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setHistoryCursors([null]);
+                    setHistoryIndex(0);
+                    fetchHistoryBatches(null);
+                    setShowHistoryModal(true);
+                  }}
+                  className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors"
+                >
+                  View History
+                </button>
+              </div>
+
               <form id="importCsvForm" onSubmit={handleImportCsv} className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Select CSV File</label>
@@ -954,7 +1016,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+        {/* Delete Confirmation Modal */}
       {deleteConfirmModal.show && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDeleteConfirmModal({ show: false, productId: null })}></div>
@@ -980,6 +1042,94 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                   Yes, Delete
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Import History Modal */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowHistoryModal(false)}></div>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100">
+              <h3 className="text-xl font-black font-['Epilogue'] tracking-tight text-slate-900">CSV Import History</h3>
+              <button onClick={() => setShowHistoryModal(false)} className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-50">
+              {loadingHistory ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                </div>
+              ) : historyBatches.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <span className="material-symbols-outlined text-4xl mb-2 opacity-50">history</span>
+                  <p>No import history found.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {historyBatches.map(batch => (
+                    <div key={batch.batch_id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                            {batch.batch_id.split('-')[0]}...
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
+                            batch.status === 'completed' ? 'bg-emerald-100 text-emerald-600' :
+                            batch.status === 'failed' ? 'bg-red-100 text-red-600' :
+                            'bg-amber-100 text-amber-600'
+                          }`}>
+                            {batch.status}
+                          </span>
+                        </div>
+                        <p className="font-semibold text-slate-800 text-sm mb-2">{batch.filename || 'Unknown File'}</p>
+                        <div className="text-xs text-slate-500 flex gap-4">
+                          <span><strong>Total:</strong> {batch.total_rows}</span>
+                          <span className="text-emerald-600"><strong>Success:</strong> {batch.processed_rows}</span>
+                          <span className="text-red-500"><strong>Failed:</strong> {batch.failed_rows}</span>
+                        </div>
+                      </div>
+                      <div className="text-right text-xs text-slate-400">
+                        <p>Started: {new Date(batch.created_at).toLocaleString()}</p>
+                        {batch.completed_at && <p>Ended: {new Date(batch.completed_at).toLocaleString()}</p>}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Pagination Controls */}
+                  <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-200">
+                    <button
+                      onClick={() => {
+                        const prevCursor = historyCursors[historyIndex - 1];
+                        setHistoryIndex(prev => prev - 1);
+                        fetchHistoryBatches(prevCursor);
+                      }}
+                      disabled={historyIndex === 0}
+                      className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm font-medium text-slate-500">Page {historyIndex + 1}</span>
+                    <button
+                      onClick={() => {
+                        if (historyCursors.length <= historyIndex + 1) {
+                          setHistoryCursors(prev => [...prev, historyCursor]);
+                        }
+                        setHistoryIndex(prev => prev + 1);
+                        fetchHistoryBatches(historyCursor);
+                      }}
+                      disabled={!historyHasMore}
+                      className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
