@@ -2144,7 +2144,7 @@ const AgentLog = ({ agents }) => {
     }
   }, [agents]);
 
-  useEffect(() => {
+  const fetchLogs = () => {
     if (!selectedAgentId) return;
     setLoading(true);
     setActivities([]);
@@ -2156,6 +2156,11 @@ const AgentLog = ({ agents }) => {
       })
       .catch(err => console.error('Failed to load agent activity', err))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchLogs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAgentId]);
 
   const handleLoadMore = () => {
@@ -2229,14 +2234,23 @@ const AgentLog = ({ agents }) => {
           <h2 className="text-3xl font-extrabold tracking-tight text-[#000000] font-['Epilogue']">Agent Log</h2>
           <p className="text-sm text-[#45464d] mt-2 max-w-md">Every decision your agent makes — trigger, response, handover, and timing — recorded here.</p>
         </div>
-        {/* Agent selector */}
-        <select
-          value={selectedAgentId}
-          onChange={e => setSelectedAgentId(e.target.value)}
-          className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-black/10 cursor-pointer"
-        >
-          {agents.map(a => <option key={a.agent_id} value={a.agent_id}>{a.name}</option>)}
-        </select>
+        <div className="flex gap-2">
+          <button 
+            onClick={fetchLogs}
+            disabled={loading}
+            className="flex items-center justify-center w-11 h-11 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50 shadow-sm"
+            title="Refresh Logs"
+          >
+            <span className={`material-symbols-outlined text-[20px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
+          </button>
+          <select
+            value={selectedAgentId}
+            onChange={e => setSelectedAgentId(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-black/10 cursor-pointer shadow-sm"
+          >
+            {agents.map(a => <option key={a.agent_id} value={a.agent_id}>{a.name}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Log Table */}
