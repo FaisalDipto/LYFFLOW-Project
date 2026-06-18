@@ -2,10 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import './Hero.css';
 import ProductShowcase from './ProductShowcase';
-import meharazPhoto from '../assets/team/meharaz.jpg';
-import swajanPhoto from '../assets/team/swajan.jpg';
-import mehediPhoto from '../assets/team/mehedi.jpg';
-import faisalPhoto from '../assets/team/faisal.jpg';
 import teamCorporate from '../assets/team_corporate.png';
 import dashboardCorporate from '../assets/dashboard_corporate.png';
 
@@ -17,7 +13,6 @@ const TEAM = [
     role: 'Backend & AI Developer',
     background: 'B.Sc. Engg. in CSE, Bangladesh University of Business and Technology',
     interests: null,
-    photo: meharazPhoto,
     delay: '',
     icon: 'memory'
   },
@@ -28,7 +23,6 @@ const TEAM = [
     role: 'Backend Developer',
     background: 'B.Sc. Engg. in CSE, Bangladesh University of Business and Technology',
     interests: null,
-    photo: mehediPhoto,
     delay: '[transition-delay:100ms]',
     icon: 'dns'
   },
@@ -39,7 +33,6 @@ const TEAM = [
     role: 'UI/UX & Frontend Developer',
     background: 'B.Sc. Engg. in CSE, Bangladesh University of Business and Technology',
     interests: null,
-    photo: faisalPhoto,
     delay: '[transition-delay:200ms]',
     icon: 'design_services'
   },
@@ -50,7 +43,6 @@ const TEAM = [
     role: 'Backend Developer',
     background: 'B.Sc. Engg. in CSE, American International University Bangladesh (AIUB)',
     interests: null,
-    photo: swajanPhoto,
     delay: '[transition-delay:300ms]',
     icon: 'database'
   },
