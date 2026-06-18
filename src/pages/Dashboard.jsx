@@ -2335,12 +2335,12 @@ const AgentLog = ({ agents }) => {
         )}
       </div>
 
-      {/* Detail Drawer */}
-      {selectedActivity && (
-        <div className="fixed inset-0 z-[9990] flex" onClick={() => setSelectedActivity(null)}>
-          <div className="flex-1 bg-black/40 backdrop-blur-sm" />
+      {/* Detail Drawer -> Modal */}
+      {selectedActivity && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4" onClick={() => setSelectedActivity(null)}>
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
           <div
-            className="w-full max-w-lg bg-white h-full overflow-y-auto shadow-2xl flex flex-col animate-fade-in-right"
+            className="w-full max-w-2xl bg-white rounded-3xl max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 relative z-10"
             onClick={e => e.stopPropagation()}
           >
             {/* Drawer Header */}
@@ -2475,7 +2475,8 @@ const AgentLog = ({ agents }) => {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
