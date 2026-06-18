@@ -69,6 +69,10 @@ const ProductsTab = ({ selectedNamespaceId }) => {
   const [historyCursors, setHistoryCursors] = useState([null]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
+  // Batch Detail State
+  const [selectedBatchDetail, setSelectedBatchDetail] = useState(null);
+  const [loadingBatchDetail, setLoadingBatchDetail] = useState(false);
+
   // Pagination State
   const [history, setHistory] = useState([null]); // Array of cursors
   const [currentIndex, setCurrentIndex] = useState(0); // Current page index
@@ -118,6 +122,20 @@ const ProductsTab = ({ selectedNamespaceId }) => {
       addToast('Failed to load import history: ' + err.message, 'error');
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const fetchBatchDetail = async (batchId) => {
+    if (!selectedNamespaceId) return;
+    setLoadingBatchDetail(true);
+    try {
+      const data = await apiService.getImportBatch(selectedNamespaceId, batchId);
+      setSelectedBatchDetail(data);
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to load batch details: ' + err.message, 'error');
+    } finally {
+      setLoadingBatchDetail(false);
     }
   };
 
@@ -1064,6 +1082,66 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                 <div className="flex justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
                 </div>
+              ) : selectedBatchDetail ? (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="mb-4">
+                    <button 
+                      onClick={() => setSelectedBatchDetail(null)}
+                      className="flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                      Back to History
+                    </button>
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <h4 className="text-lg font-black text-slate-800 mb-1">Batch Details</h4>
+                        <p className="text-sm text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded inline-block">{selectedBatchDetail.batch_id}</p>
+                      </div>
+                      <span className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full ${
+                        selectedBatchDetail.status === 'completed' ? 'bg-emerald-100 text-emerald-600' :
+                        selectedBatchDetail.status === 'failed' ? 'bg-red-100 text-red-600' :
+                        'bg-amber-100 text-amber-600'
+                      }`}>
+                        {selectedBatchDetail.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p className="text-xs text-slate-500 font-semibold mb-1">Total Rows</p>
+                        <p className="text-xl font-black text-slate-800">{selectedBatchDetail.total_rows}</p>
+                      </div>
+                      <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                        <p className="text-xs text-emerald-600 font-semibold mb-1">Success</p>
+                        <p className="text-xl font-black text-emerald-700">{selectedBatchDetail.processed_rows}</p>
+                      </div>
+                      <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                        <p className="text-xs text-red-600 font-semibold mb-1">Failed</p>
+                        <p className="text-xl font-black text-red-700">{selectedBatchDetail.failed_rows}</p>
+                      </div>
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p className="text-xs text-slate-500 font-semibold mb-1">Filename</p>
+                        <p className="text-sm font-bold text-slate-800 truncate" title={selectedBatchDetail.filename}>{selectedBatchDetail.filename || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    {selectedBatchDetail.error_log && selectedBatchDetail.error_log.length > 0 && (
+                      <div>
+                        <h5 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-red-500 text-[20px]">error</span>
+                          Error Log
+                        </h5>
+                        <div className="bg-slate-900 rounded-xl p-4 overflow-x-auto">
+                          <pre className="text-xs text-emerald-400 font-mono whitespace-pre-wrap">
+                            {JSON.stringify(selectedBatchDetail.error_log, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : historyBatches.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
                   <span className="material-symbols-outlined text-4xl mb-2 opacity-50">history</span>
@@ -1072,7 +1150,11 @@ const ProductsTab = ({ selectedNamespaceId }) => {
               ) : (
                 <div className="space-y-4">
                   {historyBatches.map(batch => (
-                    <div key={batch.batch_id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                    <div 
+                      key={batch.batch_id} 
+                      onClick={() => fetchBatchDetail(batch.batch_id)}
+                      className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between cursor-pointer hover:border-emerald-300 hover:shadow-md transition-all group"
+                    >
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
@@ -1086,16 +1168,19 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                             {batch.status}
                           </span>
                         </div>
-                        <p className="font-semibold text-slate-800 text-sm mb-2">{batch.filename || 'Unknown File'}</p>
+                        <p className="font-semibold text-slate-800 text-sm mb-2 group-hover:text-emerald-600 transition-colors">{batch.filename || 'Unknown File'}</p>
                         <div className="text-xs text-slate-500 flex gap-4">
                           <span><strong>Total:</strong> {batch.total_rows}</span>
                           <span className="text-emerald-600"><strong>Success:</strong> {batch.processed_rows}</span>
                           <span className="text-red-500"><strong>Failed:</strong> {batch.failed_rows}</span>
                         </div>
                       </div>
-                      <div className="text-right text-xs text-slate-400">
-                        <p>Started: {new Date(batch.created_at).toLocaleString()}</p>
-                        {batch.completed_at && <p>Ended: {new Date(batch.completed_at).toLocaleString()}</p>}
+                      <div className="text-right text-xs text-slate-400 flex flex-col items-end gap-2">
+                        <div>
+                          <p>Started: {new Date(batch.created_at).toLocaleString()}</p>
+                          {batch.completed_at && <p>Ended: {new Date(batch.completed_at).toLocaleString()}</p>}
+                        </div>
+                        <span className="material-symbols-outlined text-slate-300 group-hover:text-emerald-500 transition-colors">chevron_right</span>
                       </div>
                     </div>
                   ))}
