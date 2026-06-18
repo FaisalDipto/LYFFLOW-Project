@@ -62,6 +62,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
 
   // History Modal State
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('all');
   const [historyBatches, setHistoryBatches] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyCursor, setHistoryCursor] = useState(null);
@@ -108,12 +109,12 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     }
   };
 
-  const fetchHistoryBatches = async (cursor = null) => {
+  const fetchHistoryBatches = async (cursor = null, statusOverride = null) => {
     if (!selectedNamespaceId) return;
     setLoadingHistory(true);
     try {
-      // Assuming we just fetch all history (no status filter for now, or could add one later)
-      const data = await apiService.getImportCsvHistory(selectedNamespaceId, null, cursor, PAGE_SIZE);
+      const statusToUse = statusOverride !== null ? statusOverride : historyStatusFilter;
+      const data = await apiService.getImportCsvHistory(selectedNamespaceId, statusToUse, cursor, PAGE_SIZE);
       setHistoryBatches(data.batches || []);
       setHistoryHasMore(data.pagination?.has_more || false);
       setHistoryCursor(data.pagination?.next_cursor || null);
@@ -145,6 +146,15 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     fetchProducts(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNamespaceId, activeFilter, sourceFilter]);
+
+  useEffect(() => {
+    if (showHistoryModal) {
+      setHistoryCursors([null]);
+      setHistoryIndex(0);
+      fetchHistoryBatches(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyStatusFilter]);
 
   const handleEditProductClick = async (product) => {
     setEditingProductId(product.product_id);
@@ -1071,7 +1081,22 @@ const ProductsTab = ({ selectedNamespaceId }) => {
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowHistoryModal(false)}></div>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center p-6 border-b border-slate-100">
-              <h3 className="text-xl font-black font-['Epilogue'] tracking-tight text-slate-900">CSV Import History</h3>
+              <div className="flex items-center gap-4">
+                <h3 className="text-xl font-black font-['Epilogue'] tracking-tight text-slate-900">CSV Import History</h3>
+                {!selectedBatchDetail && (
+                  <select 
+                    value={historyStatusFilter} 
+                    onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                    className="appearance-none pl-3 pr-8 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all font-semibold text-xs border border-slate-200 outline-none cursor-pointer"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                )}
+              </div>
               <button onClick={() => setShowHistoryModal(false)} className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors">
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
