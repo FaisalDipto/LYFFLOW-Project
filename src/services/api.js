@@ -127,7 +127,7 @@ export const apiService = {
   getPages: () => apiFetch('/v1/pages'),
 
   // Knowledge Base
-  generateNamespace: () => apiFetch('/v1/knowledge/generate-namespace', { method: 'POST', body: JSON.stringify({}) }),
+  generateNamespace: (namespaceName = 'New Namespace') => apiFetch('/v1/knowledge/generate-namespace', { method: 'POST', body: JSON.stringify({ namespace_name: namespaceName }) }),
   getNamespaces: () => apiFetch('/v1/knowledge/get-namespaces'),
 
   getKnowledge: (namespaceId) => apiFetch(`/v1/knowledge/${namespaceId}`),

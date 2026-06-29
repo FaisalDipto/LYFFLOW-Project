@@ -1379,6 +1379,11 @@ const Knowledge = ({ namespaces, onUpdate }) => {
   const [knowledgeList, setKnowledgeList] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Namespace creation state
+  const [showNamespaceModal, setShowNamespaceModal] = useState(false);
+  const [newNamespaceName, setNewNamespaceName] = useState('');
+  const [generatingNs, setGeneratingNs] = useState(false);
+
   // Modal state
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
@@ -1633,25 +1638,145 @@ const Knowledge = ({ namespaces, onUpdate }) => {
     setEditingItemId(null);
   };
 
+  const namespaceModalPortal = ReactDOM.createPortal(
+    <>
+      {showNamespaceModal && (
+        <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => !generatingNs && setShowNamespaceModal(false)} />
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative z-10 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-extrabold text-slate-800 font-['Epilogue']">Create Namespace</h3>
+              <button
+                onClick={() => !generatingNs && setShowNamespaceModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-6">
+              Namespaces help organize your knowledge base documents into distinct collections or categories.
+            </p>
+            <div className="mb-6">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Namespace Name *
+              </label>
+              <input
+                type="text"
+                value={newNamespaceName}
+                onChange={(e) => setNewNamespaceName(e.target.value)}
+                placeholder="e.g. Customer FAQ, Technical Specs"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && newNamespaceName.trim() && !generatingNs) {
+                    setGeneratingNs(true);
+                    try {
+                      const res = await apiService.generateNamespace(newNamespaceName.trim());
+                      addToast('Namespace generated successfully!', 'success');
+                      setShowNamespaceModal(false);
+                      setNewNamespaceName('');
+                      if (res && (res.namespace_id || res.namespace)) {
+                        setSelectedNamespaceId(res.namespace_id || res.namespace);
+                      }
+                      if (onUpdate) onUpdate();
+                    } catch (err) {
+                      addToast('Failed to generate namespace: ' + err.message, 'error');
+                    } finally {
+                      setGeneratingNs(false);
+                    }
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowNamespaceModal(false)}
+                disabled={generatingNs}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={generatingNs || !newNamespaceName.trim()}
+                onClick={async () => {
+                  setGeneratingNs(true);
+                  try {
+                    const res = await apiService.generateNamespace(newNamespaceName.trim());
+                    addToast('Namespace generated successfully!', 'success');
+                    setShowNamespaceModal(false);
+                    setNewNamespaceName('');
+                    if (res && (res.namespace_id || res.namespace)) {
+                      setSelectedNamespaceId(res.namespace_id || res.namespace);
+                    }
+                    if (onUpdate) onUpdate();
+                  } catch (err) {
+                    addToast('Failed to generate namespace: ' + err.message, 'error');
+                  } finally {
+                    setGeneratingNs(false);
+                  }
+                }}
+                className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {generatingNs ? (
+                  <>
+                    <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+                    Creating...
+                  </>
+                ) : (
+                  'Create'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>,
+    document.body
+  );
+
   if (!namespaces || namespaces.length === 0) {
     return (
       <div className="dashboard-content-area animate-fade-in-up">
+        {namespaceModalPortal}
+        {ReactDOM.createPortal(
+          <div style={{ position: 'fixed', top: '24px', right: '24px', display: 'flex', flexDirection: 'column', gap: '12px', zIndex: 999999, pointerEvents: 'none' }}>
+            {toasts.map(t => (
+              <div key={t.id} style={{
+                animation: 'slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                padding: '16px 20px',
+                borderRadius: '8px',
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: '14px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: '250px',
+                pointerEvents: 'auto',
+                backgroundColor: t.type === 'success' ? '#10b981' : t.type === 'error' ? '#ef4444' : t.type === 'delete' ? '#f43f5e' : '#0ea5e9',
+              }}>
+                <div style={{ marginRight: '12px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '50%' }}>
+                  {t.type === 'success' ? '✓' : t.type === 'error' ? '!' : t.type === 'delete' ? '✕' : 'ℹ'}
+                </div>
+                {t.message}
+              </div>
+            ))}
+          </div>,
+          document.body
+        )}
         <div className="dashboard-header">
           <h2>Knowledge Base</h2>
           <p>Please generate a namespace before adding knowledge. The API requires a namespace context.</p>
           <button
               className="bg-emerald-500 text-white text-sm font-bold py-3 px-6 rounded-xl mt-4 hover:bg-emerald-600 transition-all shadow-lg"
-              onClick={async () => {
-                try {
-                  const res = await apiService.generateNamespace();
-                  addToast('Namespace generated successfully!', 'success');
-                  if (onUpdate) onUpdate();
-                } catch (e) {
-                  addToast('Failed to generate namespace: ' + e.message, 'error');
-                }
+              onClick={() => {
+                setNewNamespaceName('');
+                setShowNamespaceModal(true);
               }}
             >
-              Generate Namespace
+              + Create Namespace
             </button>
         </div>
       </div>
@@ -1710,26 +1835,19 @@ const Knowledge = ({ namespaces, onUpdate }) => {
               {namespaces.length === 0 && <option value="">No namespaces</option>}
               {namespaces.map((ns, idx) => {
                 const nsId = ns.namespace_id || ns.namespace;
-                return <option key={idx} value={nsId}>{nsId.split('-')[0]}...{nsId.slice(-4)}</option>;
+                const nsName = ns.namespace_name || ns.name;
+                return <option key={idx} value={nsId}>{nsName ? `${nsName} (${nsId.split('-')[0]}...)` : `${nsId.split('-')[0]}...${nsId.slice(-4)}`}</option>;
               })}
             </select>
 
             <button
               className="bg-emerald-50 text-emerald-600 text-sm font-bold py-3 px-4 rounded-xl flex items-center gap-2 hover:bg-emerald-100 transition-all border border-emerald-200"
-              onClick={async () => {
-                try {
-                  const res = await apiService.generateNamespace();
-                  addToast('Namespace generated successfully!', 'success');
-                  if (res && res.namespace) {
-                    setSelectedNamespaceId(res.namespace);
-                  }
-                  if (onUpdate) onUpdate();
-                } catch (e) {
-                  addToast('Failed to generate namespace: ' + e.message, 'error');
-                }
+              onClick={() => {
+                setNewNamespaceName('');
+                setShowNamespaceModal(true);
               }}
             >
-              Generate Namespace
+              + New Namespace
             </button>
 
             <button
@@ -2082,6 +2200,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
         </div>,
         document.body
       )}
+      {namespaceModalPortal}
     </div>
   );
 };
@@ -2751,6 +2870,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px', maxHeight: '200px', overflowY: 'auto' }}>
               {namespaces?.length > 0 ? namespaces.map((ns, idx) => {
                 const nsId = ns.namespace_id || ns.namespace;
+                const nsName = ns.namespace_name || ns.name;
                 return (
                   <button
                     key={idx}
@@ -2760,7 +2880,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                     onMouseEnter={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#f1f5f9' }}
                     onMouseLeave={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#f8fafc' }}
                   >
-                    Namespace: {nsId.split('-')[0]}...{nsId.slice(-4)}
+                    {nsName ? `${nsName} (${nsId.split('-')[0]}...)` : `Namespace: ${nsId.split('-')[0]}...${nsId.slice(-4)}`}
                   </button>
                 );
               }) : (
@@ -2985,7 +3105,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       title="Change Namespace"
                     >
                       <span className="material-symbols-outlined text-[12px]">dns</span>
-                      <span>NS: {agent.namespace_id.split('-')[0]}...</span>
+                      <span>{(() => {
+                        const matchedNs = namespaces?.find(n => (n.namespace_id || n.namespace) === agent.namespace_id);
+                        const nsName = matchedNs?.namespace_name || matchedNs?.name;
+                        return nsName ? `NS: ${nsName}` : `NS: ${agent.namespace_id.split('-')[0]}...`;
+                      })()}</span>
                     </button>
                   ) : (
                     <button 
