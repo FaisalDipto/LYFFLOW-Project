@@ -225,6 +225,7 @@ export const apiService = {
     const qs = q.toString() ? `?${q.toString()}` : '';
     return apiFetch(`/v1/agent/${agentId}/agent_activity${qs}`);
   },
+  getAgentActivityDetail: (agentId, activityId) => apiFetch(`/v1/agent/${agentId}/agent_activity/${activityId}/detail`),
 
   createAgent: (agentData) => apiFetch('/v1/agent/create', {
     method: 'POST',

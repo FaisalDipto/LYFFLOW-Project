@@ -2301,9 +2301,20 @@ const AgentLog = ({ agents }) => {
     setResponseMsgInfo(null);
     setDetailLoading(true);
 
-    const convId = activity.conversation_id;
-    const trigId = activity.trigger_message_id;
-    const respId = activity.response_message_id;
+    let currentAct = activity;
+    try {
+      const detailRes = await apiService.getAgentActivityDetail(selectedAgentId, activity.activity_id);
+      if (detailRes && typeof detailRes === 'object') {
+        currentAct = { ...activity, ...detailRes };
+        setSelectedActivity(currentAct);
+      }
+    } catch (err) {
+      console.warn('Individual activity detail endpoint not available or returned error:', err);
+    }
+
+    const convId = currentAct.conversation_id;
+    const trigId = currentAct.trigger_message_id;
+    const respId = currentAct.response_message_id;
 
     try {
       // Fire all three requests in parallel
@@ -2375,7 +2386,8 @@ const AgentLog = ({ agents }) => {
       {/* Log Table */}
       <div className="bg-white rounded-[2rem] border border-[#e0e3e5] overflow-hidden shadow-sm">
         {/* Table Head */}
-        <div className="grid grid-cols-[2fr_1.5fr_1fr_1.5fr] gap-4 px-6 py-4 bg-[#f7f9fb] border-b border-[#e0e3e5]">
+        <div className="grid grid-cols-[1.5fr_1.5fr_1.2fr_1fr_1.5fr] gap-4 px-6 py-4 bg-[#f7f9fb] border-b border-[#e0e3e5]">
+          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Activity ID</span>
           <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Status</span>
           <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Response Time</span>
           <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Handover</span>
@@ -2400,8 +2412,12 @@ const AgentLog = ({ agents }) => {
               <div
                 key={act.activity_id}
                 onClick={() => handleRowClick(act)}
-                className="grid grid-cols-[2fr_1.5fr_1fr_1.5fr] gap-4 items-center px-6 py-4 border-b border-[#f0f2f4] last:border-0 hover:bg-[#f7f9fb] cursor-pointer transition-colors group"
+                className="grid grid-cols-[1.5fr_1.5fr_1.2fr_1fr_1.5fr] gap-4 items-center px-6 py-4 border-b border-[#f0f2f4] last:border-0 hover:bg-[#f7f9fb] cursor-pointer transition-colors group"
               >
+                {/* Activity ID */}
+                <span className="font-mono text-xs text-slate-500 font-semibold truncate" title={act.activity_id}>
+                  {act.activity_id ? (act.activity_id.length > 12 ? `${act.activity_id.slice(0, 8)}...` : act.activity_id) : '—'}
+                </span>
                 {/* Status */}
                 <div className="flex items-center gap-2.5">
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${sc.bg} ${sc.text}`}>
@@ -2459,7 +2475,7 @@ const AgentLog = ({ agents }) => {
         <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4" onClick={() => setSelectedActivity(null)}>
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
           <div
-            className="w-full max-w-2xl bg-white rounded-3xl max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 relative z-10"
+            className="w-[95vw] max-w-6xl h-[90vh] bg-white rounded-3xl overflow-y-auto shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 relative z-10"
             onClick={e => e.stopPropagation()}
           >
             {/* Drawer Header */}
@@ -2484,27 +2500,29 @@ const AgentLog = ({ agents }) => {
                 </div>
               </div>
             ) : (
-              <div className="p-8 space-y-8">
-
-                {/* Raw Activity Fields */}
+              <div className="p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <div className="lg:col-span-5 space-y-8 bg-slate-50/60 p-6 rounded-3xl border border-slate-100/80">
+                  {/* Raw Activity Fields */}
                 <div>
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-100">Activity Fields</h4>
                   <ul className="space-y-3">
                     {[
-                      { label: 'Activity ID',    value: selectedActivity.activity_id },
-                      { label: 'Status',         value: selectedActivity.status },
-                      { label: 'Response Time',  value: selectedActivity.response_time_ms != null ? `${selectedActivity.response_time_ms} ms` : '—' },
-                      { label: 'Input Tokens',   value: selectedActivity.input_tokens ?? '—' },
-                      { label: 'Output Tokens',  value: selectedActivity.output_tokens ?? '—' },
-                      { label: 'Error Message',  value: selectedActivity.error_message || '—' },
-                      { label: 'Handover',       value: selectedActivity.is_human_handover ? 'Yes' : 'No' },
-                      { label: 'Handover Reason',value: selectedActivity.human_handover_reason || '—' },
-                      { label: 'Knowledge Used', value: selectedActivity.knowledge_source?.join(', ') || '—' },
-                      { label: 'Created At',     value: fmt(selectedActivity.created_at) },
-                    ].map(({ label, value }) => (
+                      { label: 'Activity ID',    value: selectedActivity.activity_id, alwaysShow: true },
+                      { label: 'Agent Name',     value: selectedActivity.agent_name },
+                      { label: 'Status',         value: selectedActivity.status, alwaysShow: true },
+                      { label: 'Response Time',  value: selectedActivity.response_time_ms != null ? `${selectedActivity.response_time_ms} ms` : '—', alwaysShow: true },
+                      { label: 'Completion Time',value: selectedActivity.agent_completion_time_ms != null ? `${selectedActivity.agent_completion_time_ms} ms` : null },
+                      { label: 'Total Tokens',   value: selectedActivity.total_tokens ?? (selectedActivity.input_tokens != null ? `${selectedActivity.input_tokens} in / ${selectedActivity.output_tokens || 0} out` : null) },
+                      { label: 'Tools Used',     value: Array.isArray(selectedActivity.tools_used) ? selectedActivity.tools_used.join(', ') : selectedActivity.tools_used },
+                      { label: 'Error Message',  value: selectedActivity.error_message },
+                      { label: 'Handover',       value: selectedActivity.is_human_handover ? 'Yes' : 'No', alwaysShow: true },
+                      { label: 'Handover Reason',value: selectedActivity.human_handover_reason },
+                      { label: 'Knowledge Used', value: Array.isArray(selectedActivity.knowledge_source) ? selectedActivity.knowledge_source.join(', ') : selectedActivity.knowledge_source },
+                      { label: 'Created At',     value: fmt(selectedActivity.created_at), alwaysShow: true },
+                    ].filter(item => item.alwaysShow || (item.value != null && item.value !== '' && item.value !== '—')).map(({ label, value }) => (
                       <li key={label} className="flex items-start gap-3">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-32 shrink-0 pt-0.5">{label}</span>
-                        <span className="text-xs font-semibold text-slate-800 break-all">{String(value)}</span>
+                        <span className="text-xs font-semibold text-slate-800 break-all">{String(value != null ? value : '—')}</span>
                       </li>
                     ))}
                   </ul>
@@ -2535,14 +2553,45 @@ const AgentLog = ({ agents }) => {
                     )}
                   </div>
                 )}
+                </div>
 
-                {/* Trigger Message Info */}
-                {selectedActivity.trigger_message_id && (
+                <div className="lg:col-span-7 space-y-8">
+                  {/* Trigger Messages */}
+                {((selectedActivity.trigger_messages && selectedActivity.trigger_messages.length > 0) || selectedActivity.trigger_message_id) && (
                   <div>
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[14px]">person</span>Trigger Message (User)
+                      <span className="material-symbols-outlined text-[14px]">person</span>Trigger Messages (User)
                     </h4>
-                    {triggerMsgInfo ? (
+                    {selectedActivity.trigger_messages?.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedActivity.trigger_messages.map((msg, idx) => (
+                          <div key={msg.message_id || idx} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
+                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              <span>Role: {msg.role || 'user'}</span>
+                              <span>{fmt(msg.created_at)}</span>
+                            </div>
+                            <p className="text-xs font-semibold text-slate-800 whitespace-pre-wrap">{msg.content || msg.message || '—'}</p>
+                            {msg.attachments?.length > 0 && (
+                              <div className="pt-2 flex flex-wrap gap-2">
+                                {msg.attachments.map((att, i) => {
+                                  const name = typeof att === 'string' ? att : (att.filename || att.name || att.url || `Attachment ${i+1}`);
+                                  const url = typeof att === 'string' ? att : (att.url || att.file_url);
+                                  return url ? (
+                                    <a key={i} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-white hover:bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors shadow-sm">
+                                      <span className="material-symbols-outlined text-[14px]">attachment</span>{name}
+                                    </a>
+                                  ) : (
+                                    <span key={i} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-sm">
+                                      <span className="material-symbols-outlined text-[14px]">attachment</span>{name}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : triggerMsgInfo ? (
                       <ul className="space-y-3">
                         {[
                           { label: 'Message ID',    value: triggerMsgInfo.message_id },
@@ -2563,13 +2612,42 @@ const AgentLog = ({ agents }) => {
                   </div>
                 )}
 
-                {/* Response Message Info */}
-                {selectedActivity.response_message_id && (
+                {/* Response Messages */}
+                {((selectedActivity.response_messages && selectedActivity.response_messages.length > 0) || selectedActivity.response_message_id) && (
                   <div>
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[14px]">smart_toy</span>Agent Response
+                      <span className="material-symbols-outlined text-[14px]">smart_toy</span>Agent Response Messages
                     </h4>
-                    {responseMsgInfo ? (
+                    {selectedActivity.response_messages?.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedActivity.response_messages.map((msg, idx) => (
+                          <div key={msg.message_id || idx} className="bg-emerald-50/40 border border-emerald-100/60 rounded-2xl p-4 space-y-2">
+                            <div className="flex justify-between items-center text-[10px] font-bold text-emerald-700/70 uppercase tracking-wider">
+                              <span>Role: {msg.role || 'assistant'}</span>
+                              <span>{fmt(msg.created_at)}</span>
+                            </div>
+                            <p className="text-xs font-semibold text-slate-800 whitespace-pre-wrap">{msg.content || msg.message || '—'}</p>
+                            {msg.attachments?.length > 0 && (
+                              <div className="pt-2 flex flex-wrap gap-2">
+                                {msg.attachments.map((att, i) => {
+                                  const name = typeof att === 'string' ? att : (att.filename || att.name || att.url || `Attachment ${i+1}`);
+                                  const url = typeof att === 'string' ? att : (att.url || att.file_url);
+                                  return url ? (
+                                    <a key={i} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-white hover:bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors shadow-sm">
+                                      <span className="material-symbols-outlined text-[14px]">attachment</span>{name}
+                                    </a>
+                                  ) : (
+                                    <span key={i} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-sm">
+                                      <span className="material-symbols-outlined text-[14px]">attachment</span>{name}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : responseMsgInfo ? (
                       <ul className="space-y-3">
                         {[
                           { label: 'Message ID',    value: responseMsgInfo.message_id },
@@ -2590,6 +2668,7 @@ const AgentLog = ({ agents }) => {
                     )}
                   </div>
                 )}
+                </div>
 
               </div>
             )}
