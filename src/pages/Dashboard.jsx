@@ -2002,7 +2002,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
         </div>
           </>
         ) : (
-          <ProductsTab selectedNamespaceId={selectedNamespaceId} />
+          <ProductsTab selectedNamespaceId={selectedNamespaceId} namespaces={namespaces} />
         )}
       </div>
 

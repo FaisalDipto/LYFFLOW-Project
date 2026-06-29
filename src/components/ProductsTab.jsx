@@ -24,7 +24,7 @@ const FallbackImage = ({ src, alt, className }) => {
   );
 };
 
-const ProductsTab = ({ selectedNamespaceId }) => {
+const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1007,8 +1007,14 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                           <span className="text-emerald-400 text-xs truncate" title={selectedProductDetail.product_id}>{selectedProductDetail.product_id || 'NULL'}</span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Namespace ID</span>
-                          <span className="text-emerald-400 text-xs truncate" title={selectedProductDetail.namespace_id}>{selectedProductDetail.namespace_id || 'NULL'}</span>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Namespace</span>
+                          <span className="text-emerald-400 text-xs truncate" title={selectedProductDetail.namespace_id}>
+                            {(() => {
+                              const nsObj = namespaces?.find(n => (n.namespace_id || n.namespace) === selectedProductDetail.namespace_id);
+                              const nsName = nsObj?.namespace_name || nsObj?.name;
+                              return nsName ? `${nsName} (${selectedProductDetail.namespace_id})` : selectedProductDetail.namespace_id || 'NULL';
+                            })()}
+                          </span>
                         </div>
                         <div className="flex flex-col">
                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Pinecone Vector ID</span>
