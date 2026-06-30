@@ -1665,7 +1665,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
                 value={newNamespaceName}
                 onChange={(e) => setNewNamespaceName(e.target.value)}
                 placeholder="e.g. Customer FAQ, Technical Specs"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-[96%] block mx-auto box-border bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                 onKeyDown={async (e) => {
                   if (e.key === 'Enter' && newNamespaceName.trim() && !generatingNs) {
                     setGeneratingNs(true);
