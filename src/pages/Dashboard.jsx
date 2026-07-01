@@ -2817,6 +2817,10 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!agentName.trim() || !selectedPersona || !businessName.trim() || !businessDesc.trim()) return;
+    if (agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > 500) || (fallbackMessage && fallbackMessage.length > 250)) {
+      alert("Please ensure all fields are within their allowed character limits.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -3264,12 +3268,22 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       >
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
-            <label style={{ fontSize: '14px', fontWeight: 600 }}>Agent Name *</label>
-            <input type="text" placeholder="e.g. Sales Bot" value={agentName} onChange={(e) => setAgentName(e.target.value)} required style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontSize: '14px', fontWeight: 600 }}>Agent Name *</label>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: agentName.length > 30 ? '#ef4444' : '#64748b' }}>
+                {agentName.length}/30 {agentName.length > 30 && '• Limit exceeded!'}
+              </span>
+            </div>
+            <input type="text" placeholder="e.g. Sales Bot" value={agentName} onChange={(e) => setAgentName(e.target.value)} required style={{ width: '100%', padding: '12px 14px', border: agentName.length > 30 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: agentName.length > 30 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
-            <label style={{ fontSize: '14px', fontWeight: 600 }}>Business Name *</label>
-            <input type="text" placeholder="Your Company Ltd" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontSize: '14px', fontWeight: 600 }}>Business Name *</label>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: businessName.length > 100 ? '#ef4444' : '#64748b' }}>
+                {businessName.length}/100 {businessName.length > 100 && '• Limit exceeded!'}
+              </span>
+            </div>
+            <input type="text" placeholder="Your Company Ltd" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required style={{ width: '100%', padding: '12px 14px', border: businessName.length > 100 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: businessName.length > 100 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
         </div>
 
@@ -3307,23 +3321,43 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         </div>
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
-          <label style={{ fontSize: '14px', fontWeight: 600 }}>Business Description *</label>
-          <textarea placeholder="What does your business do? How should the agent ground its suggestions?" value={businessDesc} onChange={(e) => setBusinessDesc(e.target.value)} rows="3" style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} required />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '14px', fontWeight: 600 }}>Business Description *</label>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: businessDesc.length > 500 ? '#ef4444' : '#64748b' }}>
+              {businessDesc.length}/500 {businessDesc.length > 500 && '• Limit exceeded!'}
+            </span>
+          </div>
+          <textarea placeholder="What does your business do? How should the agent ground its suggestions?" value={businessDesc} onChange={(e) => setBusinessDesc(e.target.value)} rows="3" style={{ width: '100%', padding: '12px 14px', border: businessDesc.length > 500 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: businessDesc.length > 500 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} required />
         </div>
 
-        <div className="form-group">
-          <label>Custom Instructions (Optional)</label>
-          <textarea placeholder="e.g. Always end conversations with 'Have a great day!'" value={instructions} onChange={(e) => setInstructions(e.target.value)} rows="2" style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', fontFamily: 'inherit', resize: 'vertical' }} />
+        <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '14px', fontWeight: 600 }}>Custom Instructions (Optional)</label>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: (instructions || '').length > 500 ? '#ef4444' : '#64748b' }}>
+              {(instructions || '').length}/500 {(instructions || '').length > 500 && '• Limit exceeded!'}
+            </span>
+          </div>
+          <textarea placeholder="e.g. Always end conversations with 'Have a great day!'" value={instructions} onChange={(e) => setInstructions(e.target.value)} rows="2" style={{ width: '100%', padding: '12px 14px', border: (instructions || '').length > 500 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (instructions || '').length > 500 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
         </div>
 
-        <div className="form-group">
-          <label>Fallback Message (Optional)</label>
-          <textarea placeholder="e.g. I'm not sure about that, let me connect you with someone who can help." value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} rows="2" style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', fontFamily: 'inherit', resize: 'vertical' }} />
+        <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '14px', fontWeight: 600 }}>Fallback Message (Optional)</label>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: (fallbackMessage || '').length > 250 ? '#ef4444' : '#64748b' }}>
+              {(fallbackMessage || '').length}/250 {(fallbackMessage || '').length > 250 && '• Limit exceeded!'}
+            </span>
+          </div>
+          <textarea placeholder="e.g. I'm not sure about that, let me connect you with someone who can help." value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} rows="2" style={{ width: '100%', padding: '12px 14px', border: (fallbackMessage || '').length > 250 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (fallbackMessage || '').length > 250 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
         </div>
 
-        <button type="submit" className="btn-submit" disabled={loading} style={{ backgroundColor: created ? '#22c55e' : (loading ? '#94a3b8' : 'var(--text-primary)'), color: '#fff', border: 'none', borderRadius: '8px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background-color 0.25s' }}>
-          {loading ? (isEditing ? 'Saving...' : 'Creating...') : (created ? (isEditing ? '✓ Settings Saved!' : '✓ Agent Created!') : (isEditing ? 'Save Changes' : 'Create Agent'))}
-        </button>
+        {(() => {
+          const hasLimitError = agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > 500) || (fallbackMessage && fallbackMessage.length > 250);
+          return (
+            <button type="submit" className="btn-submit" disabled={loading || hasLimitError} style={{ backgroundColor: hasLimitError ? '#ef4444' : (created ? '#22c55e' : (loading ? '#94a3b8' : 'var(--text-primary)')), color: '#fff', border: 'none', borderRadius: '8px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: (loading || hasLimitError) ? 'not-allowed' : 'pointer', transition: 'background-color 0.25s' }}>
+              {hasLimitError ? '⚠️ Character Limit Exceeded' : (loading ? (isEditing ? 'Saving...' : 'Creating...') : (created ? (isEditing ? '✓ Settings Saved!' : '✓ Agent Created!') : (isEditing ? 'Save Changes' : 'Create Agent')))}
+            </button>
+          );
+        })()}
       </form>
       {overlays}
     </div>
