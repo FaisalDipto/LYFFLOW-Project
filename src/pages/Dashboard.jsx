@@ -2706,6 +2706,8 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
   const [assignModalAgent, setAssignModalAgent] = useState(null);
   const [assigningId, setAssigningId] = useState(null);
+  const [assignPageModalAgent, setAssignPageModalAgent] = useState(null);
+  const [assigningPageId, setAssigningPageId] = useState(null);
   const [creationError, setCreationError] = useState(null);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
@@ -2790,6 +2792,61 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       addToast('Failed to unassign: ' + e.message, 'error');
     } finally {
       setUnassigningId(null);
+    }
+  };
+
+  const getAssignedAgentIdForPage = (page) => {
+    try {
+      const cached = localStorage.getItem('lyfflow_assigned_agents');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed[page.page_id]) return parsed[page.page_id];
+      }
+    } catch (e) {}
+    if (page.agent_name) {
+      const matched = agents.find(a => a.name === page.agent_name);
+      if (matched) return matched.agent_id;
+    }
+    return page.agent_id || page.agent?.agent_id || page.agent?.id || page.assigned_agent_id;
+  };
+
+  const handleAssignToPage = async (pageId, agentId) => {
+    setAssigningPageId(pageId);
+    try {
+      await apiService.assignAgentToPage(pageId, agentId);
+      try {
+        const cached = localStorage.getItem('lyfflow_assigned_agents');
+        const nextState = cached ? JSON.parse(cached) : {};
+        nextState[pageId] = agentId;
+        localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(nextState));
+      } catch (e) {}
+      addToast('Agent assigned to page successfully', 'success');
+      if (onUpdate) onUpdate();
+    } catch (e) {
+      console.error(e);
+      addToast('Failed to assign to page: ' + e.message, 'error');
+    } finally {
+      setAssigningPageId(null);
+    }
+  };
+
+  const handleUnassignPage = async (pageId) => {
+    setAssigningPageId(pageId);
+    try {
+      await apiService.unassignAgentFromPage(pageId);
+      try {
+        const cached = localStorage.getItem('lyfflow_assigned_agents');
+        const nextState = cached ? JSON.parse(cached) : {};
+        delete nextState[pageId];
+        localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(nextState));
+      } catch (e) {}
+      addToast('Agent unassigned from page successfully', 'success');
+      if (onUpdate) onUpdate();
+    } catch (e) {
+      console.error(e);
+      addToast('Failed to unassign from page: ' + e.message, 'error');
+    } finally {
+      setAssigningPageId(null);
     }
   };
 
@@ -3064,6 +3121,117 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     document.body
   ) : null;
 
+  const assignPagePortal = typeof document !== 'undefined' && assignPageModalAgent ? ReactDOM.createPortal(
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'rgba(0, 0, 0, 0.55)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 999999,
+      pointerEvents: 'auto'
+    }} onClick={() => setAssignPageModalAgent(null)}>
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '20px',
+        padding: '28px',
+        width: '90%',
+        maxWidth: '460px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: '85vh',
+        border: '1px solid #e2e8f0',
+        animation: 'fadeInUp 0.2s ease-out'
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="material-symbols-outlined text-blue-600 text-2xl">link</span>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              Assign &quot;{assignPageModalAgent.name}&quot; to Page
+            </h3>
+          </div>
+          <button onClick={() => setAssignPageModalAgent(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: '#64748b', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px', marginTop: 0 }}>
+          Select a connected page to handle customer messaging with this AI agent.
+        </p>
+
+        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '340px', paddingRight: '4px' }}>
+          {(!pages || pages.length === 0) ? (
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', fontSize: '13px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              No pages connected. Please connect a Facebook page from the Overview or Channels section first.
+            </div>
+          ) : (
+            pages.map(page => {
+              const currentAssignedId = getAssignedAgentIdForPage(page);
+              const isThisAgentAssigned = currentAssignedId === assignPageModalAgent.agent_id;
+              const otherAgent = agents.find(a => a.agent_id === currentAssignedId);
+              const isAssigningThisPage = assigningPageId === page.page_id;
+
+              return (
+                <div key={page.page_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '14px', border: isThisAgentAssigned ? '2px solid #10b981' : '1px solid #e2e8f0', backgroundColor: isThisAgentAssigned ? '#ecfdf5' : '#f8fafc', transition: 'all 0.2s' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'hidden', paddingRight: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className="material-symbols-outlined text-blue-500 text-sm">facebook</span>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {page.page_name || page.name || `Page ${page.page_id}`}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: isThisAgentAssigned ? '#059669' : (currentAssignedId ? '#d97706' : '#64748b') }}>
+                      {isThisAgentAssigned ? '✓ Currently assigned to this agent' : (currentAssignedId ? `Assigned to: ${otherAgent?.name || 'Another Agent'}` : 'Not assigned')}
+                    </span>
+                  </div>
+
+                  <button
+                    disabled={isAssigningThisPage}
+                    onClick={() => {
+                      if (isThisAgentAssigned) {
+                        handleUnassignPage(page.page_id);
+                      } else {
+                        handleAssignToPage(page.page_id, assignPageModalAgent.agent_id);
+                      }
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: isAssigningThisPage ? 'not-allowed' : 'pointer',
+                      backgroundColor: isThisAgentAssigned ? '#fee2e2' : '#0f172a',
+                      color: isThisAgentAssigned ? '#ef4444' : '#fff',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap',
+                      boxShadow: isThisAgentAssigned ? 'none' : '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    {isAssigningThisPage ? 'Wait...' : (isThisAgentAssigned ? 'Unassign' : 'Assign')}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+          <button
+            onClick={() => setAssignPageModalAgent(null)}
+            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
   if (!isCreating && !isEditing) {
     return (
       <div className="flex-1 w-full p-4 md:p-6 xl:p-8 min-h-screen bg-[#f7f9fb] animate-fade-in-up">
@@ -3180,6 +3348,8 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               </div>
             ) : filteredAgents.map((agent) => {
               const isAssigned = !!agent.namespace_id;
+              const isAssignedToPage = (pages || []).some(p => getAssignedAgentIdForPage(p) === agent.agent_id) || !!agent.assigned_page_id;
+              const isStatusGreen = isAssignedToPage || isAssigned;
               const totalDialog = agent.total_dialog || 0;
               const initial = (agent.name || '?').charAt(0).toUpperCase();
 
@@ -3201,7 +3371,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                         <span className="material-symbols-outlined text-[16px]">delete</span>
                       </button>
                       {/* Status dot */}
-                      <span className={`w-2.5 h-2.5 rounded-full mt-0.5 shrink-0 ${isAssigned ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-amber-400'}`}></span>
+                      <span className={`w-2.5 h-2.5 rounded-full mt-0.5 shrink-0 ${isStatusGreen ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-amber-400'}`} title={isAssignedToPage ? 'Assigned to Page' : (isAssigned ? 'Connected to Namespace' : 'Not Assigned')}></span>
                     </div>
                   </div>
 
@@ -3244,22 +3414,12 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
                   {/* Actions — shown on hover */}
                   <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {isAssigned ? (
-                      <button
-                        onClick={() => handleUnassign(agent.agent_id)}
-                        disabled={unassigningId === agent.agent_id}
-                        className="text-[11px] font-bold text-red-500 px-2.5 py-1.5 hover:bg-red-50 rounded-lg disabled:opacity-50 whitespace-nowrap transition-colors"
-                      >
-                        {unassigningId === agent.agent_id ? 'Wait...' : 'Unassign'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setAssignModalAgent(agent)}
-                        className="text-[11px] font-bold text-blue-600 px-2.5 py-1.5 hover:bg-blue-50 rounded-lg whitespace-nowrap transition-colors"
-                      >
-                        Assign
-                      </button>
-                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setAssignPageModalAgent(agent); }}
+                      className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors ${isAssignedToPage ? 'text-emerald-600 hover:bg-emerald-50' : 'text-blue-600 hover:bg-blue-50'}`}
+                    >
+                      {isAssignedToPage ? '✓ Assigned' : 'Assign'}
+                    </button>
                     <button
                       onClick={() => handleEditClick(agent)}
                       className="text-[11px] font-bold text-emerald-600 px-2.5 py-1.5 hover:bg-emerald-50 rounded-lg whitespace-nowrap transition-colors ml-auto flex items-center gap-1"
@@ -3278,6 +3438,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           <AgentLog agents={agents} />
         </div>
         {overlays}
+        {assignPagePortal}
       </div>
     );
   }
@@ -3405,6 +3566,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         })()}
       </form>
       {overlays}
+      {assignPagePortal}
     </div>
   );
 };
