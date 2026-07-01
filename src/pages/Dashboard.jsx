@@ -2707,6 +2707,23 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [assignModalAgent, setAssignModalAgent] = useState(null);
   const [assigningId, setAssigningId] = useState(null);
   const [creationError, setCreationError] = useState(null);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+
+  const openCreateForm = () => {
+    setIsCreating(true);
+    setIsEditing(false);
+    setEditingAgentId(null);
+    setAttemptedSubmit(false);
+    setCreationError(null);
+    setAgentName('');
+    setBusinessName('');
+    setBusinessDesc('');
+    setInstructions('');
+    setFallbackMessage('');
+    setSelectedPersona(null);
+    setTone('Professional');
+    setLanguage('English');
+  };
 
   // Filter State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -2803,6 +2820,8 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setIsEditing(true);
     setIsCreating(false);
     setEditingAgentId(agent.agent_id);
+    setAttemptedSubmit(false);
+    setCreationError(null);
 
     setAgentName(agent.name || '');
     setBusinessName(agent.business_name || '');
@@ -2816,9 +2835,25 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!agentName.trim() || !selectedPersona || !businessName.trim() || !businessDesc.trim()) return;
+    setAttemptedSubmit(true);
+
+    const missing = [];
+    if (!agentName.trim()) missing.push("Agent Name");
+    if (!businessName.trim()) missing.push("Business Name");
+    if (!selectedPersona) missing.push("Select Persona");
+    if (!businessDesc.trim()) missing.push("Business Description");
+
+    if (missing.length > 0) {
+      const missingNames = missing.join(", ");
+      setCreationError(`Cannot ${isEditing ? 'save changes' : 'create agent'}. Please provide the missing required value(s): ${missingNames}`);
+      addToast(`Missing required value(s): ${missingNames}`, 'error');
+      return;
+    }
+    setCreationError(null);
+
     if (agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > 500) || (fallbackMessage && fallbackMessage.length > 250)) {
-      alert("Please ensure all fields are within their allowed character limits.");
+      setCreationError(`Cannot ${isEditing ? 'save changes' : 'create agent'}. One or more input fields exceed the maximum allowed character limit.`);
+      addToast("Character limit exceeded!", 'error');
       return;
     }
 
@@ -3054,7 +3089,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                   {activeFiltersCount > 0 ? `Filters (${activeFiltersCount})` : 'Filter View'}
                 </button>
                 <button
-                  onClick={() => setIsCreating(true)}
+                  onClick={openCreateForm}
                   className="flex items-center gap-2 px-8 py-3 bg-[#000000] text-white rounded-xl font-bold transition-all hover:opacity-90 active:scale-95 shadow-lg shadow-black/20"
                 >
                   <span className="material-symbols-outlined font-black" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
@@ -3123,7 +3158,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
             {/* Create Agent Card */}
             <div
-              onClick={() => setIsCreating(true)}
+              onClick={openCreateForm}
               className="col-span-6 md:col-span-4 lg:col-span-3 min-h-[200px] relative group overflow-hidden bg-[#0f172a] rounded-2xl cursor-pointer"
             >
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center border-2 border-white/10 m-3 rounded-xl border-dashed transition-colors group-hover:border-emerald-400/50">
@@ -3250,7 +3285,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   return (
     <div className="dashboard-content-area animate-fade-in-up">
       <div className="dashboard-header flex-between" style={{ alignItems: 'center', marginBottom: '32px', maxWidth: '600px', margin: '0 auto' }}>
-        <button onClick={() => { setIsCreating(false); setIsEditing(false); setEditingAgentId(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, padding: '0' }}>
+        <button onClick={() => { setIsCreating(false); setIsEditing(false); setEditingAgentId(null); setAttemptedSubmit(false); setCreationError(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, padding: '0' }}>
           <ChevronDown size={18} style={{ transform: 'rotate(90deg)' }} /> Back to Agents
         </button>
       </div>
@@ -3269,27 +3304,35 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ fontSize: '14px', fontWeight: 600 }}>Agent Name *</label>
+              <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !agentName.trim()) ? '#ef4444' : 'inherit' }}>
+                Agent Name * {(attemptedSubmit && !agentName.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
+              </label>
               <span style={{ fontSize: '12px', fontWeight: 600, color: agentName.length > 30 ? '#ef4444' : '#64748b' }}>
                 {agentName.length}/30 {agentName.length > 30 && '• Limit exceeded!'}
               </span>
             </div>
-            <input type="text" placeholder="e.g. Sales Bot" value={agentName} onChange={(e) => setAgentName(e.target.value)} required style={{ width: '100%', padding: '12px 14px', border: agentName.length > 30 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: agentName.length > 30 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
+            <input type="text" placeholder="e.g. Sales Bot" value={agentName} onChange={(e) => setAgentName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ fontSize: '14px', fontWeight: 600 }}>Business Name *</label>
+              <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !businessName.trim()) ? '#ef4444' : 'inherit' }}>
+                Business Name * {(attemptedSubmit && !businessName.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
+              </label>
               <span style={{ fontSize: '12px', fontWeight: 600, color: businessName.length > 100 ? '#ef4444' : '#64748b' }}>
                 {businessName.length}/100 {businessName.length > 100 && '• Limit exceeded!'}
               </span>
             </div>
-            <input type="text" placeholder="Your Company Ltd" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required style={{ width: '100%', padding: '12px 14px', border: businessName.length > 100 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: businessName.length > 100 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
+            <input type="text" placeholder="Your Company Ltd" value={businessName} onChange={(e) => setBusinessName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
         </div>
 
         <div className="form-group">
-          <label style={{ marginBottom: '10px', display: 'block' }}>Select Persona *</label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !selectedPersona) ? '#ef4444' : 'inherit' }}>
+              Select Persona * {(attemptedSubmit && !selectedPersona) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Please select a persona)</span>}
+            </label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', padding: (attemptedSubmit && !selectedPersona) ? '8px' : '0', border: (attemptedSubmit && !selectedPersona) ? '2px dashed #ef4444' : 'none', borderRadius: '12px', backgroundColor: (attemptedSubmit && !selectedPersona) ? '#fef2f2' : 'transparent', transition: 'all 0.2s' }}>
             {PERSONAS.map((p) => {
               const Icon = p.icon;
               const isSelected = selectedPersona === p.id;
@@ -3322,12 +3365,14 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <label style={{ fontSize: '14px', fontWeight: 600 }}>Business Description *</label>
+            <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !businessDesc.trim()) ? '#ef4444' : 'inherit' }}>
+              Business Description * {(attemptedSubmit && !businessDesc.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
+            </label>
             <span style={{ fontSize: '12px', fontWeight: 600, color: businessDesc.length > 500 ? '#ef4444' : '#64748b' }}>
               {businessDesc.length}/500 {businessDesc.length > 500 && '• Limit exceeded!'}
             </span>
           </div>
-          <textarea placeholder="What does your business do? How should the agent ground its suggestions?" value={businessDesc} onChange={(e) => setBusinessDesc(e.target.value)} rows="3" style={{ width: '100%', padding: '12px 14px', border: businessDesc.length > 500 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: businessDesc.length > 500 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} required />
+          <textarea placeholder="What does your business do? How should the agent ground its suggestions?" value={businessDesc} onChange={(e) => setBusinessDesc(e.target.value)} rows="3" style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
         </div>
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
@@ -3353,7 +3398,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         {(() => {
           const hasLimitError = agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > 500) || (fallbackMessage && fallbackMessage.length > 250);
           return (
-            <button type="submit" className="btn-submit" disabled={loading || hasLimitError} style={{ backgroundColor: hasLimitError ? '#ef4444' : (created ? '#22c55e' : (loading ? '#94a3b8' : 'var(--text-primary)')), color: '#fff', border: 'none', borderRadius: '8px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: (loading || hasLimitError) ? 'not-allowed' : 'pointer', transition: 'background-color 0.25s' }}>
+            <button type="submit" className="btn-submit" disabled={loading} style={{ backgroundColor: hasLimitError ? '#ef4444' : (created ? '#22c55e' : (loading ? '#94a3b8' : 'var(--text-primary)')), color: '#fff', border: 'none', borderRadius: '8px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background-color 0.25s' }}>
               {hasLimitError ? '⚠️ Character Limit Exceeded' : (loading ? (isEditing ? 'Saving...' : 'Creating...') : (created ? (isEditing ? '✓ Settings Saved!' : '✓ Agent Created!') : (isEditing ? 'Save Changes' : 'Create Agent')))}
             </button>
           );
