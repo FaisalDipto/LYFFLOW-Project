@@ -506,6 +506,7 @@ const ConversationList = ({ pages, user }) => {
         // Handle FB Graph variations
         const convs = data?.conversations?.data || data?.conversations || data?.data || [];
         const normalized = Array.isArray(convs) ? convs : [];
+        console.log("[Convo Debug] Fetched conversations list:", normalized.map(c => ({ id: c.conversation_id || c.id, name: c.name, profile_pic_url: c.profile_pic_url, allKeys: Object.keys(c), raw: c })));
         setContacts(normalized);
         
         if (data?.pagination) {
@@ -529,21 +530,29 @@ const ConversationList = ({ pages, user }) => {
             const details = detailsRes.status === 'fulfilled' ? detailsRes.value : null;
             const msgs = details?.messages?.data || details?.messages || details?.data || [];
             const lastMsg = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
-            setContacts(prev => prev.map(c =>
-              (c.conversation_id || c.id) === cId
-                ? {
-                    ...c,
-                    ...(info ? {
-                      _info_name: info.name || null,
-                      is_human_needed: info.is_human_needed ?? c.is_human_needed,
-                      updated_time: info.updated_time || c.updated_time,
-                    } : {}),
-                    ...(lastMsg ? {
-                      last_message: lastMsg.message || lastMsg.text || '',
-                    } : {}),
-                  }
-                : c
-            ));
+            console.log(`[Convo Debug] Fetched info for ${cId}:`, info);
+            setContacts(prev => prev.map(c => {
+              if ((c.conversation_id || c.id) === cId) {
+                const infoPic = (info?.profile_pic_url && info.profile_pic_url !== 'string' && info.profile_pic_url !== 'null' ? info.profile_pic_url : null)
+                             || info?.profile_pic
+                             || (typeof info?.picture === 'string' ? info.picture : info?.picture?.data?.url);
+                const updatedObj = {
+                  ...c,
+                  ...(info ? {
+                    _info_name: info.name || null,
+                    profile_pic_url: infoPic || c.profile_pic_url || c.profile_pic,
+                    is_human_needed: info.is_human_needed ?? c.is_human_needed,
+                    updated_time: info.updated_time || c.updated_time,
+                  } : {}),
+                  ...(lastMsg ? {
+                    last_message: lastMsg.message || lastMsg.text || '',
+                  } : {}),
+                };
+                setActiveContact(prevAc => prevAc && (prevAc.conversation_id || prevAc.id) === cId ? { ...prevAc, ...updatedObj } : prevAc);
+                return updatedObj;
+              }
+              return c;
+            }));
           });
         });
       })
@@ -607,21 +616,28 @@ const ConversationList = ({ pages, user }) => {
             const details = detailsRes.status === 'fulfilled' ? detailsRes.value : null;
             const msgs = details?.messages?.data || details?.messages || details?.data || [];
             const lastMsg = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
-            setContacts(prev => prev.map(c =>
-              (c.conversation_id || c.id) === cId
-                ? {
-                    ...c,
-                    ...(info ? {
-                      _info_name: info.name || null,
-                      is_human_needed: info.is_human_needed ?? c.is_human_needed,
-                      updated_time: info.updated_time || c.updated_time,
-                    } : {}),
-                    ...(lastMsg ? {
-                      last_message: lastMsg.message || lastMsg.text || '',
-                    } : {}),
-                  }
-                : c
-            ));
+            setContacts(prev => prev.map(c => {
+              if ((c.conversation_id || c.id) === cId) {
+                const infoPic = (info?.profile_pic_url && info.profile_pic_url !== 'string' && info.profile_pic_url !== 'null' ? info.profile_pic_url : null)
+                             || info?.profile_pic
+                             || (typeof info?.picture === 'string' ? info.picture : info?.picture?.data?.url);
+                const updatedObj = {
+                  ...c,
+                  ...(info ? {
+                    _info_name: info.name || null,
+                    profile_pic_url: infoPic || c.profile_pic_url || c.profile_pic,
+                    is_human_needed: info.is_human_needed ?? c.is_human_needed,
+                    updated_time: info.updated_time || c.updated_time,
+                  } : {}),
+                  ...(lastMsg ? {
+                    last_message: lastMsg.message || lastMsg.text || '',
+                  } : {}),
+                };
+                setActiveContact(prevAc => prevAc && (prevAc.conversation_id || prevAc.id) === cId ? { ...prevAc, ...updatedObj } : prevAc);
+                return updatedObj;
+              }
+              return c;
+            }));
           });
         });
       })
@@ -747,11 +763,29 @@ const ConversationList = ({ pages, user }) => {
 
   const renderAvatar = (contactObj, extraClass = "") => {
     const name = resolveContactName(contactObj, 'U');
+    const rawPic = contactObj?.profile_pic_url || contactObj?.profile_pic || contactObj?.profile_picture_url || (typeof contactObj?.picture === 'string' ? contactObj.picture : contactObj?.picture?.data?.url) || contactObj?.avatar_url || contactObj?.avatar || contactObj?.senders?.data?.[0]?.profile_pic_url || contactObj?.senders?.data?.[0]?.profile_pic || contactObj?.participants?.data?.[0]?.profile_pic_url || contactObj?.participants?.data?.[0]?.profile_pic;
+    const picUrl = (rawPic && rawPic !== 'string' && rawPic !== 'null' && rawPic !== 'undefined') ? rawPic : null;
+    console.log(`[Convo Debug] renderAvatar for "${name}": rawPic=`, rawPic, ", resolved picUrl=", picUrl, ", contactObj=", contactObj);
+
+    if (picUrl) {
+      return (
+        <img
+          alt={name}
+          className={`${extraClass} object-cover`}
+          src={picUrl}
+          referrerPolicy="no-referrer"
+          onError={(e) => {
+            const initial = name.charAt(0).toUpperCase();
+            e.target.src = `https://ui-avatars.com/api/?name=${initial}&background=random&font-size=0.4`;
+          }}
+        />
+      );
+    }
     const initial = name.charAt(0).toUpperCase();
     return (
       <img
         alt={name}
-        className={`${extraClass} object-cover grayscale brightness-110`}
+        className={`${extraClass} object-cover`}
         src={`https://ui-avatars.com/api/?name=${initial}&background=random&font-size=0.4`}
       />
     );
