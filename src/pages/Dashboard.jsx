@@ -188,10 +188,14 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
 
 
               <div
-                className={`w-24 h-24 flex items-center justify-center mb-5 border-4 border-white shadow-md ${iconBg}`}
+                className={`w-24 h-24 flex items-center justify-center mb-5 border-4 border-white shadow-md ${iconBg} overflow-hidden shrink-0`}
                 style={{ borderRadius: '50%' }}
               >
-                <span className={`material-symbols-outlined ${iconColor} text-4xl`} data-icon={iconName}>{iconName}</span>
+                {page.profile_pic_url ? (
+                  <img src={page.profile_pic_url} alt={page.name || 'Page'} className="w-full h-full object-cover rounded-full" style={{ borderRadius: '50%' }} />
+                ) : (
+                  <span className={`material-symbols-outlined ${iconColor} text-4xl`} data-icon={iconName}>{iconName}</span>
+                )}
               </div>
 
               <h3 className="text-2xl font-headline font-bold text-primary mb-2">{page.name}</h3>
@@ -787,7 +791,7 @@ const ConversationList = ({ pages, user }) => {
     }
 
     const hasAttachment = msg._hasAttachment ?? msg.has_attachment ?? false;
-    const isAiSource   = msg._isAiMsg    ?? msg.is_ai_msg    ?? isMe;
+    const isAiSource   = Boolean(msg._isAiMsg ?? msg.is_ai_msg);
 
     if (isMe) {
       // Sent message (AI or agent)
@@ -896,7 +900,14 @@ const ConversationList = ({ pages, user }) => {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-2 p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors bg-white relative z-0 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-lg">page_info</span>
+                {(() => {
+                  const selP = pages.find(p => p.page_id === selectedPageId);
+                  return selP?.profile_pic_url ? (
+                    <img src={selP.profile_pic_url} alt={selP.name} className="w-5 h-5 rounded-full object-cover shrink-0 border border-slate-200" />
+                  ) : (
+                    <span className="material-symbols-outlined text-lg">page_info</span>
+                  );
+                })()}
                 <span className="text-xs font-bold truncate max-w-[80px]">
                   {pages.find(p => p.page_id === selectedPageId)?.name || 'Select Page'}
                 </span>
@@ -917,7 +928,14 @@ const ConversationList = ({ pages, user }) => {
                       }}
                       className={`w-full text-left px-4 py-2.5 text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center justify-between border-none cursor-pointer ${selectedPageId === p.page_id ? 'text-emerald-600 bg-emerald-50/50' : 'text-slate-700 bg-white'}`}
                     >
-                      <span className="truncate pr-2">{p.name}</span>
+                      <div className="flex items-center gap-2.5 truncate pr-2">
+                        {p.profile_pic_url ? (
+                          <img src={p.profile_pic_url} alt={p.name} className="w-5 h-5 rounded-full object-cover shrink-0 border border-slate-200" />
+                        ) : (
+                          <span className="material-symbols-outlined text-[16px] text-blue-500 shrink-0">facebook</span>
+                        )}
+                        <span className="truncate">{p.name}</span>
+                      </div>
                       {selectedPageId === p.page_id && (
                         <span className="material-symbols-outlined text-[16px] text-emerald-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                       )}
@@ -3177,8 +3195,12 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               return (
                 <div key={page.page_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '14px', border: isThisAgentAssigned ? '2px solid #10b981' : '1px solid #e2e8f0', backgroundColor: isThisAgentAssigned ? '#ecfdf5' : '#f8fafc', transition: 'all 0.2s' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'hidden', paddingRight: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span className="material-symbols-outlined text-blue-500 text-sm">facebook</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {page.profile_pic_url ? (
+                        <img src={page.profile_pic_url} alt={page.page_name || page.name} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <span className="material-symbols-outlined text-blue-500 text-sm">facebook</span>
+                      )}
                       <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {page.page_name || page.name || `Page ${page.page_id}`}
                       </span>
@@ -3347,8 +3369,12 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                 <button onClick={clearFilters} className="text-emerald-600 font-bold text-sm hover:underline">Clear all filters</button>
               </div>
             ) : filteredAgents.map((agent) => {
+              const assignedPagesForThisAgent = (pages || []).filter(p => {
+                const assignedId = getAssignedAgentIdForPage(p);
+                return assignedId === agent.agent_id || (agent.assigned_page_id && p.page_id === agent.assigned_page_id);
+              });
               const isAssigned = !!agent.namespace_id;
-              const isAssignedToPage = (pages || []).some(p => getAssignedAgentIdForPage(p) === agent.agent_id) || !!agent.assigned_page_id;
+              const isAssignedToPage = assignedPagesForThisAgent.length > 0;
               const isStatusGreen = isAssignedToPage || isAssigned;
               const totalDialog = agent.total_dialog || 0;
               const initial = (agent.name || '?').charAt(0).toUpperCase();
@@ -3362,10 +3388,10 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       <span className="text-white font-bold text-lg leading-none">{initial}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {/* Delete — visible on hover */}
+                      {/* Delete */}
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent); }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400"
+                        className="p-1 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 transition-colors"
                         title="Delete Agent"
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -3387,33 +3413,54 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                     <span>{totalDialog} dialogues</span>
                   </div>
 
-                  {/* Namespace Display */}
-                  {isAssigned ? (
-                    <button 
-                      onClick={() => setAssignModalAgent(agent)}
-                      className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-md mt-2 w-max border border-emerald-100 uppercase tracking-wider hover:bg-emerald-100 transition-colors"
-                      title="Change Namespace"
-                    >
-                      <span className="material-symbols-outlined text-[12px]">dns</span>
-                      <span>{(() => {
-                        const matchedNs = namespaces?.find(n => (n.namespace_id || n.namespace) === agent.namespace_id);
-                        const nsName = matchedNs?.namespace_name || matchedNs?.name;
-                        return nsName ? `NS: ${nsName}` : `NS: ${agent.namespace_id.split('-')[0]}...`;
-                      })()}</span>
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => setAssignModalAgent(agent)}
-                      className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded-md mt-2 w-max border border-slate-200 uppercase tracking-wider hover:bg-slate-100 transition-colors"
-                      title="Connect Namespace"
-                    >
-                      <span className="material-symbols-outlined text-[12px]">add_link</span>
-                      <span>Connect Namespace</span>
-                    </button>
-                  )}
+                  {/* Namespace & Assigned Pages Display */}
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    {isAssigned ? (
+                      <button 
+                        onClick={() => setAssignModalAgent(agent)}
+                        className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider hover:bg-emerald-100 transition-colors shrink-0"
+                        title="Change Namespace"
+                      >
+                        <span className="material-symbols-outlined text-[12px]">dns</span>
+                        <span>{(() => {
+                          const matchedNs = namespaces?.find(n => (n.namespace_id || n.namespace) === agent.namespace_id);
+                          const nsName = matchedNs?.namespace_name || matchedNs?.name;
+                          return nsName ? `NS: ${nsName}` : `NS: ${agent.namespace_id.split('-')[0]}...`;
+                        })()}</span>
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => setAssignModalAgent(agent)}
+                        className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded-md border border-slate-200 uppercase tracking-wider hover:bg-slate-100 transition-colors shrink-0"
+                        title="Connect Namespace"
+                      >
+                        <span className="material-symbols-outlined text-[12px]">add_link</span>
+                        <span>Connect Namespace</span>
+                      </button>
+                    )}
 
-                  {/* Actions — shown on hover */}
-                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {assignedPagesForThisAgent.length > 0 && (
+                      <div className="flex items-center gap-1.5 ml-auto overflow-hidden py-0.5" title={`Assigned to: ${assignedPagesForThisAgent.map(p => p.name || p.page_name).join(', ')}`}>
+                        {assignedPagesForThisAgent.slice(0, 4).map((p) => (
+                          <div key={p.page_id} className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shrink-0 overflow-hidden" style={{ borderRadius: '50%' }}>
+                            {p.profile_pic_url ? (
+                              <img src={p.profile_pic_url} alt={p.name || p.page_name} className="w-full h-full object-cover rounded-full" style={{ borderRadius: '50%' }} />
+                            ) : (
+                              <span className="material-symbols-outlined text-white text-[18px]">facebook</span>
+                            )}
+                          </div>
+                        ))}
+                        {assignedPagesForThisAgent.length > 4 && (
+                          <div className="w-10 h-10 rounded-full bg-slate-800 text-white text-[11px] font-bold flex items-center justify-center shrink-0" style={{ borderRadius: '50%' }}>
+                            +{assignedPagesForThisAgent.length - 4}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1">
                     <button
                       onClick={(e) => { e.stopPropagation(); setAssignPageModalAgent(agent); }}
                       className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors ${isAssignedToPage ? 'text-emerald-600 hover:bg-emerald-50' : 'text-blue-600 hover:bg-blue-50'}`}

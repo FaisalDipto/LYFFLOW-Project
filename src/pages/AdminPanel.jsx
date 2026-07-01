@@ -746,9 +746,13 @@ function PagesSection() {
                   <tr key={p.page_id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div className="admin-avatar" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fff' }}>pages</span>
-                        </div>
+                        {p.profile_pic_url ? (
+                          <img src={p.profile_pic_url} alt={p.page_name} className="admin-avatar" style={{ objectFit: 'cover' }} />
+                        ) : (
+                          <div className="admin-avatar" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fff' }}>pages</span>
+                          </div>
+                        )}
                         <span className="font-bold">{p.page_name || '—'}</span>
                       </div>
                     </td>

@@ -13,7 +13,7 @@ const MOCK_MODE = window.location.search.includes('mock=true');
 const mockData = {
   '/v1/user/': { user: { id: 'mock_123', first_name: 'Demo', last_name: 'User', display_name: 'Demo User', email: 'demo@lyfflow.com' } },
   '/v1/pages': [
-    { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot' }
+    { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot', profile_pic_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80' }
   ],
   '/v1/agents': [
     { agent_id: 'agent_1', name: 'SalesBot', role: 'Sales' },
