@@ -8,6 +8,8 @@ import { useWidget } from '../context/WidgetContext';
 import { apiService } from '../services/api';
 import CustomerRecords from '../components/CustomerRecords';
 import ProductsTab from '../components/ProductsTab';
+import AgentAvatar from '../components/AgentAvatar';
+import AgentAvatarModal from '../components/AgentAvatarModal';
 import './Dashboard.css';
 
 // Sub-components
@@ -213,10 +215,18 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
                       disabled={assigning[page.page_id]}
                       className={`flex items-center justify-center gap-1 bg-transparent border-none text-base font-black p-0 focus:ring-0 cursor-pointer hover:text-emerald-600 transition-colors ${success[page.page_id] ? 'text-green-500' : 'text-slate-800'}`}
                     >
-                      {assigning[page.page_id] ? 'Assigning...' : (
-                        agents.find(a => a.agent_id === selectedAgents[page.page_id])?.name ||
-                        (selectedAgents[page.page_id] && String(selectedAgents[page.page_id]).startsWith('foreign_agent_') ? `${String(selectedAgents[page.page_id]).replace('foreign_agent_', '')} (Team)` : 'Select Agent')
-                      )}
+                      {assigning[page.page_id] ? 'Assigning...' : (() => {
+                        const selAgent = agents.find(a => a.agent_id === selectedAgents[page.page_id]);
+                        if (selAgent) {
+                          return (
+                            <span className="flex items-center gap-1.5">
+                              <AgentAvatar agent={selAgent} size="w-5 h-5" iconSize="text-[14px]" />
+                              <span>{selAgent.name}</span>
+                            </span>
+                          );
+                        }
+                        return selectedAgents[page.page_id] && String(selectedAgents[page.page_id]).startsWith('foreign_agent_') ? `${String(selectedAgents[page.page_id]).replace('foreign_agent_', '')} (Team)` : 'Select Agent';
+                      })()}
                       <span className="material-symbols-outlined text-[18px]">expand_more</span>
                     </button>
 
@@ -234,7 +244,10 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
                               }}
                               className={`w-full text-left px-4 py-2.5 text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center justify-between border-transparent border-none cursor-pointer ${selectedAgents[page.page_id] === agent.agent_id ? 'text-emerald-600 bg-emerald-50/50' : 'text-slate-700 bg-white'}`}
                             >
-                              <span className="truncate pr-2">{agent.name}</span>
+                              <span className="flex items-center gap-2 truncate pr-2">
+                                <AgentAvatar agent={agent} size="w-6 h-6" iconSize="text-[14px]" />
+                                <span className="truncate">{agent.name}</span>
+                              </span>
                               {selectedAgents[page.page_id] === agent.agent_id && (
                                 <span className="material-symbols-outlined text-[16px] text-emerald-500 shrink-0">check</span>
                               )}
@@ -2760,7 +2773,20 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [assigningId, setAssigningId] = useState(null);
   const [assignPageModalAgent, setAssignPageModalAgent] = useState(null);
   const [assigningPageId, setAssigningPageId] = useState(null);
+  const [customizingAvatarAgent, setCustomizingAvatarAgent] = useState(null);
+  const [localAvatarsTick, setLocalAvatarsTick] = useState(0);
   const [creationError, setCreationError] = useState(null);
+
+  const handleSaveAvatar = (updatedConfig, agentId) => {
+    setLocalAvatarsTick(prev => prev + 1);
+    if (user && user.agents) {
+      const target = user.agents.find(a => a.agent_id === agentId);
+      if (target) {
+        target.avatar_config = updatedConfig;
+      }
+    }
+    if (onUpdate) onUpdate();
+  };
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   const openCreateForm = () => {
@@ -3173,6 +3199,16 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     document.body
   ) : null;
 
+  const avatarModalPortal = typeof document !== 'undefined' && customizingAvatarAgent ? ReactDOM.createPortal(
+    <AgentAvatarModal
+      agent={customizingAvatarAgent}
+      isOpen={!!customizingAvatarAgent}
+      onClose={() => setCustomizingAvatarAgent(null)}
+      onSave={handleSaveAvatar}
+    />,
+    document.body
+  ) : null;
+
   const assignPagePortal = typeof document !== 'undefined' && assignPageModalAgent ? ReactDOM.createPortal(
     <div style={{
       position: 'fixed',
@@ -3418,8 +3454,20 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
                   {/* Top row: avatar + status dot */}
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-11 h-11 rounded-full bg-[#0f172a] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <span className="text-white font-bold text-lg leading-none">{initial}</span>
+                    <div
+                      onClick={(e) => { e.stopPropagation(); setCustomizingAvatarAgent(agent); }}
+                      title="Click to customize agent avatar"
+                      className="relative group/avatar cursor-pointer shrink-0"
+                    >
+                      <AgentAvatar
+                        agent={agent}
+                        size="w-11 h-11"
+                        iconSize="text-[22px]"
+                        className="group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 rounded-full bg-slate-900/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity">
+                        <span className="material-symbols-outlined text-white text-[18px]">palette</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {/* Delete */}
@@ -3520,6 +3568,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         </div>
         {overlays}
         {assignPagePortal}
+        {avatarModalPortal}
       </div>
     );
   }
@@ -3648,6 +3697,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       </form>
       {overlays}
       {assignPagePortal}
+      {avatarModalPortal}
     </div>
   );
 };
