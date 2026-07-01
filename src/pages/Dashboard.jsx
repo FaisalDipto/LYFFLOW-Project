@@ -284,9 +284,9 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
       </div>
 
       {/* Platform Selection Modal */}
-      {isPlatformModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-scale-in relative border border-slate-100">
+      {isPlatformModalOpen && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={() => setIsPlatformModalOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-scale-in relative border border-slate-100" onClick={e => e.stopPropagation()}>
             <button 
               onClick={() => setIsPlatformModalOpen(false)}
               className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors border-none cursor-pointer"
@@ -328,13 +328,14 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Instagram Coming Soon Modal */}
-      {showInstaComingSoon && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-scale-in relative border border-slate-100 text-center">
+      {showInstaComingSoon && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={() => setShowInstaComingSoon(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-scale-in relative border border-slate-100 text-center" onClick={e => e.stopPropagation()}>
             <div className="w-16 h-16 bg-[#E1306C]/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-[#E1306C]">
               <span className="material-symbols-outlined text-4xl">construction</span>
             </div>
@@ -349,7 +350,8 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
               Got it, thanks!
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
