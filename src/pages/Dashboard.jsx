@@ -4709,7 +4709,7 @@ export default function Dashboard() {
         console.warn("Could not fetch subscription", e);
       }
 
-      const parsedUser = userData?.user || userData || null;
+      const parsedUser = userData?.user ? { ...userData.user, ...userData } : (userData || null);
       const parsedPages = Array.isArray(pagesData) ? pagesData : (pagesData?.pages || pagesData?.data || []);
       const parsedAgents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || agentsData?.data || []);
       const parsedNamespaces = Array.isArray(namespacesData) ? namespacesData : (namespacesData?.namespaces || namespacesData?.data || []);
@@ -4718,8 +4718,8 @@ export default function Dashboard() {
         parsedUser.agents = parsedAgents;
         parsedUser.subscription = subscriptionData;
 
-        if (parsedUser.picture || parsedUser.avatar || parsedUser.profile_pic) {
-          parsedUser.profile_pic_url = parsedUser.picture || parsedUser.profile_pic || parsedUser.avatar;
+        if (parsedUser.profile_pic_url || parsedUser.picture || parsedUser.avatar || parsedUser.profile_pic || parsedUser.url) {
+          parsedUser.profile_pic_url = parsedUser.profile_pic_url || parsedUser.picture || parsedUser.profile_pic || parsedUser.avatar || parsedUser.url;
         } else {
           // Fallback to the dedicated endpoint
           const uid = parsedUser.id || parsedUser.user_id || parsedUser._id || parsedUser.uuid;
@@ -4943,7 +4943,7 @@ export default function Dashboard() {
             >
               <div className="contact-avatar very-small overflow-hidden relative" style={{ backgroundColor: '#0ea5e9', color: 'white' }}>
                 {user?.profile_pic_url && (
-                  <img src={user.profile_pic_url} alt="Profile" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
+                  <img src={user.profile_pic_url} alt="Profile" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
                 )}
                 <span className="relative z-0">
                   {(user?.display_name || user?.first_name || user?.name || user?.username || 'U').charAt(0).toUpperCase()}
@@ -4968,7 +4968,7 @@ export default function Dashboard() {
               <div className="drawer-user-info">
                 <div className="contact-avatar large overflow-hidden relative" style={{ backgroundColor: '#0ea5e9', color: 'white', margin: '0 auto 16px auto' }}>
                   {user?.profile_pic_url && (
-                    <img src={user.profile_pic_url} alt="Profile" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
+                    <img src={user.profile_pic_url} alt="Profile" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
                   )}
                   <span className="relative z-0">
                     {(user?.display_name || user?.first_name || user?.name || user?.username || 'U').charAt(0).toUpperCase()}

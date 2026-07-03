@@ -11,6 +11,7 @@ const API_BASE = 'https://api.lyfflow.com';
 const MOCK_MODE = window.location.search.includes('mock=true');
 
 const mockData = {
+  '/v1/user/profile': { user: { id: 'mock_123', first_name: 'Demo', last_name: 'User', display_name: 'Demo User', email: 'demo@lyfflow.com', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' } },
   '/v1/user/': { user: { id: 'mock_123', first_name: 'Demo', last_name: 'User', display_name: 'Demo User', email: 'demo@lyfflow.com' } },
   '/v1/pages': [
     { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot', profile_pic_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80' }
@@ -117,8 +118,8 @@ const apiFetch = async (endpoint, options = {}) => {
 };
 
 export const apiService = {
-  // Returns current logged-in user details
-  getUserProfile: () => apiFetch('/v1/user/'),
+  // Returns current logged-in user details including profile_pic_url
+  getUserProfile: () => apiFetch('/v1/user/profile'),
 
   // Explicit logout
   logout: () => apiFetch('/v1/logout'),
