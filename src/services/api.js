@@ -238,6 +238,11 @@ export const apiService = {
     body: JSON.stringify(agentData),
   }),
 
+  setAgentAvatar: (agentId, avatarConfig) => apiFetch(`/v1/agent/${agentId}/set-avatar`, {
+    method: 'PATCH',
+    body: JSON.stringify(avatarConfig),
+  }),
+
   deleteAgent: (agentId) => apiFetch(`/v1/agent/delete?agent_id=${encodeURIComponent(agentId)}`, {
     method: 'DELETE',
   }),
@@ -259,18 +264,22 @@ export const apiService = {
   }),
 
   // Conversations
-  getPageDetails: (pageId, cursor = null, page_size = null) => {
+  getPageDetails: (pageId, cursor = null, page_size = 10) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
-    if (page_size) q.set('page_size', page_size);
-    const qs = q.toString() ? `?${q.toString()}` : '';
+    const size = page_size || 10;
+    q.set('page_size', size);
+    q.set('limit', size);
+    const qs = `?${q.toString()}`;
     return apiFetch(`/v1/page/${pageId}/conversations${qs}`);
   },
-  getConversationDetails: (pageId, conversationId, cursor = null, page_size = null) => {
+  getConversationDetails: (pageId, conversationId, cursor = null, page_size = 20) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
-    if (page_size) q.set('page_size', page_size);
-    const qs = q.toString() ? `?${q.toString()}` : '';
+    const size = page_size || 20;
+    q.set('page_size', size);
+    q.set('limit', size);
+    const qs = `?${q.toString()}`;
     return apiFetch(`/v1/page/${pageId}/conversation/${conversationId}${qs}`);
   },
   replyToConversation: (pageId, conversationId, message) => apiFetch(`/v1/facebook/${pageId}/messenger/${conversationId}/reply`, {

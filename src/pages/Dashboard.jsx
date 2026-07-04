@@ -2777,7 +2777,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [localAvatarsTick, setLocalAvatarsTick] = useState(0);
   const [creationError, setCreationError] = useState(null);
 
-  const handleSaveAvatar = (updatedConfig, agentId) => {
+  const handleSaveAvatar = async (updatedConfig, agentId) => {
     setLocalAvatarsTick(prev => prev + 1);
     if (user && user.agents) {
       const target = user.agents.find(a => a.agent_id === agentId);
@@ -2786,6 +2786,18 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       }
     }
     if (onUpdate) onUpdate();
+
+    try {
+      const updatedAgent = await apiService.setAgentAvatar(agentId, updatedConfig);
+      if (updatedAgent && updatedAgent.avatar_config && user && user.agents) {
+        const target = user.agents.find(a => a.agent_id === agentId);
+        if (target) {
+          Object.assign(target, updatedAgent);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to set agent avatar on backend:", e);
+    }
   };
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
