@@ -323,8 +323,9 @@ function UsersSection() {
     const newStatus = user.status === 'active' ? 'suspended' : 'active';
     setTogglingId(user.user_id || user.id);
     try {
-      await apiService.adminChangeUserStatus(user.user_id || user.id, newStatus);
-      setUsers(prev => prev.map(u => (u.user_id || u.id) === (user.user_id || user.id) ? { ...u, status: newStatus } : u));
+      const resp = await apiService.adminChangeUserStatus(user.user_id || user.id, newStatus);
+      const updatedStatus = resp?.new_status || newStatus;
+      setUsers(prev => prev.map(u => (u.user_id || u.id) === (user.user_id || user.id) ? { ...u, status: updatedStatus } : u));
     } catch (e) { alert('Failed: ' + e.message); }
     finally { setTogglingId(null); }
   };
