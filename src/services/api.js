@@ -37,6 +37,25 @@ const mockData = {
     messages: [
       { id: 'm3', message: 'Is the product in stock?', role: 'user', created_at: new Date(Date.now() - 200000).toISOString() }
     ]
+  },
+  '/v1/admin/login': {
+    status: true,
+    message: "Login successful",
+    admin: {
+      id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      email: "user@example.com",
+      full_name: "Admin User",
+      created_at: "2026-07-09T16:44:13.533Z"
+    }
+  },
+  '/v1/admin/me': {
+    status: true,
+    admin: {
+      id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      email: "user@example.com",
+      full_name: "Admin User",
+      created_at: "2026-07-09T16:44:13.533Z"
+    }
   }
 };
 

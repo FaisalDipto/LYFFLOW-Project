@@ -1088,7 +1088,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     apiService.adminMe()
-      .then(r => setAdmin(r?.data || r))
+      .then(r => setAdmin(r?.admin || r?.data || r))
       .catch(err => {
         // If 401/403, redirect to login
         if (err?.status === 401 || err?.status === 403) {
@@ -1142,9 +1142,9 @@ export default function AdminPanel() {
         <div className="admin-sidebar-footer">
           {admin && (
             <div className="admin-profile-chip">
-              <div className="admin-avatar" style={{ width: 30, height: 30, fontSize: 11 }}>{initials(admin.name || admin.email)}</div>
+              <div className="admin-avatar" style={{ width: 30, height: 30, fontSize: 11 }}>{initials(admin.full_name || admin.name || admin.email)}</div>
               <div className="admin-profile-chip-info">
-                <span className="admin-profile-chip-name">{admin.name || 'Admin'}</span>
+                <span className="admin-profile-chip-name">{admin.full_name || admin.name || 'Admin'}</span>
                 <span className="admin-profile-chip-email">{admin.email || ''}</span>
               </div>
             </div>
@@ -1168,9 +1168,9 @@ export default function AdminPanel() {
           <div className="admin-topbar-right">
             {admin && (
               <div className="admin-topbar-profile">
-                <div className="admin-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>{initials(admin.name || admin.email)}</div>
+                <div className="admin-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>{initials(admin.full_name || admin.name || admin.email)}</div>
                 <div style={{ lineHeight: 1.2 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{admin.name || 'Admin'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{admin.full_name || admin.name || 'Admin'}</div>
                   <div style={{ fontSize: 11, color: '#94a3b8' }}>{admin.email || ''}</div>
                 </div>
               </div>
