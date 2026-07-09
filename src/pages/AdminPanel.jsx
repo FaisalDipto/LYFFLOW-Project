@@ -293,6 +293,161 @@ function UserDetailModal({ userId, onClose }) {
   );
 }
 
+// ── Activity Detail Modal ──────────────────────────────
+function ActivityDetailModal({ activityId, onClose }) {
+  const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!activityId) return;
+    setLoading(true);
+    setError(null);
+    apiService.adminGetActivity(activityId)
+      .then(res => setDetail(res?.data || res))
+      .catch(e => setError('Failed to load activity details: ' + (e.message || 'Error')))
+      .finally(() => setLoading(false));
+  }, [activityId]);
+
+  if (!activityId) return null;
+
+  const st = (detail?.status || '').toLowerCase();
+  const isSuccess = st === 'success' || st === 'ok' || st === 'completed';
+  const isErr = st === 'error' || st === 'failed';
+  const badgeColor = isSuccess ? 'badge-green' : isErr ? 'badge-red' : 'badge-blue';
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justify: 'center', zIndex: 1000, padding: 24
+    }}>
+      <div style={{
+        backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 880, maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '20px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#6366f1' }}>terminal</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Execution Trace Details</h3>
+              <div style={{ fontSize: 12, color: '#64748b' }}>Run ID: {activityId}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+            borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b'
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 24 }}>close</span>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: 28, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {loading ? (
+            <div style={{ padding: 48, textAlign: 'center' }}><LoadingState /></div>
+          ) : error ? (
+            <div style={{ padding: 32, textAlign: 'center', color: '#ef4444' }}>{error}</div>
+          ) : detail ? (
+            <>
+              {/* Summary Metrics Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+                <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Status</div>
+                  <div style={{ marginTop: 6 }}>
+                    <span className={`badge ${badgeColor}`} style={{ fontSize: 13, padding: '4px 10px' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{isSuccess ? 'check_circle' : isErr ? 'error' : 'pending'}</span>
+                      {detail.status || 'Unknown'}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Model</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{detail.model_name || '—'}</div>
+                </div>
+                <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Response Time</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{fmt(detail.response_time_ms || 0)} ms</div>
+                </div>
+                <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Execution Cost</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#10b981', marginTop: 6 }}>${fmt(detail.token_cost || 0)}</div>
+                </div>
+              </div>
+
+              {/* Tokens Breakdown Card */}
+              <div style={{ padding: 20, backgroundColor: '#ffffff', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#6366f1' }}>memory</span>
+                  Token Consumption Breakdown
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                  <div style={{ padding: 12, backgroundColor: '#f8fafc', borderRadius: 10 }}>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Input Tokens</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#334155', marginTop: 4 }}>{fmt(detail.input_tokens || 0)}</div>
+                  </div>
+                  <div style={{ padding: 12, backgroundColor: '#f8fafc', borderRadius: 10 }}>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Output Tokens</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#334155', marginTop: 4 }}>{fmt(detail.output_tokens || 0)}</div>
+                  </div>
+                  <div style={{ padding: 12, backgroundColor: '#eff6ff', borderRadius: 10, border: '1px solid #dbeafe' }}>
+                    <div style={{ fontSize: 11, color: '#1d4ed8', fontWeight: 600 }}>Total Tokens</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#1e40af', marginTop: 4 }}>{fmt((detail.input_tokens || 0) + (detail.output_tokens || 0))}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trace Identifiers Card */}
+              <div style={{ padding: 20, backgroundColor: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#475569' }}>link</span>
+                  System Identifiers & Metadata
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, fontSize: 12 }}>
+                  <div><strong style={{ color: '#475569' }}>User:</strong> {detail.user_display_name || detail.user_id || '—'}</div>
+                  <div><strong style={{ color: '#475569' }}>Agent:</strong> {detail.agent_name || detail.agent_id || '—'}</div>
+                  <div><strong style={{ color: '#475569' }}>Conversation ID:</strong> <span style={{ fontFamily: 'monospace' }}>{detail.conversation_id || '—'}</span></div>
+                  <div><strong style={{ color: '#475569' }}>Trigger Msg ID:</strong> <span style={{ fontFamily: 'monospace' }}>{detail.trigger_message_id || '—'}</span></div>
+                  <div><strong style={{ color: '#475569' }}>Response Msg ID:</strong> <span style={{ fontFamily: 'monospace' }}>{detail.response_message_id || '—'}</span></div>
+                  <div><strong style={{ color: '#475569' }}>Executed At:</strong> {fmtDate(detail.created_at)}</div>
+                </div>
+              </div>
+
+              {/* Query & Response Blocks */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ padding: 18, backgroundColor: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#3b82f6' }}>input</span>
+                    User Query
+                  </div>
+                  <div style={{ padding: 14, backgroundColor: '#f8fafc', borderRadius: 10, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap', color: '#1e293b' }}>
+                    {detail.user_query || '—'}
+                  </div>
+                </div>
+
+                <div style={{ padding: 18, backgroundColor: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#10b981' }}>output</span>
+                    Agent Response
+                  </div>
+                  <div style={{ padding: 14, backgroundColor: '#f8fafc', borderRadius: 10, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap', color: '#1e293b', borderLeft: '4px solid #10b981' }}>
+                    {detail.agent_response || '—'}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', color: '#64748b' }}>No details found.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Users Section ──────────────────────────────────────
 function UsersSection() {
   const [users, setUsers] = useState([]);
@@ -525,6 +680,7 @@ function ActivitySection() {
   const [recentCursor, setRecentCursor] = useState(null);
   const [recentTotal, setRecentTotal] = useState(0);
   const [recentSearch, setRecentSearch] = useState('');
+  const [selectedActivityId, setSelectedActivityId] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -667,7 +823,7 @@ function ActivitySection() {
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead><tr>
-                <th>User / Agent</th><th>Model</th><th>Status</th><th>User Query</th><th>Agent Response</th><th>Tokens & Cost</th><th>Time & Date</th>
+                <th>User / Agent</th><th>Model</th><th>Status</th><th>User Query</th><th>Agent Response</th><th>Tokens & Cost</th><th>Time & Date</th><th>Actions</th>
               </tr></thead>
               <tbody>
                 {filteredRecent.map((a, idx) => {
@@ -704,6 +860,16 @@ function ActivitySection() {
                         <div className="font-bold">{fmt(a.response_time_ms || 0)} ms</div>
                         <div className="text-muted" style={{ fontSize: 11 }}>{fmtDate(a.created_at)}</div>
                       </td>
+                      <td>
+                        <button 
+                          className="btn-action btn-action-blue" 
+                          onClick={() => setSelectedActivityId(a.id)} 
+                          style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 15 }}>visibility</span>
+                          Details
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -716,6 +882,8 @@ function ActivitySection() {
           <button disabled={!nextRecentCursor} onClick={() => setRecentCursor(nextRecentCursor)}>Next →</button>
         </div>
       </div>
+
+      <ActivityDetailModal activityId={selectedActivityId} onClose={() => setSelectedActivityId(null)} />
     </div>
   );
 }

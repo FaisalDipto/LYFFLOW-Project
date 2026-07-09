@@ -455,4 +455,5 @@ export const apiService = {
     if (user_id) q.set('user_id', user_id);
     return apiFetch(`/v1/admin/activity/recent?${q}`);
   },
+  adminGetActivity: (activityId) => apiFetch(`/v1/admin/activity/${activityId}`),
 };
