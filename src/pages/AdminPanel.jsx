@@ -649,11 +649,12 @@ function SubscriptionsSection() {
 
   const filtered = search.trim()
     ? items.filter(s => {
-        const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim();
+        const fullName = s.user_display_name || `${s.first_name || ''} ${s.last_name || ''}`.trim();
         const planName = s.plan_name || s.plan?.plan_name || '';
+        const email = s.user_email || s.email || '';
         return (
           fullName.toLowerCase().includes(search.toLowerCase()) ||
-          (s.email || '').toLowerCase().includes(search.toLowerCase()) ||
+          email.toLowerCase().includes(search.toLowerCase()) ||
           planName.toLowerCase().includes(search.toLowerCase())
         );
       })
@@ -725,15 +726,17 @@ function SubscriptionsSection() {
                   const planName = s.plan_name || s.plan?.plan_name || '—';
                   const price = s.price_per_month ?? s.plan?.price_per_month ?? 0;
                   const tokensUsed = s.tokens_used ?? s.usage?.tokens_used ?? 0;
+                  const displayName = s.user_display_name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || '—';
+                  const displayEmail = s.user_email || s.email || '—';
 
                   return (
                     <tr key={s.subscription_id || idx}>
                       <td>
                         <div className="admin-user-cell">
-                          <div className="admin-avatar">{initials(`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email || 'Admin')}</div>
+                          <div className="admin-avatar">{initials(displayName !== '—' ? displayName : displayEmail)}</div>
                           <div className="admin-user-info">
-                            <div className="font-bold">{`${s.first_name || ''} ${s.last_name || ''}`.trim() || '—'}</div>
-                            <div className="text-muted">{s.email || '—'}</div>
+                            <div className="font-bold">{displayName}</div>
+                            <div className="text-muted">{displayEmail}</div>
                           </div>
                         </div>
                       </td>
