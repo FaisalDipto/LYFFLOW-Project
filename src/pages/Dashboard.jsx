@@ -5113,7 +5113,7 @@ export default function Dashboard() {
                   )}
 
                   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
-                    <span className="material-symbols-outlined text-amber-500 text-[18px] mt-0.5 shrink-0">warning</span>
+                    <span className="material-symbols-outlined text-amber-500 text-[18px] mt-0.5 shrink-0">Warning</span>
                     <p className="text-xs text-amber-800 font-semibold leading-relaxed">
                       Unchecking them will disconnect them from LYFFLOW and stop their AI agents.
                     </p>
