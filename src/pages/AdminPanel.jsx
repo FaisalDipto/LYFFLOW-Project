@@ -1251,6 +1251,115 @@ function PagesSection() {
   );
 }
 
+// ── Namespaces Section ─────────────────────────────────
+function NamespacesSection() {
+  const [namespaces, setNamespaces] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [cursor, setCursor] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+
+  const load = useCallback((cur = null) => {
+    setLoading(true);
+    apiService.adminNamespaces({ cursor: cur, page_size: 20 })
+      .then(r => {
+        const list = r?.namespaces || r?.data?.namespaces || [];
+        setNamespaces(Array.isArray(list) ? list : []);
+        setNextCursor(r?.pagination?.next_cursor || null);
+        setTotal(r?.pagination?.total ?? list.length ?? 0);
+      })
+      .catch(() => { })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(null); }, [load]);
+
+  const filtered = search.trim()
+    ? namespaces.filter(ns =>
+      (ns.namespace_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (ns.namespace_id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (ns.user_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (ns.user_id || '').toLowerCase().includes(search.toLowerCase())
+    )
+    : namespaces;
+
+  return (
+    <div>
+      <div className="admin-section-header">
+        <div className="admin-section-label">Knowledge Base</div>
+        <div className="admin-section-title">Isolated Namespaces</div>
+      </div>
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <span className="admin-card-title">All Namespaces{total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
+          <div className="admin-filter-row">
+            <div className="admin-search-bar">
+              <span className="material-symbols-outlined">search</span>
+              <input placeholder="Search namespace name, ID or owner…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="dns" text="No namespaces found." /> : (
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead><tr>
+                <th>Namespace Name & ID</th><th>Knowledge Files</th><th>Products</th><th>Owner</th><th>Created At</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map(ns => (
+                  <tr key={ns.namespace_id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="admin-avatar" style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fff' }}>dns</span>
+                        </div>
+                        <div>
+                          <div className="font-bold">{ns.namespace_name || 'Default Namespace'}</div>
+                          <div className="text-muted" style={{ fontSize: 11, fontFamily: 'monospace' }}>ID: {ns.namespace_id || '—'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge badge-purple" style={{ fontSize: 12 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 13, marginRight: 4 }}>folder_open</span>
+                        <span className="font-bold">{fmt(ns.knowledge_count ?? 0)}</span> files
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge badge-green" style={{ fontSize: 12 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 13, marginRight: 4 }}>inventory_2</span>
+                        <span className="font-bold">{fmt(ns.product_count ?? 0)}</span> items
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="admin-avatar" style={{ width: 26, height: 26, fontSize: 10 }}>{initials(ns.user_name || 'U')}</div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{ns.user_name || '—'}</div>
+                          <div className="text-muted" style={{ fontSize: 11 }}>ID: {ns.user_id?.slice(0, 8)}…</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="font-bold" style={{ fontSize: 12 }}>{fmtDate(ns.created_at)}</div>
+                      <div className="text-muted" style={{ fontSize: 11 }}>{ns.created_at?.slice(0, 10)}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="admin-pagination">
+          <button disabled={!cursor} onClick={() => { setCursor(null); load(null); }}>← First</button>
+          <button disabled={!nextCursor} onClick={() => { setCursor(nextCursor); load(nextCursor); }}>Next →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Products Section ───────────────────────────────────
 function ProductsSection() {
   const [products, setProducts] = useState([]);
@@ -1997,6 +2106,7 @@ const NAV = [
   { id: 'revenue', label: 'Revenue', icon: 'payments' },
   { id: 'agents', label: 'AI Agents', icon: 'smart_toy' },
   { id: 'pages', label: 'Pages', icon: 'pages' },
+  { id: 'namespaces', label: 'Namespaces', icon: 'dns' },
   { id: 'products', label: 'Products', icon: 'inventory_2' },
   { id: 'knowledges', label: 'Knowledge Files', icon: 'folder_open' },
   { id: 'conversations', label: 'Conversations', icon: 'chat' },
@@ -2037,6 +2147,7 @@ export default function AdminPanel() {
       case 'revenue': return <RevenueSection />;
       case 'agents': return <AgentsSection />;
       case 'pages': return <PagesSection />;
+      case 'namespaces': return <NamespacesSection />;
       case 'products': return <ProductsSection />;
       case 'knowledges': return <KnowledgesSection />;
       case 'conversations': return <ConversationsSection />;

@@ -483,4 +483,11 @@ export const apiService = {
     if (knowledge_type) q.set('knowledge_type', knowledge_type);
     return apiFetch(`/v1/admin/knowledges?${q}`);
   },
+  adminNamespaces: ({ cursor, page_size, user_id } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    if (user_id) q.set('user_id', user_id);
+    return apiFetch(`/v1/admin/namespaces?${q}`);
+  },
 };
