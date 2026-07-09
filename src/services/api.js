@@ -490,4 +490,12 @@ export const apiService = {
     if (user_id) q.set('user_id', user_id);
     return apiFetch(`/v1/admin/namespaces?${q}`);
   },
+  adminPlatforms: ({ cursor, page_size, user_id, platform_type } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    if (user_id) q.set('user_id', user_id);
+    if (platform_type) q.set('platform_type', platform_type);
+    return apiFetch(`/v1/admin/platforms?${q}`);
+  },
 };

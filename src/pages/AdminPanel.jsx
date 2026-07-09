@@ -1151,6 +1151,133 @@ function AgentsSection() {
   );
 }
 
+// ── Platforms Section ──────────────────────────────────
+function PlatformsSection() {
+  const [platforms, setPlatforms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [cursor, setCursor] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+
+  const load = useCallback((cur = null) => {
+    setLoading(true);
+    apiService.adminPlatforms({ cursor: cur, page_size: 20, platform_type: typeFilter })
+      .then(r => {
+        const list = r?.platforms || r?.data?.platforms || [];
+        setPlatforms(Array.isArray(list) ? list : []);
+        setNextCursor(r?.pagination?.next_cursor || null);
+        setTotal(r?.pagination?.total ?? list.length ?? 0);
+      })
+      .catch(() => { })
+      .finally(() => setLoading(false));
+  }, [typeFilter]);
+
+  useEffect(() => { setCursor(null); load(null); }, [load]);
+
+  const filtered = search.trim()
+    ? platforms.filter(pl =>
+      (pl.platform_type || '').toLowerCase().includes(search.toLowerCase()) ||
+      (pl.user_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (pl.id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (pl.user_id || '').toLowerCase().includes(search.toLowerCase())
+    )
+    : platforms;
+
+  return (
+    <div>
+      <div className="admin-section-header">
+        <div className="admin-section-label">Integrations</div>
+        <div className="admin-section-title">Connected Platforms</div>
+      </div>
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <span className="admin-card-title">All User Integrations{total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
+          <div className="admin-filter-row">
+            <div className="admin-search-bar">
+              <span className="material-symbols-outlined">search</span>
+              <input placeholder="Search platform type, user name or ID…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <select
+              className="admin-filter-select"
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value)}
+            >
+              <option value="">All Platforms</option>
+              <option value="facebook">Facebook</option>
+              <option value="shopify">Shopify</option>
+              <option value="instagram">Instagram</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="webhook">Webhook / API</option>
+            </select>
+          </div>
+        </div>
+        {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="hub" text="No connected platforms found." /> : (
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead><tr>
+                <th>Integration Platform</th><th>Platform Type</th><th>Owner / User</th><th>Connected At</th><th>Last Updated</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map(pl => {
+                  const pt = (pl.platform_type || '').toLowerCase();
+                  const isFb = pt === 'facebook' || pt === 'messenger';
+                  const isShop = pt === 'shopify';
+                  const isIg = pt === 'instagram';
+                  const isWa = pt === 'whatsapp';
+                  const iconName = isFb ? 'thumb_up' : isShop ? 'storefront' : isIg ? 'photo_camera' : isWa ? 'chat' : 'hub';
+                  const badgeColor = isFb ? 'badge-blue' : isShop ? 'badge-green' : isIg ? 'badge-purple' : isWa ? 'badge-green' : 'badge-slate';
+
+                  return (
+                    <tr key={pl.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div className="admin-avatar" style={{ background: isFb ? 'linear-gradient(135deg, #1877f2 0%, #0c5dc7 100%)' : isShop ? 'linear-gradient(135deg, #95bf47 0%, #5e8e3e 100%)' : 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fff' }}>{iconName}</span>
+                          </div>
+                          <div>
+                            <div className="font-bold" style={{ textTransform: 'capitalize' }}>{pl.platform_type || 'Custom Integration'}</div>
+                            <div className="text-muted" style={{ fontSize: 11, fontFamily: 'monospace' }}>ID: {pl.id?.slice(0, 8)}…</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge ${badgeColor}`} style={{ textTransform: 'uppercase', fontSize: 11 }}>
+                          {pl.platform_type || 'General'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div className="admin-avatar" style={{ width: 26, height: 26, fontSize: 10 }}>{initials(pl.user_name || 'U')}</div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{pl.user_name || '—'}</div>
+                            <div className="text-muted" style={{ fontSize: 11 }}>ID: {pl.user_id?.slice(0, 8)}…</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="font-bold" style={{ fontSize: 12 }}>{fmtDate(pl.created_at)}</div>
+                      </td>
+                      <td>
+                        <div className="text-muted" style={{ fontSize: 12 }}>{fmtDate(pl.updated_at)}</div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="admin-pagination">
+          <button disabled={!cursor} onClick={() => { setCursor(null); load(null); }}>← First</button>
+          <button disabled={!nextCursor} onClick={() => { setCursor(nextCursor); load(nextCursor); }}>Next →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Pages Section ──────────────────────────────────────
 function PagesSection() {
   const [pages, setPages] = useState([]);
@@ -2105,6 +2232,7 @@ const NAV = [
   { id: 'subscriptions', label: 'Subscriptions', icon: 'subscriptions' },
   { id: 'revenue', label: 'Revenue', icon: 'payments' },
   { id: 'agents', label: 'AI Agents', icon: 'smart_toy' },
+  { id: 'platforms', label: 'Platforms & Apps', icon: 'hub' },
   { id: 'pages', label: 'Pages', icon: 'pages' },
   { id: 'namespaces', label: 'Namespaces', icon: 'dns' },
   { id: 'products', label: 'Products', icon: 'inventory_2' },
@@ -2146,6 +2274,7 @@ export default function AdminPanel() {
       case 'subscriptions': return <SubscriptionsSection />;
       case 'revenue': return <RevenueSection />;
       case 'agents': return <AgentsSection />;
+      case 'platforms': return <PlatformsSection />;
       case 'pages': return <PagesSection />;
       case 'namespaces': return <NamespacesSection />;
       case 'products': return <ProductsSection />;
