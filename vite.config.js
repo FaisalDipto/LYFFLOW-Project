@@ -15,8 +15,8 @@ try {
 }
 
 const PORT = IS_DEV_BRANCH ? 3001 : 3000;
-const API_HOST = IS_DEV_BRANCH ? 'api.meheraz733.com' : 'api.lyfflow.com';
-const SITE_HOST = IS_DEV_BRANCH ? 'www.meheraz733.com' : 'www.lyfflow.com';
+const API_HOST = IS_DEV_BRANCH ? 'api.meharaz733.com' : 'api.lyfflow.com';
+const SITE_HOST = IS_DEV_BRANCH ? 'www.meharaz733.com' : 'www.lyfflow.com';
 
 export default defineConfig({
   plugins: [react()],
