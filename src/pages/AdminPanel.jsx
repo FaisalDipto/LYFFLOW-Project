@@ -1373,6 +1373,138 @@ function ProductsSection() {
   );
 }
 
+// ── Knowledges Section ─────────────────────────────────
+function KnowledgesSection() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [cursor, setCursor] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+
+  const load = useCallback((cur = null) => {
+    setLoading(true);
+    apiService.adminKnowledges({ cursor: cur, page_size: 20, knowledge_type: typeFilter })
+      .then(r => {
+        const list = r?.items || r?.data?.items || [];
+        setItems(Array.isArray(list) ? list : []);
+        setNextCursor(r?.pagination?.next_cursor || null);
+        setTotal(r?.pagination?.total ?? list.length ?? 0);
+      })
+      .catch(() => { })
+      .finally(() => setLoading(false));
+  }, [typeFilter]);
+
+  useEffect(() => { setCursor(null); load(null); }, [load]);
+
+  const filtered = search.trim()
+    ? items.filter(it =>
+      (it.title || '').toLowerCase().includes(search.toLowerCase()) ||
+      (it.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (it.filename || '').toLowerCase().includes(search.toLowerCase()) ||
+      (it.user_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (it.namespace_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (it.id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (it.user_id || '').toLowerCase().includes(search.toLowerCase())
+    )
+    : items;
+
+  return (
+    <div>
+      <div className="admin-section-header">
+        <div className="admin-section-label">Knowledge Base</div>
+        <div className="admin-section-title">Uploaded RAG Documents</div>
+      </div>
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <span className="admin-card-title">All RAG Documents & Files{total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
+          <div className="admin-filter-row">
+            <div className="admin-search-bar">
+              <span className="material-symbols-outlined">search</span>
+              <input placeholder="Search document title, filename, user or namespace…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <select
+              className="admin-filter-select"
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value)}
+            >
+              <option value="">All File Types</option>
+              <option value="pdf">PDF (`.pdf`)</option>
+              <option value="txt">Text (`.txt`)</option>
+              <option value="docx">Word (`.docx`)</option>
+              <option value="url">Web (`URL`)</option>
+            </select>
+          </div>
+        </div>
+        {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="folder_open" text="No knowledge files found." /> : (
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead><tr>
+                <th>Document Title & File</th><th>Type & Size</th><th>Namespace</th><th>Owner</th><th>Uploaded At</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map(it => {
+                  const kt = (it.knowledge_type || '').toLowerCase();
+                  const iconName = kt === 'pdf' ? 'picture_as_pdf' : kt === 'url' ? 'link' : kt === 'docx' ? 'description' : 'article';
+                  const badgeColor = kt === 'pdf' ? 'badge-red' : kt === 'url' ? 'badge-blue' : kt === 'docx' ? 'badge-purple' : 'badge-slate';
+
+                  const kb = it.size_bytes > 0 ? (it.size_bytes > 1048576 ? `${(it.size_bytes / 1048576).toFixed(2)} MB` : `${Math.round(it.size_bytes / 1024)} KB`) : '—';
+
+                  return (
+                    <tr key={it.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div className="admin-avatar" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fff' }}>{iconName}</span>
+                          </div>
+                          <div>
+                            <div className="font-bold">{it.title || it.name || it.filename || 'Untitled Document'}</div>
+                            <div className="text-muted" style={{ fontSize: 11, fontFamily: 'monospace' }}>{it.filename || it.name || '—'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                          <span className={`badge ${badgeColor}`} style={{ textTransform: 'uppercase', fontSize: 10 }}>
+                            {it.knowledge_type || 'file'}
+                          </span>
+                          <span className="text-muted" style={{ fontSize: 11 }}>{kb}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="font-bold">{it.namespace_name || 'Default Namespace'}</div>
+                        <div className="text-muted" style={{ fontSize: 11 }}>ID: {it.namespace_id?.slice(0, 8)}…</div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div className="admin-avatar" style={{ width: 26, height: 26, fontSize: 10 }}>{initials(it.user_name || 'U')}</div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{it.user_name || '—'}</div>
+                            <div className="text-muted" style={{ fontSize: 11 }}>ID: {it.user_id?.slice(0, 8)}…</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="font-bold" style={{ fontSize: 12 }}>{fmtDate(it.created_at)}</div>
+                        <div className="text-muted" style={{ fontSize: 11 }}>ID: {it.id?.slice(0, 8)}…</div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="admin-pagination">
+          <button disabled={!cursor} onClick={() => { setCursor(null); load(null); }}>← First</button>
+          <button disabled={!nextCursor} onClick={() => { setCursor(nextCursor); load(nextCursor); }}>Next →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Conversations Section ────────────────────────────────
 function ConversationsSection() {
   const [conversations, setConversations] = useState([]);
@@ -1866,6 +1998,7 @@ const NAV = [
   { id: 'agents', label: 'AI Agents', icon: 'smart_toy' },
   { id: 'pages', label: 'Pages', icon: 'pages' },
   { id: 'products', label: 'Products', icon: 'inventory_2' },
+  { id: 'knowledges', label: 'Knowledge Files', icon: 'folder_open' },
   { id: 'conversations', label: 'Conversations', icon: 'chat' },
   { id: 'customer-records', label: 'Captured Records', icon: 'assignment_ind' },
   { id: 'feedbacks', label: 'Feedbacks', icon: 'feedback' },
@@ -1905,6 +2038,7 @@ export default function AdminPanel() {
       case 'agents': return <AgentsSection />;
       case 'pages': return <PagesSection />;
       case 'products': return <ProductsSection />;
+      case 'knowledges': return <KnowledgesSection />;
       case 'conversations': return <ConversationsSection />;
       case 'customer-records': return <CustomerRecordsSection />;
       case 'feedbacks': return <FeedbacksSection />;

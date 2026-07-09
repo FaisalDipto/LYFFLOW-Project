@@ -474,4 +474,13 @@ export const apiService = {
     if (record_status) q.set('record_status', record_status);
     return apiFetch(`/v1/admin/customer-records?${q}`);
   },
+  adminKnowledges: ({ cursor, page_size, user_id, namespace_id, knowledge_type } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    if (user_id) q.set('user_id', user_id);
+    if (namespace_id) q.set('namespace_id', namespace_id);
+    if (knowledge_type) q.set('knowledge_type', knowledge_type);
+    return apiFetch(`/v1/admin/knowledges?${q}`);
+  },
 };
