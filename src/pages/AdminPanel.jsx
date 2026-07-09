@@ -1251,6 +1251,128 @@ function PagesSection() {
   );
 }
 
+// ── Products Section ───────────────────────────────────
+function ProductsSection() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [cursor, setCursor] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+
+  const load = useCallback((cur = null) => {
+    setLoading(true);
+    apiService.adminProducts({ cursor: cur, page_size: 20, category: categoryFilter })
+      .then(r => {
+        const list = r?.products || r?.data?.products || [];
+        setProducts(Array.isArray(list) ? list : []);
+        setNextCursor(r?.pagination?.next_cursor || null);
+        setTotal(r?.pagination?.total ?? list.length ?? 0);
+      })
+      .catch(() => { })
+      .finally(() => setLoading(false));
+  }, [categoryFilter]);
+
+  useEffect(() => { setCursor(null); load(null); }, [load]);
+
+  // Client-side search filter
+  const filtered = search.trim()
+    ? products.filter(p =>
+      (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.code || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.category || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.user_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.user_id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.product_id || '').toLowerCase().includes(search.toLowerCase())
+    )
+    : products;
+
+  return (
+    <div>
+      <div className="admin-section-header">
+        <div className="admin-section-label">Knowledge Base</div>
+        <div className="admin-section-title">Products Catalog</div>
+      </div>
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <span className="admin-card-title">All Products & Variants{total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
+          <div className="admin-filter-row">
+            <div className="admin-search-bar">
+              <span className="material-symbols-outlined">search</span>
+              <input placeholder="Search product name, code, category or user…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <input
+              placeholder="Filter Category…"
+              className="admin-filter-select"
+              style={{ padding: '6px 12px', width: 150 }}
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+            />
+          </div>
+        </div>
+        {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="inventory_2" text="No products found." /> : (
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead><tr>
+                <th>Product</th><th>Code & Price</th><th>Category</th><th>Availability</th><th>Active</th><th>Assets</th><th>Owner</th><th>Created At</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map(p => (
+                  <tr key={p.product_id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="admin-avatar" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fff' }}>inventory_2</span>
+                        </div>
+                        <div>
+                          <div className="font-bold">{p.name || 'Untitled Product'}</div>
+                          <div className="text-muted" style={{ fontSize: 11 }}>Source: {p.import_source || 'manual'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="font-bold" style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.code || '—'}</div>
+                      <div style={{ color: '#10b981', fontWeight: 600, fontSize: 12 }}>{p.price ? `$${p.price}` : '—'}</div>
+                    </td>
+                    <td><span className="badge badge-slate">{p.category || 'General'}</span></td>
+                    <td>
+                      <span className={`badge ${p.availability ? 'badge-green' : 'badge-red'}`}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 11 }}>{p.availability ? 'check_circle' : 'cancel'}</span>
+                        {p.availability ? 'In Stock' : 'Unavailable'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${p.is_active ? 'badge-green' : 'badge-slate'}`}>
+                        {p.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td><span className="font-bold">{fmt(p.asset_count ?? 0)}</span></td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="admin-avatar" style={{ width: 26, height: 26, fontSize: 10 }}>{initials(p.user_name || 'U')}</div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{p.user_name || '—'}</div>
+                          <div className="text-muted" style={{ fontSize: 11 }}>ID: {p.user_id?.slice(0, 8)}…</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span className="text-muted" style={{ fontSize: 12 }}>{fmtDate(p.created_at)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="admin-pagination">
+          <button disabled={!cursor} onClick={() => { setCursor(null); load(null); }}>← First</button>
+          <button disabled={!nextCursor} onClick={() => { setCursor(nextCursor); load(nextCursor); }}>Next →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Conversations Section ────────────────────────────────
 function ConversationsSection() {
   const [conversations, setConversations] = useState([]);
@@ -1561,6 +1683,7 @@ const NAV = [
   { id: 'revenue', label: 'Revenue', icon: 'payments' },
   { id: 'agents', label: 'AI Agents', icon: 'smart_toy' },
   { id: 'pages', label: 'Pages', icon: 'pages' },
+  { id: 'products', label: 'Products', icon: 'inventory_2' },
   { id: 'conversations', label: 'Conversations', icon: 'chat' },
   { id: 'feedbacks', label: 'Feedbacks', icon: 'feedback' },
   { id: 'leads', label: 'Leads', icon: 'contacts' },
@@ -1598,6 +1721,7 @@ export default function AdminPanel() {
       case 'revenue': return <RevenueSection />;
       case 'agents': return <AgentsSection />;
       case 'pages': return <PagesSection />;
+      case 'products': return <ProductsSection />;
       case 'conversations': return <ConversationsSection />;
       case 'feedbacks': return <FeedbacksSection />;
       case 'leads': return <LeadsSection />;

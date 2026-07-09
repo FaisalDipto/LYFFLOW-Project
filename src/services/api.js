@@ -456,4 +456,13 @@ export const apiService = {
     return apiFetch(`/v1/admin/activity/recent?${q}`);
   },
   adminGetActivity: (activityId) => apiFetch(`/v1/admin/activity/${activityId}`),
+  adminProducts: ({ cursor, page_size, user_id, namespace_id, category } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    if (user_id) q.set('user_id', user_id);
+    if (namespace_id) q.set('namespace_id', namespace_id);
+    if (category) q.set('category', category);
+    return apiFetch(`/v1/admin/products?${q}`);
+  },
 };
