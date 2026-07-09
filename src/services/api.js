@@ -56,6 +56,21 @@ const mockData = {
       full_name: "Admin User",
       created_at: "2026-07-09T16:44:13.533Z"
     }
+  },
+  '/v1/admin/dashboard': {
+    total_users: 1420,
+    active_users: 1380,
+    suspended_users: 40,
+    total_subscriptions: 310,
+    active_subscriptions: 295,
+    total_agents: 560,
+    total_pages: 340,
+    total_conversations: 12450,
+    total_messages: 48900,
+    total_feedbacks: 180,
+    total_leads: 620,
+    total_tokens_used: 1542000,
+    total_revenue: 28450
   }
 };
 
@@ -373,6 +388,7 @@ export const apiService = {
     if (search) q.set('search', search);
     return apiFetch(`/v1/admin/users?${q}`);
   },
+  adminGetUser: (userId) => apiFetch(`/v1/admin/users/${userId}`),
   adminChangeUserStatus: (userId, status) => apiFetch(`/v1/admin/users/${userId}/status`, {
     method: 'PATCH', body: JSON.stringify({ status }),
   }),

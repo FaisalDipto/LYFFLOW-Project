@@ -116,6 +116,183 @@ function DashboardSection() {
   );
 }
 
+// ── User Detail Profile Modal ──────────────────────────
+function UserDetailModal({ userId, onClose }) {
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    setLoading(true);
+    setError(null);
+    apiService.adminGetUser(userId)
+      .then(r => setDetail(r?.data || r))
+      .catch(e => setError(e.message || 'Failed to load detailed user profile'))
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  if (!userId) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justify: 'center', zIndex: 1000, padding: 24
+    }}>
+      <div style={{
+        backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 850,
+        maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '20px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#3b82f6' }}>manage_accounts</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Detailed User Profile</h3>
+              <div style={{ fontSize: 12, color: '#64748b' }}>ID: {userId}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+            borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b'
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 24 }}>close</span>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: 28, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {loading ? (
+            <div style={{ padding: 48, textAlign: 'center' }}><LoadingState /></div>
+          ) : error ? (
+            <div style={{ padding: 32, textAlign: 'center', color: '#ef4444' }}>{error}</div>
+          ) : detail ? (
+            <>
+              {/* Profile Summary Card */}
+              <div style={{
+                display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
+                padding: 20, backgroundColor: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', gap: 16
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div className="admin-avatar" style={{ width: 56, height: 56, fontSize: 20 }}>
+                    {initials(detail.display_name || detail.email || 'U')}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>
+                      {detail.display_name || `${detail.first_name || ''} ${detail.last_name || ''}`.trim() || 'No Name'}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{detail.email}</div>
+                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Joined: {fmtDate(detail.join_at || detail.created_at)}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                  <Badge type={detail.status} />
+                  {detail.has_used_free_plan !== undefined && (
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, backgroundColor: '#e2e8f0', color: '#475569', fontWeight: 600 }}>
+                      {detail.has_used_free_plan ? 'Used Free Plan' : 'Never Used Free Plan'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Subscription Card */}
+              {detail.subscription && (
+                <div>
+                  <h4 style={{ fontSize: 14, fontWeight: 700, color: '#334155', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#3b82f6' }}>card_membership</span>
+                    Active Subscription Detail
+                  </h4>
+                  <div style={{
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', display: 'grid', gap: 12,
+                    padding: 18, backgroundColor: '#f1f5f9', borderRadius: 16, border: '1px solid #cbd5e1'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Plan Name</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{detail.subscription.plan_name || 'Free'} (${detail.subscription.price_per_month || 0}/mo)</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Status</div>
+                      <div style={{ marginTop: 2 }}><Badge type={detail.subscription.is_active ? 'active' : 'inactive'} /></div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Tokens Used</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
+                        {Number(detail.subscription.tokens_used || 0).toLocaleString()} / {Number(detail.subscription.max_tokens_per_month || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Storage & Agents</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 2 }}>
+                        Agents: {detail.subscription.agent_created || 0} created ({detail.subscription.agent_assigned || 0} assigned)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Pages Grid */}
+              <div>
+                <h4 style={{ fontSize: 14, fontWeight: 700, color: '#334155', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#06b6d4' }}>pages</span>
+                  Connected Pages ({detail.page_count ?? (detail.pages?.length || 0)})
+                </h4>
+                {(!detail.pages || detail.pages.length === 0) ? (
+                  <div style={{ padding: 20, textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: 12, color: '#94a3b8', fontSize: 13 }}>
+                    No connected pages found for this user.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                    {detail.pages.map((page, idx) => (
+                      <div key={page.page_id || idx} style={{ padding: 14, borderRadius: 12, border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{page.page_name || 'Unnamed Page'}</span>
+                          <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 8, backgroundColor: page.is_synced ? '#dcfce7' : '#f1f5f9', color: page.is_synced ? '#166534' : '#64748b', fontWeight: 600 }}>
+                            {page.is_synced ? 'Synced' : 'Not Synced'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#64748b' }}>Category: {page.page_category || 'General'}</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Fans: {(page.page_fan_count || 0).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Agents Grid */}
+              <div>
+                <h4 style={{ fontSize: 14, fontWeight: 700, color: '#334155', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#a855f7' }}>smart_toy</span>
+                  AI Agents ({detail.agent_count ?? (detail.agents?.length || 0)})
+                </h4>
+                {(!detail.agents || detail.agents.length === 0) ? (
+                  <div style={{ padding: 20, textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: 12, color: '#94a3b8', fontSize: 13 }}>
+                    No AI agents created by this user yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                    {detail.agents.map((ag, idx) => (
+                      <div key={ag.agent_id || idx} style={{ padding: 14, borderRadius: 12, border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>{ag.agent_name || 'AI Assistant'}</div>
+                        <div style={{ fontSize: 12, color: '#64748b' }}>Role: {ag.agent_role || 'General'} | Tone: {ag.agent_tone || 'Friendly'}</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Dialogs: {ag.total_dialog || 0} (Success: {ag.success_rate || 0}%)</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Users Section ──────────────────────────────────────
 function UsersSection() {
   const [users, setUsers] = useState([]);
@@ -125,6 +302,7 @@ function UsersSection() {
   const [cursor, setCursor] = useState(null);
   const [nextCursor, setNextCursor] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState(null);
 
   const load = useCallback((cur = null) => {
     setLoading(true);
@@ -193,14 +371,25 @@ function UsersSection() {
                     <td><Badge type={u.status} /></td>
                     <td className="text-muted">{fmtDate(u.join_at || u.created_at)}</td>
                     <td>
-                      <button
-                        className={`btn-action ${u.status === 'active' ? 'btn-action-danger' : 'btn-action-success'}`}
-                        onClick={() => toggleStatus(u)}
-                        disabled={togglingId === (u.user_id || u.id)}
-                      >
-                        <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{u.status === 'active' ? 'block' : 'check_circle'}</span>
-                        {togglingId === (u.user_id || u.id) ? '…' : u.status === 'active' ? 'Suspend' : 'Activate'}
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button
+                          className="btn-action"
+                          style={{ backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}
+                          onClick={() => setSelectedUserId(u.id || u.user_id)}
+                          title="View Detailed Profile"
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>visibility</span>
+                          Details
+                        </button>
+                        <button
+                          className={`btn-action ${u.status === 'active' ? 'btn-action-danger' : 'btn-action-success'}`}
+                          onClick={() => toggleStatus(u)}
+                          disabled={togglingId === (u.user_id || u.id)}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{u.status === 'active' ? 'block' : 'check_circle'}</span>
+                          {togglingId === (u.user_id || u.id) ? '…' : u.status === 'active' ? 'Suspend' : 'Activate'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -213,6 +402,7 @@ function UsersSection() {
           <button disabled={!nextCursor} onClick={() => { setCursor(nextCursor); load(nextCursor); }}>Next →</button>
         </div>
       </div>
+      {selectedUserId && <UserDetailModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />}
     </div>
   );
 }
