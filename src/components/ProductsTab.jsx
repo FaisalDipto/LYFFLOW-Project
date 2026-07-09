@@ -686,11 +686,23 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                       accept="image/*,video/mp4,application/pdf"
                       className="hidden" 
                       onChange={e => {
-                        if (e.target.files.length + existingAssets.length > 3) {
-                          addToast('You can only have a maximum of 3 files total.', 'error');
-                          return;
-                        }
-                        setSelectedFiles(Array.from(e.target.files));
+                        const newFiles = Array.from(e.target.files);
+                        if (newFiles.length === 0) return;
+
+                        setSelectedFiles(prev => {
+                          const combined = [...prev];
+                          for (const nf of newFiles) {
+                            if (!combined.some(ex => ex.name === nf.name && ex.size === nf.size)) {
+                              combined.push(nf);
+                            }
+                          }
+                          if (combined.length + existingAssets.length > 3) {
+                            addToast('You can only have a maximum of 3 files total.', 'error');
+                            return combined.slice(0, Math.max(0, 3 - existingAssets.length));
+                          }
+                          return combined;
+                        });
+                        e.target.value = '';
                       }}
                     />
                   </label>
@@ -752,7 +764,18 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">New Files to Upload</p>
                       <div className="flex gap-4 flex-wrap">
                       {selectedFiles.map((f, i) => (
-                        <div key={i} className="flex flex-col items-center gap-2">
+                        <div key={i} className="flex flex-col items-center gap-2 relative group">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFiles(prev => prev.filter((_, idx) => idx !== i));
+                            }}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 transition-colors shadow-sm z-20"
+                            title="Remove File"
+                          >
+                            <span className="material-symbols-outlined text-[12px] font-bold">close</span>
+                          </button>
                           {f.type.startsWith('image/') ? (
                             <img src={URL.createObjectURL(f)} alt={f.name} className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-sm" />
                           ) : f.type.startsWith('video/') ? (

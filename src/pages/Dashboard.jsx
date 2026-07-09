@@ -2183,21 +2183,47 @@ const Knowledge = ({ namespaces, onUpdate }) => {
                     <input
                       type="file"
                       multiple
-                      onChange={e => setSelectedFiles(e.target.files)}
+                      onChange={e => {
+                        const newFiles = Array.from(e.target.files);
+                        if (newFiles.length === 0) return;
+                        setSelectedFiles(prev => {
+                          const prevArr = Array.isArray(prev) ? prev : Array.from(prev || []);
+                          const combined = [...prevArr];
+                          for (const nf of newFiles) {
+                            if (!combined.some(ex => ex.name === nf.name && ex.size === nf.size)) {
+                              combined.push(nf);
+                            }
+                          }
+                          return combined;
+                        });
+                        e.target.value = '';
+                      }}
                       style={{
                         position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer'
                       }}
-                      required={knowledgeType === 'file'}
+                      required={knowledgeType === 'file' && (!selectedFiles || selectedFiles.length === 0)}
                     />
                     <p style={{ margin: 0, color: '#0ea5e9', fontWeight: 500, fontSize: '15px' }}>
                       {selectedFiles && selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Click to Browse Files or Drag & Drop'}
                     </p>
                     <p style={{ color: '#64748b', margin: '8px 0 0 0', fontSize: '13px' }}>Supported formats: PDF, TXT, DOCX, CSV</p>
                     {selectedFiles && selectedFiles.length > 0 && (
-                      <div style={{ marginTop: '16px', textAlign: 'left', background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', maxHeight: '100px', overflowY: 'auto' }}>
+                      <div style={{ marginTop: '16px', textAlign: 'left', background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', maxHeight: '120px', overflowY: 'auto', position: 'relative', zIndex: 10 }}>
                         {Array.from(selectedFiles).map((file, idx) => (
-                          <div key={idx} style={{ fontSize: '13px', color: '#334155', padding: '4px 0', borderBottom: idx < selectedFiles.length - 1 ? '1px solid #f1f5f9' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            ✓ {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#334155', padding: '4px 0', borderBottom: idx < selectedFiles.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>✓ {file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setSelectedFiles(prev => (Array.isArray(prev) ? prev : Array.from(prev)).filter((_, i) => i !== idx));
+                              }}
+                              style={{ background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, marginLeft: '8px' }}
+                              title="Remove File"
+                            >
+                              ✕
+                            </button>
                           </div>
                         ))}
                       </div>
