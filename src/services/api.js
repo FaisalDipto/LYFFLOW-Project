@@ -447,4 +447,12 @@ export const apiService = {
     if (end_date) q.set('end_date', end_date);
     return apiFetch(`/v1/admin/activity/daily?${q}`);
   },
+  adminActivityRecent: ({ cursor, page_size, agent_id, user_id } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    if (agent_id) q.set('agent_id', agent_id);
+    if (user_id) q.set('user_id', user_id);
+    return apiFetch(`/v1/admin/activity/recent?${q}`);
+  },
 };
