@@ -1440,7 +1440,7 @@ const FeedbackPanel = () => {
 };
 
 const Knowledge = ({ namespaces, onUpdate }) => {
-  const [activeKnowledgeTab, setActiveKnowledgeTab] = useState('documents');
+  const [activeKnowledgeTab, setActiveKnowledgeTab] = useState('products');
   const [showModal, setShowModal] = useState(false);
   const [selectedNamespaceId, setSelectedNamespaceId] = useState('');
   const [knowledgeList, setKnowledgeList] = useState([]);
@@ -1867,18 +1867,18 @@ const Knowledge = ({ namespaces, onUpdate }) => {
             
             <div className="flex gap-2 mb-8 bg-slate-50 p-1.5 rounded-xl w-fit border border-slate-200 shadow-inner">
               <button 
-                onClick={() => setActiveKnowledgeTab('documents')}
-                className={`px-8 py-2.5 font-black text-sm rounded-lg transition-all flex items-center gap-2 ${activeKnowledgeTab === 'documents' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-              >
-                <span className="material-symbols-outlined text-[18px]">description</span>
-                Documents
-              </button>
-              <button 
                 onClick={() => setActiveKnowledgeTab('products')}
                 className={`px-8 py-2.5 font-black text-sm rounded-lg transition-all flex items-center gap-2 ${activeKnowledgeTab === 'products' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 border border-emerald-400' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
               >
                 <span className="material-symbols-outlined text-[18px]">inventory_2</span>
                 Products
+              </button>
+              <button 
+                onClick={() => setActiveKnowledgeTab('documents')}
+                className={`px-8 py-2.5 font-black text-sm rounded-lg transition-all flex items-center gap-2 ${activeKnowledgeTab === 'documents' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+              >
+                <span className="material-symbols-outlined text-[18px]">description</span>
+                Documents
               </button>
             </div>
 

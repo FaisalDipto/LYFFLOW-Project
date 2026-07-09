@@ -1259,10 +1259,18 @@ function ConversationsSection() {
   const [cursor, setCursor] = useState(null);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [pageIdFilter, setPageIdFilter] = useState('');
+  const [pagesList, setPagesList] = useState([]);
+
+  useEffect(() => {
+    apiService.adminPages({ page_size: 100 })
+      .then(r => setPagesList(r?.pages || r?.data?.pages || []))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback((cur = null) => {
     setLoading(true);
-    apiService.adminConversations({ cursor: cur, page_size: 20 })
+    apiService.adminConversations({ cursor: cur, page_size: 20, page_id: pageIdFilter })
       .then(r => {
         const list = r?.conversations || r?.data?.conversations || [];
         setConversations(Array.isArray(list) ? list : []);
@@ -1271,16 +1279,17 @@ function ConversationsSection() {
       })
       .catch(() => { })
       .finally(() => setLoading(false));
-  }, []);
+  }, [pageIdFilter]);
 
-  useEffect(() => { load(null); }, [load]);
+  useEffect(() => { setCursor(null); load(null); }, [load]);
 
   // Client-side search filter
   const filtered = search.trim()
     ? conversations.filter(c =>
       (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
       (c.page_name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (c.psid || '').toLowerCase().includes(search.toLowerCase())
+      (c.psid || '').toLowerCase().includes(search.toLowerCase()) ||
+      (c.page_id || '').toLowerCase().includes(search.toLowerCase())
     )
     : conversations;
 
@@ -1296,8 +1305,20 @@ function ConversationsSection() {
           <div className="admin-filter-row">
             <div className="admin-search-bar">
               <span className="material-symbols-outlined">search</span>
-              <input placeholder="Search conversations…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input placeholder="Search user, page or PSID…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
+            <select
+              className="admin-filter-select"
+              value={pageIdFilter}
+              onChange={e => setPageIdFilter(e.target.value)}
+            >
+              <option value="">All Pages</option>
+              {pagesList.map(p => (
+                <option key={p.page_id} value={p.page_id}>
+                  {p.page_name ? `${p.page_name} (${p.page_id?.slice(0, 8)}…)` : p.page_id}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="chat" text="No conversations found." /> : (
