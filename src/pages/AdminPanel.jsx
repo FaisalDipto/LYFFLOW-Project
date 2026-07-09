@@ -1497,6 +1497,188 @@ function ConversationsSection() {
   );
 }
 
+// ── Customer Records Section ───────────────────────────
+function CustomerRecordsSection() {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [cursor, setCursor] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [pageIdFilter, setPageIdFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [pagesList, setPagesList] = useState([]);
+
+  useEffect(() => {
+    apiService.adminPages({ page_size: 100 })
+      .then(r => setPagesList(r?.pages || r?.data?.pages || []))
+      .catch(() => {});
+  }, []);
+
+  const load = useCallback((cur = null) => {
+    setLoading(true);
+    apiService.adminCustomerRecords({
+      cursor: cur,
+      page_size: 20,
+      page_id: pageIdFilter,
+      record_type: typeFilter,
+      record_status: statusFilter,
+    })
+      .then(r => {
+        const list = r?.records || r?.data?.records || [];
+        setRecords(Array.isArray(list) ? list : []);
+        setNextCursor(r?.pagination?.next_cursor || null);
+        setTotal(r?.pagination?.total ?? list.length ?? 0);
+      })
+      .catch(() => { })
+      .finally(() => setLoading(false));
+  }, [pageIdFilter, typeFilter, statusFilter]);
+
+  useEffect(() => { setCursor(null); load(null); }, [load]);
+
+  const filtered = search.trim()
+    ? records.filter(r =>
+      (r.contact_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.contact_email || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.contact_phone || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.page_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.notes || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.customer_record_id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.conversation_id || '').toLowerCase().includes(search.toLowerCase())
+    )
+    : records;
+
+  return (
+    <div>
+      <div className="admin-section-header">
+        <div className="admin-section-label">Inbox & Capture</div>
+        <div className="admin-section-title">Customer Records</div>
+      </div>
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <span className="admin-card-title">Captured Leads & Orders{total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
+          <div className="admin-filter-row">
+            <div className="admin-search-bar">
+              <span className="material-symbols-outlined">search</span>
+              <input placeholder="Search contact name, email, phone or notes…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <select
+              className="admin-filter-select"
+              value={pageIdFilter}
+              onChange={e => setPageIdFilter(e.target.value)}
+            >
+              <option value="">All Pages</option>
+              {pagesList.map(p => (
+                <option key={p.page_id} value={p.page_id}>
+                  {p.page_name ? `${p.page_name} (${p.page_id?.slice(0, 8)}…)` : p.page_id}
+                </option>
+              ))}
+            </select>
+            <select
+              className="admin-filter-select"
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value)}
+            >
+              <option value="">All Types</option>
+              <option value="lead">Lead</option>
+              <option value="order">Order</option>
+            </select>
+            <input
+              placeholder="Filter Status…"
+              className="admin-filter-select"
+              style={{ padding: '6px 12px', width: 130 }}
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+            />
+          </div>
+        </div>
+        {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="assignment_ind" text="No customer records found." /> : (
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead><tr>
+                <th>Contact Info</th><th>Type & Status</th><th>Page & Conversation</th><th>Order Items</th><th>Notes</th><th>Captured At</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map(r => {
+                  const t = (r.record_type || '').toLowerCase();
+                  const isOrder = t === 'order';
+                  const st = (r.record_status || '').toLowerCase();
+                  const isCompleted = st === 'completed' || st === 'closed' || st === 'fulfilled' || st === 'converted';
+                  const isPending = st === 'pending' || st === 'new' || st === 'open';
+                  const statusColor = isCompleted ? 'badge-green' : isPending ? 'badge-blue' : 'badge-slate';
+
+                  return (
+                    <tr key={r.customer_record_id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div className="admin-avatar" style={{ background: isOrder ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fff' }}>{isOrder ? 'shopping_bag' : 'person'}</span>
+                          </div>
+                          <div>
+                            <div className="font-bold">{r.contact_name || 'Anonymous Contact'}</div>
+                            <div className="text-muted" style={{ fontSize: 11 }}>
+                              {r.contact_email && <span>📧 {r.contact_email} </span>}
+                              {r.contact_phone && <span>📞 {r.contact_phone}</span>}
+                              {!r.contact_email && !r.contact_phone && '—'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                          <span className={`badge ${isOrder ? 'badge-blue' : 'badge-purple'}`} style={{ textTransform: 'uppercase', fontSize: 10 }}>
+                            {r.record_type || 'General'}
+                          </span>
+                          {r.record_status && (
+                            <span className={`badge ${statusColor}`} style={{ fontSize: 11 }}>
+                              {r.record_status}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="font-bold">{r.page_name || '—'}</div>
+                        <div className="text-muted" style={{ fontSize: 11 }}>
+                          Conv ID: <span style={{ fontFamily: 'monospace' }}>{r.conversation_id?.slice(0, 8) || '—'}</span>…
+                        </div>
+                      </td>
+                      <td>
+                        {Array.isArray(r.order_items) && r.order_items.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 80, overflowY: 'auto' }}>
+                            {r.order_items.map((it, idx) => (
+                              <div key={idx} style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>• {it}</div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td style={{ maxWidth: 220 }}>
+                        <div style={{ fontSize: 12, color: '#475569', whiteSpace: 'normal', maxHeight: 80, overflowY: 'auto' }}>
+                          {r.notes || '—'}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="font-bold" style={{ fontSize: 12 }}>{fmtDate(r.created_at)}</div>
+                        <div className="text-muted" style={{ fontSize: 11 }}>ID: {r.customer_record_id?.slice(0, 8)}…</div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="admin-pagination">
+          <button disabled={!cursor} onClick={() => { setCursor(null); load(null); }}>← First</button>
+          <button disabled={!nextCursor} onClick={() => { setCursor(nextCursor); load(nextCursor); }}>Next →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Feedbacks Section ───────────────────────────────────
 function FeedbacksSection() {
   const [items, setItems] = useState([]);
@@ -1685,6 +1867,7 @@ const NAV = [
   { id: 'pages', label: 'Pages', icon: 'pages' },
   { id: 'products', label: 'Products', icon: 'inventory_2' },
   { id: 'conversations', label: 'Conversations', icon: 'chat' },
+  { id: 'customer-records', label: 'Captured Records', icon: 'assignment_ind' },
   { id: 'feedbacks', label: 'Feedbacks', icon: 'feedback' },
   { id: 'leads', label: 'Leads', icon: 'contacts' },
   { id: 'activity', label: 'Activity', icon: 'bar_chart' },
@@ -1723,6 +1906,7 @@ export default function AdminPanel() {
       case 'pages': return <PagesSection />;
       case 'products': return <ProductsSection />;
       case 'conversations': return <ConversationsSection />;
+      case 'customer-records': return <CustomerRecordsSection />;
       case 'feedbacks': return <FeedbacksSection />;
       case 'leads': return <LeadsSection />;
       case 'activity': return <ActivitySection />;

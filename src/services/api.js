@@ -465,4 +465,13 @@ export const apiService = {
     if (category) q.set('category', category);
     return apiFetch(`/v1/admin/products?${q}`);
   },
+  adminCustomerRecords: ({ cursor, page_size, page_id, record_type, record_status } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    if (page_id) q.set('page_id', page_id);
+    if (record_type) q.set('record_type', record_type);
+    if (record_status) q.set('record_status', record_status);
+    return apiFetch(`/v1/admin/customer-records?${q}`);
+  },
 };
