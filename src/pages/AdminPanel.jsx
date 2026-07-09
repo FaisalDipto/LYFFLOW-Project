@@ -1008,12 +1008,14 @@ function SubscriptionsSection() {
                           <div className="admin-user-info">
                             <div className="font-bold">{displayName}</div>
                             <div className="text-muted">{displayEmail}</div>
+                            {s.user_id && <div className="text-muted" style={{ fontSize: 10, fontFamily: 'monospace' }}>ID: {s.user_id.slice(0, 8)}…</div>}
                           </div>
                         </div>
                       </td>
                       <td>
-                        <div className="admin-plan-cell">
+                        <div className="admin-plan-cell" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
                           <span className="badge badge-blue">{planName}</span>
+                          {s.subscription_id && <span className="text-muted" style={{ fontSize: 10, fontFamily: 'monospace' }}>Sub: {s.subscription_id.slice(0, 8)}…</span>}
                         </div>
                       </td>
                       <td>
