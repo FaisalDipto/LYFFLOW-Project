@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../services/api';
+import { API_BASE } from '../config/env';
 import { Upload, Plus, Trash2, Edit3, Image as ImageIcon, FileText, Video, ExternalLink } from 'lucide-react';
 
 const FallbackImage = ({ src, alt, className }) => {
@@ -513,7 +514,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                     product.primary_assets.map((asset, i) => (
                       <div key={i} className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200 overflow-hidden shadow-sm group-hover:border-emerald-200 transition-colors" title={asset.original_filename}>
                         {asset.file_type === 'image' ? (
-                          <FallbackImage src={asset.url?.startsWith('http') ? asset.url : `https://api.lyfflow.com${asset.url?.startsWith('/') ? '' : '/'}${asset.url}`} alt={asset.original_filename} className="w-full h-full object-cover" />
+                          <FallbackImage src={asset.url?.startsWith('http') ? asset.url : `${API_BASE}${asset.url?.startsWith('/') ? '' : '/'}${asset.url}`} alt={asset.original_filename} className="w-full h-full object-cover" />
                         ) : asset.file_type === 'video' ? (
                           <Video size={14} className="text-emerald-500" />
                         ) : (
@@ -702,7 +703,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                         {existingAssets.map((asset, idx) => (
                           <div key={asset.id || idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 flex items-center justify-center group" title={asset.original_filename}>
                             {asset.file_type === 'image' || asset.mime_type?.includes('image') ? (
-                              <FallbackImage src={asset.url?.startsWith('http') ? asset.url : `https://api.lyfflow.com${asset.url?.startsWith('/') ? '' : '/'}${asset.url}`} className="w-full h-full object-cover" />
+                              <FallbackImage src={asset.url?.startsWith('http') ? asset.url : `${API_BASE}${asset.url?.startsWith('/') ? '' : '/'}${asset.url}`} className="w-full h-full object-cover" />
                             ) : asset.file_type === 'video' || asset.mime_type?.includes('video') ? (
                               <Video size={20} className="text-emerald-500" />
                             ) : (
@@ -964,7 +965,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                               <div key={idx} className={`relative group rounded-[24px] overflow-hidden border-2 border-white shadow-xl shadow-slate-200/50 bg-white aspect-square hover:-translate-y-2 transition-all duration-300 ${idx % 2 === 0 ? '-rotate-2' : 'rotate-2'}`}>
                                 {asset.file_type === 'image' ? (
                                   <FallbackImage 
-                                    src={asset.url?.startsWith('http') ? asset.url : `https://api.lyfflow.com${asset.url?.startsWith('/') ? '' : '/'}${asset.url}`} 
+                                    src={asset.url?.startsWith('http') ? asset.url : `${API_BASE}${asset.url?.startsWith('/') ? '' : '/'}${asset.url}`} 
                                     alt={asset.original_filename} 
                                     className="w-full h-full object-cover" 
                                   />

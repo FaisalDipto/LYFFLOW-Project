@@ -7,6 +7,7 @@ import titleImg from '../assets/title.png';
 import LegalCenter from '../components/LegalCenter';
 import catAnimationUrl from '../../animation/catLottieJSON.json?url';
 import { apiService } from '../services/api';
+import { API_BASE } from '../config/env';
 
 const PricingCards = ({ onSelect }) => {
   return (
@@ -257,7 +258,7 @@ export default function GetStarted() {
     // verify the subscription via the API before allowing dashboard access.
     const nextPath = '/get-started?check=sub';
     const redirectUrl = encodeURIComponent(window.location.origin + nextPath);
-    window.location.href = `https://api.lyfflow.com/v1/auth/facebook/login?redirect_uri=${redirectUrl}&next=${nextPath}`;
+    window.location.href = `${API_BASE}/v1/auth/facebook/login?redirect_uri=${redirectUrl}&next=${nextPath}`;
   };
 
   const handleConnectInstagram = () => {
