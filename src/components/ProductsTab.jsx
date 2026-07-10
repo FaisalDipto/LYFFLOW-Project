@@ -34,6 +34,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [activeAssetIndex, setActiveAssetIndex] = useState(0);
   
   // Delete Confirm State
   const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, productId: null });
@@ -310,6 +311,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
   const handleViewProduct = async (productId) => {
     try {
       setLoadingDetail(true);
+      setActiveAssetIndex(0);
       setShowDetailModal(true);
       const detail = await apiService.getProductDetail(selectedNamespaceId, productId);
       setSelectedProductDetail(detail);
@@ -395,9 +397,10 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
 
   return (
     <>
-      <div className="animate-fade-in-up mt-6 p-8 rounded-[40px] bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-2xl shadow-emerald-500/20 relative overflow-hidden">
-        <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-300 opacity-20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-emerald-300 opacity-30 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="max-w-[1080px] mx-auto w-full">
+        <div className="animate-fade-in-up mt-6 p-8 rounded-[40px] bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-2xl shadow-emerald-500/20 relative overflow-hidden">
+          <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-300 opacity-20 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-emerald-300 opacity-30 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative z-10">
         <div className="flex justify-between items-center mb-8">
@@ -502,7 +505,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                   {product.variants || product.variant || '-'}
                 </div>
                 <div className="font-semibold text-slate-700">
-                  {product.price}
+                  {product.price ? product.price.toString().replace(/\$/g, '').trim() : '-'}
                 </div>
                 <div className="flex items-center">
                   <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm ${product.availability ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
@@ -580,6 +583,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
           </div>
         </div>
       </div>
+    </div>
 </div>
 
       {/* Portals for Modals and Toasts */}
@@ -870,206 +874,216 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
         </div>
       )}
 
-      {/* Product Detail Modal */}
+      {/* Product Detail Modal (Luxury Minimalist Editorial Redesign) */}
       {showDetailModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setShowDetailModal(false); setSelectedProductDetail(null); }}></div>
-          <div className="bg-slate-50 border border-slate-200/60 rounded-[32px] shadow-[0_30px_100px_-15px_rgba(0,0,0,0.6)] ring-1 ring-slate-900/5 w-full max-w-4xl relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
+          <div className="bg-[#f9f9fb] border border-slate-200/80 rounded-3xl shadow-[0_30px_100px_-15px_rgba(0,0,0,0.5)] w-full max-w-[800px] relative z-10 flex flex-col max-h-[92vh] overflow-hidden selection:bg-slate-900 selection:text-white">
             
-            <div className="overflow-y-auto flex-1 bg-slate-50/50 relative">
-              <button onClick={() => { setShowDetailModal(false); setSelectedProductDetail(null); }} className="absolute top-6 right-6 z-50 w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-colors border border-white/20 shadow-xl">
-                <span className="material-symbols-outlined">close</span>
+            {/* Breadcrumb Header Bar */}
+            <div className="flex items-center justify-between px-6 sm:px-10 py-5 border-b border-slate-200/60 bg-white/80 backdrop-blur-md shrink-0">
+              <div className="flex items-center space-x-2 text-slate-500 font-mono text-[11px] font-bold uppercase tracking-widest">
+                <span>Knowledge</span>
+                <span className="text-slate-300">/</span>
+                <span>Products</span>
+                <span className="text-slate-300">/</span>
+                <span className="text-slate-900 font-black truncate max-w-[200px] sm:max-w-md">{selectedProductDetail?.name || 'Detail'}</span>
+              </div>
+              <button onClick={() => { setShowDetailModal(false); setSelectedProductDetail(null); }} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-900 hover:text-white transition-all shadow-2xs">
+                <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
+            </div>
 
-              {loadingDetail || !selectedProductDetail ? (
-                <div className="flex flex-col items-center justify-center h-96">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500 mb-4"></div>
-                  <p className="text-slate-500 font-medium animate-pulse">Loading details...</p>
-                </div>
-              ) : (
-                <>
-                  {/* Hero Banner */}
-                  <div className="bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 px-10 pt-16 pb-20 relative overflow-hidden shrink-0">
-                    <div className="absolute -top-24 -right-24 w-72 h-72 bg-emerald-500/20 blur-[80px] rounded-full pointer-events-none"></div>
-                    <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-teal-500/20 blur-[80px] rounded-full pointer-events-none"></div>
-                    
-                    <div className="relative z-10 flex flex-col gap-4">
-                      <div className="flex flex-wrap gap-3 mb-2">
-                        <span className="px-3 py-1 bg-white/10 backdrop-blur-md text-emerald-300 border border-emerald-400/30 font-mono text-xs font-bold rounded-lg shadow-lg">
-                          {selectedProductDetail.code || 'NO CODE'}
-                        </span>
-                        <span className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest shadow-lg border backdrop-blur-md ${selectedProductDetail.availability ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-red-500/20 text-red-400 border-red-500/50'}`}>
-                          {selectedProductDetail.availability ? 'Available' : 'Out of Stock'}
-                        </span>
-                      </div>
-                      
-                      <h1 className="text-5xl font-black text-white tracking-tight drop-shadow-2xl">{selectedProductDetail.name}</h1>
-                      
-                      {selectedProductDetail.category && (
-                        <span className="w-fit px-4 py-1.5 bg-blue-500/20 backdrop-blur-md text-blue-300 border border-blue-500/30 text-xs font-bold rounded-full shadow-md mt-2">
-                          {selectedProductDetail.category}
-                        </span>
+            {loadingDetail || !selectedProductDetail ? (
+              <div className="flex flex-col items-center justify-center h-96 p-12 bg-white">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-slate-900 mb-4"></div>
+                <p className="text-slate-500 font-bold font-mono text-xs tracking-widest uppercase animate-pulse">Loading editorial catalog view...</p>
+              </div>
+            ) : (
+              <div className="overflow-y-auto flex-1 py-8 md:py-10 px-6 sm:px-10 bg-[#f9f9fb]">
+                {/* Product Details Split Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+                  
+                  {/* Left Column: Product Imagery */}
+                  <div className="lg:col-span-5 flex flex-col space-y-4 max-w-[280px] w-full mx-auto lg:mx-0">
+                    {/* Main Image */}
+                    <div className="relative w-full aspect-square max-h-[280px] bg-[#eeeef0] rounded-2xl overflow-hidden group border border-slate-200/80 shadow-inner flex items-center justify-center">
+                      {selectedProductDetail.assets && selectedProductDetail.assets.length > 0 ? (
+                        (() => {
+                          const activeAsset = selectedProductDetail.assets[activeAssetIndex] || selectedProductDetail.assets[0];
+                          if (activeAsset.file_type === 'image') {
+                            const imgUrl = activeAsset.url?.startsWith('http') ? activeAsset.url : `${API_BASE}${activeAsset.url?.startsWith('/') ? '' : '/'}${activeAsset.url}`;
+                            return (
+                              <FallbackImage
+                                src={imgUrl}
+                                alt={activeAsset.original_filename || selectedProductDetail.name}
+                                className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                              />
+                            );
+                          } else {
+                            return (
+                              <div className="flex flex-col items-center justify-center p-8 text-center text-slate-500">
+                                {activeAsset.file_type === 'video' ? <Video size={64} className="text-emerald-600 mb-4 animate-pulse" /> : <FileText size={64} className="text-blue-600 mb-4" />}
+                                <span className="font-bold text-base text-slate-800 mb-1">{activeAsset.original_filename}</span>
+                                <span className="text-xs font-mono uppercase tracking-widest text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">{activeAsset.file_type} ASSET</span>
+                              </div>
+                            );
+                          }
+                        })()
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                          <ImageIcon size={64} className="text-slate-300 mb-3" />
+                          <span className="text-sm font-bold text-slate-500">No product image uploaded</span>
+                          <span className="text-xs text-slate-400 mt-1">Upload files when editing to preview studio imagery</span>
+                        </div>
                       )}
                     </div>
+                    
+                    {/* Thumbnail Grid */}
+                    {selectedProductDetail.assets && selectedProductDetail.assets.length > 1 && (
+                      <div className="grid grid-cols-4 gap-3 sm:gap-4">
+                        {selectedProductDetail.assets.map((asset, idx) => {
+                          const isSelected = idx === (activeAssetIndex || 0);
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setActiveAssetIndex(idx)}
+                              className={`relative w-full aspect-square bg-[#eeeef0] rounded-xl overflow-hidden transition-all duration-200 flex items-center justify-center ${isSelected ? 'opacity-100 ring-2 ring-slate-900 shadow-md scale-[0.98] border-2 border-white' : 'opacity-60 hover:opacity-100 border border-slate-200'}`}
+                            >
+                              {asset.file_type === 'image' ? (
+                                <FallbackImage
+                                  src={asset.url?.startsWith('http') ? asset.url : `${API_BASE}${asset.url?.startsWith('/') ? '' : '/'}${asset.url}`}
+                                  alt={asset.original_filename}
+                                  className="w-full h-full object-cover object-center"
+                                />
+                              ) : (
+                                <div className="flex flex-col items-center justify-center p-2 text-slate-500">
+                                  {asset.file_type === 'video' ? <Video size={24} className="text-emerald-600" /> : <FileText size={24} className="text-blue-600" />}
+                                  <span className="text-[10px] font-mono truncate w-full text-center mt-1">{asset.file_type}</span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Main Content Area */}
-                  <div className="p-10 relative z-20 -mt-12">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                      <div className="md:col-span-2 space-y-6">
-                        
-                        <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[32px] border border-slate-200/60 shadow-xl shadow-slate-200/50 hover:shadow-2xl transition-all relative overflow-hidden group">
-                          <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-emerald-400 to-teal-500"></div>
-                          <h4 className="text-xs font-bold tracking-[0.2em] text-slate-400 uppercase mb-4 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-lg text-emerald-500">subject</span>
-                            Description
-                          </h4>
-                          <p className="text-slate-700 leading-relaxed whitespace-pre-wrap text-[15px]">
-                            {selectedProductDetail.description || <span className="text-slate-400 italic">No description provided.</span>}
-                          </p>
+                  {/* Right Column: Product Information */}
+                  <div className="lg:col-span-7 flex flex-col pt-2 lg:pt-0 text-left">
+                    
+                    {/* Header Info */}
+                    <div className="mb-6 sm:mb-8">
+                      {/* Status & Tags */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-2 bg-[#eeeef0] py-1 px-3 rounded-md border border-slate-200/60">
+                          <span className={`w-2 h-2 rounded-full border ${selectedProductDetail.availability ? 'bg-[#1a1c1d] border-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-600 border-red-800'}`}></span>
+                          <span className="font-mono text-[11px] font-bold text-slate-700 uppercase tracking-widest">{selectedProductDetail.availability ? 'In Stock' : 'Out of Stock'}</span>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-6">
-                          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-8 rounded-[32px] shadow-lg shadow-emerald-500/20 text-white relative overflow-hidden group hover:-translate-y-1 transition-transform">
-                            <div className="absolute -right-4 -bottom-4 opacity-10">
-                              <span className="material-symbols-outlined text-[120px]">payments</span>
-                            </div>
-                            <h4 className="text-xs font-bold tracking-[0.2em] text-emerald-100 uppercase mb-2">Price</h4>
-                            <div className="text-5xl font-black drop-shadow-md">{selectedProductDetail.price}</div>
-                          </div>
-
-                          <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[32px] border border-slate-200/60 shadow-xl shadow-slate-200/50 hover:-translate-y-1 transition-transform">
-                            <h4 className="text-xs font-bold tracking-[0.2em] text-slate-400 uppercase mb-2 flex items-center gap-2">
-                              <span className="material-symbols-outlined text-lg text-blue-500">calendar_month</span>
-                              Created
-                            </h4>
-                            <div className="text-xl font-bold text-slate-700 mt-4">
-                              {new Date(selectedProductDetail.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-                            </div>
-                          </div>
+                        <div className="flex space-x-2">
+                          <span className="px-2.5 py-1 bg-[#e2e2e4] border border-slate-300/50 font-mono text-[10px] font-bold text-slate-900 uppercase tracking-widest rounded-md">
+                            {selectedProductDetail.category || 'GENERAL CATALOG'}
+                          </span>
                         </div>
-
-                        {(selectedProductDetail.tags?.length > 0 || selectedProductDetail.variants) && (
-                          <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[32px] border border-slate-200/60 shadow-xl shadow-slate-200/50 space-y-6">
-                            {selectedProductDetail.tags?.length > 0 && (
-                              <div>
-                                <h4 className="text-xs font-bold tracking-[0.2em] text-slate-400 uppercase mb-4 flex items-center gap-2">
-                                  <span className="material-symbols-outlined text-lg text-indigo-500">sell</span>
-                                  Tags
-                                </h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {selectedProductDetail.tags.map((tag, idx) => (
-                                    <span key={idx} className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30 text-sm font-bold rounded-xl">#{tag}</span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {selectedProductDetail.variants && (
-                              <div>
-                                <h4 className="text-xs font-bold tracking-[0.2em] text-slate-400 uppercase mb-4 mt-6 flex items-center gap-2">
-                                  <span className="material-symbols-outlined text-lg text-orange-500">style</span>
-                                  Variants
-                                </h4>
-                                <p className="text-slate-700 text-lg font-medium">{selectedProductDetail.variants}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="md:col-span-1 space-y-4">
-                        <h4 className="text-xs font-bold tracking-[0.2em] text-slate-400 uppercase mb-6 flex items-center gap-2 pl-2 mt-4">
-                          <span className="material-symbols-outlined text-lg">perm_media</span>
-                          Media Assets
-                        </h4>
-                        {selectedProductDetail.assets && selectedProductDetail.assets.length > 0 ? (
-                          <div className="grid grid-cols-1 gap-6">
-                            {selectedProductDetail.assets.map((asset, idx) => (
-                              <div key={idx} className={`relative group rounded-[24px] overflow-hidden border-2 border-white shadow-xl shadow-slate-200/50 bg-white aspect-square hover:-translate-y-2 transition-all duration-300 ${idx % 2 === 0 ? '-rotate-2' : 'rotate-2'}`}>
-                                {asset.file_type === 'image' ? (
-                                  <FallbackImage 
-                                    src={asset.url?.startsWith('http') ? asset.url : `${API_BASE}${asset.url?.startsWith('/') ? '' : '/'}${asset.url}`} 
-                                    alt={asset.original_filename} 
-                                    className="w-full h-full object-cover" 
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-400 p-6 text-center">
-                                    {asset.file_type === 'video' ? <Video size={48} className="text-emerald-400 mb-4" /> : <FileText size={48} className="text-blue-400 mb-4" />}
-                                    <span className="text-xs font-bold truncate w-full px-2 text-slate-600">{asset.original_filename}</span>
-                                  </div>
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6">
-                                  <span className="text-white text-sm font-bold truncate">{asset.original_filename}</span>
-                                  <span className="text-emerald-400 text-[10px] mt-1 font-black uppercase tracking-widest">{asset.file_type}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="bg-white/80 backdrop-blur-xl rounded-[32px] border border-dashed border-slate-300 shadow-sm p-10 text-center flex flex-col items-center justify-center aspect-square">
-                            <ImageIcon size={48} className="text-slate-300 mb-4" />
-                            <span className="text-sm font-bold text-slate-500">No assets attached</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Hacker Terminal Metadata Section */}
-                    <div className="mt-12 bg-[#0A0A0A] rounded-[32px] border border-slate-800 shadow-2xl overflow-hidden relative">
-                      <div className="flex items-center gap-3 px-6 py-4 bg-[#111] border-b border-slate-800/80 relative z-10">
-                        <div className="flex gap-2">
-                          <div className="w-3 h-3 rounded-full bg-red-500/80 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
-                          <div className="w-3 h-3 rounded-full bg-yellow-500/80 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
-                          <div className="w-3 h-3 rounded-full bg-emerald-500/80 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-                        </div>
-                        <span className="ml-2 text-[11px] text-slate-400 font-bold font-mono tracking-widest uppercase">sys_meta.json</span>
                       </div>
                       
-                      <div className="p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 relative z-10 font-mono">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Product ID</span>
-                          <span className="text-emerald-400 text-xs truncate" title={selectedProductDetail.product_id}>{selectedProductDetail.product_id || 'NULL'}</span>
+                      <h1 className="text-3xl sm:text-4xl lg:text-[42px] leading-tight font-bold text-slate-900 mb-3 tracking-tight">{selectedProductDetail.name}</h1>
+                      
+                      {/* Price & SKU Box */}
+                      <div className="flex items-baseline justify-between mb-6 bg-[#f3f3f5] p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+                        <div>
+                          <div className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1">PRICE</div>
+                          <span className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">{selectedProductDetail.price ? selectedProductDetail.price.toString().replace(/\$/g, '').trim() : '0.00'}</span>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Namespace</span>
-                          <span className="text-emerald-400 text-xs truncate" title={selectedProductDetail.namespace_id}>
-                            {(() => {
-                              const nsObj = namespaces?.find(n => (n.namespace_id || n.namespace) === selectedProductDetail.namespace_id);
-                              const nsName = nsObj?.namespace_name || nsObj?.name;
-                              return nsName ? `${nsName} (${selectedProductDetail.namespace_id})` : selectedProductDetail.namespace_id || 'NULL';
-                            })()}
-                          </span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Pinecone Vector ID</span>
-                          <span className="text-emerald-400 text-xs truncate" title={selectedProductDetail.pinecone_vector_id}>{selectedProductDetail.pinecone_vector_id || 'NOT_SYNCED'}</span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Import Source</span>
-                          <span className="text-teal-400 text-xs uppercase font-bold">{selectedProductDetail.import_source || 'UNKNOWN'}</span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Import Batch ID</span>
-                          <span className="text-emerald-400 text-xs truncate" title={selectedProductDetail.import_batch_id}>{selectedProductDetail.import_batch_id || 'NULL'}</span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Last Updated</span>
-                          <span className="text-blue-400 text-xs">
-                            {selectedProductDetail.updated_at ? new Date(selectedProductDetail.updated_at).toLocaleString() : 'NULL'}
-                          </span>
+                        <div className="text-right">
+                          <div className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1">SKU / REF</div>
+                          <span className="text-sm font-mono font-bold text-slate-800 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">{selectedProductDetail.code || 'NO CODE'}</span>
                         </div>
                       </div>
+                      
+                      {/* Description Block */}
+                      <div className="mb-6">
+                        <div className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-2">DESCRIPTION</div>
+                        <p className="text-sm text-slate-600 leading-relaxed p-5 bg-[#f3f3f5] border border-slate-200/80 rounded-2xl whitespace-pre-wrap">
+                          {selectedProductDetail.description || 'An architectural approach to catalog structure. Cut and formatted cleanly for seamless retrieval by autonomous agents and users.'}
+                        </p>
+                      </div>
                     </div>
+
+                    {/* Product Tags / Attributes Block */}
+                    <div className="space-y-6">
+                      <div className="p-5 bg-[#f3f3f5] border border-slate-200/80 rounded-2xl">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="font-mono text-[11px] font-bold text-slate-900 uppercase tracking-widest">PRODUCT ATTRIBUTES & TAGS</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedProductDetail.category && (
+                            <span className="px-2.5 py-1 bg-white border border-slate-200/80 font-mono text-[10px] font-bold text-slate-800 uppercase tracking-widest rounded-md shadow-2xs">CATEGORY: {selectedProductDetail.category}</span>
+                          )}
+                          <span className="px-2.5 py-1 bg-white border border-slate-200/80 font-mono text-[10px] font-bold text-slate-800 uppercase tracking-widest rounded-md shadow-2xs">SOURCE: {selectedProductDetail.import_source || 'MANUAL'}</span>
+                          {selectedProductDetail.variants && (
+                            <span className="px-2.5 py-1 bg-white border border-slate-200/80 font-mono text-[10px] font-bold text-slate-800 uppercase tracking-widest rounded-md shadow-2xs">VARIANTS: {selectedProductDetail.variants}</span>
+                          )}
+                          {selectedProductDetail.tags && selectedProductDetail.tags.map((tag, idx) => (
+                            <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200/80 font-mono text-[10px] font-bold text-slate-800 uppercase tracking-widest rounded-md shadow-2xs">#{tag}</span>
+                          ))}
+                          {(!selectedProductDetail.tags || selectedProductDetail.tags.length === 0) && !selectedProductDetail.variants && (
+                            <span className="px-2.5 py-1 bg-white/60 border border-slate-200 font-mono text-[10px] font-semibold text-slate-400 uppercase tracking-widest rounded-md">STANDARD SPEC</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Details & Fit / Composition & Care Editorial Specs */}
+                      {/* <div className="space-y-3">
+                        <div className="p-4 bg-white border border-slate-200/80 rounded-xl shadow-2xs">
+                          <div className="font-mono text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-1.5">DETAILS & FIT / SPECIFICATIONS</div>
+                          <p className="text-xs text-slate-600 leading-relaxed font-mono">
+                            Regular fit, true to catalog spec. Structured metadata layout with fast indexing (`{selectedProductDetail.product_id}`). Namespace ID: `{selectedProductDetail.namespace_id || 'Global'}`.
+                          </p>
+                        </div>
+                        
+                        <div className="p-4 bg-white border border-slate-200/80 rounded-xl shadow-2xs">
+                          <div className="font-mono text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-1.5">VECTOR SYNC & LIFECYCLE</div>
+                          <p className="text-xs text-slate-600 leading-relaxed font-mono">
+                            Pinecone Vector ID: <span className="text-emerald-700 font-bold">{selectedProductDetail.pinecone_vector_id || 'NOT_SYNCED'}</span> • Last Updated: {selectedProductDetail.updated_at ? new Date(selectedProductDetail.updated_at).toLocaleString() : 'Just now'}
+                          </p>
+                        </div>
+                      </div> */}
+                    </div>
+
                   </div>
-                </>
-              )}
+                </div>
+              </div>
+            )}
+
+            {/* Footer Action Bar */}
+            <div className="px-6 sm:px-10 py-4 border-t border-slate-200/60 bg-white/80 backdrop-blur-md shrink-0 flex justify-between items-center">
+              <div className="text-[11px] font-mono text-slate-400 font-semibold truncate max-w-xs sm:max-w-md">
+                {/* ID: {selectedProductDetail?.product_id || 'N/A'} */}
+              </div>
+              <div className="flex gap-3">
+                {/* <button
+                  type="button"
+                  onClick={() => {
+                    const productToEdit = productsList.find(p => p.product_id === selectedProductDetail.product_id) || selectedProductDetail;
+                    setShowDetailModal(false);
+                    handleEditProductClick(productToEdit);
+                  }}
+                  className="px-5 py-2 rounded-xl font-bold text-xs bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80 transition-all font-mono uppercase tracking-wider"
+                >
+                  Edit Product
+                </button> */}
+                <button
+                  type="button"
+                  onClick={() => { setShowDetailModal(false); setSelectedProductDetail(null); }}
+                  className="px-6 py-2 rounded-xl font-bold text-xs bg-slate-900 text-white hover:bg-slate-800 shadow-sm transition-all font-mono uppercase tracking-wider"
+                >
+                  Close View
+                </button>
+              </div>
             </div>
 
-            <div className="p-6 border-t border-slate-200 bg-white shrink-0 flex justify-end">
-              <button onClick={() => { setShowDetailModal(false); setSelectedProductDetail(null); }} className="px-8 py-2.5 rounded-[12px] font-bold text-sm bg-slate-900 text-white hover:bg-slate-800 shadow-md transition-all">
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
