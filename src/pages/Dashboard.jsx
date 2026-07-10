@@ -1916,22 +1916,6 @@ const Knowledge = ({ namespaces, onUpdate }) => {
             >
               + New Namespace
             </button>
-
-            <button
-              className="bg-emerald-500 text-white text-sm font-bold py-3 px-6 rounded-xl flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/40 hover:-translate-y-0.5"
-              onClick={() => {
-                setName('');
-                setTitle('');
-                setDescription('');
-                setSelectedFiles(null);
-                setKnowledgeType('text');
-                setEditingItemId(null);
-                setShowModal(true);
-              }}
-            >
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
-              Add Knowledge
-            </button>
           </div>
         </div>
 
@@ -1962,6 +1946,34 @@ const Knowledge = ({ namespaces, onUpdate }) => {
               <div className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase mt-2">Indexing Status</div>
             </div>
           </div>
+        </div>
+
+        {/* Documents Action Bar */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/5 p-5 rounded-3xl border border-slate-900/10 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200 shadow-sm">
+              <span className="material-symbols-outlined text-[20px]">folder_open</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-base m-0">Uploaded Documents</h3>
+              <p className="text-xs text-slate-500 m-0">Manage text content and files indexed for AI retrieval</p>
+            </div>
+          </div>
+          <button
+            className="bg-emerald-500 text-white text-sm font-bold py-3 px-6 rounded-xl flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/40 hover:-translate-y-0.5"
+            onClick={() => {
+              setName('');
+              setTitle('');
+              setDescription('');
+              setSelectedFiles(null);
+              setKnowledgeType('text');
+              setEditingItemId(null);
+              setShowModal(true);
+            }}
+          >
+            <span className="material-symbols-outlined text-[18px]">add_circle</span>
+            Add Knowledge
+          </button>
         </div>
 
         {/* Data Table */}
@@ -2073,7 +2085,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
         )}
       </div>
 
-      {viewingItem && (
+      {typeof document !== 'undefined' && viewingItem && ReactDOM.createPortal(
         <div className="modal-overlay" onClick={() => setViewingItem(null)}>
           <div className="modal-content animate-fade-in-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -2119,10 +2131,11 @@ const Knowledge = ({ namespaces, onUpdate }) => {
               <button type="button" className="btn-cancel" onClick={() => setViewingItem(null)} style={{ background: '#0ea5e9', color: 'white', border: 'none' }}>Close Details</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showModal && (
+      {typeof document !== 'undefined' && showModal && ReactDOM.createPortal(
         <div className="modal-overlay">
           <div className="modal-content animate-fade-in-up" style={{ maxWidth: '600px' }}>
             <h3>{editingItemId ? 'Edit Knowledge' : 'Add New Knowledge'}</h3>
@@ -2238,7 +2251,8 @@ const Knowledge = ({ namespaces, onUpdate }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Slide-in Notifications */}
