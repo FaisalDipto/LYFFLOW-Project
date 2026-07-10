@@ -4,12 +4,12 @@ import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import logoImg from '../assets/logo1.png';
 import titleImg from '../assets/title.png';
-import { useWidget } from '../context/WidgetContext';
-import { apiService } from '../services/api';
-import CustomerRecords from '../components/CustomerRecords';
-import ProductsTab from '../components/ProductsTab';
 import AgentAvatar from '../components/AgentAvatar';
 import AgentAvatarModal from '../components/AgentAvatarModal';
+import CustomerRecords from '../components/CustomerRecords';
+import ProductsTab from '../components/ProductsTab';
+import { useWidget } from '../context/WidgetContext';
+import { apiService } from '../services/api';
 import './Dashboard.css';
 
 // Sub-components
@@ -1903,7 +1903,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
               {namespaces.map((ns, idx) => {
                 const nsId = ns.namespace_id || ns.namespace;
                 const nsName = ns.namespace_name || ns.name;
-                return <option key={idx} value={nsId}>{nsName ? `${nsName} (${nsId.split('-')[0]}...)` : `${nsId.split('-')[0]}...${nsId.slice(-4)}`}</option>;
+                return <option key={idx} value={nsId}>{nsName}</option>;
               })}
             </select>
 
