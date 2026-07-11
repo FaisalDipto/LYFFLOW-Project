@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import logoImg from '../assets/logo1.png';
@@ -135,17 +136,22 @@ function UserDetailModal({ userId, onClose }) {
 
   if (!userId) return null;
 
-  return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justify: 'center', zIndex: 1000, padding: 24
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 850,
-        maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
-      }}>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[3000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh',
+        display: 'flex', alignItems: 'center', justify: 'center', zIndex: 3000
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200"
+        style={{
+          margin: 'auto', backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 850,
+          maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
+        }}
+      >
         {/* Header */}
         <div style={{
           padding: '20px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex',
@@ -293,7 +299,8 @@ function UserDetailModal({ userId, onClose }) {
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -320,15 +327,21 @@ function ActivityDetailModal({ activityId, onClose }) {
   const isErr = st === 'error' || st === 'failed';
   const badgeColor = isSuccess ? 'badge-green' : isErr ? 'badge-red' : 'badge-blue';
 
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justify: 'center', zIndex: 1000, padding: 24
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 880, maxHeight: '90vh',
-        display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
-      }}>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[3000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh',
+        display: 'flex', alignItems: 'center', justify: 'center', zIndex: 3000
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200"
+        style={{
+          margin: 'auto', backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 880, maxHeight: '90vh',
+          display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
+        }}
+      >
         {/* Header */}
         <div style={{
           padding: '20px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex',
@@ -448,7 +461,8 @@ function ActivityDetailModal({ activityId, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
