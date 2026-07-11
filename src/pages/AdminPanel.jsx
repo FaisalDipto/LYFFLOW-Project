@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import logoImg from '../assets/logo1.png';
 import titleImg from '../assets/title.png';
+import CheckpointerDebugModal from '../components/CheckpointerDebugModal';
 import './AdminPanel.css';
 
 // ── Helpers ──────────────────────────────────────────────
@@ -179,7 +180,10 @@ function UserDetailModal({ userId, onClose }) {
                 padding: 20, backgroundColor: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', gap: 16
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <div className="admin-avatar" style={{ width: 56, height: 56, fontSize: 20 }}>
+                  <div className="admin-avatar" style={{ width: 56, height: 56, fontSize: 20, position: 'relative', overflow: 'hidden' }}>
+                    {detail.profile_pic_url ? (
+                      <img src={detail.profile_pic_url} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, borderRadius: '50%' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                    ) : null}
                     {initials(detail.display_name || detail.email || 'U')}
                   </div>
                   <div>
@@ -516,7 +520,12 @@ function UsersSection() {
                 {users.map(u => (
                   <tr key={u.id || u.user_id}>
                     <td><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="admin-avatar">{initials(u.display_name || u.email)}</div>
+                      <div className="admin-avatar" style={{ position: 'relative', overflow: 'hidden' }}>
+                        {u.profile_pic_url ? (
+                          <img src={u.profile_pic_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, borderRadius: '50%' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                        ) : null}
+                        {initials(u.display_name || u.email)}
+                      </div>
                       <div>
                         <div className="font-bold">{u.display_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || '—'}</div>
                         {(u.first_name || u.last_name) && u.display_name && <div className="text-muted">{`${u.first_name || ''} ${u.last_name || ''}`.trim()}</div>}
@@ -1753,6 +1762,7 @@ function ConversationsSection() {
   const [search, setSearch] = useState('');
   const [pageIdFilter, setPageIdFilter] = useState('');
   const [pagesList, setPagesList] = useState([]);
+  const [debugConvId, setDebugConvId] = useState(null);
 
   useEffect(() => {
     apiService.adminPages({ page_size: 100 })
@@ -1817,7 +1827,7 @@ function ConversationsSection() {
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead><tr>
-                <th>User</th><th>Page</th><th>Messages</th><th>Human Needed</th><th>Synced</th><th>Last Updated</th>
+                <th>User</th><th>Page</th><th>Messages</th><th>Human Needed</th><th>Synced</th><th>Last Updated</th><th>Action</th>
               </tr></thead>
               <tbody>
                 {filtered.map(c => (
@@ -1852,6 +1862,17 @@ function ConversationsSection() {
                       </span>
                     </td>
                     <td className="text-muted">{fmtDate(c.updated_time)}</td>
+                    <td>
+                      <button
+                        className="btn-action"
+                        style={{ backgroundColor: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', display: 'flex', alignItems: 'center', gap: 4 }}
+                        onClick={() => setDebugConvId(c.conversation_id || c.id)}
+                        title="Inspect Checkpointer Snapshot & Message Graph"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 13 }}>memory</span>
+                        Debug State
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1863,6 +1884,7 @@ function ConversationsSection() {
           <button disabled={!nextCursor} onClick={() => { setCursor(nextCursor); load(nextCursor); }}>Next →</button>
         </div>
       </div>
+      {debugConvId && <CheckpointerDebugModal conversationId={debugConvId} onClose={() => setDebugConvId(null)} />}
     </div>
   );
 }

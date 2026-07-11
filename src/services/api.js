@@ -422,6 +422,7 @@ export const apiService = {
     if (page_id) q.set('page_id', page_id);
     return apiFetch(`/v1/admin/conversations?${q}`);
   },
+  adminGetCheckpointerState: (conversationId) => apiFetch(`/v1/admin/user/get-checkpointer-state/${conversationId}`),
   adminFeedbacks: ({ cursor, page_size, type } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
