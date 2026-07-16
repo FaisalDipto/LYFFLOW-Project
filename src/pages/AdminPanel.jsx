@@ -387,7 +387,7 @@ function ActivityDetailModal({ activityId, onClose }) {
                 </div>
                 <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Response Time</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{fmt(detail.response_time_ms || 0)} ms</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{(Number(detail.response_time_ms || detail.latency_ms || detail.duration_ms || 0) / 1000).toFixed(2)} s</div>
                 </div>
                 <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Execution Cost</div>
@@ -449,6 +449,8 @@ function ActivityDetailModal({ activityId, onClose }) {
                           formattedVal = detail.user_display_name || detail.user_id || formattedVal;
                         } else if (key === 'agent_name' || key === 'agent_id') {
                           formattedVal = detail.agent_name || detail.agent_id || formattedVal;
+                        } else if ((key.endsWith('_ms') || key.includes('time_ms') || key.includes('duration_ms') || key.includes('latency')) && typeof val === 'number') {
+                          formattedVal = `${(val / 1000).toFixed(2)} s`;
                         }
 
                         return (
@@ -469,7 +471,9 @@ function ActivityDetailModal({ activityId, onClose }) {
                                   {String(val)}
                                 </span>
                               ) : typeof val === 'number' ? (
-                                <span style={{ color: '#0284c7', fontFamily: 'monospace', fontSize: 14 }}>{val}</span>
+                                <span style={{ color: '#0284c7', fontFamily: 'monospace', fontSize: 14 }}>
+                                  {(key.endsWith('_ms') || key.includes('time_ms') || key.includes('duration_ms') || key.includes('latency')) ? `${(val / 1000).toFixed(2)} s` : val}
+                                </span>
                               ) : val === '' || val === null || val === undefined ? (
                                 <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>empty / null</span>
                               ) : (
@@ -908,7 +912,7 @@ function ActivitySection() {
                 <StatCard 
                   key={k} 
                   label={k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
-                  value={k === 'total_cost' ? `$${fmt(v)}` : fmt(v)} 
+                  value={k === 'total_cost' ? `$${fmt(v)}` : (k.endsWith('_ms') || k.includes('latency') || k.includes('response_time') || k.includes('duration')) ? `${(v / 1000).toFixed(2)} s` : fmt(v)} 
                   icon={getStatIcon(k)} 
                 />
               ))}
@@ -989,7 +993,7 @@ function ActivitySection() {
                         <div className="text-muted" style={{ fontSize: 11 }}>In: {fmt(a.input_tokens || 0)} / Out: {fmt(a.output_tokens || 0)} | ${fmt(a.token_cost || 0)}</div>
                       </td>
                       <td>
-                        <div className="font-bold">{fmt(a.response_time_ms || 0)} ms</div>
+                        <div className="font-bold">{(Number(a.response_time_ms || a.latency_ms || a.duration_ms || 0) / 1000).toFixed(2)} s</div>
                         <div className="text-muted" style={{ fontSize: 11 }}>{fmtDate(a.created_at)}</div>
                       </td>
                       <td>
