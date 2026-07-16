@@ -9,8 +9,16 @@ import AgentAvatarModal from '../components/AgentAvatarModal';
 import CustomerRecords from '../components/CustomerRecords';
 import ProductsTab from '../components/ProductsTab';
 import { useWidget } from '../context/WidgetContext';
+import { API_BASE } from '../config/env';
 import { apiService } from '../services/api';
 import './Dashboard.css';
+
+// Helper to trigger Facebook re-authorization to the API backend directly
+const triggerFacebookReauth = () => {
+  const nextPath = '/dashboard';
+  const redirectUrl = encodeURIComponent(window.location.origin + nextPath);
+  window.location.href = `${API_BASE}/v1/auth/facebook/reauth?redirect_uri=${redirectUrl}&next=${nextPath}`;
+};
 
 // Sub-components
 const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
@@ -145,7 +153,7 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
       if (onAddPage) {
         onAddPage(); // Show the pre-warning modal in parent
       } else {
-        window.location.href = '/v1/auth/facebook/reauth';
+        triggerFacebookReauth();
       }
     } else {
       setShowInstaComingSoon(true);
@@ -736,6 +744,39 @@ const ConversationList = ({ pages, user }) => {
           : c
       ));
       setActiveContact(prev => ({ ...prev, is_paused: currentStatus, is_human_needed: currentStatus }));
+    }
+  };
+
+  const toggleContactAIPause = async (e, targetContact) => {
+    e.stopPropagation();
+    if (!selectedPageId || !targetContact) return;
+    const convId = targetContact.conversation_id || targetContact.id;
+    const isCurrentlyPaused = targetContact.is_paused !== undefined ? targetContact.is_paused : (targetContact.is_human_needed || false);
+    const newStatus = !isCurrentlyPaused;
+
+    // Optimistically update
+    setContacts(prev => prev.map(c => 
+      (c.conversation_id || c.id) === convId 
+        ? { ...c, is_paused: newStatus, is_human_needed: newStatus }
+        : c
+    ));
+    if (activeContact && (activeContact.conversation_id || activeContact.id) === convId) {
+      setActiveContact(prev => ({ ...prev, is_paused: newStatus, is_human_needed: newStatus }));
+    }
+
+    try {
+      await apiService.setConversationPauseStatus(selectedPageId, convId, newStatus);
+    } catch (err) {
+      console.error("Failed to toggle AI pause status:", err);
+      // Revert on error
+      setContacts(prev => prev.map(c => 
+        (c.conversation_id || c.id) === convId 
+          ? { ...c, is_paused: isCurrentlyPaused, is_human_needed: isCurrentlyPaused }
+          : c
+      ));
+      if (activeContact && (activeContact.conversation_id || activeContact.id) === convId) {
+        setActiveContact(prev => ({ ...prev, is_paused: isCurrentlyPaused, is_human_needed: isCurrentlyPaused }));
+      }
       alert("Failed to change AI pause status. Please try again.");
     }
   };
@@ -851,7 +892,7 @@ const ConversationList = ({ pages, user }) => {
                 <div className="mt-2 flex flex-col gap-2">
                   {msg.attachments.map(att => {
                     const isImage = att.attachment_type?.startsWith('image/');
-                    const url = `/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
+                    const url = `${API_BASE}/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
                     return isImage ? (
                       <div key={att.attachment_id || att.attachment_key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
                         <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-white/20 hover:opacity-90 transition-opacity" />
@@ -893,7 +934,7 @@ const ConversationList = ({ pages, user }) => {
                 <div className="mt-2 flex flex-col gap-2">
                   {msg.attachments.map(att => {
                     const isImage = att.attachment_type?.startsWith('image/');
-                    const url = `/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
+                    const url = `${API_BASE}/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
                     return isImage ? (
                       <div key={att.attachment_id || att.attachment_key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
                         <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-slate-200 hover:opacity-90 transition-opacity" />
@@ -1012,6 +1053,8 @@ const ConversationList = ({ pages, user }) => {
             const id = contact.conversation_id || contact.id || i;
             const isActive = (activeContact?.id || activeContact?.conversation_id) === id;
 
+            const isContactPaused = contact.is_paused !== undefined ? contact.is_paused : (contact.is_human_needed || false);
+
             return (
               <div
                 key={id}
@@ -1021,14 +1064,30 @@ const ConversationList = ({ pages, user }) => {
                 <div className="flex gap-4 items-center">
                   {renderAvatar(contact, `w-12 h-12 rounded-full ${isActive ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'}`)}
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline mb-0.5">
-                      <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex justify-between items-center mb-1 gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <h3 className="font-bold text-slate-900 truncate">{contactName}</h3>
                         {contact.is_human_needed && (
                           <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse" title="Needs Human Support"></span>
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-400 font-medium">{updated}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={(e) => toggleContactAIPause(e, contact)}
+                          className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border transition-all flex items-center gap-1 shrink-0 ${
+                            isContactPaused
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600'
+                              : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-500 hover:text-white hover:border-rose-500'
+                          }`}
+                          title={isContactPaused ? "Resume AI Agent replies" : "Pause AI Agent replies"}
+                        >
+                          <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            {isContactPaused ? 'play_circle' : 'pause_circle'}
+                          </span>
+                          <span>{isContactPaused ? 'Resume AI' : 'Pause AI'}</span>
+                        </button>
+                        <span className="text-[10px] text-slate-400 font-medium shrink-0">{updated}</span>
+                      </div>
                     </div>
                     <p className={`text-sm truncate font-semibold ${isActive ? 'text-emerald-600' : contact.is_human_needed ? 'text-red-500' : 'text-slate-500 font-medium'}`}>{snippet}</p>
                   </div>
@@ -1084,12 +1143,6 @@ const ConversationList = ({ pages, user }) => {
                 </div>
               </div>
               <div className="flex items-center gap-4 md:gap-6 text-slate-400">
-                {/* Call button — no functionality yet
-                <button className="hover:text-slate-900 transition-colors hidden md:block"><span className="material-symbols-outlined">call</span></button>
-                */}
-                {/* Video call button — no functionality yet
-                <button className="hover:text-slate-900 transition-colors hidden md:block"><span className="material-symbols-outlined">videocam</span></button>
-                */}
                 <button
                   onClick={() => setIsProfileVisible(!isProfileVisible)}
                   className={`hover:text-slate-900 transition-colors ${!isProfileVisible ? 'text-emerald-600' : ''}`}
@@ -1097,9 +1150,6 @@ const ConversationList = ({ pages, user }) => {
                 >
                   <span className="material-symbols-outlined">{isProfileVisible ? 'side_navigation' : 'person_search'}</span>
                 </button>
-                {/* More options button — no functionality yet
-                <button className="hover:text-slate-900 transition-colors"><span className="material-symbols-outlined">more_vert</span></button>
-                */}
               </div>
             </header>
 
@@ -4777,7 +4827,7 @@ export default function Dashboard() {
           const uid = parsedUser.id || parsedUser.user_id || parsedUser._id || parsedUser.uuid;
           if (uid) {
             try {
-              const picResponse = await fetch(`/v1/user/profile_pic/${uid}`, { credentials: 'include' });
+              const picResponse = await fetch(`${API_BASE}/v1/user/profile_pic/${uid}`, { credentials: 'include' });
 
               if (picResponse.ok) {
                 const contentType = picResponse.headers.get('content-type') || '';
@@ -4801,7 +4851,7 @@ export default function Dashboard() {
                       parsedUser.profile_pic_url = parsed.url || parsed.profile_pic || parsed.profile_pic_url || parsed.image_url || null;
                     } catch (e) {
                       // Just fallback to the URL directly and hope the browser can figure it out
-                      parsedUser.profile_pic_url = `/v1/user/profile_pic/${uid}`;
+                      parsedUser.profile_pic_url = `${API_BASE}/v1/user/profile_pic/${uid}`;
                     }
                   }
                 }
@@ -5104,7 +5154,7 @@ export default function Dashboard() {
                   <button
                     onClick={() => {
                       setRevokedPagesModal(null);
-                      window.location.href = '/v1/auth/facebook/reauth';
+                      triggerFacebookReauth();
                     }}
                     className="flex-1 py-3 px-4 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm text-sm flex items-center justify-center gap-2"
                   >
@@ -5171,7 +5221,7 @@ export default function Dashboard() {
                   <button
                     onClick={() => {
                       setPreReauthModal(false);
-                      window.location.href = '/v1/auth/facebook/reauth';
+                      triggerFacebookReauth();
                     }}
                     className="flex-1 py-3 px-4 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm text-sm flex items-center justify-center gap-2"
                   >

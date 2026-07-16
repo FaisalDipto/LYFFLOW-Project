@@ -336,9 +336,9 @@ function ActivityDetailModal({ activityId, onClose }) {
       }}
     >
       <div
-        className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200"
+        className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200"
         style={{
-          margin: 'auto', backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 880, maxHeight: '90vh',
+          margin: 'auto', backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 1040, maxHeight: '90vh',
           display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
         }}
       >
@@ -417,44 +417,153 @@ function ActivityDetailModal({ activityId, onClose }) {
                 </div>
               </div>
 
-              {/* Trace Identifiers Card */}
-              <div style={{ padding: 20, backgroundColor: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#475569' }}>link</span>
-                  System Identifiers & Metadata
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, fontSize: 12 }}>
-                  <div><strong style={{ color: '#475569' }}>User:</strong> {detail.user_display_name || detail.user_id || '—'}</div>
-                  <div><strong style={{ color: '#475569' }}>Agent:</strong> {detail.agent_name || detail.agent_id || '—'}</div>
-                  <div><strong style={{ color: '#475569' }}>Conversation ID:</strong> <span style={{ fontFamily: 'monospace' }}>{detail.conversation_id || '—'}</span></div>
-                  <div><strong style={{ color: '#475569' }}>Trigger Msg ID:</strong> <span style={{ fontFamily: 'monospace' }}>{detail.trigger_message_id || '—'}</span></div>
-                  <div><strong style={{ color: '#475569' }}>Response Msg ID:</strong> <span style={{ fontFamily: 'monospace' }}>{detail.response_message_id || '—'}</span></div>
-                  <div><strong style={{ color: '#475569' }}>Executed At:</strong> {fmtDate(detail.created_at)}</div>
-                </div>
-              </div>
+              {/* Trace Identifiers & Scalar Attributes Card */}
+              {(() => {
+                const excludedScalarKeys = new Set([
+                  'status', 'model_name', 'model', 'response_time_ms', 'latency_ms', 'duration_ms',
+                  'token_cost', 'cost', 'total_cost', 'input_tokens', 'prompt_tokens', 'output_tokens',
+                  'completion_tokens', 'total_tokens', 'user_query', 'agent_response'
+                ]);
 
-              {/* Query & Response Blocks */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ padding: 18, backgroundColor: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#3b82f6' }}>input</span>
-                    User Query
-                  </div>
-                  <div style={{ padding: 14, backgroundColor: '#f8fafc', borderRadius: 10, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap', color: '#1e293b' }}>
-                    {detail.user_query || '—'}
-                  </div>
-                </div>
+                const scalarEntries = Object.entries(detail).filter(([key, val]) =>
+                  !excludedScalarKeys.has(key) && typeof val !== 'object' && val !== null && (typeof val !== 'string' || val.length <= 100)
+                );
 
-                <div style={{ padding: 18, backgroundColor: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#10b981' }}>output</span>
-                    Agent Response
+                return (
+                  <div style={{ padding: 20, backgroundColor: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#475569' }}>link</span>
+                        System Identifiers & Execution Attributes
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', backgroundColor: '#ffffff', padding: '2px 10px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                        {scalarEntries.length} attributes
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                      {scalarEntries.map(([key, val]) => {
+                        let formattedVal = String(val);
+                        if (key === 'created_at' || key === 'updated_at' || key === 'executed_at') {
+                          formattedVal = fmtDate(val);
+                        } else if (key === 'user_display_name' || key === 'user_id') {
+                          formattedVal = detail.user_display_name || detail.user_id || formattedVal;
+                        } else if (key === 'agent_name' || key === 'agent_id') {
+                          formattedVal = detail.agent_name || detail.agent_id || formattedVal;
+                        }
+
+                        return (
+                          <div key={key} style={{
+                            padding: 12, backgroundColor: '#ffffff', borderRadius: 10, border: '1px solid #e2e8f0',
+                            display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.02)'
+                          }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {key}
+                            </div>
+                            <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#0f172a', wordBreak: 'break-all', display: 'flex', alignItems: 'center' }}>
+                              {typeof val === 'boolean' ? (
+                                <span style={{
+                                  backgroundColor: val ? '#d1fae5' : '#fee2e2', color: val ? '#065f46' : '#991b1b',
+                                  fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 4
+                                }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{val ? 'check' : 'close'}</span>
+                                  {String(val)}
+                                </span>
+                              ) : typeof val === 'number' ? (
+                                <span style={{ color: '#0284c7', fontFamily: 'monospace', fontSize: 14 }}>{val}</span>
+                              ) : val === '' || val === null || val === undefined ? (
+                                <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>empty / null</span>
+                              ) : (
+                                <span style={{ fontFamily: key.includes('_id') || key === 'conversation_id' ? 'monospace' : 'inherit' }}>{formattedVal}</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div style={{ padding: 14, backgroundColor: '#f8fafc', borderRadius: 10, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap', color: '#1e293b', borderLeft: '4px solid #10b981' }}>
-                    {detail.agent_response || '—'}
+                );
+              })()}
+
+              {/* Execution Payload, Queries, Responses & Structured Blocks */}
+              {(() => {
+                const excludedScalarKeys = new Set([
+                  'status', 'model_name', 'model', 'response_time_ms', 'latency_ms', 'duration_ms',
+                  'token_cost', 'cost', 'total_cost', 'input_tokens', 'prompt_tokens', 'output_tokens',
+                  'completion_tokens', 'total_tokens', 'user_query', 'agent_response'
+                ]);
+
+                const complexEntries = Object.entries(detail).filter(([key, val]) =>
+                  !excludedScalarKeys.has(key) && ((typeof val === 'object' && val !== null) || (typeof val === 'string' && val.length > 100))
+                );
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {/* User Query Block */}
+                    {detail.user_query !== undefined && (
+                      <div style={{ padding: 18, backgroundColor: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.03)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#3b82f6' }}>input</span>
+                          User Query
+                        </div>
+                        <div style={{ padding: 14, backgroundColor: '#f8fafc', borderRadius: 10, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap', color: '#1e293b' }}>
+                          {detail.user_query || '—'}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Agent Response Block */}
+                    {detail.agent_response !== undefined && (
+                      <div style={{ padding: 18, backgroundColor: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.03)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#10b981' }}>output</span>
+                          Agent Response
+                        </div>
+                        <div style={{ padding: 14, backgroundColor: '#f8fafc', borderRadius: 10, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap', color: '#1e293b', borderLeft: '4px solid #10b981' }}>
+                          {detail.agent_response || '—'}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* All Other Complex Objects, Arrays & Long Text Blocks */}
+                    {complexEntries.map(([key, val]) => {
+                      const isObj = typeof val === 'object' && val !== null;
+                      return (
+                        <div key={key} style={{ padding: 18, backgroundColor: '#ffffff', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.03)' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: 18, color: isObj ? '#3b82f6' : '#8b5cf6' }}>
+                                {isObj ? (Array.isArray(val) ? 'data_array' : 'account_tree') : 'article'}
+                              </span>
+                              <span style={{ fontFamily: 'monospace' }}>{key}</span>
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: isObj ? '#2563eb' : '#7c3aed', backgroundColor: isObj ? '#eff6ff' : '#f5f3ff', padding: '2px 8px', borderRadius: 10 }}>
+                              {isObj ? (Array.isArray(val) ? `Array (${val.length})` : 'Object') : `Text (${val.length} chars)`}
+                            </span>
+                          </div>
+                          {isObj ? (
+                            <pre style={{
+                              margin: 0, padding: 16, backgroundColor: '#0f172a', color: '#e2e8f0',
+                              borderRadius: 10, fontSize: 12, fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                              overflowX: 'auto', maxHeight: 380, overflowY: 'auto', border: '1px solid #1e293b',
+                              lineHeight: 1.5
+                            }}>
+                              {JSON.stringify(val, null, 2)}
+                            </pre>
+                          ) : (
+                            <div style={{
+                              padding: 14, backgroundColor: '#f8fafc', borderRadius: 10, borderLeft: '4px solid #8b5cf6',
+                              fontSize: 13, fontFamily: 'monospace', whiteSpace: 'pre-wrap', color: '#1e293b',
+                              lineHeight: 1.6, maxHeight: 380, overflowY: 'auto'
+                            }}>
+                              {String(val)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-              </div>
+                );
+              })()}
             </>
           ) : (
             <div style={{ textAlign: 'center', color: '#64748b' }}>No details found.</div>
