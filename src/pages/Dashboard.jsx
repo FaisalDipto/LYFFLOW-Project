@@ -747,39 +747,6 @@ const ConversationList = ({ pages, user }) => {
     }
   };
 
-  const toggleContactAIPause = async (e, targetContact) => {
-    e.stopPropagation();
-    if (!selectedPageId || !targetContact) return;
-    const convId = targetContact.conversation_id || targetContact.id;
-    const isCurrentlyPaused = targetContact.is_paused !== undefined ? targetContact.is_paused : (targetContact.is_human_needed || false);
-    const newStatus = !isCurrentlyPaused;
-
-    // Optimistically update
-    setContacts(prev => prev.map(c => 
-      (c.conversation_id || c.id) === convId 
-        ? { ...c, is_paused: newStatus, is_human_needed: newStatus }
-        : c
-    ));
-    if (activeContact && (activeContact.conversation_id || activeContact.id) === convId) {
-      setActiveContact(prev => ({ ...prev, is_paused: newStatus, is_human_needed: newStatus }));
-    }
-
-    try {
-      await apiService.setConversationPauseStatus(selectedPageId, convId, newStatus);
-    } catch (err) {
-      console.error("Failed to toggle AI pause status:", err);
-      // Revert on error
-      setContacts(prev => prev.map(c => 
-        (c.conversation_id || c.id) === convId 
-          ? { ...c, is_paused: isCurrentlyPaused, is_human_needed: isCurrentlyPaused }
-          : c
-      ));
-      if (activeContact && (activeContact.conversation_id || activeContact.id) === convId) {
-        setActiveContact(prev => ({ ...prev, is_paused: isCurrentlyPaused, is_human_needed: isCurrentlyPaused }));
-      }
-      alert("Failed to change AI pause status. Please try again.");
-    }
-  };
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
@@ -1053,8 +1020,6 @@ const ConversationList = ({ pages, user }) => {
             const id = contact.conversation_id || contact.id || i;
             const isActive = (activeContact?.id || activeContact?.conversation_id) === id;
 
-            const isContactPaused = contact.is_paused !== undefined ? contact.is_paused : (contact.is_human_needed || false);
-
             return (
               <div
                 key={id}
@@ -1071,23 +1036,7 @@ const ConversationList = ({ pages, user }) => {
                           <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse" title="Needs Human Support"></span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={(e) => toggleContactAIPause(e, contact)}
-                          className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border transition-all flex items-center gap-1 shrink-0 ${
-                            isContactPaused
-                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600'
-                              : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-500 hover:text-white hover:border-rose-500'
-                          }`}
-                          title={isContactPaused ? "Resume AI Agent replies" : "Pause AI Agent replies"}
-                        >
-                          <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                            {isContactPaused ? 'play_circle' : 'pause_circle'}
-                          </span>
-                          <span>{isContactPaused ? 'Resume AI' : 'Pause AI'}</span>
-                        </button>
-                        <span className="text-[10px] text-slate-400 font-medium shrink-0">{updated}</span>
-                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium shrink-0">{updated}</span>
                     </div>
                     <p className={`text-sm truncate font-semibold ${isActive ? 'text-emerald-600' : contact.is_human_needed ? 'text-red-500' : 'text-slate-500 font-medium'}`}>{snippet}</p>
                   </div>
@@ -1127,10 +1076,26 @@ const ConversationList = ({ pages, user }) => {
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></div>
                 </div>
                 <div>
-                  <h2 className="font-['Epilogue'] font-bold text-lg text-slate-900 tracking-tight">
-                    {resolveContactName(activeContact, 'User')}
-                  </h2>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h2 className="font-['Epilogue'] font-bold text-lg text-slate-900 tracking-tight">
+                      {resolveContactName(activeContact, 'User')}
+                    </h2>
+                    <button
+                      onClick={handleToggleAIPause}
+                      className={`px-2.5 py-1 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shrink-0 ${
+                        (activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed)
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600'
+                          : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-500 hover:text-white hover:border-rose-500'
+                      }`}
+                      title={(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? "Resume AI Agent replies" : "Pause AI Agent replies"}
+                    >
+                      <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'play_circle' : 'pause_circle'}
+                      </span>
+                      <span>{(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'Resume AI Agent' : 'Pause AI Agent'}</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
                     {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? (
                       <p className="text-[10px] text-red-500 font-black tracking-widest uppercase flex items-center gap-1">
                         <span className="material-symbols-outlined text-[10px] animate-pulse">warning</span>
