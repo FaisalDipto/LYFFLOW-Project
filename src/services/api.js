@@ -71,6 +71,50 @@ const mockData = {
     total_leads: 620,
     total_tokens_used: 1542000,
     total_revenue: 28450
+  },
+  '/v1/admin/jobs': {
+    jobs: [
+      {
+        job_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        job_type: "initial_facebook_sync",
+        status: "queued",
+        duration_ms: 1240,
+        created_at: "2026-07-17T06:43:09.940Z"
+      },
+      {
+        job_id: "8bc92a11-4421-4831-a9ef-1b2c4e55de12",
+        job_type: "daily_knowledge_index",
+        status: "complete",
+        duration_ms: 4520,
+        created_at: "2026-07-17T05:12:00.120Z"
+      }
+    ],
+    pagination: {
+      next_cursor: "",
+      has_more: false,
+      page_size: 20,
+      total: 2
+    }
+  },
+  '/v1/admin/job/3fa85f64-5717-4562-b3fc-2c963f66afa6': {
+    job_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    arq_job_id: "arq:job:3fa85f64",
+    job_type: "initial_facebook_sync",
+    status: "queued",
+    user_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    page_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    input_payload: {
+      additionalProp1: { sync_messages: true, max_history_days: 30 }
+    },
+    result_summary: "Job is queued for processing worker.",
+    error_detail: "",
+    attempt: 1,
+    max_attempts: 3,
+    queued_at: "2026-07-17T06:47:39.214Z",
+    started_at: "2026-07-17T06:47:39.214Z",
+    completed_at: "2026-07-17T06:47:39.214Z",
+    duration_ms: 1240,
+    created_at: "2026-07-17T06:47:39.214Z"
   }
 };
 
@@ -499,4 +543,15 @@ export const apiService = {
     if (platform_type) q.set('platform_type', platform_type);
     return apiFetch(`/v1/admin/platforms?${q}`);
   },
+  adminJobs: ({ cursor, page_size, status, job_type, user_id, page_id } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    if (status) q.set('status', status);
+    if (job_type) q.set('job_type', job_type);
+    if (user_id) q.set('user_id', user_id);
+    if (page_id) q.set('page_id', page_id);
+    return apiFetch(`/v1/admin/jobs?${q}`);
+  },
+  adminGetJob: (jobId) => apiFetch(`/v1/admin/job/${jobId}`),
 };

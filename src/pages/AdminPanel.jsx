@@ -579,6 +579,412 @@ function ActivityDetailModal({ activityId, onClose }) {
   );
 }
 
+// ── Job Detail Modal ───────────────────────────────────
+function JobDetailModal({ jobId, onClose }) {
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!jobId) return;
+    setLoading(true);
+    setError(null);
+    apiService.adminGetJob(jobId)
+      .then(res => {
+        const data = res?.job || res?.data || res;
+        setDetail(data);
+      })
+      .catch(err => {
+        console.error("Failed to load job details:", err);
+        setError("Unable to retrieve complete execution record for this job ID.");
+      })
+      .finally(() => setLoading(false));
+  }, [jobId]);
+
+  if (!jobId) return null;
+
+  const st = (detail?.status || '').toLowerCase();
+  const isSuccess = st === 'complete' || st === 'completed' || st === 'success' || st === 'done';
+  const isErr = st === 'failed' || st === 'error';
+  const isRunning = st === 'in_progress' || st === 'running' || st === 'processing';
+  const badgeColor = isSuccess ? 'badge-green' : isErr ? 'badge-red' : isRunning ? 'badge-yellow' : 'badge-blue';
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[3000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh',
+        display: 'flex', alignItems: 'center', justify: 'center', zIndex: 3000
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200"
+        style={{
+          margin: 'auto', backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 1040, maxHeight: '90vh',
+          display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: '20px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#6366f1' }}>work_history</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Background Job Execution Record</h3>
+              <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'monospace' }}>Job ID: {jobId}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+            borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b'
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 24 }}>close</span>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: 28, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {loading ? (
+            <div style={{ padding: 48, textAlign: 'center' }}><LoadingState /></div>
+          ) : error ? (
+            <div style={{ padding: 32, textAlign: 'center', color: '#ef4444' }}>{error}</div>
+          ) : detail ? (
+            <>
+              {/* Summary Metrics Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+                <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Status</div>
+                  <div style={{ marginTop: 6 }}>
+                    <span className={`badge ${badgeColor}`} style={{ fontSize: 13, padding: '4px 10px' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{isSuccess ? 'check_circle' : isErr ? 'error' : isRunning ? 'sync' : 'pending'}</span>
+                      {detail.status || 'Unknown'}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Job Type</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginTop: 6, fontFamily: 'monospace' }}>{detail.job_type || '—'}</div>
+                </div>
+                <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Execution Duration</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{(Number(detail.duration_ms || 0) / 1000).toFixed(2)} s</div>
+                </div>
+                <div style={{ padding: 16, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Attempt Count</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#6366f1', marginTop: 6 }}>Attempt {detail.attempt !== undefined ? detail.attempt : 1} of {detail.max_attempts || 1}</div>
+                </div>
+              </div>
+
+              {/* Dynamic Scalar Attributes Card */}
+              {(() => {
+                const scalarEntries = Object.entries(detail).filter(([key, val]) =>
+                  val !== null &&
+                  typeof val !== 'object' &&
+                  key !== 'input_payload' &&
+                  key !== 'result_summary' &&
+                  key !== 'error_detail'
+                );
+
+                return (
+                  <div style={{ padding: 20, backgroundColor: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#475569' }}>data_object</span>
+                        System Identifiers & Job Attributes
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', backgroundColor: '#ffffff', padding: '2px 10px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                        {scalarEntries.length} attributes
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                      {scalarEntries.map(([key, val]) => {
+                        let formattedVal = String(val);
+                        if (key.endsWith('_at') || key === 'created_at' || key === 'queued_at' || key === 'started_at' || key === 'completed_at') {
+                          formattedVal = fmtDate(val);
+                        } else if ((key.endsWith('_ms') || key.includes('duration_ms')) && typeof val === 'number') {
+                          formattedVal = `${(val / 1000).toFixed(2)} s`;
+                        }
+
+                        return (
+                          <div key={key} style={{
+                            padding: 12, backgroundColor: '#ffffff', borderRadius: 10, border: '1px solid #e2e8f0',
+                            display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.02)'
+                          }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {key}
+                            </div>
+                            <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#0f172a', wordBreak: 'break-all', display: 'flex', alignItems: 'center' }}>
+                              {typeof val === 'boolean' ? (
+                                <span style={{
+                                  backgroundColor: val ? '#d1fae5' : '#fee2e2', color: val ? '#065f46' : '#991b1b',
+                                  fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 4
+                                }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{val ? 'check' : 'close'}</span>
+                                  {String(val)}
+                                </span>
+                              ) : typeof val === 'number' ? (
+                                <span style={{ color: '#0284c7', fontFamily: 'monospace', fontSize: 14 }}>
+                                  {(key.endsWith('_ms') || key.includes('duration_ms')) ? `${(val / 1000).toFixed(2)} s` : val}
+                                </span>
+                              ) : val === '' || val === null || val === undefined ? (
+                                <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>empty / null</span>
+                              ) : (
+                                <span style={{ fontFamily: key.includes('_id') || key === 'job_id' ? 'monospace' : 'inherit' }}>{formattedVal}</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Payloads and Logs */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {detail.result_summary && (
+                  <div style={{ padding: 18, backgroundColor: '#f0fdf4', borderRadius: 14, border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>info</span>
+                      Result Summary
+                    </div>
+                    <div style={{ fontSize: 14, color: '#15803d', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{detail.result_summary}</div>
+                  </div>
+                )}
+
+                {detail.error_detail && (
+                  <div style={{ padding: 18, backgroundColor: '#fef2f2', borderRadius: 14, border: '1px solid #fecaca' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>error</span>
+                      Error Details & Exception Stack
+                    </div>
+                    <div style={{ fontSize: 13, fontFamily: 'monospace', color: '#b91c1c', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{detail.error_detail}</div>
+                  </div>
+                )}
+
+                {detail.input_payload && Object.keys(detail.input_payload).length > 0 && (
+                  <div style={{ padding: 20, backgroundColor: '#ffffff', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#6366f1' }}>code</span>
+                      Input Payload
+                    </div>
+                    <pre style={{
+                      margin: 0, padding: 16, backgroundColor: '#0f172a', color: '#f8fafc',
+                      borderRadius: 12, fontSize: 13, fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                      overflowX: 'auto', maxHeight: 350, overflowY: 'auto', border: '1px solid #1e293b', lineHeight: 1.5
+                    }}>
+                      {JSON.stringify(detail.input_payload, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', color: '#64748b' }}>No job details found.</div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ── Background Jobs Section ────────────────────────────
+function JobsSection() {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cursor, setCursor] = useState(null);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [jobTypeFilter, setJobTypeFilter] = useState('');
+  const [selectedJobId, setSelectedJobId] = useState(null);
+
+  const loadJobs = useCallback((currentCursor = null) => {
+    setLoading(true);
+    apiService.adminJobs({
+      cursor: currentCursor,
+      page_size: 20,
+      status: statusFilter || undefined,
+      job_type: jobTypeFilter || undefined
+    })
+      .then(res => {
+        const list = Array.isArray(res) ? res : (res?.jobs || res?.data || []);
+        setJobs(list);
+        setNextCursor(res?.pagination?.next_cursor || null);
+        if (res?.pagination?.total !== undefined) {
+          setTotal(res?.pagination?.total);
+        } else {
+          setTotal(list.length);
+        }
+      })
+      .catch(err => console.error("Failed to load background jobs:", err))
+      .finally(() => setLoading(false));
+  }, [statusFilter, jobTypeFilter]);
+
+  useEffect(() => {
+    loadJobs(cursor);
+  }, [loadJobs, cursor]);
+
+  const filteredJobs = search.trim()
+    ? jobs.filter(j =>
+      (j.job_id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (j.job_type || '').toLowerCase().includes(search.toLowerCase()) ||
+      (j.status || '').toLowerCase().includes(search.toLowerCase()) ||
+      (j.user_id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (j.page_id || '').toLowerCase().includes(search.toLowerCase())
+    )
+    : jobs;
+
+  const queuedCount = jobs.filter(j => (j.status || '').toLowerCase() === 'queued').length;
+  const runningCount = jobs.filter(j => {
+    const s = (j.status || '').toLowerCase();
+    return s === 'in_progress' || s === 'running' || s === 'processing';
+  }).length;
+  const completeCount = jobs.filter(j => {
+    const s = (j.status || '').toLowerCase();
+    return s === 'complete' || s === 'completed' || s === 'success' || s === 'done';
+  }).length;
+  const failedCount = jobs.filter(j => {
+    const s = (j.status || '').toLowerCase();
+    return s === 'failed' || s === 'error';
+  }).length;
+
+  return (
+    <div>
+      <div className="admin-section-header">
+        <div className="admin-section-label">System Administration</div>
+        <div className="admin-section-title">Background Jobs Processing & Queue</div>
+      </div>
+
+      <div className="admin-stats-grid" style={{ marginBottom: 24 }}>
+        <StatCard label="Total Jobs" value={fmt(total || jobs.length)} icon="work_history" />
+        <StatCard label="Queued" value={fmt(queuedCount)} icon="pending" />
+        <StatCard label="In Progress" value={fmt(runningCount)} icon="sync" />
+        <StatCard label="Completed" value={fmt(completeCount)} icon="check_circle" />
+        <StatCard label="Failed" value={fmt(failedCount)} icon="error" />
+      </div>
+
+      <div className="admin-card">
+        <div className="admin-card-header" style={{ flexWrap: 'wrap', gap: 12 }}>
+          <span className="admin-card-title">Execution Queue {total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
+          <div className="admin-filter-row" style={{ flexWrap: 'wrap', gap: 10 }}>
+            <div className="admin-search-bar" style={{ minWidth: 240 }}>
+              <span className="material-symbols-outlined">search</span>
+              <input placeholder="Search Job ID, User ID, Page ID…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <select
+              className="admin-filter-select"
+              value={statusFilter}
+              onChange={e => { setStatusFilter(e.target.value); setCursor(null); }}
+            >
+              <option value="">All Statuses</option>
+              <option value="queued">Queued</option>
+              <option value="in_progress">In Progress / Running</option>
+              <option value="complete">Complete / Success</option>
+              <option value="failed">Failed / Error</option>
+            </select>
+            <select
+              className="admin-filter-select"
+              value={jobTypeFilter}
+              onChange={e => { setJobTypeFilter(e.target.value); setCursor(null); }}
+            >
+              <option value="">All Job Types</option>
+              <option value="initial_facebook_sync">initial_facebook_sync</option>
+              <option value="daily_knowledge_index">daily_knowledge_index</option>
+              <option value="agent_conversation_sync">agent_conversation_sync</option>
+              <option value="webhook_dispatch">webhook_dispatch</option>
+            </select>
+            <button className="btn-action btn-action-success" onClick={() => loadJobs(null)} style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {loading ? <LoadingState /> : filteredJobs.length === 0 ? <EmptyState icon="work_history" text="No background jobs found." /> : (
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead><tr>
+                <th>Job ID</th><th>Job Type</th><th>Status</th><th>Target IDs</th><th>Duration</th><th>Created At</th><th>Actions</th>
+              </tr></thead>
+              <tbody>
+                {filteredJobs.map((j, idx) => {
+                  const st = (j.status || '').toLowerCase();
+                  const isSuccess = st === 'complete' || st === 'completed' || st === 'success' || st === 'done';
+                  const isErr = st === 'failed' || st === 'error';
+                  const isRunning = st === 'in_progress' || st === 'running' || st === 'processing';
+                  const badgeColor = isSuccess ? 'badge-green' : isErr ? 'badge-red' : isRunning ? 'badge-yellow' : 'badge-blue';
+
+                  return (
+                    <tr key={j.job_id || idx}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="font-bold font-mono text-xs">{j.job_id ? j.job_id.slice(0, 8) + '...' : '—'}</span>
+                          {j.job_id && (
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(j.job_id); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', padding: 2 }}
+                              title="Copy full Job ID"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>content_copy</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge badge-slate font-mono" style={{ fontSize: 11 }}>{j.job_type || '—'}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${badgeColor}`}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 12 }}>
+                            {isSuccess ? 'check_circle' : isErr ? 'error' : isRunning ? 'sync' : 'pending'}
+                          </span>
+                          {j.status || 'Unknown'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="font-bold text-xs font-mono">{j.user_id ? `User: ${j.user_id.slice(0, 8)}...` : 'No User ID'}</div>
+                        <div className="text-muted text-xs font-mono">{j.page_id ? `Page: ${j.page_id.slice(0, 8)}...` : 'No Page ID'}</div>
+                      </td>
+                      <td>
+                        <div className="font-bold">{(Number(j.duration_ms || 0) / 1000).toFixed(2)} s</div>
+                      </td>
+                      <td>
+                        <div className="font-bold text-xs">{fmtDate(j.created_at)}</div>
+                      </td>
+                      <td>
+                        <button
+                          className="btn-action btn-action-blue"
+                          onClick={() => setSelectedJobId(j.job_id)}
+                          style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 15 }}>visibility</span>
+                          Details
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="admin-pagination">
+          <button disabled={!cursor} onClick={() => setCursor(null)}>← First</button>
+          <button disabled={!nextCursor} onClick={() => setCursor(nextCursor)}>Next →</button>
+        </div>
+      </div>
+
+      <JobDetailModal jobId={selectedJobId} onClose={() => setSelectedJobId(null)} />
+    </div>
+  );
+}
+
 // ── Users Section ──────────────────────────────────────
 function UsersSection() {
   const [users, setUsers] = useState([]);
@@ -2393,6 +2799,7 @@ const NAV = [
   { id: 'feedbacks', label: 'Feedbacks', icon: 'feedback' },
   { id: 'leads', label: 'Leads', icon: 'contacts' },
   { id: 'activity', label: 'Activity', icon: 'bar_chart' },
+  { id: 'jobs', label: 'Background Jobs', icon: 'work_history' },
 ];
 
 // ── Main Component ─────────────────────────────────────
@@ -2435,6 +2842,7 @@ export default function AdminPanel() {
       case 'feedbacks': return <FeedbacksSection />;
       case 'leads': return <LeadsSection />;
       case 'activity': return <ActivitySection />;
+      case 'jobs': return <JobsSection />;
       default: return null;
     }
   };
