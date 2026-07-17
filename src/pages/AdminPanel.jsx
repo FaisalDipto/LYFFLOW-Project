@@ -791,6 +791,239 @@ function JobDetailModal({ jobId, onClose }) {
   );
 }
 
+// ── Subscription Detail Modal ──────────────────────────
+function SubscriptionDetailModal({ subscription, onClose }) {
+  const [detail, setDetail] = useState(subscription);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!subscription) {
+      setDetail(null);
+      return;
+    }
+    setDetail(subscription);
+    const subId = subscription.subscription_id || subscription.id;
+    if (subId && typeof subId === 'string') {
+      setLoading(true);
+      apiService.adminGetSubscription(subId)
+        .then(res => {
+          const data = res?.subscription || res?.data || res;
+          if (data && typeof data === 'object') {
+            setDetail(prev => ({ ...prev, ...data }));
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  }, [subscription]);
+
+  if (!subscription) return null;
+
+  const sub = detail || subscription;
+  const subId = sub.subscription_id || sub.id || '—';
+  const planName = sub.plan_name || sub.plan?.plan_name || '—';
+  const price = sub.price_per_month ?? sub.plan?.price_per_month ?? 0;
+  const tokensUsed = sub.tokens_used ?? sub.usage?.tokens_used ?? 0;
+  const displayName = sub.user_display_name || `${sub.first_name || ''} ${sub.last_name || ''}`.trim() || '—';
+  const displayEmail = sub.user_email || sub.email || '—';
+  const isActive = Boolean(sub.is_active);
+
+  // Extract all scalar properties for complete record display
+  const scalarEntries = Object.entries(sub).filter(([key, val]) =>
+    val !== null &&
+    typeof val !== 'object' &&
+    typeof val !== 'function'
+  );
+
+  const objectEntries = Object.entries(sub).filter(([key, val]) =>
+    val !== null &&
+    typeof val === 'object' &&
+    !Array.isArray(val) &&
+    Object.keys(val).length > 0
+  );
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[3000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh',
+        display: 'flex', alignItems: 'center', justify: 'center', zIndex: 3000
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200"
+        style={{
+          margin: 'auto', backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 1040, maxHeight: '90vh',
+          display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: '20px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#6366f1' }}>card_membership</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Subscription & Billing Profile</h3>
+              <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'monospace' }}>Sub ID: {subId}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+            borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b'
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 24 }}>close</span>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: 28, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Summary Cards Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
+            {/* Subscriber Card */}
+            <div style={{ padding: 20, backgroundColor: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', display: 'flex', gap: 16, alignItems: 'center' }}>
+              <div style={{ position: 'relative' }}>
+                {sub.profile_pic_url ? (
+                  <img src={sub.profile_pic_url} alt="Profile" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid #ffffff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                ) : (
+                  <div className="admin-avatar" style={{ width: 64, height: 64, fontSize: 22, border: '2px solid #ffffff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    {initials(displayName !== '—' ? displayName : displayEmail)}
+                  </div>
+                )}
+                <div style={{
+                  position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: '50%',
+                  backgroundColor: isActive ? '#10b981' : '#ef4444', border: '2px solid #ffffff'
+                }} title={isActive ? "Active" : "Inactive"} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
+                <div style={{ fontSize: 13, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{displayEmail}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                  <span className={`badge ${isActive ? 'badge-green' : 'badge-red'}`} style={{ fontSize: 11 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{isActive ? 'check_circle' : 'cancel'}</span>
+                    {isActive ? 'Active Plan' : 'Inactive'}
+                  </span>
+                  {sub.user_id && (
+                    <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748b', backgroundColor: '#e2e8f0', padding: '2px 8px', borderRadius: 10 }}>
+                      User: {sub.user_id.slice(0, 8)}…
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Plan Metrics Card */}
+            <div style={{ padding: 20, backgroundColor: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Plan Tier</div>
+                <div style={{ marginTop: 6 }}>
+                  <span className="badge badge-blue font-bold font-mono" style={{ fontSize: 13, padding: '4px 10px' }}>{planName}</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Monthly Rate</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>
+                  ${fmt(price)} <span style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>/mo</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Tokens Used</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#6366f1', marginTop: 4 }}>
+                  {fmt(tokensUsed)} <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>tokens</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Billing Cycle</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginTop: 4 }}>
+                  Started: {fmtDate(sub.started_at)}<br />
+                  Expires: {fmtDate(sub.expires_at)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Complete Subscription Record Card */}
+          <div style={{ padding: 20, backgroundColor: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#475569' }}>data_object</span>
+                Complete Subscription Record (All Returned Fields)
+              </div>
+              {loading && <span style={{ fontSize: 11, color: '#6366f1', fontWeight: 600 }}>Syncing latest details...</span>}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+              {scalarEntries.map(([key, val]) => {
+                let formattedVal = String(val);
+                if (key.endsWith('_at') || key.includes('date') || key === 'started_at' || key === 'expires_at' || key === 'created_at' || key === 'updated_at') {
+                  formattedVal = fmtDate(val);
+                } else if (key === 'price_per_month' && typeof val === 'number') {
+                  formattedVal = `$${fmt(val)}/month`;
+                } else if (key === 'tokens_used' && typeof val === 'number') {
+                  formattedVal = `${fmt(val)} tokens`;
+                }
+
+                return (
+                  <div key={key} style={{
+                    padding: 12, backgroundColor: '#ffffff', borderRadius: 10, border: '1px solid #e2e8f0',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.02)'
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {key}
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#0f172a', wordBreak: 'break-all', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      {typeof val === 'boolean' ? (
+                        <span style={{
+                          backgroundColor: val ? '#d1fae5' : '#fee2e2', color: val ? '#065f46' : '#991b1b',
+                          fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 4
+                        }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{val ? 'check' : 'close'}</span>
+                          {String(val)}
+                        </span>
+                      ) : val === '' || val === null || val === undefined ? (
+                        <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>empty / null</span>
+                      ) : (
+                        <span style={{ fontFamily: key.includes('_id') || key.includes('url') ? 'monospace' : 'inherit' }}>{formattedVal}</span>
+                      )}
+                      {(key.includes('_id') || key === 'subscription_id' || key === 'user_id') && val && (
+                        <button
+                          onClick={() => navigator.clipboard.writeText(String(val))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', padding: 2 }}
+                          title="Copy ID"
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>content_copy</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Any Nested Object Payloads */}
+          {objectEntries.map(([key, val]) => (
+            <div key={key} style={{ padding: 20, backgroundColor: '#ffffff', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, textTransform: 'capitalize' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#6366f1' }}>account_tree</span>
+                {key.replace(/_/g, ' ')} Details
+              </div>
+              <pre style={{
+                margin: 0, padding: 16, backgroundColor: '#0f172a', color: '#f8fafc',
+                borderRadius: 12, fontSize: 13, fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                overflowX: 'auto', maxHeight: 300, overflowY: 'auto', border: '1px solid #1e293b', lineHeight: 1.5
+              }}>
+                {JSON.stringify(val, null, 2)}
+              </pre>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Background Jobs Section ────────────────────────────
 function JobsSection() {
   const [jobs, setJobs] = useState([]);
@@ -1439,6 +1672,7 @@ function SubscriptionsSection() {
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
+  const [selectedSub, setSelectedSub] = useState(null);
 
   const load = useCallback((cur = null) => {
     setLoading(true);
@@ -1532,6 +1766,7 @@ function SubscriptionsSection() {
                   <th>Price</th>
                   <th>Usage</th>
                   <th>Billing Dates</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1581,6 +1816,16 @@ function SubscriptionsSection() {
                           <div><span className="text-muted" style={{ fontSize: 10, textTransform: 'uppercase' }}>Until:</span> {fmtDate(s.expires_at)}</div>
                         </div>
                       </td>
+                      <td>
+                        <button
+                          className="btn-action btn-action-blue"
+                          onClick={() => setSelectedSub(s)}
+                          style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 15 }}>visibility</span>
+                          Details
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -1598,6 +1843,8 @@ function SubscriptionsSection() {
           </button>
         </div>
       </div>
+
+      <SubscriptionDetailModal subscription={selectedSub} onClose={() => setSelectedSub(null)} />
     </div>
   );
 }

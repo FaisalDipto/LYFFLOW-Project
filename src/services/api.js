@@ -115,6 +115,42 @@ const mockData = {
     completed_at: "2026-07-17T06:47:39.214Z",
     duration_ms: 1240,
     created_at: "2026-07-17T06:47:39.214Z"
+  },
+  '/v1/admin/subscriptions': {
+    subscriptions: [
+      {
+        subscription_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        user_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        user_display_name: "Johnathan Smith",
+        user_email: "john.smith@example.com",
+        profile_pic_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        plan_name: "Enterprise Plan",
+        started_at: "2026-07-17T06:52:26.820Z",
+        expires_at: "2027-07-17T06:52:26.820Z",
+        is_active: true,
+        tokens_used: 125400,
+        price_per_month: 299
+      },
+      {
+        subscription_id: "9ab85c21-1234-4567-890a-bcdef0123456",
+        user_id: "71234c21-8888-4567-890a-bcdef0123456",
+        user_display_name: "Sarah Jenkins",
+        user_email: "s.jenkins@techcorp.io",
+        profile_pic_url: "",
+        plan_name: "Professional Plan",
+        started_at: "2026-06-01T10:00:00.000Z",
+        expires_at: "2026-07-01T10:00:00.000Z",
+        is_active: false,
+        tokens_used: 48200,
+        price_per_month: 99
+      }
+    ],
+    pagination: {
+      next_cursor: "",
+      has_more: false,
+      page_size: 20,
+      total: 2
+    }
   }
 };
 
@@ -444,6 +480,7 @@ export const apiService = {
     if (active_only !== undefined) q.set('active_only', active_only);
     return apiFetch(`/v1/admin/subscriptions?${q}`);
   },
+  adminGetSubscription: (subId) => apiFetch(`/v1/admin/subscription/${subId}`),
   adminRevenue: () => apiFetch('/v1/admin/revenue'),
   adminAgents: ({ cursor, page_size, user_id } = {}) => {
     const q = new URLSearchParams();
