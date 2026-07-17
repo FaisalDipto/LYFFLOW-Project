@@ -96,6 +96,14 @@ const mockData = {
       total: 2
     }
   },
+  '/v1/admin/jobs/stats': {
+    total_job: 1420,
+    queued_job: 18,
+    running_job: 5,
+    success_job: 1385,
+    failed_job: 10,
+    retrying_job: 2
+  },
   '/v1/admin/job/3fa85f64-5717-4562-b3fc-2c963f66afa6': {
     job_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     arq_job_id: "arq:job:3fa85f64",
@@ -591,4 +599,5 @@ export const apiService = {
     return apiFetch(`/v1/admin/jobs?${q}`);
   },
   adminGetJob: (jobId) => apiFetch(`/v1/admin/job/${jobId}`),
+  adminJobStats: () => apiFetch('/v1/admin/jobs/stats'),
 };

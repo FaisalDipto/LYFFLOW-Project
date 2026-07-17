@@ -1035,9 +1035,20 @@ function JobsSection() {
   const [statusFilter, setStatusFilter] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState('');
   const [selectedJobId, setSelectedJobId] = useState(null);
+  const [stats, setStats] = useState(null);
+
+  const loadStats = useCallback(() => {
+    apiService.adminJobStats()
+      .then(res => {
+        const s = res?.stats || res?.data || res;
+        if (s && typeof s === 'object') setStats(s);
+      })
+      .catch(err => console.error("Failed to load job stats:", err));
+  }, []);
 
   const loadJobs = useCallback((currentCursor = null) => {
     setLoading(true);
+    loadStats();
     apiService.adminJobs({
       cursor: currentCursor,
       page_size: 20,
@@ -1056,7 +1067,7 @@ function JobsSection() {
       })
       .catch(err => console.error("Failed to load background jobs:", err))
       .finally(() => setLoading(false));
-  }, [statusFilter, jobTypeFilter]);
+  }, [statusFilter, jobTypeFilter, loadStats]);
 
   useEffect(() => {
     loadJobs(cursor);
@@ -1094,11 +1105,12 @@ function JobsSection() {
       </div>
 
       <div className="admin-stats-grid" style={{ marginBottom: 24 }}>
-        <StatCard label="Total Jobs" value={fmt(total || jobs.length)} icon="work_history" />
-        <StatCard label="Queued" value={fmt(queuedCount)} icon="pending" />
-        <StatCard label="In Progress" value={fmt(runningCount)} icon="sync" />
-        <StatCard label="Completed" value={fmt(completeCount)} icon="check_circle" />
-        <StatCard label="Failed" value={fmt(failedCount)} icon="error" />
+        <StatCard label="Total Jobs" value={fmt(stats ? (stats.total_job || 0) : (total || jobs.length))} icon="work_history" />
+        <StatCard label="Queued" value={fmt(stats ? (stats.queued_job || 0) : queuedCount)} icon="pending" />
+        <StatCard label="Running / In Progress" value={fmt(stats ? (stats.running_job || 0) : runningCount)} icon="sync" />
+        <StatCard label="Success / Complete" value={fmt(stats ? (stats.success_job || 0) : completeCount)} icon="check_circle" />
+        <StatCard label="Failed" value={fmt(stats ? (stats.failed_job || 0) : failedCount)} icon="error" />
+        <StatCard label="Retrying" value={fmt(stats ? (stats.retrying_job || 0) : 0)} icon="replay" />
       </div>
 
       <div className="admin-card">
