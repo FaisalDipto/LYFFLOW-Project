@@ -1040,6 +1040,7 @@ function JobsSection() {
   const loadStats = useCallback(() => {
     apiService.adminJobStats()
       .then(res => {
+        console.log("DEBUG /v1/admin/jobs/stats response:", res);
         const s = res?.stats || res?.data || res;
         if (s && typeof s === 'object') setStats(s);
       })
