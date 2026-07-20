@@ -2544,6 +2544,114 @@ function KnowledgesSection() {
   );
 }
 
+// ── Conversation Messages Modal ─────────────────────────
+function ConversationMessagesModal({ conversation, onClose }) {
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!conversation) return;
+    const cid = conversation.conversation_id || conversation.id;
+    if (!cid) return;
+    
+    setLoading(true);
+    apiService.adminGetConversationMessages(cid)
+      .then(res => {
+        const msgs = res?.messages || res?.data?.messages || res?.data || [];
+        setMessages(Array.isArray(msgs) ? msgs : []);
+      })
+      .catch(err => setError(err.message || "Failed to load messages"))
+      .finally(() => setLoading(false));
+  }, [conversation]);
+
+  if (!conversation) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[3000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh',
+        display: 'flex', alignItems: 'center', justify: 'center', zIndex: 3000
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-3xl flex flex-col shadow-2xl overflow-hidden border border-slate-200"
+        style={{
+          margin: 'auto', backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 800, height: '80vh',
+          display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: '20px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div className="admin-avatar">{initials(conversation.name || 'User')}</div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{conversation.name || 'Unknown User'}</h3>
+              <div style={{ fontSize: 12, color: '#64748b' }}>{conversation.page_name || 'Unknown Page'}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: '#64748b', display: 'flex', alignItems: 'center' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 24 }}>close</span>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 28, backgroundColor: '#f1f5f9', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {loading ? (
+            <LoadingState />
+          ) : error ? (
+            <EmptyState icon="error" text={error} />
+          ) : messages.length === 0 ? (
+            <EmptyState icon="chat" text="No messages found in this conversation." />
+          ) : (
+            messages.map((m, idx) => {
+              const isAi = m.is_ai_msg || m.role === 'ai' || m.role === 'assistant';
+              return (
+                <div key={m.message_id || idx} style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: isAi ? 'flex-end' : 'flex-start',
+                  maxWidth: '100%'
+                }}>
+                  <div style={{
+                    maxWidth: '75%',
+                    padding: '12px 16px',
+                    borderRadius: 16,
+                    borderBottomRightRadius: isAi ? 4 : 16,
+                    borderBottomLeftRadius: !isAi ? 4 : 16,
+                    backgroundColor: isAi ? '#6366f1' : '#ffffff',
+                    color: isAi ? '#ffffff' : '#0f172a',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    fontSize: 14,
+                    lineHeight: 1.5,
+                    whiteSpace: 'pre-wrap',
+                    border: isAi ? 'none' : '1px solid #e2e8f0'
+                  }}>
+                    {m.message}
+                    {m.has_attachment && m.attachments?.map((att, i) => (
+                      <div key={i} style={{ marginTop: 8, fontSize: 12, fontStyle: 'italic', opacity: 0.8 }}>
+                        [Attachment: {att.type || 'file'}]
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, padding: '0 4px' }}>
+                    {fmtDate(m.created_at)}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Conversations Section ────────────────────────────────
 function ConversationsSection() {
   const [conversations, setConversations] = useState([]);
@@ -2555,6 +2663,7 @@ function ConversationsSection() {
   const [pageIdFilter, setPageIdFilter] = useState('');
   const [pagesList, setPagesList] = useState([]);
   const [debugConvId, setDebugConvId] = useState(null);
+  const [messagesConv, setMessagesConv] = useState(null);
 
   useEffect(() => {
     apiService.adminPages({ page_size: 100 })
@@ -2655,15 +2764,26 @@ function ConversationsSection() {
                     </td>
                     <td className="text-muted">{fmtDate(c.updated_time)}</td>
                     <td>
-                      <button
-                        className="btn-action"
-                        style={{ backgroundColor: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', display: 'flex', alignItems: 'center', gap: 4 }}
-                        onClick={() => setDebugConvId(c.conversation_id || c.id)}
-                        title="Inspect Checkpointer Snapshot & Message Graph"
-                      >
-                        <span className="material-symbols-outlined" style={{ fontSize: 13 }}>memory</span>
-                        Debug State
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="btn-action btn-action-blue"
+                          style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+                          onClick={() => setMessagesConv(c)}
+                          title="View Messages"
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 15 }}>chat</span>
+                          Messages
+                        </button>
+                        <button
+                          className="btn-action"
+                          style={{ backgroundColor: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: 12 }}
+                          onClick={() => setDebugConvId(c.conversation_id || c.id)}
+                          title="Inspect Checkpointer Snapshot & Message Graph"
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 15 }}>memory</span>
+                          Debug
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -2677,6 +2797,7 @@ function ConversationsSection() {
         </div>
       </div>
       {debugConvId && <CheckpointerDebugModal conversationId={debugConvId} onClose={() => setDebugConvId(null)} />}
+      <ConversationMessagesModal conversation={messagesConv} onClose={() => setMessagesConv(null)} />
     </div>
   );
 }
