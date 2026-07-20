@@ -600,4 +600,5 @@ export const apiService = {
   },
   adminGetJob: (jobId) => apiFetch(`/v1/admin/job/${jobId}`),
   adminJobStats: () => apiFetch('/v1/admin/jobs/stats'),
+  adminGetConversationMessages: (conversationId) => apiFetch(`/v1/admin/conversations/${conversationId}`),
 };
