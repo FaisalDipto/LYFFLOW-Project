@@ -1129,9 +1129,10 @@ function JobsSection() {
             >
               <option value="">All Statuses</option>
               <option value="queued">Queued</option>
-              <option value="in_progress">In Progress / Running</option>
-              <option value="complete">Complete / Success</option>
-              <option value="failed">Failed / Error</option>
+              <option value="running">Running</option>
+              <option value="success">Success</option>
+              <option value="failed">Failed</option>
+              <option value="retrying">Retrying</option>
             </select>
             <select
               className="admin-filter-select"
@@ -1140,9 +1141,17 @@ function JobsSection() {
             >
               <option value="">All Job Types</option>
               <option value="initial_facebook_sync">initial_facebook_sync</option>
-              <option value="daily_knowledge_index">daily_knowledge_index</option>
-              <option value="agent_conversation_sync">agent_conversation_sync</option>
-              <option value="webhook_dispatch">webhook_dispatch</option>
+              <option value="process_buffered_messages">process_buffered_messages</option>
+              <option value="create_knowledge">create_knowledge</option>
+              <option value="human_reply">human_reply</option>
+              <option value="process_delivery_event">process_delivery_event</option>
+              <option value="process_knowledge_file">process_knowledge_file</option>
+              <option value="create_lead">create_lead</option>
+              <option value="process_feedback">process_feedback</option>
+              <option value="process_csv_import">process_csv_import</option>
+              <option value="process_product_embedding">process_product_embedding</option>
+              <option value="sync_user_profile_pic">sync_user_profile_pic</option>
+              <option value="fetch_conversation_pics">fetch_conversation_pics</option>
             </select>
             <button className="btn-action btn-action-success" onClick={() => loadJobs(null)} style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4 }}>
               <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>

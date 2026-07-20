@@ -592,7 +592,7 @@ export const apiService = {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
-    if (status) q.set('status', status);
+    if (status) q.set('job_status', status);
     if (job_type) q.set('job_type', job_type);
     if (user_id) q.set('user_id', user_id);
     if (page_id) q.set('page_id', page_id);
