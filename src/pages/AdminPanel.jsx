@@ -2546,7 +2546,7 @@ function KnowledgesSection() {
 }
 
 // ── Conversation Messages Modal ─────────────────────────
-function ConversationMessagesModal({ conversation, onClose }) {
+function ConversationMessagesModal({ conversation, onClose, onDebug }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -2577,75 +2577,158 @@ function ConversationMessagesModal({ conversation, onClose }) {
       }}
     >
       <div
-        className="bg-white rounded-3xl w-full max-w-3xl flex flex-col shadow-2xl overflow-hidden border border-slate-200"
+        className="bg-white rounded-3xl w-full flex shadow-2xl overflow-hidden border border-slate-200"
         style={{
-          margin: 'auto', backgroundColor: '#ffffff', borderRadius: 24, width: '100%', maxWidth: 800, height: '80vh',
-          display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
+          margin: 'auto', backgroundColor: '#ffffff', borderRadius: 24, maxWidth: 1024, height: '85vh',
+          display: 'flex', flexDirection: 'row', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden'
         }}
       >
-        {/* Header */}
-        <div style={{
-          padding: '20px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex',
-          alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div className="admin-avatar">{initials(conversation.name || 'User')}</div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{conversation.name || 'Unknown User'}</h3>
-              <div style={{ fontSize: 12, color: '#64748b' }}>{conversation.page_name || 'Unknown Page'}</div>
+        {/* Left: Chat Area */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #e2e8f0', minWidth: 0 }}>
+          {/* Header */}
+          <div style={{
+            padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex',
+            alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ffffff'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#fed7aa', color: '#ea580c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>
+                {initials(conversation.name || 'User')}
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{conversation.name || 'Unknown User'}</h3>
+                <div style={{ fontSize: 12, color: '#64748b' }}>{conversation.page_name || 'Unknown Page'}</div>
+              </div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: '#64748b', display: 'flex', alignItems: 'center' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 24 }}>close</span>
-          </button>
+
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', backgroundColor: '#ffffff', display: 'flex', flexDirection: 'column-reverse', gap: 16 }}>
+            {loading ? (
+              <LoadingState />
+            ) : error ? (
+              <EmptyState icon="error" text={error} />
+            ) : messages.length === 0 ? (
+              <EmptyState icon="chat" text="No messages found in this conversation." />
+            ) : (
+              messages.map((m, idx) => {
+                const roleLower = m.role?.toLowerCase();
+                const isPageMsg = roleLower === 'page' || roleLower === 'assistant' || roleLower === 'system';
+                const isActuallyAi = isPageMsg && (m.is_ai_msg === true || m.is_ai_msg === 'true' || m.is_ai_msg === 1);
+                const isTeamMsg = isPageMsg && !isActuallyAi;
+                
+                return (
+                  <div key={m.message_id || idx} style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: isPageMsg ? 'flex-end' : 'flex-start',
+                    maxWidth: '100%'
+                  }}>
+                    <div style={{
+                      maxWidth: '75%',
+                      padding: '14px 18px',
+                      borderRadius: 20,
+                      borderBottomRightRadius: isPageMsg ? 4 : 20,
+                      borderBottomLeftRadius: !isPageMsg ? 4 : 20,
+                      backgroundColor: isPageMsg ? '#0f172a' : '#f8fafc',
+                      color: isPageMsg ? '#ffffff' : '#0f172a',
+                      fontSize: 14,
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                      border: isPageMsg ? 'none' : '1px solid #e2e8f0'
+                    }}>
+                      {typeof m.message === 'object' && m.message !== null ? JSON.stringify(m.message, null, 2) : m.message}
+                      {m.has_attachment && m.attachments?.map((att, i) => (
+                        <div key={i} style={{ marginTop: 8, fontSize: 12, fontStyle: 'italic', opacity: 0.8 }}>
+                          [Attachment: {att.type || 'file'}]
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, padding: '0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {fmtDate(m.created_at)}
+                      {isActuallyAi && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#6366f1', fontWeight: 600 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>smart_toy</span>
+                          AI
+                        </span>
+                      )}
+                      {isTeamMsg && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#10b981', fontWeight: 600 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>person</span>
+                          Team
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        {/* Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 28, backgroundColor: '#f1f5f9', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {loading ? (
-            <LoadingState />
-          ) : error ? (
-            <EmptyState icon="error" text={error} />
-          ) : messages.length === 0 ? (
-            <EmptyState icon="chat" text="No messages found in this conversation." />
-          ) : (
-            messages.map((m, idx) => {
-              const isAi = m.is_ai_msg || m.role === 'ai' || m.role === 'assistant';
-              return (
-                <div key={m.message_id || idx} style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: isAi ? 'flex-end' : 'flex-start',
-                  maxWidth: '100%'
-                }}>
-                  <div style={{
-                    maxWidth: '75%',
-                    padding: '12px 16px',
-                    borderRadius: 16,
-                    borderBottomRightRadius: isAi ? 4 : 16,
-                    borderBottomLeftRadius: !isAi ? 4 : 16,
-                    backgroundColor: isAi ? '#6366f1' : '#ffffff',
-                    color: isAi ? '#ffffff' : '#0f172a',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                    whiteSpace: 'pre-wrap',
-                    border: isAi ? 'none' : '1px solid #e2e8f0'
-                  }}>
-                    {m.message}
-                    {m.has_attachment && m.attachments?.map((att, i) => (
-                      <div key={i} style={{ marginTop: 8, fontSize: 12, fontStyle: 'italic', opacity: 0.8 }}>
-                        [Attachment: {att.type || 'file'}]
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, padding: '0 4px' }}>
-                    {fmtDate(m.created_at)}
-                  </div>
-                </div>
-              );
-            })
-          )}
+        {/* Right: Sidebar Details */}
+        <div style={{ width: 340, backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '24px 32px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: '#64748b', display: 'flex', alignItems: 'center', borderRadius: 8, backgroundColor: '#f1f5f9' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span>
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ width: 100, height: 100, borderRadius: 28, backgroundColor: '#fed7aa', color: '#c2410c', fontSize: 36, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, position: 'relative' }}>
+              {initials(conversation.name || 'User')}
+              <div style={{ position: 'absolute', bottom: -4, right: -4, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#10b981', border: '4px solid #f8fafc' }} />
+            </div>
+            <h2 style={{ margin: '0 0 4px 0', fontSize: 20, fontWeight: 800, color: '#0f172a' }}>{conversation.name || 'Unknown User'}</h2>
+            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>Chat Participant</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ padding: '4px 10px', borderRadius: 16, backgroundColor: '#e0e7ff', color: '#4338ca', fontSize: 10, fontWeight: 800, letterSpacing: 0.5 }}>FREE</span>
+              <span style={{ padding: '4px 10px', borderRadius: 16, backgroundColor: '#dcfce7', color: '#166534', fontSize: 10, fontWeight: 800, letterSpacing: 0.5 }}>MANAGED BY AI</span>
+            </div>
+          </div>
+
+          <button
+            style={{ width: '100%', padding: '14px 0', borderRadius: 16, backgroundColor: '#ef4444', color: '#ffffff', border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 32, boxShadow: '0 4px 14px 0 rgba(239, 68, 68, 0.39)' }}
+            onClick={() => onDebug && onDebug(conversation.conversation_id || conversation.id)}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>memory</span>
+            DEBUG STATE
+          </button>
+
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: 1, marginBottom: 20 }}>INFORMATION</div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#cbd5e1' }}>person</span>
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 0.5, marginBottom: 2 }}>NAME</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{conversation.name || 'Unknown User'}</div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: 16 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#cbd5e1' }}>mail</span>
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 0.5, marginBottom: 2 }}>SOURCE</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>Facebook Messenger</div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: 16 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#cbd5e1' }}>tag</span>
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 0.5, marginBottom: 2 }}>CONVERSATION ID</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', wordBreak: 'break-all', fontFamily: "monospace" }}>{conversation.conversation_id || conversation.id}</div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: 16 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#cbd5e1' }}>schedule</span>
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 0.5, marginBottom: 2 }}>LAST ACTIVE</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{fmtDate(conversation.updated_time)}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>,
@@ -2798,7 +2881,11 @@ function ConversationsSection() {
         </div>
       </div>
       {debugConvId && <CheckpointerDebugModal conversationId={debugConvId} onClose={() => setDebugConvId(null)} />}
-      <ConversationMessagesModal conversation={messagesConv} onClose={() => setMessagesConv(null)} />
+      <ConversationMessagesModal 
+        conversation={messagesConv} 
+        onClose={() => setMessagesConv(null)} 
+        onDebug={(id) => { setMessagesConv(null); setDebugConvId(id); }} 
+      />
     </div>
   );
 }
@@ -2952,9 +3039,21 @@ function CustomerRecordsSection() {
                       <td>
                         {Array.isArray(r.order_items) && r.order_items.length > 0 ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 80, overflowY: 'auto' }}>
-                            {r.order_items.map((it, idx) => (
-                              <div key={idx} style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>• {it}</div>
-                            ))}
+                            {r.order_items.map((it, idx) => {
+                              let display = it;
+                              if (typeof it === 'object' && it !== null) {
+                                if (it.name) {
+                                  display = `${it.quantity ? it.quantity + 'x ' : ''}${it.name}`;
+                                } else {
+                                  display = JSON.stringify(it);
+                                }
+                              }
+                              return (
+                                <div key={idx} style={{ fontSize: 12, fontWeight: 600, color: '#334155' }} title={typeof it === 'object' ? JSON.stringify(it) : ''}>
+                                  • {display}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <span className="text-muted">—</span>
@@ -2962,7 +3061,7 @@ function CustomerRecordsSection() {
                       </td>
                       <td style={{ maxWidth: 220 }}>
                         <div style={{ fontSize: 12, color: '#475569', whiteSpace: 'normal', maxHeight: 80, overflowY: 'auto' }}>
-                          {r.notes || '—'}
+                          {typeof r.notes === 'object' && r.notes !== null ? JSON.stringify(r.notes) : (r.notes || '—')}
                         </div>
                       </td>
                       <td>

@@ -854,7 +854,13 @@ const ConversationList = ({ pages, user }) => {
         <div key={msgId || Math.random()} className="flex gap-4 max-w-2xl ml-auto flex-row-reverse group">
           <div className="space-y-2 flex flex-col items-end">
             <div className="bg-slate-900 text-white p-5 rounded-t-3xl rounded-bl-3xl text-[15px] leading-relaxed shadow-xl">
-              {msg.message || msg.text || ''}
+              {typeof (msg.message || msg.text) === 'object' && (msg.message || msg.text) !== null ? (
+                <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
+                  {JSON.stringify(msg.message || msg.text, null, 2)}
+                </pre>
+              ) : (
+                <span style={{ whiteSpace: 'pre-wrap' }}>{msg.message || msg.text || ''}</span>
+              )}
               {msg.attachments && msg.attachments.length > 0 ? (
                 <div className="mt-2 flex flex-col gap-2">
                   {msg.attachments.map(att => {
@@ -896,7 +902,13 @@ const ConversationList = ({ pages, user }) => {
           {renderAvatar(activeContact, "w-8 h-8 rounded-full self-end")}
           <div className="space-y-2">
             <div className="bg-slate-50 text-slate-900 p-5 rounded-t-3xl rounded-br-3xl text-[15px] leading-relaxed shadow-sm border border-slate-200">
-              {msg.message || msg.text || ''}
+              {typeof (msg.message || msg.text) === 'object' && (msg.message || msg.text) !== null ? (
+                <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
+                  {JSON.stringify(msg.message || msg.text, null, 2)}
+                </pre>
+              ) : (
+                <span style={{ whiteSpace: 'pre-wrap' }}>{msg.message || msg.text || ''}</span>
+              )}
               {msg.attachments && msg.attachments.length > 0 ? (
                 <div className="mt-2 flex flex-col gap-2">
                   {msg.attachments.map(att => {
