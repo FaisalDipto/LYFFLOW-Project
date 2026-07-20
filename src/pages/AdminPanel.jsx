@@ -1106,12 +1106,12 @@ function JobsSection() {
       </div>
 
       <div className="admin-stats-grid" style={{ marginBottom: 24 }}>
-        <StatCard label="Total Jobs" value={fmt(stats ? (stats.total_job || 0) : (total || jobs.length))} icon="work_history" />
-        <StatCard label="Queued" value={fmt(stats ? (stats.queued_job || 0) : queuedCount)} icon="pending" />
-        <StatCard label="Running / In Progress" value={fmt(stats ? (stats.running_job || 0) : runningCount)} icon="sync" />
-        <StatCard label="Success / Complete" value={fmt(stats ? (stats.success_job || 0) : completeCount)} icon="check_circle" />
-        <StatCard label="Failed" value={fmt(stats ? (stats.failed_job || 0) : failedCount)} icon="error" />
-        <StatCard label="Retrying" value={fmt(stats ? (stats.retrying_job || 0) : 0)} icon="replay" />
+        <StatCard label="Total Jobs" value={stats ? (stats.total_job || 0) : (total || jobs.length)} icon="work_history" />
+        <StatCard label="Queued" value={stats ? (stats.queued_job || 0) : queuedCount} icon="pending" />
+        <StatCard label="Running / In Progress" value={stats ? (stats.running_job || 0) : runningCount} icon="sync" />
+        <StatCard label="Success / Complete" value={stats ? (stats.success_job || 0) : completeCount} icon="check_circle" />
+        <StatCard label="Failed" value={stats ? (stats.failed_job || 0) : failedCount} icon="error" />
+        <StatCard label="Retrying" value={stats ? (stats.retrying_job || 0) : 0} icon="replay" />
       </div>
 
       <div className="admin-card">
