@@ -2860,6 +2860,10 @@ function ConversationsSection() {
                 </option>
               ))}
             </select>
+            <button className="btn-action btn-action-success" onClick={() => { setCursor(null); load(null); }} style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>
+              Refresh
+            </button>
           </div>
         </div>
         {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="chat" text="No conversations found." /> : (
@@ -2886,13 +2890,18 @@ function ConversationsSection() {
                     </td>
                     <td><span className="font-bold">{fmt(c.message_count ?? 0)}</span></td>
                     <td>
-                      {c.is_human_needed && (
-                        <span className="badge badge-red">
-                          <span className="material-symbols-outlined" style={{ fontSize: 11 }}>warning</span>
-                          Yes
-                        </span>
-                      )}
-                      {!c.is_human_needed && <span className="text-muted">—</span>}
+                      {(() => {
+                        const val = c.is_human_needed ?? c.human_needed ?? c.is_paused;
+                        const needsHuman = val === true || val === 'true' || val === 1;
+                        return needsHuman ? (
+                          <span className="badge badge-red">
+                            <span className="material-symbols-outlined" style={{ fontSize: 11 }}>warning</span>
+                            Yes
+                          </span>
+                        ) : (
+                          <span className="text-muted" style={{ fontSize: 13, fontWeight: 500 }}>No</span>
+                        );
+                      })()}
                     </td>
                     <td>
                       <span className={`badge ${c.is_synced ? 'badge-green' : 'badge-slate'}`}>
