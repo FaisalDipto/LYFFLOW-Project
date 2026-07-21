@@ -600,5 +600,11 @@ export const apiService = {
   },
   adminGetJob: (jobId) => apiFetch(`/v1/admin/job/${jobId}`),
   adminJobStats: () => apiFetch('/v1/admin/jobs/stats'),
-  adminGetConversationMessages: (conversationId) => apiFetch(`/v1/admin/conversations/${conversationId}`),
+  adminGetConversationMessages: (conversationId, { cursor, page_size } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    const qs = q.toString() ? `?${q}` : '';
+    return apiFetch(`/v1/admin/conversations/${conversationId}${qs}`);
+  },
 };

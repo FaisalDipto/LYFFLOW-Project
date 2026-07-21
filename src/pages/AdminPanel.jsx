@@ -2558,7 +2558,9 @@ function KnowledgesSection() {
 function ConversationMessagesModal({ conversation, onClose, onDebug }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
+  const [nextCursor, setNextCursor] = useState(null);
 
   useEffect(() => {
     if (!conversation) return;
@@ -2570,10 +2572,25 @@ function ConversationMessagesModal({ conversation, onClose, onDebug }) {
       .then(res => {
         const msgs = res?.messages || res?.data?.messages || res?.data || [];
         setMessages(Array.isArray(msgs) ? msgs : []);
+        setNextCursor(res?.pagination?.next_cursor || null);
       })
       .catch(err => setError(err.message || "Failed to load messages"))
       .finally(() => setLoading(false));
   }, [conversation]);
+
+  const handleLoadMore = () => {
+    if (!conversation || !nextCursor || loadingMore) return;
+    const cid = conversation.conversation_id || conversation.id;
+    setLoadingMore(true);
+    apiService.adminGetConversationMessages(cid, { cursor: nextCursor })
+      .then(res => {
+        const msgs = res?.messages || res?.data?.messages || res?.data || [];
+        setMessages(prev => [...prev, ...(Array.isArray(msgs) ? msgs : [])]);
+        setNextCursor(res?.pagination?.next_cursor || null);
+      })
+      .catch(err => console.error("Failed to load more messages:", err))
+      .finally(() => setLoadingMore(false));
+  };
 
   if (!conversation) return null;
 
@@ -2669,7 +2686,35 @@ function ConversationMessagesModal({ conversation, onClose, onDebug }) {
                     </div>
                   </div>
                 );
-              })
+              }).concat(
+                nextCursor ? [
+                  <div key="load-more" style={{ display: 'flex', justifyContent: 'center', marginTop: 16, marginBottom: 8, width: '100%' }}>
+                    <button
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      style={{
+                        padding: '8px 16px', borderRadius: 20, backgroundColor: '#f1f5f9', color: '#475569',
+                        fontSize: 12, fontWeight: 600, border: '1px solid #e2e8f0', cursor: loadingMore ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                    >
+                      {loadingMore ? (
+                        <>
+                          <span className="material-symbols-outlined" style={{ fontSize: 14, animation: 'spin 1s linear infinite' }}>sync</span>
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>expand_less</span>
+                          Load older messages
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ] : []
+              )
             )}
           </div>
         </div>
