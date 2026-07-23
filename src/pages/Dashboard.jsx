@@ -3712,11 +3712,12 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               const Icon = p.icon;
               const isSelected = selectedPersona === p.id;
               return (
-                <div key={p.id} onClick={() => setSelectedPersona(p.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '14px 12px', borderRadius: '10px', border: isSelected ? '2px solid #0ea5e9' : '2px solid #e2e8f0', backgroundColor: isSelected ? 'rgba(14,165,233,0.05)' : '#f8fafc', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s' }}>
-                  <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: p.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div key={p.id} onClick={() => !isEditing && setSelectedPersona(p.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '14px 12px', borderRadius: '10px', border: isSelected ? '2px solid #0ea5e9' : '2px solid #e2e8f0', backgroundColor: isSelected ? 'rgba(14,165,233,0.05)' : '#f8fafc', cursor: isEditing ? 'not-allowed' : 'pointer', textAlign: 'center', transition: 'all 0.2s', opacity: isEditing && !isSelected ? 0.5 : 1 }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: p.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isEditing && !isSelected ? 0.5 : 1 }}>
                     <Icon size={20} color={p.iconColor} />
                   </div>
                   <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{p.title}</div>
+                  {isEditing && isSelected && <div style={{ fontSize: '10px', color: '#64748b', marginTop: '-4px' }}>(Role cannot be changed)</div>}
                 </div>
               );
             })}
