@@ -3742,16 +3742,27 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             <select value={agentTimezone} onChange={e => setAgentTimezone(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }}>
               <option value="">Browser Default ({Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"})</option>
               <option value="UTC">UTC</option>
-              <option value="America/New_York">New York (EST/EDT)</option>
-              <option value="America/Chicago">Chicago (CST/CDT)</option>
-              <option value="America/Los_Angeles">Los Angeles (PST/PDT)</option>
-              <option value="Europe/London">London (GMT/BST)</option>
-              <option value="Europe/Berlin">Berlin (CET/CEST)</option>
-              <option value="Asia/Dubai">Dubai (GST)</option>
-              <option value="Asia/Kolkata">Kolkata (IST)</option>
-              <option value="Asia/Dhaka">Dhaka (BST)</option>
-              <option value="Asia/Tokyo">Tokyo (JST)</option>
-              <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
+              <option value="America/New_York">America/New_York</option>
+              <option value="America/Los_Angeles">America/Los_Angeles</option>
+              <option value="America/Chicago">America/Chicago</option>
+              <option value="America/Denver">America/Denver</option>
+              <option value="America/Phoenix">America/Phoenix</option>
+              <option value="America/Anchorage">America/Anchorage</option>
+              <option value="America/Honolulu">America/Honolulu</option>
+              <option value="Europe/London">Europe/London</option>
+              <option value="Europe/Paris">Europe/Paris</option>
+              <option value="Europe/Berlin">Europe/Berlin</option>
+              <option value="Europe/Moscow">Europe/Moscow</option>
+              <option value="Asia/Dhaka">Asia/Dhaka</option>
+              <option value="Asia/Kolkata">Asia/Kolkata</option>
+              <option value="Asia/Tokyo">Asia/Tokyo</option>
+              <option value="Asia/Dubai">Asia/Dubai</option>
+              <option value="Asia/Singapore">Asia/Singapore</option>
+              <option value="Asia/Hong_Kong">Asia/Hong_Kong</option>
+              <option value="Asia/Jakarta">Asia/Jakarta</option>
+              <option value="Australia/Sydney">Australia/Sydney</option>
+              <option value="Australia/Melbourne">Australia/Melbourne</option>
+              <option value="Pacific/Auckland">Pacific/Auckland</option>
             </select>
           </div>
         </div>
