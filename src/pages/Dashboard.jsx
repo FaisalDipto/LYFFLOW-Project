@@ -4807,8 +4807,13 @@ export default function Dashboard() {
     try {
       const userData = await apiService.getUserProfile();
       const pagesData = await apiService.getPages();
-      console.log("API Pages Response:", pagesData);
-      const agentsData = await apiService.getAgents();
+      let agentsData = { agents: [] };
+      try {
+        agentsData = await apiService.getAgents();
+      } catch (e) {
+        console.warn("Could not fetch agents", e);
+      }
+      
       let namespacesData = { namespaces: [] };
       try {
         namespacesData = await apiService.getNamespaces();
