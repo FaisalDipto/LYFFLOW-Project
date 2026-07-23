@@ -2828,6 +2828,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [businessDesc, setBusinessDesc] = useState('');
   const [instructions, setInstructions] = useState('');
   const [fallbackMessage, setFallbackMessage] = useState('');
+  const [agentTimezone, setAgentTimezone] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [created, setCreated] = useState(false);
@@ -2882,6 +2883,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setSelectedPersona(null);
     setTone('Professional');
     setLanguage('English');
+    setAgentTimezone('');
   };
 
   // Filter State
@@ -3045,6 +3047,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setSelectedPersona(REVERSE_ROLE_MAP[agent.role] || 'sales');
     setTone(agent.tone || 'Professional');
     setLanguage(agent.language || 'English');
+    setAgentTimezone(agent.agent_timezone || '');
   };
 
   const handleCreate = async (e) => {
@@ -3082,7 +3085,8 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         business_name: businessName,
         business_description: businessDesc,
         instructions: instructions.trim() || null,
-        fallback_message: fallbackMessage.trim() || null
+        fallback_message: fallbackMessage.trim() || null,
+        agent_timezone: agentTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
       };
 
       console.log("Create Agent Payload:", JSON.stringify(payload, null, 2));
@@ -3123,6 +3127,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         setBusinessDesc('');
         setInstructions('');
         setFallbackMessage('');
+        setAgentTimezone('');
         setIsCreating(false);
         setIsEditing(false);
         setEditingAgentId(null);
@@ -3718,7 +3723,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Tone *</label>
             <select value={tone} onChange={e => setTone(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }}>
@@ -3729,6 +3734,23 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Language *</label>
             <select value={language} onChange={e => setLanguage(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }}>
               {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
+            <label style={{ fontSize: '14px', fontWeight: 600 }}>Timezone *</label>
+            <select value={agentTimezone} onChange={e => setAgentTimezone(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }}>
+              <option value="">Browser Default ({Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"})</option>
+              <option value="UTC">UTC</option>
+              <option value="America/New_York">New York (EST/EDT)</option>
+              <option value="America/Chicago">Chicago (CST/CDT)</option>
+              <option value="America/Los_Angeles">Los Angeles (PST/PDT)</option>
+              <option value="Europe/London">London (GMT/BST)</option>
+              <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+              <option value="Asia/Dubai">Dubai (GST)</option>
+              <option value="Asia/Kolkata">Kolkata (IST)</option>
+              <option value="Asia/Dhaka">Dhaka (BST)</option>
+              <option value="Asia/Tokyo">Tokyo (JST)</option>
+              <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
             </select>
           </div>
         </div>
