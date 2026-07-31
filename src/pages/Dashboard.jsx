@@ -434,6 +434,7 @@ const formatListTime = (rawTime) => {
 
 const ConversationList = ({ pages, user }) => {
   const [selectedPageId, setSelectedPageId] = useState('');
+  const [humanNeededFilter, setHumanNeededFilter] = useState('all');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileVisible, setIsProfileVisible] = useState(false);
   const [contacts, setContacts] = useState([]);
@@ -451,8 +452,12 @@ const ConversationList = ({ pages, user }) => {
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const isLoadingOlderMsgsRef = useRef(false);
+  const conversationsRequestVersionRef = useRef(0);
 
   const currentPageName = pages?.find(p => p.page_id === selectedPageId)?.name || '';
+  const isHumanNeeded = humanNeededFilter === 'all'
+    ? null
+    : humanNeededFilter === 'human';
 
   const resolveContactName = (contactObj, fallback = 'User') => {
     if (!contactObj) return fallback;
@@ -520,10 +525,16 @@ const ConversationList = ({ pages, user }) => {
 
   useEffect(() => {
     if (!selectedPageId) return;
+    const requestVersion = ++conversationsRequestVersionRef.current;
     setLoading(true);
+    setLoadingMoreContacts(false);
     setContacts([]);
-    apiService.getPageDetails(selectedPageId)
+    setActiveContact(null);
+    setMessages([]);
+    setConversationsPagination(null);
+    apiService.getPageDetails(selectedPageId, null, 10, isHumanNeeded)
       .then(data => {
+        if (requestVersion !== conversationsRequestVersionRef.current) return;
         // Handle FB Graph variations
         const convs = data?.conversations?.data || data?.conversations || data?.data || [];
         const normalized = Array.isArray(convs) ? convs : [];
@@ -547,6 +558,7 @@ const ConversationList = ({ pages, user }) => {
             apiService.getConversationInfo(cId),
             apiService.getConversationDetails(selectedPageId, cId, null, 1),
           ]).then(([infoRes, detailsRes]) => {
+            if (requestVersion !== conversationsRequestVersionRef.current) return;
             const info    = infoRes.status    === 'fulfilled' ? infoRes.value    : null;
             const details = detailsRes.status === 'fulfilled' ? detailsRes.value : null;
             const msgs = details?.messages?.data || details?.messages || details?.data || [];
@@ -577,9 +589,17 @@ const ConversationList = ({ pages, user }) => {
           });
         });
       })
-      .catch(err => console.error("Failed to fetch conversations", err))
-      .finally(() => setLoading(false));
-  }, [selectedPageId]);
+      .catch(err => {
+        if (requestVersion === conversationsRequestVersionRef.current) {
+          console.error("Failed to fetch conversations", err);
+        }
+      })
+      .finally(() => {
+        if (requestVersion === conversationsRequestVersionRef.current) {
+          setLoading(false);
+        }
+      });
+  }, [selectedPageId, isHumanNeeded]);
 
   useEffect(() => {
     if (!selectedPageId || !activeContact) return;
@@ -604,9 +624,11 @@ const ConversationList = ({ pages, user }) => {
 
   const handleLoadMoreConversations = () => {
     if (!selectedPageId || !conversationsPagination?.has_more || !conversationsPagination?.next_cursor) return;
+    const requestVersion = conversationsRequestVersionRef.current;
     setLoadingMoreContacts(true);
-    apiService.getPageDetails(selectedPageId, conversationsPagination.next_cursor)
+    apiService.getPageDetails(selectedPageId, conversationsPagination.next_cursor, 10, isHumanNeeded)
       .then(data => {
+        if (requestVersion !== conversationsRequestVersionRef.current) return;
         const convs = data?.conversations?.data || data?.conversations || data?.data || [];
         const normalized = Array.isArray(convs) ? convs : [];
         
@@ -633,6 +655,7 @@ const ConversationList = ({ pages, user }) => {
             apiService.getConversationInfo(cId),
             apiService.getConversationDetails(selectedPageId, cId, null, 1),
           ]).then(([infoRes, detailsRes]) => {
+            if (requestVersion !== conversationsRequestVersionRef.current) return;
             const info    = infoRes.status    === 'fulfilled' ? infoRes.value    : null;
             const details = detailsRes.status === 'fulfilled' ? detailsRes.value : null;
             const msgs = details?.messages?.data || details?.messages || details?.data || [];
@@ -662,8 +685,16 @@ const ConversationList = ({ pages, user }) => {
           });
         });
       })
-      .catch(err => console.error("Failed to load more conversations", err))
-      .finally(() => setLoadingMoreContacts(false));
+      .catch(err => {
+        if (requestVersion === conversationsRequestVersionRef.current) {
+          console.error("Failed to load more conversations", err);
+        }
+      })
+      .finally(() => {
+        if (requestVersion === conversationsRequestVersionRef.current) {
+          setLoadingMoreContacts(false);
+        }
+      });
   };
 
   const handleScrollMessages = (e) => {
@@ -1016,13 +1047,32 @@ const ConversationList = ({ pages, user }) => {
             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-900 transition-colors">search</span>
             <input className="w-full max-w-full bg-white border border-slate-200 shadow-sm rounded-xl py-4 pl-12 pr-4 text-sm focus:ring-2 focus:ring-slate-900 outline-none text-slate-900 placeholder:text-slate-400 box-border" placeholder="Search conversations..." type="text" />
           </div>
+          <div className="mt-3">
+            <label htmlFor="human-needed-filter" className="sr-only">Filter conversations by human support status</label>
+            <select
+              id="human-needed-filter"
+              value={humanNeededFilter}
+              onChange={(e) => setHumanNeededFilter(e.target.value)}
+              className="w-full max-w-full box-border bg-white border border-slate-200 shadow-sm rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-slate-900 outline-none cursor-pointer"
+            >
+              <option value="all">All conversations</option>
+              <option value="human">Needs human support</option>
+              <option value="ai">Managed by AI</option>
+            </select>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 pb-8 space-y-2">
           {loading ? (
-            <div className="p-8 text-center text-slate-400 font-medium text-sm">Loading channels...</div>
+            <div className="p-8 text-center text-slate-400 font-medium text-sm">Loading conversations...</div>
           ) : contacts.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 font-medium text-sm">No ongoing conversations.</div>
+            <div className="p-8 text-center text-slate-400 font-medium text-sm">
+              {humanNeededFilter === 'human'
+                ? 'No conversations need human support.'
+                : humanNeededFilter === 'ai'
+                  ? 'No AI-managed conversations.'
+                  : 'No ongoing conversations.'}
+            </div>
           ) : contacts.map((contact, i) => {
             // Prefer the name from /info endpoint, fall back to FB graph resolution
             const contactName = contact._info_name || resolveContactName(contact, `User ${i}`);

@@ -386,12 +386,15 @@ export const apiService = {
   }),
 
   // Conversations
-  getPageDetails: (pageId, cursor = null, page_size = 10) => {
+  getPageDetails: (pageId, cursor = null, page_size = 10, isHumanNeeded = null) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     const size = page_size || 10;
     q.set('page_size', size);
     q.set('limit', size);
+    if (isHumanNeeded !== null && isHumanNeeded !== undefined) {
+      q.set('is_human_needed', String(isHumanNeeded));
+    }
     const qs = `?${q.toString()}`;
     return apiFetch(`/v1/page/${pageId}/conversations${qs}`);
   },
