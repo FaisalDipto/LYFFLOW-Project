@@ -16,6 +16,7 @@ const Feedback = lazy(() => import('./pages/Feedback'))
 const Legal = lazy(() => import('./pages/Legal'))
 const Pricing = lazy(() => import('./pages/Pricing'))
 const Sales = lazy(() => import('./pages/Sales'))
+const Contact = lazy(() => import('./pages/Contact'))
 const AdminLogin = lazy(() => import('./pages/AdminLogin'))
 const AdminPanel = lazy(() => import('./pages/AdminPanel'))
 
@@ -106,6 +107,7 @@ function App() {
           <Route path="/legal" element={<Legal />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/sales" element={<Sales />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminPanel />} />
           

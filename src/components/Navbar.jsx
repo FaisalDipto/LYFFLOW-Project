@@ -113,7 +113,7 @@ export default function Navbar() {
             >
               <span className="nav-link-text">Resources</span>
               <div className="dropdown-menu">
-                <div className="dropdown-item">
+                <Link to="/contact" className="dropdown-item" onClick={() => setIsMobileMenuOpen(false)}>
                   <div className="dropdown-icon-container res-help">
                     <svg className="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                   </div>
@@ -121,7 +121,7 @@ export default function Navbar() {
                     <h4 className="dropdown-title">Help Center</h4>
                     <p className="dropdown-desc">Guides and documentation.</p>
                   </div>
-                </div>
+                </Link>
                 <Link to="/sales" className="dropdown-item" onClick={() => setIsMobileMenuOpen(false)}>
                   <div className="dropdown-icon-container res-contact">
                     <svg className="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>

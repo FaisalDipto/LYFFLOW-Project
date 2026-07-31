@@ -4681,135 +4681,245 @@ const SubscriptionPanel = () => {
   );
 };
 
-const SupportPanel = () => {
-  const [ticketType, setTicketType] = useState('technical');
+const SUPPORT_GUIDES = [
+  {
+    category: 'Getting started',
+    icon: 'link',
+    title: 'Connect or reconnect a Facebook Page',
+    summary: 'Set up a new Page or restore access after permissions change.',
+    answer: 'Open Overview and choose Add Page. Complete Facebook authorization, select the Pages you want LYFFLOW to manage, and return to the dashboard. If a Page was revoked, reconnect it from the same screen.'
+  },
+  {
+    category: 'AI agents',
+    icon: 'smart_toy',
+    title: 'Create and assign an AI agent',
+    summary: 'Configure an agent and connect it to the right business Page.',
+    answer: 'Go to Agents, create or select an agent, and configure its role and behavior. Assign it to a Page from Overview so it can respond using that Page’s connected knowledge.'
+  },
+  {
+    category: 'Knowledge',
+    icon: 'menu_book',
+    title: 'Improve answers with your knowledge base',
+    summary: 'Add business information your AI agent can use in replies.',
+    answer: 'Open Knowledge, choose the appropriate namespace, then add text, documents, or supported imports. Keep each source focused and up to date so the agent can retrieve accurate answers.'
+  },
+  {
+    category: 'Conversations',
+    icon: 'support_agent',
+    title: 'Take over a conversation from AI',
+    summary: 'Find customers who need help and switch to a human reply.',
+    answer: 'Open Conversations and filter by Needs human support. Select the conversation, review the history, and reply directly. You can resume the AI agent when the issue has been resolved.'
+  },
+  {
+    category: 'Billing',
+    icon: 'credit_card',
+    title: 'Review your plan and subscription',
+    summary: 'Check plan details or choose a plan that fits your usage.',
+    answer: 'Open Subscription from the dashboard navigation to see your current plan and available options. For a payment-specific question, email support with your account email and avoid sharing complete card details.'
+  },
+  {
+    category: 'Troubleshooting',
+    icon: 'sync_problem',
+    title: 'Messages or Page data are not updating',
+    summary: 'Work through the most common connection checks.',
+    answer: 'Confirm that the Page is still connected in Overview and that an agent is assigned. Refresh the dashboard, then reconnect the Page if Facebook permissions changed. If the issue continues, contact support with the Page name and approximate time it began.'
+  }
+];
+
+const SupportPanel = ({ onNavigate }) => {
+  const [supportSearch, setSupportSearch] = useState('');
+  const [selectedSupportCategory, setSelectedSupportCategory] = useState('All');
+  const [openSupportGuide, setOpenSupportGuide] = useState(null);
+  const guidesRef = useRef(null);
+
+  const supportCategories = ['All', ...new Set(SUPPORT_GUIDES.map(guide => guide.category))];
+  const normalizedSearch = supportSearch.trim().toLowerCase();
+  const filteredSupportGuides = SUPPORT_GUIDES.filter(guide => {
+    const matchesCategory = selectedSupportCategory === 'All' || guide.category === selectedSupportCategory;
+    const matchesSearch = !normalizedSearch || [guide.title, guide.summary, guide.answer, guide.category]
+      .some(value => value.toLowerCase().includes(normalizedSearch));
+    return matchesCategory && matchesSearch;
+  });
+
+  const scrollToGuides = () => guidesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
-    <div className="dashboard-content-area animate-fade-in-up space-y-8 pb-20">
-      <div className="max-w-3xl mx-auto space-y-8 mt-12 text-center bg-white p-12 rounded-[2.5rem] border border-slate-100 shadow-sm">
-        <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-          <span className="material-symbols-outlined text-4xl">contact_support</span>
-        </div>
-        <h2 className="text-4xl font-headline font-black tracking-tighter text-slate-900">Support Center</h2>
-        <article className="text-slate-500 font-medium text-lg leading-relaxed max-w-xl mx-auto">
-          If you need help, our support team is here for you. 
-          Please reach out to us via email, and we will get back to you as soon as possible.
-        </article>
-        <div className="inline-flex items-center gap-3 bg-slate-50 px-6 py-4 rounded-2xl border border-slate-200 mt-4">
-          <span className="material-symbols-outlined text-slate-400">mail</span>
-          <a href="mailto:support@lyfflow.com" className="text-slate-900 font-bold text-lg hover:text-emerald-600 transition-colors">support@lyfflow.com</a>
-        </div>
-      </div>
-
-      {/* 
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h2 className="text-4xl font-headline font-black tracking-tighter text-slate-900 mb-2">Support Center</h2>
-          <p className="text-slate-500 font-medium max-w-lg">How can we help you today? Search our knowledge base or reach out to our team.</p>
-        </div>
-        <div className="flex items-center gap-3 bg-emerald-50 px-4 py-3 rounded-2xl border border-emerald-100">
-          <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
-          <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Support Online</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { icon: 'account_circle', title: 'Account Access', desc: 'Login issues, password resets, and profile settings.' },
-          { icon: 'payments', title: 'Billing & Plans', desc: 'Questions about subscriptions, invoices, and payment.' },
-          { icon: 'smart_toy', title: 'AI & Agents', desc: 'Configure your bots, set triggers, and manage flows.' },
-          { icon: 'code', title: 'API & Tech', desc: 'Webhooks, integration docs, and custom development.' }
-        ].map((item, idx) => (
-          <button key={idx} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all text-left group">
-            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-slate-900 transition-colors">
-              <span className="material-symbols-outlined text-slate-400 group-hover:text-white transition-colors">{item.icon}</span>
-            </div>
-            <h3 className="font-bold text-slate-900 mb-2">{item.title}</h3>
-            <p className="text-xs text-slate-500 leading-relaxed font-medium">{item.desc}</p>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-8 border-b border-slate-50">
-            <h3 className="text-xl font-black text-slate-900">Open a Support Ticket</h3>
-            <p className="text-sm text-slate-400 font-medium">Expected response time: 2-4 business hours</p>
+    <div className="dashboard-content-area animate-fade-in-up pb-20">
+      <section className="relative overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-12 md:px-12 md:py-16 text-white shadow-xl shadow-slate-200/70">
+        <div className="absolute -top-24 -right-20 h-72 w-72 rounded-full bg-emerald-400/15 blur-3xl" />
+        <div className="absolute -bottom-32 left-1/4 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="relative z-10 max-w-3xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-6">
+            <span className="material-symbols-outlined text-[16px]">contact_support</span>
+            LYFFLOW Support
           </div>
-          <div className="p-8 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">Inquiry Type</label>
-                <select
-                  value={ticketType}
-                  onChange={(e) => setTicketType(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-900 transition-colors appearance-none"
+          <h2 className="text-4xl md:text-5xl font-headline font-black tracking-tighter leading-tight">How can we help?</h2>
+          <p className="mt-4 text-sm md:text-base leading-relaxed text-slate-300 font-medium max-w-2xl mx-auto">
+            Describe what you are trying to do. Start with a quick answer, then reach our team if you still need a hand.
+          </p>
+
+          <div className="relative mt-8 max-w-2xl mx-auto text-left">
+            <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+            <input
+              type="search"
+              value={supportSearch}
+              onChange={(event) => setSupportSearch(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && scrollToGuides()}
+              placeholder="Try “how do I reconnect my Facebook Page?”"
+              aria-label="Search support guides"
+              className="w-full box-border rounded-2xl border border-white/10 bg-white py-4 pl-14 pr-12 text-sm font-semibold text-slate-900 outline-none shadow-2xl placeholder:text-slate-400 focus:ring-4 focus:ring-emerald-400/20"
+            />
+            {supportSearch && (
+              <button
+                type="button"
+                onClick={() => setSupportSearch('')}
+                aria-label="Clear support search"
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            )}
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Tip: include the feature, channel, and outcome you want for better matches.</p>
+        </div>
+      </section>
+
+      <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6" aria-label="Support options">
+        <button
+          type="button"
+          onClick={scrollToGuides}
+          className="group text-left rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg transition-all"
+        >
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-5 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+            <span className="material-symbols-outlined">library_books</span>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600 mb-2">Start here</p>
+          <h3 className="text-lg font-black text-slate-900">Browse quick answers</h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500 font-medium">Follow concise guides for common setup and troubleshooting questions.</p>
+          <span className="mt-5 inline-flex items-center gap-1 text-xs font-black text-slate-900">View guides <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span></span>
+        </button>
+
+        <a
+          href="mailto:support@lyfflow.com?subject=LYFFLOW%20support%20request"
+          className="group text-left rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg transition-all"
+        >
+          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-5 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+            <span className="material-symbols-outlined">mail</span>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600 mb-2">Personal help</p>
+          <h3 className="text-lg font-black text-slate-900">Email our support team</h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500 font-medium">Share your issue with our team when the guides do not fully resolve it.</p>
+          <span className="mt-5 inline-flex items-center gap-1 text-xs font-black text-slate-900">Contact support <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span></span>
+        </a>
+
+        <button
+          type="button"
+          onClick={() => onNavigate?.('subscription')}
+          className="group text-left rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg transition-all"
+        >
+          <div className="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center mb-5 group-hover:bg-violet-500 group-hover:text-white transition-colors">
+            <span className="material-symbols-outlined">credit_card</span>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-600 mb-2">Plans & billing</p>
+          <h3 className="text-lg font-black text-slate-900">Manage your subscription</h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500 font-medium">Review your active plan and compare the options available to your workspace.</p>
+          <span className="mt-5 inline-flex items-center gap-1 text-xs font-black text-slate-900">Open subscription <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span></span>
+        </button>
+      </section>
+
+      <section ref={guidesRef} className="mt-12 scroll-mt-6">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 mb-6">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-2">Help library</p>
+            <h3 className="text-2xl md:text-3xl font-headline font-black tracking-tight text-slate-900">Popular LYFFLOW guides</h3>
+            <p className="mt-2 text-sm text-slate-500 font-medium">Practical answers for the tasks people ask about most.</p>
+          </div>
+          <div className="flex flex-wrap gap-2" aria-label="Filter guides by category">
+            {supportCategories.map(category => (
+              <button
+                type="button"
+                key={category}
+                onClick={() => setSelectedSupportCategory(category)}
+                className={`rounded-full px-3.5 py-2 text-[11px] font-bold transition-colors ${selectedSupportCategory === category
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-400 hover:text-slate-900'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          {filteredSupportGuides.length > 0 ? filteredSupportGuides.map((guide, index) => {
+            const guideId = `${guide.category}-${guide.title}`;
+            const isOpen = openSupportGuide === guideId;
+            return (
+              <article key={guideId} className={index > 0 ? 'border-t border-slate-100' : ''}>
+                <button
+                  type="button"
+                  onClick={() => setOpenSupportGuide(isOpen ? null : guideId)}
+                  aria-expanded={isOpen}
+                  className="w-full flex items-center gap-4 p-5 md:p-6 text-left hover:bg-slate-50 transition-colors"
                 >
-                  <option value="technical">Technical Support</option>
-                  <option value="billing">Billing Inquiry</option>
-                  <option value="feature">Feature Request</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">Subject</label>
-                <input type="text" placeholder="Brief summary of your issue" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-900 transition-colors" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">Message Details</label>
-              <textarea placeholder="Describe your issue in detail..." rows={6} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-900 transition-colors resize-none"></textarea>
-            </div>
-            <button className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95">
-              Submit Ticket
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-8">
-          <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700" />
-            <div className="relative z-10">
-              <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-white">chat</span>
-              </div>
-              <h3 className="text-xl font-black mb-2">Live Chat</h3>
-              <p className="text-slate-400 text-sm font-medium mb-6">Talk to a human expert right now for instant assistance.</p>
-              <button className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-400 transition-all active:scale-95">
-                Start Chat
+                  <span className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[20px]">{guide.icon}</span>
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-emerald-600 mb-1">{guide.category}</span>
+                    <span className="block text-sm md:text-base font-black text-slate-900">{guide.title}</span>
+                    <span className="hidden md:block mt-1 text-xs text-slate-500 font-medium">{guide.summary}</span>
+                  </span>
+                  <span className={`material-symbols-outlined text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                </button>
+                {isOpen && (
+                  <div className="px-5 pb-6 pl-[76px] md:pl-20 pr-8 text-sm leading-7 text-slate-600 font-medium">
+                    {guide.answer}
+                  </div>
+                )}
+              </article>
+            );
+          }) : (
+            <div className="px-6 py-14 text-center">
+              <span className="material-symbols-outlined text-4xl text-slate-300">search_off</span>
+              <h4 className="mt-3 font-black text-slate-900">No matching guide yet</h4>
+              <p className="mt-1 text-sm text-slate-500">Try different words or send the question directly to support.</p>
+              <button
+                type="button"
+                onClick={() => { setSupportSearch(''); setSelectedSupportCategory('All'); }}
+                className="mt-5 rounded-xl bg-slate-900 px-5 py-3 text-xs font-black text-white hover:bg-slate-700 transition-colors"
+              >
+                Clear filters
               </button>
             </div>
-          </div>
+          )}
+        </div>
+      </section>
 
-          <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
-            <h4 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
-              <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '20px' }}>contact_support</span>
-              Direct Contacts
-            </h4>
-            <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center">
-                  <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '20px' }}>mail</span>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Email Us</p>
-                  <p className="text-sm font-bold text-slate-700">support@lyfflow.com</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center">
-                  <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '20px' }}>public</span>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Global Sales</p>
-                  <p className="text-sm font-bold text-slate-700">sales@lyfflow.com</p>
-                </div>
-              </div>
-            </div>
+      <section className="mt-12 rounded-[2rem] bg-emerald-50 border border-emerald-100 p-6 md:p-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+        <div className="flex gap-5 max-w-2xl">
+          <div className="hidden sm:flex w-12 h-12 shrink-0 rounded-2xl bg-white text-emerald-600 items-center justify-center shadow-sm">
+            <span className="material-symbols-outlined">support_agent</span>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 mb-2">Still need help?</p>
+            <h3 className="text-2xl font-black tracking-tight text-slate-900">Tell us what happened.</h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600 font-medium">Include your workspace email, affected Page, what you expected, and any useful screenshots. Please never send passwords or complete payment-card details.</p>
           </div>
         </div>
-      </div>
-      */}
+        <a
+          href="mailto:support@lyfflow.com?subject=LYFFLOW%20support%20request"
+          className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-4 text-sm font-black text-white shadow-lg hover:bg-slate-700 transition-colors"
+        >
+          <span className="material-symbols-outlined text-[19px]">mail</span>
+          Email support
+        </a>
+      </section>
+
+      <p className="mt-6 text-center text-xs text-slate-500 font-medium">
+        Can’t access your account? Email <a href="mailto:support@lyfflow.com?subject=Cannot%20access%20my%20LYFFLOW%20account" className="font-bold text-slate-900 underline decoration-emerald-400 decoration-2 underline-offset-4">support@lyfflow.com</a> from the address connected to your workspace.
+      </p>
     </div>
   );
 };
@@ -4832,7 +4942,10 @@ const TutorialPanel = () => {
 };
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    const requestedTab = window.location.pathname.split('/')[2];
+    return requestedTab === 'support' ? 'support' : 'overview';
+  });
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -5005,7 +5118,7 @@ export default function Dashboard() {
           <SubscriptionPanel />
         </div>
         <div style={{ display: activeTab === 'support' ? 'contents' : 'none' }}>
-          <SupportPanel />
+          <SupportPanel onNavigate={setActiveTab} />
         </div>
         <div style={{ display: activeTab === 'tutorial' ? 'contents' : 'none' }}>
           <TutorialPanel />
