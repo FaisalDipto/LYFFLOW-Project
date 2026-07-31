@@ -87,6 +87,8 @@ const toneClasses = {
 export default function Contact() {
   const [supportSearch, setSupportSearch] = useState('');
   const [openSupportGuide, setOpenSupportGuide] = useState(null);
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const guidesRef = useRef(null);
 
   const normalizedSearch = supportSearch.trim().toLowerCase();
@@ -94,14 +96,48 @@ export default function Contact() {
     !normalizedSearch || [guide.title, guide.summary, guide.answer, guide.category]
       .some(value => value.toLowerCase().includes(normalizedSearch))
   ));
+  const searchSuggestions = normalizedSearch ? filteredSupportGuides.slice(0, 5) : [];
 
   const scrollToGuides = () => guidesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+  const selectSearchSuggestion = (guide) => {
+    setSupportSearch(guide.title);
+    setOpenSupportGuide(guide.title);
+    setShowSearchSuggestions(false);
+    setActiveSuggestionIndex(0);
+    window.setTimeout(scrollToGuides, 0);
+  };
+
   const handleSearchKeyDown = (event) => {
-    if (event.key !== 'Enter') return;
-    scrollToGuides();
-    if (filteredSupportGuides.length === 1) {
-      setOpenSupportGuide(filteredSupportGuides[0].title);
+    if (event.key === 'ArrowDown' && searchSuggestions.length > 0) {
+      event.preventDefault();
+      setShowSearchSuggestions(true);
+      setActiveSuggestionIndex(index => (index + 1) % searchSuggestions.length);
+      return;
+    }
+
+    if (event.key === 'ArrowUp' && searchSuggestions.length > 0) {
+      event.preventDefault();
+      setShowSearchSuggestions(true);
+      setActiveSuggestionIndex(index => (index - 1 + searchSuggestions.length) % searchSuggestions.length);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      setShowSearchSuggestions(false);
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (showSearchSuggestions && searchSuggestions[activeSuggestionIndex]) {
+        selectSearchSuggestion(searchSuggestions[activeSuggestionIndex]);
+      } else {
+        scrollToGuides();
+        if (filteredSupportGuides.length === 1) {
+          setOpenSupportGuide(filteredSupportGuides[0].title);
+        }
+      }
     }
   };
 
@@ -127,26 +163,96 @@ export default function Contact() {
               Search our public guides, contact product support, or reach the team best suited to your question. No account is required.
             </p>
 
-            <div className="relative mt-8 max-w-2xl mx-auto text-left">
+            <div className="relative z-20 mt-8 max-w-4xl mx-auto text-left">
               <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-400">search</span>
               <input
                 type="search"
                 value={supportSearch}
-                onChange={(event) => setSupportSearch(event.target.value)}
+                onChange={(event) => {
+                  setSupportSearch(event.target.value);
+                  setShowSearchSuggestions(Boolean(event.target.value.trim()));
+                  setActiveSuggestionIndex(0);
+                }}
+                onFocus={() => normalizedSearch && setShowSearchSuggestions(true)}
+                onBlur={() => window.setTimeout(() => setShowSearchSuggestions(false), 120)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Try “how do I reconnect my Facebook Page?”"
                 aria-label="Search support guides"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={showSearchSuggestions && Boolean(normalizedSearch)}
+                aria-controls="support-search-suggestions"
+                aria-activedescendant={showSearchSuggestions && searchSuggestions[activeSuggestionIndex]
+                  ? `support-suggestion-${activeSuggestionIndex}`
+                  : undefined}
                 className="w-full box-border rounded-2xl border border-slate-200 bg-white py-4 pl-14 pr-12 text-sm font-semibold text-slate-900 outline-none shadow-xl placeholder:text-slate-400 focus:ring-4 focus:ring-emerald-400/20"
               />
               {supportSearch && (
                 <button
                   type="button"
-                  onClick={() => setSupportSearch('')}
+                  onClick={() => {
+                    setSupportSearch('');
+                    setShowSearchSuggestions(false);
+                    setActiveSuggestionIndex(0);
+                  }}
                   aria-label="Clear support search"
                   className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px]">close</span>
                 </button>
+              )}
+
+              {showSearchSuggestions && normalizedSearch && (
+                <div
+                  id="support-search-suggestions"
+                  role="listbox"
+                  aria-label="Matching support guides"
+                  className="absolute left-0 right-0 top-[calc(100%+8px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                >
+                  {searchSuggestions.length > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+                        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Suggested answers</span>
+                        <span className="text-[10px] font-bold text-slate-400">{filteredSupportGuides.length} matched</span>
+                      </div>
+                      {searchSuggestions.map((guide, index) => (
+                        <button
+                          type="button"
+                          id={`support-suggestion-${index}`}
+                          role="option"
+                          aria-selected={activeSuggestionIndex === index}
+                          key={guide.title}
+                          onMouseEnter={() => setActiveSuggestionIndex(index)}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => selectSearchSuggestion(guide)}
+                          className={`w-full max-w-full box-border flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${activeSuggestionIndex === index ? 'bg-emerald-50' : 'bg-white hover:bg-slate-50'}`}
+                        >
+                          <span className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center ${activeSuggestionIndex === index ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                            <span className="material-symbols-outlined text-[18px]">{guide.icon}</span>
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-black text-slate-900">{guide.title}</span>
+                            <span className="mt-0.5 block truncate text-xs font-medium text-slate-500">{guide.summary}</span>
+                          </span>
+                          <span className="hidden sm:block max-w-[160px] shrink-0 truncate rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-500">{guide.category}</span>
+                        </button>
+                      ))}
+                      <div className="border-t border-slate-100 bg-slate-50 px-4 py-2 text-[10px] font-medium text-slate-400">
+                        Use ↑ ↓ to navigate and Enter to open an answer
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-3 px-5 py-5">
+                      <span className="w-9 h-9 shrink-0 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[18px]">search_off</span>
+                      </span>
+                      <span>
+                        <span className="block text-sm font-black text-slate-900">No matching guide</span>
+                        <span className="mt-0.5 block text-xs font-medium text-slate-500">Try another phrase or email our support team.</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
