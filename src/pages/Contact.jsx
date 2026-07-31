@@ -166,7 +166,7 @@ export default function Contact() {
             <div className="relative z-20 mt-8 max-w-4xl mx-auto text-left">
               <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-400">search</span>
               <input
-                type="search"
+                type="text"
                 value={supportSearch}
                 onChange={(event) => {
                   setSupportSearch(event.target.value);
