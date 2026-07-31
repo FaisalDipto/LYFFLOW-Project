@@ -153,7 +153,7 @@ export default function FAQ() {
 
         <div className="mt-16 text-center">
           <p className="text-on-surface-variant mb-6 text-lg">Still have questions?</p>
-          <a href="/contact" className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-primary hover:bg-primary/90 transition-all rounded-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
+          <a href="/support" className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-primary hover:bg-primary/90 transition-all rounded-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
             Contact Support
           </a>
         </div>

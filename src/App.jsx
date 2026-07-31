@@ -107,6 +107,7 @@ function App() {
           <Route path="/legal" element={<Legal />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/sales" element={<Sales />} />
+          <Route path="/support" element={<Contact />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminPanel />} />

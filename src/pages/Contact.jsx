@@ -1,7 +1,52 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Footer from '../components/Footer';
 import Navbar from '../components/Navbar';
+
+const SUPPORT_GUIDES = [
+  {
+    category: 'Getting started',
+    icon: 'link',
+    title: 'Connect or reconnect a Facebook Page',
+    summary: 'Set up a new Page or restore access after permissions change.',
+    answer: 'Open Overview and choose Add Page. Complete Facebook authorization, select the Pages you want LYFFLOW to manage, and return to the dashboard. If a Page was revoked, reconnect it from the same screen.'
+  },
+  {
+    category: 'AI agents',
+    icon: 'smart_toy',
+    title: 'Create and assign an AI agent',
+    summary: 'Configure an agent and connect it to the right business Page.',
+    answer: 'Go to Agents, create or select an agent, and configure its role and behavior. Assign it to a Page from Overview so it can respond using that Page’s connected knowledge.'
+  },
+  {
+    category: 'Knowledge',
+    icon: 'menu_book',
+    title: 'Improve answers with your knowledge base',
+    summary: 'Add business information your AI agent can use in replies.',
+    answer: 'Open Knowledge, choose the appropriate namespace, then add text, documents, or supported imports. Keep each source focused and up to date so the agent can retrieve accurate answers.'
+  },
+  {
+    category: 'Conversations',
+    icon: 'support_agent',
+    title: 'Take over a conversation from AI',
+    summary: 'Find customers who need help and switch to a human reply.',
+    answer: 'Open Conversations and filter by Needs human support. Select the conversation, review the history, and reply directly. You can resume the AI agent when the issue has been resolved.'
+  },
+  {
+    category: 'Billing',
+    icon: 'credit_card',
+    title: 'Review your plan and subscription',
+    summary: 'Check plan details or choose a plan that fits your usage.',
+    answer: 'Open Subscription from the dashboard navigation to see your current plan and available options. For a payment-specific question, email support with your account email and avoid sharing complete card details.'
+  },
+  {
+    category: 'Troubleshooting',
+    icon: 'sync_problem',
+    title: 'Messages or Page data are not updating',
+    summary: 'Work through the most common connection checks.',
+    answer: 'Confirm that the Page is still connected in Overview and that an agent is assigned. Refresh the dashboard, then reconnect the Page if Facebook permissions changed. If the issue continues, contact support with the Page name and approximate time it began.'
+  }
+];
 
 const SUPPORT_PATHS = [
   {
@@ -40,6 +85,26 @@ const toneClasses = {
 };
 
 export default function Contact() {
+  const [supportSearch, setSupportSearch] = useState('');
+  const [openSupportGuide, setOpenSupportGuide] = useState(null);
+  const guidesRef = useRef(null);
+
+  const normalizedSearch = supportSearch.trim().toLowerCase();
+  const filteredSupportGuides = SUPPORT_GUIDES.filter(guide => (
+    !normalizedSearch || [guide.title, guide.summary, guide.answer, guide.category]
+      .some(value => value.toLowerCase().includes(normalizedSearch))
+  ));
+
+  const scrollToGuides = () => guidesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key !== 'Enter') return;
+    scrollToGuides();
+    if (filteredSupportGuides.length === 1) {
+      setOpenSupportGuide(filteredSupportGuides[0].title);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-surface text-on-surface font-body flex flex-col selection:bg-secondary selection:text-white">
       <Navbar />
@@ -59,17 +124,41 @@ export default function Contact() {
               <span className="text-emerald-500">Keep your work flowing.</span>
             </h1>
             <p className="mt-6 max-w-2xl mx-auto text-base md:text-lg leading-relaxed text-slate-500 font-medium">
-              Start with guided help inside your workspace, contact product support, or reach the team best suited to your question.
+              Search our public guides, contact product support, or reach the team best suited to your question. No account is required.
             </p>
 
+            <div className="relative mt-8 max-w-2xl mx-auto text-left">
+              <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+              <input
+                type="search"
+                value={supportSearch}
+                onChange={(event) => setSupportSearch(event.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Try “how do I reconnect my Facebook Page?”"
+                aria-label="Search support guides"
+                className="w-full box-border rounded-2xl border border-slate-200 bg-white py-4 pl-14 pr-12 text-sm font-semibold text-slate-900 outline-none shadow-xl placeholder:text-slate-400 focus:ring-4 focus:ring-emerald-400/20"
+              />
+              {supportSearch && (
+                <button
+                  type="button"
+                  onClick={() => setSupportSearch('')}
+                  aria-label="Clear support search"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              )}
+            </div>
+
             <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link
-                to="/dashboard/support"
+              <button
+                type="button"
+                onClick={scrollToGuides}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-6 py-4 text-sm font-black text-white shadow-xl shadow-slate-300 hover:bg-slate-800 hover:-translate-y-0.5 transition-all"
               >
                 <span className="material-symbols-outlined text-[19px]">menu_book</span>
                 Open support guides
-              </Link>
+              </button>
               <a
                 href="mailto:support@lyfflow.com?subject=LYFFLOW%20support%20request"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white border border-slate-200 px-6 py-4 text-sm font-black text-slate-800 hover:border-slate-400 hover:-translate-y-0.5 transition-all"
@@ -77,6 +166,60 @@ export default function Contact() {
                 <span className="material-symbols-outlined text-[19px]">mail</span>
                 Email support
               </a>
+            </div>
+          </div>
+        </section>
+
+        <section ref={guidesRef} id="support-guides" className="px-6 pb-24 scroll-mt-28">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-9">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-600">Public help library</p>
+              <h2 className="mt-3 font-headline text-3xl md:text-4xl font-black tracking-tight text-slate-950">Popular LYFFLOW guides</h2>
+              <p className="mt-3 text-sm text-slate-500 font-medium">
+                {normalizedSearch
+                  ? `${filteredSupportGuides.length} ${filteredSupportGuides.length === 1 ? 'answer' : 'answers'} matching “${supportSearch.trim()}”`
+                  : 'Practical answers to common setup and troubleshooting questions.'}
+              </p>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              {filteredSupportGuides.length > 0 ? filteredSupportGuides.map((guide, index) => {
+                const isOpen = openSupportGuide === guide.title;
+                return (
+                  <article key={guide.title} className={index > 0 ? 'border-t border-slate-100' : ''}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenSupportGuide(isOpen ? null : guide.title)}
+                      aria-expanded={isOpen}
+                      className="w-full flex items-center gap-4 p-5 md:p-6 text-left hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[20px]">{guide.icon}</span>
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-emerald-600 mb-1">{guide.category}</span>
+                        <span className="block text-sm md:text-base font-black text-slate-900">{guide.title}</span>
+                        <span className="hidden md:block mt-1 text-xs text-slate-500 font-medium">{guide.summary}</span>
+                      </span>
+                      <span className={`material-symbols-outlined text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                    </button>
+                    {isOpen && (
+                      <div className="px-5 pb-6 pl-[76px] md:pl-20 pr-8 text-sm leading-7 text-slate-600 font-medium">
+                        {guide.answer}
+                      </div>
+                    )}
+                  </article>
+                );
+              }) : (
+                <div className="px-6 py-14 text-center">
+                  <span className="material-symbols-outlined text-4xl text-slate-300">search_off</span>
+                  <h3 className="mt-3 font-black text-slate-900">No matching guide yet</h3>
+                  <p className="mt-1 text-sm text-slate-500">Try different words or send your question directly to support.</p>
+                  <button type="button" onClick={() => setSupportSearch('')} className="mt-5 rounded-xl bg-slate-900 px-5 py-3 text-xs font-black text-white hover:bg-slate-700 transition-colors">
+                    Clear search
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </section>

@@ -4955,10 +4955,7 @@ const TutorialPanel = () => {
 };
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState(() => {
-    const requestedTab = window.location.pathname.split('/')[2];
-    return requestedTab === 'support' ? 'support' : 'overview';
-  });
+  const [activeTab, setActiveTab] = useState('overview');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -5130,9 +5127,6 @@ export default function Dashboard() {
         <div style={{ display: activeTab === 'subscription' ? 'contents' : 'none' }}>
           <SubscriptionPanel />
         </div>
-        <div style={{ display: activeTab === 'support' ? 'contents' : 'none' }}>
-          <SupportPanel onNavigate={setActiveTab} />
-        </div>
         <div style={{ display: activeTab === 'tutorial' ? 'contents' : 'none' }}>
           <TutorialPanel />
         </div>
@@ -5194,13 +5188,6 @@ export default function Dashboard() {
         </nav>
 
         <div className="mt-auto pt-8 border-t border-slate-100 space-y-1 mb-16">
-          <button
-            onClick={() => { setActiveTab('support'); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 transition-all rounded-lg cursor-pointer border-none text-left ${activeTab === 'support' ? 'text-emerald-400 font-bold bg-emerald-500/10' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 bg-transparent'}`}
-          >
-            <HelpCircle size={20} />
-            <span className="text-[15px]">Support</span>
-          </button>
           <button onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 transition-all rounded-lg cursor-pointer border-none text-left ${activeTab === 'settings' ? 'text-emerald-400 font-bold bg-emerald-500/10' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 bg-transparent'}`}
           >
