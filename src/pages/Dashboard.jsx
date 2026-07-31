@@ -4741,7 +4741,20 @@ const SupportPanel = ({ onNavigate }) => {
     return matchesCategory && matchesSearch;
   });
 
-  const scrollToGuides = () => guidesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const scrollToGuides = () => {
+    const guides = guidesRef.current;
+    const scrollContainer = guides?.closest('.dashboard-content-wrapper');
+    if (!guides || !scrollContainer) return;
+
+    const containerTop = scrollContainer.getBoundingClientRect().top;
+    const guidesTop = guides.getBoundingClientRect().top;
+    const targetTop = scrollContainer.scrollTop + guidesTop - containerTop - 24;
+
+    scrollContainer.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: 'smooth'
+    });
+  };
 
   return (
     <div className="dashboard-content-area animate-fade-in-up pb-20">
