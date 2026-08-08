@@ -4975,8 +4975,12 @@ export default function Dashboard() {
   const [pages, setPages] = useState([]);
   const [namespaces, setNamespaces] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   const fetchData = useCallback(async () => {
+    let isRedirecting = false;
+    setLoadError(null);
+
     try {
       const userData = await apiService.getUserProfile();
       const pagesData = await apiService.getPages();
@@ -5058,16 +5062,23 @@ export default function Dashboard() {
       // Check subscription via API — if user has no active plan, send them
       // to the plan-selection screen so they can pick one before using the dashboard.
       if (!subscriptionData || !subscriptionData.is_active) {
-        navigate('/get-started?step=pricing');
+        isRedirecting = true;
+        navigate('/get-started?step=pricing', { replace: true });
         return;
       }
     } catch (err) {
       console.error("Failed to fetch user data:", err);
       if (err.status === 401) {
-        navigate('/get-started');
+        isRedirecting = true;
+        navigate('/login', { replace: true });
+        return;
       }
+
+      setLoadError('We could not load your workspace. Please try again.');
     } finally {
-      setLoading(false);
+      if (!isRedirecting) {
+        setLoading(false);
+      }
     }
   }, [navigate]);
 
@@ -5097,10 +5108,6 @@ export default function Dashboard() {
   }, []);
 
   const renderContent = () => {
-    if (loading) {
-      return <div className="dashboard-content-area"><h2>Loading workspace...</h2></div>;
-    }
-
     return (
       <>
         <div style={{ display: activeTab === 'overview' ? 'contents' : 'none' }}>
@@ -5133,6 +5140,38 @@ export default function Dashboard() {
       </>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center px-6">
+        <div className="flex flex-col items-center gap-4" role="status" aria-live="polite">
+          <div className="h-10 w-10 rounded-full border-4 border-slate-200 border-t-emerald-500 animate-spin" aria-hidden="true" />
+          <p className="m-0 text-sm font-semibold text-slate-600">Checking your session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center px-6">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="m-0 text-xl font-bold text-slate-900">Unable to open the dashboard</h1>
+          <p className="mt-3 mb-6 text-sm text-slate-600">{loadError}</p>
+          <button
+            type="button"
+            className="rounded-lg border-0 bg-emerald-500 px-5 py-2.5 font-bold text-white cursor-pointer hover:bg-emerald-600"
+            onClick={() => {
+              setLoading(true);
+              fetchData();
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-layout">
