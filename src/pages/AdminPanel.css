@@ -240,6 +240,8 @@
 .admin-page-heading-icon .material-symbols-outlined{font-size:22px}
 .admin-page-heading-icon.revenue{border-color:#d1fae5;background:linear-gradient(145deg,#ecfdf5,#fff);color:#059669;box-shadow:0 8px 20px rgba(5,150,105,.08)}
 .admin-page-heading-icon.subscriptions{border-color:#ede9fe;background:linear-gradient(145deg,#f5f3ff,#fff);color:#7c3aed;box-shadow:0 8px 20px rgba(124,58,237,.08)}
+.admin-page-heading-icon.analytics{border-color:#dbeafe;background:linear-gradient(145deg,#eff6ff,#fff);color:#2563eb;box-shadow:0 8px 20px rgba(37,99,235,.08)}
+.admin-page-heading-icon.jobs{border-color:#cffafe;background:linear-gradient(145deg,#ecfeff,#fff);color:#0891b2;box-shadow:0 8px 20px rgba(8,145,178,.08)}
 .admin-inline-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
 .admin-inline-kpis>div{display:grid;grid-template-columns:34px auto;grid-template-rows:auto auto;column-gap:10px;align-items:center;padding:12px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:13px}
 .admin-inline-kpis .material-symbols-outlined{grid-row:1/3;width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#f5f3ff;color:#7c3aed;font-size:17px}
@@ -263,8 +265,78 @@
 @keyframes adminPlanGrow{from{transform:scaleX(0)}}
 .admin-revenue-plan strong{color:#172033;font-size:11px}
 .admin-revenue-plan small{padding:3px 6px;border-radius:6px;background:#f1f5f9;color:#64748b;font-weight:750;text-align:center}
+
+/* Activity analytics and background jobs */
+.admin-analytics-section,.admin-jobs-section{max-width:1500px;margin:0 auto}
+.admin-analytics-section{container-name:admin-activity;container-type:inline-size}
+.admin-ops-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.admin-analytics-filter{display:flex;align-items:center;justify-content:space-between;gap:22px;margin-bottom:18px;padding:15px 18px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 4px 18px rgba(15,23,42,.035)}
+.admin-analytics-filter-label{display:flex;align-items:center;gap:11px;min-width:220px}
+.admin-analytics-filter-label>.material-symbols-outlined{width:36px;height:36px;display:grid;place-items:center;border-radius:11px;background:#eff6ff;color:#2563eb;font-size:18px}
+.admin-analytics-filter-label div{display:flex;flex-direction:column;gap:2px}
+.admin-analytics-filter-label strong{color:#172033;font-size:12px}
+.admin-analytics-filter-label small{color:#94a3b8;font-size:9.5px}
+.admin-analytics-dates{display:flex;align-items:flex-end;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+.admin-analytics-dates>label{display:flex;flex-direction:column;gap:4px}
+.admin-analytics-dates>label>span{padding-left:2px;color:#94a3b8;font-size:8.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+.admin-analytics-dates input{height:38px;padding:0 11px;border:1px solid #dfe6ee;border-radius:10px;background:#f9fbfd;color:#334155;font:inherit;font-size:11.5px;outline:none;transition:border-color .15s,box-shadow .15s}
+.admin-analytics-dates input:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.admin-analytics-dates>.material-symbols-outlined{align-self:center;margin-top:13px;color:#a5b1c1;font-size:16px}
+.admin-refresh-stats{height:38px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border:0;border-radius:10px;background:#0f172a;color:#fff;font-family:inherit;font-size:10.5px;font-weight:750;cursor:pointer;transition:background .15s,transform .15s}
+.admin-refresh-stats:hover{background:#1e293b;transform:translateY(-1px)}
+.admin-refresh-stats .material-symbols-outlined{font-size:16px}
+.admin-activity-insights{display:grid;grid-template-columns:minmax(300px,.75fr) minmax(0,1.6fr);gap:18px;margin-bottom:18px}
+.admin-request-health-content,.admin-job-health-content{display:grid;grid-template-columns:minmax(110px,130px) minmax(0,1fr);align-items:center;gap:14px;padding:17px 18px}
+.admin-request-health-content .admin-ring-visual,.admin-job-health-content .admin-ring-visual{width:110px}
+.admin-job-health-list{min-width:0;width:100%}
+.admin-job-health-list .admin-snapshot-row{padding:11px 0}
+.admin-usage-footprint-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;padding:15px 18px 18px}
+.admin-usage-footprint-grid .admin-activity-metric{min-width:0;padding:13px 12px;border:1px solid #e8edf3!important;border-radius:12px;background:#fbfcfe;overflow:hidden}
+.admin-usage-footprint-grid .admin-activity-metric>div{min-width:0}
+.admin-usage-footprint-grid .admin-activity-value{max-width:100%;font-size:clamp(16px,1.4vw,20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admin-usage-footprint-grid .admin-activity-label{max-width:100%;white-space:normal;line-height:1.3}
+.admin-daily-activity-card{padding:0 22px 20px;margin-bottom:18px;border-radius:18px}
+.admin-daily-activity-card .admin-overview-panel-heading{margin:0 -22px 8px}
+.admin-daily-activity-card .daily-chart{height:170px;padding:22px 2px 0;gap:8px}
+.admin-daily-activity-card .daily-bar-group{min-width:31px;justify-content:flex-end}
+.admin-daily-activity-card .daily-bar{width:22px;background:linear-gradient(180deg,#60a5fa,#2563eb);box-shadow:0 4px 10px rgba(37,99,235,.18);animation:adminBarRise .9s cubic-bezier(.22,1,.36,1) both;transform-origin:bottom}
+@keyframes adminBarRise{from{transform:scaleY(0)}}
+.admin-jobs-health-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr);gap:18px;margin-bottom:18px}
+.admin-job-health-card{background:linear-gradient(155deg,#fff 55%,#f0fdf8)}
+.admin-job-pipeline{padding:12px 20px 18px}
+.admin-pipeline-row{padding:10px 2px}
+.admin-pipeline-row>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.admin-pipeline-row span{color:#64748b;font-size:10.5px;font-weight:650}
+.admin-pipeline-row strong{color:#172033;font-size:11px}
+.admin-pipeline-track{height:5px;overflow:hidden;border-radius:999px;background:#eef2f7}
+.admin-pipeline-track span{display:block;height:100%;min-width:0;border-radius:999px;background:var(--pipeline-color);animation:adminPlanGrow 1s cubic-bezier(.22,1,.36,1) both;transform-origin:left}
+.admin-pipeline-row.tone-green{--pipeline-color:#10b981}
+.admin-pipeline-row.tone-violet{--pipeline-color:#8b5cf6}
+.admin-pipeline-row.tone-blue{--pipeline-color:#3b82f6}
+.admin-pipeline-row.tone-amber{--pipeline-color:#f59e0b}
+.admin-pipeline-row.tone-red{--pipeline-color:#f43f5e}
+.admin-jobs-table-card{border-radius:18px}
+@container admin-activity (max-width:920px){
+  .admin-activity-insights{grid-template-columns:1fr}
+  .admin-activity-primary-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-analytics-filter{align-items:flex-start;flex-direction:column}
+  .admin-analytics-dates{width:100%;justify-content:flex-start}
+}
+@container admin-activity (max-width:440px){
+  .admin-activity-primary-stats{grid-template-columns:1fr}
+  .admin-request-health-content{grid-template-columns:1fr;justify-items:center}
+  .admin-request-health-content .admin-job-health-list{width:100%}
+  .admin-usage-footprint-grid{grid-template-columns:1fr}
+  .admin-analytics-dates{align-items:stretch;flex-direction:column}
+  .admin-analytics-dates>.material-symbols-outlined{display:none}
+  .admin-analytics-dates input,.admin-refresh-stats{width:100%}
+}
 @media(max-width:800px){
   .admin-page-heading{align-items:flex-start}
+  .admin-ops-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-activity-insights,.admin-jobs-health-grid{grid-template-columns:1fr}
+  .admin-analytics-filter{align-items:flex-start;flex-direction:column}
+  .admin-analytics-dates{width:100%;justify-content:flex-start}
   .admin-users-hero{align-items:flex-start;flex-direction:column}
   .admin-users-total{width:100%}
   .admin-users-toolbar{align-items:flex-start;flex-direction:column}
@@ -274,6 +346,13 @@
 @media(max-width:560px){
   .admin-page-heading-icon{display:none}
   .admin-inline-kpis,.admin-revenue-stats{grid-template-columns:1fr}
+  .admin-ops-stats{grid-template-columns:1fr}
+  .admin-analytics-dates{align-items:stretch;flex-direction:column}
+  .admin-analytics-dates>.material-symbols-outlined{display:none}
+  .admin-analytics-dates input,.admin-refresh-stats{width:100%}
+  .admin-request-health-content,.admin-job-health-content{grid-template-columns:1fr;justify-items:center}
+  .admin-job-health-list{width:100%}
+  .admin-usage-footprint-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .admin-revenue-plan{grid-template-columns:1fr auto;gap:8px}
   .admin-revenue-plan-bar{grid-column:1/-1;grid-row:2}
   .admin-revenue-plan>span:not(.admin-revenue-plan-bar){display:none}

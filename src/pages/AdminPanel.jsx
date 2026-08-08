@@ -1221,23 +1221,72 @@ function JobsSection() {
     return s === 'failed' || s === 'error';
   }).length;
 
+  const jobTotals = {
+    total: stats ? (stats.total_job || 0) : (total || jobs.length),
+    queued: stats ? (stats.queued_job || 0) : queuedCount,
+    running: stats ? (stats.running_job || 0) : runningCount,
+    success: stats ? (stats.success_job || 0) : completeCount,
+    failed: stats ? (stats.failed_job || 0) : failedCount,
+    retrying: stats ? (stats.retrying_job || 0) : 0,
+  };
+
   return (
-    <div>
-      <div className="admin-section-header">
-        <div className="admin-section-label">System Administration</div>
-        <div className="admin-section-title">Background Jobs Processing & Queue</div>
+    <div className="admin-section-content admin-jobs-section">
+      <div className="admin-page-heading">
+        <div>
+          <div className="admin-section-label">System administration</div>
+          <div className="admin-section-title">Background jobs</div>
+          <p>Monitor queued work, processing health, failures, and retry activity.</p>
+        </div>
+        <div className="admin-page-heading-icon jobs"><span className="material-symbols-outlined">work_history</span></div>
       </div>
 
-      <div className="admin-stats-grid" style={{ marginBottom: 24 }}>
-        <StatCard label="Total Jobs" value={stats ? (stats.total_job || 0) : (total || jobs.length)} icon="work_history" />
-        <StatCard label="Queued" value={stats ? (stats.queued_job || 0) : queuedCount} icon="pending" />
-        <StatCard label="Running / In Progress" value={stats ? (stats.running_job || 0) : runningCount} icon="sync" />
-        <StatCard label="Success / Complete" value={stats ? (stats.success_job || 0) : completeCount} icon="check_circle" />
-        <StatCard label="Failed" value={stats ? (stats.failed_job || 0) : failedCount} icon="error" />
-        <StatCard label="Retrying" value={stats ? (stats.retrying_job || 0) : 0} icon="replay" />
+      <div className="admin-ops-stats">
+        <StatCard label="Total jobs" value={jobTotals.total} icon="work_history" tone="blue" helper="All recorded executions" />
+        <StatCard label="Completed" value={jobTotals.success} icon="check_circle" tone="green" helper="Successfully processed" />
+        <StatCard label="Queued" value={jobTotals.queued} icon="pending" tone="violet" helper="Waiting to be picked up" />
+        <StatCard label="Failed" value={jobTotals.failed} icon="error" tone="amber" helper="Needs investigation" />
       </div>
 
-      <div className="admin-card">
+      <div className="admin-jobs-health-grid">
+        <section className="admin-overview-panel admin-job-health-card">
+          <div className="admin-overview-panel-heading">
+            <div><h2>Processing health</h2><p>Successful jobs as a share of all jobs.</p></div>
+            <span className="admin-overview-panel-mark health material-symbols-outlined">donut_large</span>
+          </div>
+          <div className="admin-job-health-content">
+            <RingChart label="Completion rate" value={jobTotals.success} total={jobTotals.total} tone="green" icon="done_all" />
+            <div className="admin-job-health-list">
+              <SnapshotRow label="Running now" value={jobTotals.running} icon="sync" tone="blue" />
+              <SnapshotRow label="Retrying" value={jobTotals.retrying} icon="replay" tone="amber" />
+              <SnapshotRow label="Failed" value={jobTotals.failed} icon="error" tone="red" />
+            </div>
+          </div>
+        </section>
+
+        <section className="admin-overview-panel admin-job-pipeline-card">
+          <div className="admin-overview-panel-heading">
+            <div><h2>Queue composition</h2><p>Current workload by processing state.</p></div>
+            <span className="admin-overview-panel-mark material-symbols-outlined">conversion_path</span>
+          </div>
+          <div className="admin-job-pipeline">
+            {[
+              ['Completed', jobTotals.success, 'green'],
+              ['Queued', jobTotals.queued, 'violet'],
+              ['Running', jobTotals.running, 'blue'],
+              ['Retrying', jobTotals.retrying, 'amber'],
+              ['Failed', jobTotals.failed, 'red'],
+            ].map(([label, value, tone]) => (
+              <div className={`admin-pipeline-row tone-${tone}`} key={label}>
+                <div><span>{label}</span><strong>{fmt(value)}</strong></div>
+                <div className="admin-pipeline-track"><span style={{ width: `${jobTotals.total ? Math.max(value ? 3 : 0, Math.round((value / jobTotals.total) * 100)) : 0}%` }} /></div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="admin-card admin-jobs-table-card">
         <div className="admin-card-header" style={{ flexWrap: 'wrap', gap: 12 }}>
           <span className="admin-card-title">Execution Queue {total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
           <div className="admin-filter-row" style={{ flexWrap: 'wrap', gap: 10 }}>
@@ -1695,50 +1744,88 @@ function ActivitySection() {
     )
     : recent;
 
+  const activityValues = {
+    requests: Number(stats?.total_requests) || 0,
+    success: Number(stats?.total_success_requests) || 0,
+    failed: Number(stats?.total_failed_requests) || 0,
+    inputTokens: Number(stats?.total_input_tokens) || 0,
+    outputTokens: Number(stats?.total_output_tokens) || 0,
+    totalTokens: Number(stats?.total_tokens) || 0,
+    cost: Number(stats?.total_cost) || 0,
+    agents: Number(stats?.unique_agents) || 0,
+    users: Number(stats?.unique_users) || 0,
+  };
+
   return (
-    <div>
-      <div className="admin-section-header">
-        <div className="admin-section-label">Analytics</div>
-        <div className="admin-section-title">Activity Metrics</div>
+    <div className="admin-section-content admin-analytics-section">
+      <div className="admin-page-heading">
+        <div>
+          <div className="admin-section-label">Product analytics</div>
+          <div className="admin-section-title">Activity metrics</div>
+          <p>Measure request health, AI consumption, and participation over time.</p>
+        </div>
+        <div className="admin-page-heading-icon analytics"><span className="material-symbols-outlined">query_stats</span></div>
       </div>
 
-      <div className="admin-card" style={{ padding: '20px 24px', marginBottom: 24 }}>
-        <div className="date-range-picker">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#475569' }}>Range:</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input type="date" value={start} onChange={e => setStart(e.target.value)} className="admin-filter-select" style={{ padding: '6px 12px' }} />
-              <span className="text-muted">to</span>
-              <input type="date" value={end} onChange={e => setEnd(e.target.value)} className="admin-filter-select" style={{ padding: '6px 12px' }} />
-            </div>
-          </div>
-          <button className="btn-action btn-action-success" onClick={() => { load(); loadRecent(null); }} style={{ marginLeft: 'auto', padding: '8px 16px' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
-            Update Stats
+      <div className="admin-analytics-filter">
+        <div className="admin-analytics-filter-label">
+          <span className="material-symbols-outlined">date_range</span>
+          <div><strong>Reporting period</strong><small>Choose the dates included in these metrics.</small></div>
+        </div>
+        <div className="admin-analytics-dates">
+          <label><span>From</span><input type="date" value={start} onChange={e => setStart(e.target.value)} /></label>
+          <span className="material-symbols-outlined">arrow_forward</span>
+          <label><span>To</span><input type="date" value={end} onChange={e => setEnd(e.target.value)} /></label>
+          <button className="admin-refresh-stats" onClick={() => { load(); loadRecent(null); }}>
+            <span className="material-symbols-outlined">refresh</span>Update metrics
           </button>
         </div>
       </div>
 
       {loading ? <LoadingState /> : (
         <>
-          {stats && (
-            <div className="admin-stats-grid" style={{ marginBottom: 32 }}>
-              {Object.entries(stats).map(([k, v]) => typeof v === 'number' && (
-                <StatCard 
-                  key={k} 
-                  label={k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
-                  value={k === 'total_cost' ? `$${fmt(v)}` : (k.endsWith('_ms') || k.includes('latency') || k.includes('response_time') || k.includes('duration')) ? `${(v / 1000).toFixed(2)} s` : fmt(v)} 
-                  icon={getStatIcon(k)} 
-                />
-              ))}
-            </div>
-          )}
+          <div className="admin-ops-stats admin-activity-primary-stats">
+            <StatCard label="Total requests" value={activityValues.requests} icon="analytics" tone="blue" helper="Requests in this period" />
+            <StatCard label="Successful" value={activityValues.success} icon="check_circle" tone="green" helper="Completed without errors" />
+            <StatCard label="Failed" value={activityValues.failed} icon="error" tone="amber" helper="Requests needing review" />
+            <StatCard label="Total cost" value={activityValues.cost} prefix="$" icon="payments" tone="violet" helper="AI usage for this period" />
+          </div>
+
+          <div className="admin-activity-insights">
+            <section className="admin-overview-panel admin-request-health-card">
+              <div className="admin-overview-panel-heading">
+                <div><h2>Request health</h2><p>Successful requests within the selected range.</p></div>
+                <span className="admin-overview-panel-mark health material-symbols-outlined">health_metrics</span>
+              </div>
+              <div className="admin-request-health-content">
+                <RingChart label="Success rate" value={activityValues.success} total={activityValues.requests} tone="green" icon="check" />
+                <div className="admin-job-health-list">
+                  <SnapshotRow label="Successful" value={activityValues.success} icon="check_circle" tone="blue" />
+                  <SnapshotRow label="Failed" value={activityValues.failed} icon="error" tone="red" />
+                </div>
+              </div>
+            </section>
+
+            <section className="admin-overview-panel admin-usage-footprint-card">
+              <div className="admin-overview-panel-heading">
+                <div><h2>Usage footprint</h2><p>Token flow and unique participants.</p></div>
+                <span className="admin-overview-panel-mark material-symbols-outlined">data_usage</span>
+              </div>
+              <div className="admin-activity-grid admin-usage-footprint-grid">
+                <ActivityMetric label="Input tokens" value={activityValues.inputTokens} icon="input" tone="cyan" />
+                <ActivityMetric label="Output tokens" value={activityValues.outputTokens} icon="output" tone="violet" />
+                <ActivityMetric label="Total tokens" value={activityValues.totalTokens} icon="data_usage" tone="blue" />
+                <ActivityMetric label="Unique agents" value={activityValues.agents} icon="smart_toy" tone="amber" />
+                <ActivityMetric label="Unique users" value={activityValues.users} icon="group" tone="green" />
+              </div>
+            </section>
+          </div>
 
           {daily.length > 0 && (
-            <div className="admin-card" style={{ padding: '28px', marginBottom: 32 }}>
-              <div className="admin-card-header" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
-                <span className="admin-card-title">Daily Activity Trend</span>
-                <span className="text-muted" style={{ fontWeight: 400, fontSize: 13 }}>Message volume over the selected period</span>
+            <div className="admin-card admin-daily-activity-card">
+              <div className="admin-overview-panel-heading">
+                <div><h2>Daily activity trend</h2><p>Request volume over the selected period.</p></div>
+                <span className="admin-overview-panel-mark material-symbols-outlined">bar_chart</span>
               </div>
               <div className="daily-chart">
                 {daily.map((d, i) => {
