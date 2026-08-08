@@ -1663,6 +1663,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
   const [showModal, setShowModal] = useState(false);
   const [selectedNamespaceId, setSelectedNamespaceId] = useState('');
   const [knowledgeList, setKnowledgeList] = useState([]);
+  const [knowledgeQuery, setKnowledgeQuery] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Namespace creation state
@@ -2024,7 +2025,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
 
   if (!namespaces || namespaces.length === 0) {
     return (
-      <div className="dashboard-content-area animate-fade-in-up">
+      <div className="min-w-0 flex-1 bg-[#f7f9fb] p-4 md:p-6 xl:p-8 animate-fade-in-up">
         {namespaceModalPortal}
         {ReactDOM.createPortal(
           <div style={{ position: 'fixed', top: '24px', right: '24px', display: 'flex', flexDirection: 'column', gap: '12px', zIndex: 999999, pointerEvents: 'none' }}>
@@ -2052,17 +2053,20 @@ const Knowledge = ({ namespaces, onUpdate }) => {
           </div>,
           document.body
         )}
-        <div className="dashboard-header">
-          <h2>Knowledge Base</h2>
-          <p>Please generate a namespace before adding knowledge. The API requires a namespace context.</p>
+        <div className="mx-auto flex min-h-[520px] max-w-[1400px] flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-white px-6 text-center shadow-sm">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-xl shadow-slate-950/15"><span className="material-symbols-outlined text-[30px]">library_books</span></div>
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Knowledge workspace</p>
+          <h2 className="font-['Epilogue'] text-2xl font-extrabold text-slate-950">Create your first namespace</h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">Namespaces keep product data and documents organized so agents retrieve the right information.</p>
           <button
-              className="bg-emerald-500 text-white text-sm font-bold py-3 px-6 rounded-xl mt-4 hover:bg-emerald-600 transition-all shadow-lg"
+              className="mt-6 flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-800"
               onClick={() => {
                 setNewNamespaceName('');
                 setShowNamespaceModal(true);
               }}
             >
-              + Create Namespace
+              <span className="material-symbols-outlined text-[18px]">create_new_folder</span>
+              Create namespace
             </button>
         </div>
       </div>
@@ -2074,112 +2078,110 @@ const Knowledge = ({ namespaces, onUpdate }) => {
     return acc + (curr.knowledge_type === 'text' ? 0.1 : 1.2);
   }, 0);
 
-  return (
-    <div className="flex-1 w-full bg-white p-8 md:p-12 overflow-y-auto animate-fade-in-up">
-      <div className="max-w-6xl mx-auto space-y-12">
+  const fileKnowledgeCount = knowledgeList.filter(item => item.knowledge_type === 'file' || item.file_name).length;
+  const textKnowledgeCount = knowledgeList.length - fileKnowledgeCount;
+  const filteredKnowledgeList = knowledgeList.filter(item => {
+    const query = knowledgeQuery.trim().toLowerCase();
+    if (!query) return true;
+    return [item.name, item.title, item.file_name, item.description, item.data_source?.name]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(query);
+  });
 
-        {/* Header Section */}
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-[10px] font-bold tracking-[0.2em] text-slate-400 uppercase mb-2">Resource Library</p>
-            <h1 className="text-4xl font-black font-['Epilogue'] tracking-tighter text-slate-900 mb-4">Knowledge Base</h1>
-            
-            <div className="flex gap-2 mb-8 bg-slate-50 p-1.5 rounded-xl w-fit border border-slate-200 shadow-inner">
-              <button 
-                onClick={() => setActiveKnowledgeTab('products')}
-                className={`px-8 py-2.5 font-black text-sm rounded-lg transition-all flex items-center gap-2 ${activeKnowledgeTab === 'products' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 border border-emerald-400' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
-              >
-                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
-                Products
-              </button>
-              <button 
-                onClick={() => setActiveKnowledgeTab('documents')}
-                className={`px-8 py-2.5 font-black text-sm rounded-lg transition-all flex items-center gap-2 ${activeKnowledgeTab === 'documents' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-              >
-                <span className="material-symbols-outlined text-[18px]">description</span>
-                Documents
-              </button>
+  return (
+    <div className="min-w-0 flex-1 w-full bg-[#f7f9fb] p-4 md:p-6 xl:p-8 overflow-y-auto animate-fade-in-up">
+      <div className="max-w-[1400px] mx-auto space-y-6">
+        <section className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
+          <div className="flex flex-col gap-6 p-5 md:p-7 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Knowledge workspace</p>
+              <h1 className="mb-2 font-['Epilogue'] text-3xl font-extrabold tracking-tight text-slate-950">Knowledge base</h1>
+              <p className="max-w-2xl text-sm leading-6 text-slate-500">Organize the product data and documents your agents use to answer customers accurately.</p>
             </div>
 
-            <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
-              Upload and manage the documents and products that power your agents. These resources provide the context for all AI interactions.
-            </p>
+            <div className="flex w-full min-w-0 flex-wrap gap-2 xl:w-auto">
+              <label
+                className="relative flex h-11 min-w-0 items-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/60"
+                style={{ width: '280px', maxWidth: '100%', flex: '0 1 280px' }}
+              >
+                <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">database</span>
+                <select
+                  value={selectedNamespaceId}
+                  onChange={e => setSelectedNamespaceId(e.target.value)}
+                  className="h-full min-w-0 flex-1 appearance-none border-0 bg-transparent pl-10 pr-9 text-sm font-bold text-slate-700 outline-none focus:border-transparent focus:ring-0"
+                  style={{ width: 0, minWidth: 0, boxSizing: 'border-box', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
+                >
+                  {namespaces.map((ns, idx) => {
+                    const nsId = ns.namespace_id || ns.namespace;
+                    const nsName = ns.namespace_name || ns.name;
+                    return <option key={idx} value={nsId}>{nsName}</option>;
+                  })}
+                </select>
+                <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">expand_more</span>
+              </label>
+              <button
+                className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                onClick={() => {
+                  setNewNamespaceName('');
+                  setShowNamespaceModal(true);
+                }}
+              >
+                <span className="material-symbols-outlined text-[18px]">create_new_folder</span>
+                New namespace
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <select
-              value={selectedNamespaceId}
-              onChange={e => setSelectedNamespaceId(e.target.value)}
-              className="text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none cursor-pointer focus:ring-2 focus:ring-emerald-500 transition-all appearance-none pr-8 relative"
-              style={{
-                backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 12px center',
-                backgroundSize: '16px'
-              }}
-            >
-              {namespaces.length === 0 && <option value="">No namespaces</option>}
-              {namespaces.map((ns, idx) => {
-                const nsId = ns.namespace_id || ns.namespace;
-                const nsName = ns.namespace_name || ns.name;
-                return <option key={idx} value={nsId}>{nsName}</option>;
-              })}
-            </select>
-
+          <div className="flex gap-1 border-t border-slate-100 bg-slate-50/70 px-5 py-2 md:px-7">
             <button
-              className="bg-emerald-50 text-emerald-600 text-sm font-bold py-3 px-4 rounded-xl flex items-center gap-2 hover:bg-emerald-100 transition-all border border-emerald-200"
-              onClick={() => {
-                setNewNamespaceName('');
-                setShowNamespaceModal(true);
-              }}
+              onClick={() => setActiveKnowledgeTab('products')}
+              className={`flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold transition ${activeKnowledgeTab === 'products' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900'}`}
             >
-              + New Namespace
+              <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+              Products
+            </button>
+            <button
+              onClick={() => setActiveKnowledgeTab('documents')}
+              className={`flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold transition ${activeKnowledgeTab === 'documents' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900'}`}
+            >
+              <span className="material-symbols-outlined text-[18px]">description</span>
+              Documents
+              {knowledgeList.length > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${activeKnowledgeTab === 'documents' ? 'bg-white/15 text-white' : 'bg-slate-200 text-slate-600'}`}>{knowledgeList.length}</span>}
             </button>
           </div>
-        </div>
+        </section>
 
         {activeKnowledgeTab === 'documents' ? (
           <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col gap-4 transition-transform hover:scale-[1.02]">
-            <span className="material-symbols-outlined text-emerald-500 text-3xl">description</span>
-            <div>
-              <div className="text-4xl font-black text-slate-900 font-['Epilogue']">{knowledgeList.length < 10 ? `0${knowledgeList.length}` : knowledgeList.length}</div>
-              <div className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase mt-2">Active Docs</div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {[
+                { label: 'Total sources', value: knowledgeList.length, icon: 'library_books', color: 'text-slate-950', iconStyle: 'bg-slate-950 text-white' },
+                { label: 'Text entries', value: textKnowledgeCount, icon: 'text_snippet', color: 'text-violet-600', iconStyle: 'bg-violet-50 text-violet-600' },
+                { label: 'Files', value: fileKnowledgeCount, icon: 'description', color: 'text-blue-600', iconStyle: 'bg-blue-50 text-blue-600' },
+                { label: 'Storage used', value: `${totalSizeMB.toFixed(1)} MB`, icon: 'database', color: 'text-emerald-600', iconStyle: 'bg-emerald-50 text-emerald-600' }
+              ].map(stat => (
+                <div key={stat.label} className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${stat.iconStyle}`}><span className="material-symbols-outlined text-[20px]">{stat.icon}</span></div>
+                  <div className="min-w-0"><p className={`truncate text-lg font-extrabold leading-none ${stat.color}`}>{stat.value}</p><p className="mt-1.5 truncate text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">{stat.label}</p></div>
+                </div>
+              ))}
             </div>
-          </div>
 
-          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col gap-4 transition-transform hover:scale-[1.02]">
-            <span className="material-symbols-outlined text-emerald-500 text-3xl">format_list_bulleted</span>
-            <div>
-              <div className="text-4xl font-black text-slate-900 font-['Epilogue']">{totalSizeMB.toFixed(1)} MB</div>
-              <div className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase mt-2">Storage Used</div>
-            </div>
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <h3 className="m-0 text-base font-extrabold text-slate-900">Sources</h3>
+            <p className="m-0 mt-1 text-xs text-slate-500">Manage the text and files indexed for AI retrieval.</p>
           </div>
-
-          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col gap-4 transition-transform hover:scale-[1.02]">
-            <span className="material-symbols-outlined text-emerald-500 text-3xl">sync</span>
-            <div>
-              <div className="text-4xl font-black text-slate-900 font-['Epilogue']">100%</div>
-              <div className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase mt-2">Indexing Status</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Documents Action Bar */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/5 p-5 rounded-3xl border border-slate-900/10 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200 shadow-sm">
-              <span className="material-symbols-outlined text-[20px]">folder_open</span>
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-base m-0">Uploaded Documents</h3>
-              <p className="text-xs text-slate-500 m-0">Manage text content and files indexed for AI retrieval</p>
-            </div>
-          </div>
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+            <label className="relative flex h-11 min-w-0 flex-1 items-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/60 lg:w-[360px] lg:flex-none">
+              <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">search</span>
+              <input type="text" value={knowledgeQuery} onChange={event => setKnowledgeQuery(event.target.value)} placeholder="Search sources" className="h-full min-w-0 flex-1 border-0 bg-transparent pl-10 pr-9 text-sm font-medium text-slate-800 outline-none focus:border-transparent focus:ring-0" style={{ width: 0, minWidth: 0, boxSizing: 'border-box' }} />
+              {knowledgeQuery && <button type="button" onClick={() => setKnowledgeQuery('')} className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700" aria-label="Clear source search"><span className="material-symbols-outlined text-[16px]">close</span></button>}
+            </label>
           <button
-            className="bg-emerald-500 text-white text-sm font-bold py-3 px-6 rounded-xl flex items-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/40 hover:-translate-y-0.5"
+            className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition hover:-translate-y-0.5 hover:bg-slate-800"
             onClick={() => {
               setName('');
               setTitle('');
@@ -2190,28 +2192,37 @@ const Knowledge = ({ namespaces, onUpdate }) => {
               setShowModal(true);
             }}
           >
-            <span className="material-symbols-outlined text-[18px]">add_circle</span>
-            Add Knowledge
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            Add source
           </button>
+          </div>
         </div>
 
-        {/* Data Table */}
-        <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
-          <div className="grid grid-cols-12 gap-4 p-5 text-[10px] font-bold tracking-[0.2em] text-slate-400 uppercase bg-slate-50/50 border-b border-slate-100">
-            <div className="col-span-4 pl-6 flex items-center">Name</div>
-            <div className="col-span-3 flex items-center">Type</div>
-            <div className="col-span-2 flex items-center">Size</div>
-            <div className="col-span-2 flex items-center">Status</div>
-            <div className="col-span-1 text-right pr-6 flex items-center justify-end">Actions</div>
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="hidden gap-4 border-b border-slate-100 bg-slate-50/80 px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 md:grid" style={{ gridTemplateColumns: 'minmax(0,2fr) minmax(110px,1fr) 90px 90px 116px' }}>
+            <div>Name</div>
+            <div>Type</div>
+            <div>Size</div>
+            <div>Status</div>
+            <div className="text-right">Actions</div>
           </div>
 
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-slate-100">
             {loading ? (
-              <div className="p-12 text-center text-slate-400 font-medium text-sm">Loading documents...</div>
-            ) : knowledgeList.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 font-medium text-sm">No documents found for this page.</div>
+              <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-sm font-medium text-slate-400"><span className="material-symbols-outlined animate-spin text-2xl text-emerald-500">progress_activity</span>Loading sources...</div>
+            ) : filteredKnowledgeList.length === 0 ? (
+              <div className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400"><span className="material-symbols-outlined text-2xl">{knowledgeQuery ? 'search_off' : 'note_add'}</span></div>
+                <h4 className="text-base font-extrabold text-slate-900">{knowledgeQuery ? 'No matching sources' : 'No sources yet'}</h4>
+                <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">{knowledgeQuery ? 'Try a different search term.' : 'Add text or upload files to give your agents reliable information.'}</p>
+                {knowledgeQuery ? (
+                  <button onClick={() => setKnowledgeQuery('')} className="mt-4 text-sm font-bold text-emerald-700">Clear search</button>
+                ) : (
+                  <button onClick={() => { setKnowledgeType('text'); setEditingItemId(null); setShowModal(true); }} className="mt-4 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white">Add your first source</button>
+                )}
+              </div>
             ) : (
-              knowledgeList.map((item, i) => {
+              filteredKnowledgeList.map((item, i) => {
                 const name = item.name || item.title || item.data_source?.name || 'Unnamed Document';
                 const isFile = item.knowledge_type === 'file' || item.file_name;
 
@@ -2237,39 +2248,40 @@ const Knowledge = ({ namespaces, onUpdate }) => {
                 } else {
                   displaySize = '1.2 MB'; // fallback
                 }
+                const itemId = item.knowledge_usage_id || item.id || item.knowledge_id || item.knowledgeId || item.uuid || i;
+                const isSaving = String(itemId).startsWith('temp_');
 
                 return (
-                  <div key={item.knowledge_usage_id || item.id || i} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-slate-50/80 transition-colors group">
-                    <div className="col-span-4 flex items-center gap-4 pl-6">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                  <div key={itemId} className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-slate-50/80 md:grid md:items-center md:gap-4 md:px-5" style={{ gridTemplateColumns: 'minmax(0,2fr) minmax(110px,1fr) 90px 90px 116px' }}>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isFile ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>
                         <span className="material-symbols-outlined text-[20px]">{isFile ? 'description' : 'text_snippet'}</span>
                       </div>
-                      <span className="font-bold text-sm text-slate-900 truncate">{name}</span>
+                      <div className="min-w-0"><p className="truncate text-sm font-extrabold text-slate-900">{name}</p><p className="mt-0.5 truncate text-[11px] text-slate-400 md:hidden">{extType} · {displaySize}</p></div>
                     </div>
 
-                    <div className="col-span-3 text-sm text-slate-600 font-medium">{extType}</div>
+                    <div className="hidden text-xs font-bold text-slate-600 md:block">{extType}</div>
 
-                    <div className="col-span-2 text-sm text-slate-600 font-medium">{displaySize}</div>
+                    <div className="hidden text-xs font-medium text-slate-500 md:block">{displaySize}</div>
 
-                    <div className="col-span-2 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                      <span className="text-[11px] font-bold text-emerald-600">Ready</span>
+                    <div className="hidden md:block">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold ${isSaving ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}><span className={`h-1.5 w-1.5 rounded-full ${isSaving ? 'animate-pulse bg-amber-400' : 'bg-emerald-500'}`} />{isSaving ? 'Indexing' : 'Ready'}</span>
                     </div>
 
-                    <div className="col-span-1 flex items-center justify-end gap-1 pr-4">
+                    <div className="flex items-center justify-end gap-1 md:justify-end">
                       {!isFile && (
                         <>
                           <button
                             onClick={() => handleViewClick(item)}
                             disabled={fetchingDetails}
-                            className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
                             title="View Details"
                           >
                             <span className="material-symbols-outlined text-[18px]">visibility</span>
                           </button>
                           <button
                             onClick={() => handleEditClick(item)}
-                            className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                             title="Edit"
                           >
                             <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -2278,7 +2290,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
                       )}
                       <button
                         onClick={() => handleRequestDelete(item)}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                         title="Delete"
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -2291,12 +2303,9 @@ const Knowledge = ({ namespaces, onUpdate }) => {
           </div>
         </div>
 
-        <div className="flex justify-between items-center text-xs font-bold text-slate-400 mb-8 pt-4">
-          <span>Showing {knowledgeList.length} of {knowledgeList.length} resources</span>
-          <div className="flex gap-4">
-            <button className="hover:text-slate-900 transition-colors cursor-not-allowed opacity-50">Previous</button>
-            <button className="text-slate-900 hover:underline transition-all">Next</button>
-          </div>
+        <div className="flex items-center justify-between px-1 pb-6 text-xs font-bold text-slate-400">
+          <span>Showing {filteredKnowledgeList.length} of {knowledgeList.length} sources</span>
+          <span className="inline-flex items-center gap-1.5 text-emerald-600"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Synced with this namespace</span>
         </div>
           </>
         ) : (
