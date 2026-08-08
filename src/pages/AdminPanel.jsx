@@ -3580,24 +3580,51 @@ function LeadsSection() {
 }
 
 // ── Nav Items ──────────────────────────────────────────
-const NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { id: 'users', label: 'Users', icon: 'group' },
-  { id: 'subscriptions', label: 'Subscriptions', icon: 'subscriptions' },
-  { id: 'revenue', label: 'Revenue', icon: 'payments' },
-  { id: 'agents', label: 'AI Agents', icon: 'smart_toy' },
-  { id: 'platforms', label: 'Platforms & Apps', icon: 'hub' },
-  { id: 'pages', label: 'Pages', icon: 'pages' },
-  { id: 'namespaces', label: 'Namespaces', icon: 'dns' },
-  { id: 'products', label: 'Products', icon: 'inventory_2' },
-  { id: 'knowledges', label: 'Knowledge Files', icon: 'folder_open' },
-  { id: 'conversations', label: 'Conversations', icon: 'chat' },
-  { id: 'customer-records', label: 'Captured Records', icon: 'assignment_ind' },
-  { id: 'feedbacks', label: 'Feedbacks', icon: 'feedback' },
-  { id: 'leads', label: 'Leads', icon: 'contacts' },
-  { id: 'activity', label: 'Activity', icon: 'bar_chart' },
-  { id: 'jobs', label: 'Background Jobs', icon: 'work_history' },
+const NAV_GROUPS = [
+  {
+    label: 'Workspace',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'space_dashboard' },
+      { id: 'users', label: 'Users', icon: 'group' },
+    ],
+  },
+  {
+    label: 'Business',
+    items: [
+      { id: 'subscriptions', label: 'Subscriptions', icon: 'subscriptions' },
+      { id: 'revenue', label: 'Revenue', icon: 'payments' },
+      { id: 'leads', label: 'Leads', icon: 'contacts' },
+    ],
+  },
+  {
+    label: 'Automation',
+    items: [
+      { id: 'agents', label: 'AI Agents', icon: 'smart_toy' },
+      { id: 'platforms', label: 'Platforms & Apps', icon: 'hub' },
+      { id: 'pages', label: 'Pages', icon: 'web' },
+    ],
+  },
+  {
+    label: 'Knowledge',
+    items: [
+      { id: 'namespaces', label: 'Namespaces', icon: 'dns' },
+      { id: 'products', label: 'Products', icon: 'inventory_2' },
+      { id: 'knowledges', label: 'Knowledge Files', icon: 'folder_open' },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { id: 'conversations', label: 'Conversations', icon: 'forum' },
+      { id: 'customer-records', label: 'Captured Records', icon: 'assignment_ind' },
+      { id: 'feedbacks', label: 'Feedbacks', icon: 'reviews' },
+      { id: 'activity', label: 'Activity', icon: 'query_stats' },
+      { id: 'jobs', label: 'Background Jobs', icon: 'work_history' },
+    ],
+  },
 ];
+
+const NAV = NAV_GROUPS.flatMap(group => group.items);
 
 // ── Main Component ─────────────────────────────────────
 export default function AdminPanel() {
@@ -3619,6 +3646,11 @@ export default function AdminPanel() {
 
 
   const handleLogout = () => navigate('/admin/login');
+
+  const handleSectionChange = (nextSection) => {
+    setSection(nextSection);
+    if (window.innerWidth <= 1024) setSidebarOpen(false);
+  };
 
   const currentLabel = NAV.find(n => n.id === section)?.label || 'Dashboard';
 
@@ -3649,61 +3681,75 @@ export default function AdminPanel() {
       {/* Sidebar */}
       <aside className={`admin-sidebar ${sidebarOpen ? '' : 'collapsed'}`}>
         <div className="admin-sidebar-logo">
-          <img src={logoImg} alt="logo" />
-          <img src={titleImg} alt="LYFFLOW" className="title-img" />
+          <div className="admin-brand-lockup">
+            <img src={logoImg} alt="" />
+            <img src={titleImg} alt="LYFFLOW" className="title-img" />
+          </div>
+          <span className="admin-console-chip">Admin</span>
         </div>
-        <div className="admin-sidebar-subtitle">Admin Console</div>
-        <nav className="admin-nav">
-          {NAV.map(item => (
-            <button
-              key={item.id}
-              className={`admin-nav-item ${section === item.id ? 'active' : ''}`}
-              onClick={() => setSection(item.id)}
-            >
-              <span className="material-symbols-outlined nav-icon">{item.icon}</span>
-              {item.label}
-            </button>
+        <nav className="admin-nav" aria-label="Admin navigation">
+          {NAV_GROUPS.map(group => (
+            <div className="admin-nav-group" key={group.label}>
+              <div className="admin-nav-group-label">{group.label}</div>
+              {group.items.map(item => (
+                <button
+                  key={item.id}
+                  className={`admin-nav-item ${section === item.id ? 'active' : ''}`}
+                  onClick={() => handleSectionChange(item.id)}
+                  aria-current={section === item.id ? 'page' : undefined}
+                >
+                  <span className="admin-nav-icon-wrap"><span className="material-symbols-outlined nav-icon">{item.icon}</span></span>
+                  <span className="admin-nav-label">{item.label}</span>
+                  {section === item.id && <span className="admin-nav-active-dot" />}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="admin-sidebar-footer">
           {admin && (
             <div className="admin-profile-chip">
-              <div className="admin-avatar" style={{ width: 30, height: 30, fontSize: 11 }}>{initials(admin.full_name || admin.name || admin.email)}</div>
+              <div className="admin-avatar admin-sidebar-avatar">{initials(admin.full_name || admin.name || admin.email)}</div>
               <div className="admin-profile-chip-info">
                 <span className="admin-profile-chip-name">{admin.full_name || admin.name || 'Admin'}</span>
                 <span className="admin-profile-chip-email">{admin.email || ''}</span>
               </div>
+              <span className="admin-profile-role">Admin</span>
             </div>
           )}
-          <button className="admin-nav-item" onClick={handleLogout}>
-            <span className="material-symbols-outlined nav-icon">logout</span>
-            Sign Out
+          <button className="admin-sidebar-logout" onClick={handleLogout}>
+            <span className="material-symbols-outlined">logout</span>
+            Sign out
           </button>
         </div>
       </aside>
+      {sidebarOpen && <button className="admin-sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-label="Close navigation" />}
 
       {/* Main */}
       <div className="admin-main">
         <div className="admin-topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <div className="admin-topbar-context">
+            <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={sidebarOpen}>
               <span className="material-symbols-outlined">{sidebarOpen ? 'menu_open' : 'menu'}</span>
             </button>
-            <span className="admin-topbar-title">{currentLabel}</span>
+            <div className="admin-topbar-heading">
+              <div className="admin-topbar-breadcrumb"><span>Admin console</span><span className="material-symbols-outlined">chevron_right</span></div>
+              <span className="admin-topbar-title">{currentLabel}</span>
+            </div>
           </div>
           <div className="admin-topbar-right">
+            <span className="admin-access-pill"><span className="material-symbols-outlined">shield</span>Admin access</span>
             {admin && (
               <div className="admin-topbar-profile">
-                <div className="admin-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>{initials(admin.full_name || admin.name || admin.email)}</div>
-                <div style={{ lineHeight: 1.2 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{admin.full_name || admin.name || 'Admin'}</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{admin.email || ''}</div>
+                <div className="admin-avatar admin-topbar-avatar">{initials(admin.full_name || admin.name || admin.email)}</div>
+                <div className="admin-topbar-profile-copy">
+                  <strong>{admin.full_name || admin.name || 'Admin'}</strong>
+                  <span>{admin.email || ''}</span>
                 </div>
               </div>
             )}
-            <button className="admin-logout-btn" onClick={handleLogout}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>logout</span>
-              Sign Out
+            <button className="admin-logout-btn" onClick={handleLogout} aria-label="Sign out" title="Sign out">
+              <span className="material-symbols-outlined">logout</span>
             </button>
           </div>
         </div>
