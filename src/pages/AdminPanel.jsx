@@ -1367,12 +1367,19 @@ function JobsSection() {
 function UsersSection() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [cursor, setCursor] = useState(null);
   const [nextCursor, setNextCursor] = useState(null);
+  const [total, setTotal] = useState(0);
   const [togglingId, setTogglingId] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const load = useCallback((cur = null) => {
     setLoading(true);
@@ -1381,7 +1388,9 @@ function UsersSection() {
         // Response: { users: [...], pagination: { next_cursor, has_more, total } }
         const list = r?.users || r?.data?.users || r?.data || [];
         setUsers(Array.isArray(list) ? list : []);
-        setNextCursor(r?.pagination?.next_cursor || r?.next_cursor || null);
+        const pagination = r?.pagination || r?.data?.pagination || {};
+        setNextCursor(pagination.next_cursor || r?.next_cursor || null);
+        setTotal(pagination.total ?? (Array.isArray(list) ? list.length : 0));
       })
       .catch(() => { })
       .finally(() => setLoading(false));
@@ -1400,69 +1409,84 @@ function UsersSection() {
     finally { setTogglingId(null); }
   };
 
+  const activeOnPage = users.filter(user => user.status === 'active').length;
+  const suspendedOnPage = users.filter(user => user.status === 'suspended').length;
+
   return (
-    <div>
-      <div className="admin-section-header">
-        <div className="admin-section-label">Management</div>
-        <div className="admin-section-title">Users</div>
+    <div className="admin-users-section">
+      <div className="admin-users-hero">
+        <div>
+          <div className="admin-section-label">Customer management</div>
+          <div className="admin-section-title">Users</div>
+          <p>Find customer accounts, review their plan, and manage access.</p>
+        </div>
+        <div className="admin-users-total">
+          <span className="material-symbols-outlined">group</span>
+          <div><strong>{fmt(total)}</strong><small>Total users</small></div>
+        </div>
       </div>
-      <div className="admin-card">
-        <div className="admin-card-header">
-          <span className="admin-card-title">All Users</span>
-          <div className="admin-filter-row">
-            <div className="admin-search-bar">
+      <div className="admin-users-summary" aria-label="Users currently displayed">
+        <div><span className="summary-dot all" /><strong>{fmt(users.length)}</strong><small>Displayed</small></div>
+        <div><span className="summary-dot active" /><strong>{fmt(activeOnPage)}</strong><small>Active</small></div>
+        <div><span className="summary-dot suspended" /><strong>{fmt(suspendedOnPage)}</strong><small>Suspended</small></div>
+      </div>
+      <div className="admin-card admin-users-card">
+        <div className="admin-users-toolbar">
+          <div><span className="admin-card-title">User directory</span><small>{statusFilter ? `Showing ${statusFilter} accounts` : 'All account statuses'}</small></div>
+          <div className="admin-users-controls">
+            <div className="admin-users-search">
               <span className="material-symbols-outlined">search</span>
-              <input placeholder="Search users…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input aria-label="Search users" placeholder="Search by name or email" value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+              {searchInput && <button type="button" onClick={() => setSearchInput('')} aria-label="Clear search"><span className="material-symbols-outlined">close</span></button>}
             </div>
-            <select className="admin-filter-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-              <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-            </select>
+            <div className="admin-users-filter">
+              <span className="material-symbols-outlined">filter_list</span>
+              <select aria-label="Filter users by status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                <option value="">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option>
+              </select>
+            </div>
           </div>
         </div>
         {loading ? <LoadingState /> : users.length === 0 ? <EmptyState icon="group" text="No users found." /> : (
           <div className="admin-table-wrapper">
-            <table className="admin-table">
+            <table className="admin-table admin-users-table">
               <thead><tr>
-                <th>User</th><th>Email</th><th>Plan</th><th>Status</th><th>Joined</th><th>Action</th>
+                <th>User</th><th>Plan</th><th>Status</th><th>Joined</th><th><span className="sr-only">Actions</span></th>
               </tr></thead>
               <tbody>
                 {users.map(u => (
                   <tr key={u.id || u.user_id}>
-                    <td><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="admin-avatar" style={{ position: 'relative', overflow: 'hidden' }}>
+                    <td><div className="admin-users-identity">
+                      <div className="admin-avatar admin-users-avatar">
                         {u.profile_pic_url ? (
-                          <img src={u.profile_pic_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, borderRadius: '50%' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                          <img src={u.profile_pic_url} alt="" onError={(e) => { e.target.style.display = 'none'; }} />
                         ) : null}
                         {initials(u.display_name || u.email)}
                       </div>
-                      <div>
+                      <div className="admin-users-name">
                         <div className="font-bold">{u.display_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || '—'}</div>
-                        {(u.first_name || u.last_name) && u.display_name && <div className="text-muted">{`${u.first_name || ''} ${u.last_name || ''}`.trim()}</div>}
+                        <div className="text-muted">{u.email || 'No email available'}</div>
                       </div>
                     </div></td>
-                    <td>{u.email || '—'}</td>
-                    <td><span className={`badge ${u.is_subscription_active ? 'badge-blue' : 'badge-slate'}`}>{u.plan_name || 'Free'}</span></td>
+                    <td><span className={`admin-plan-pill ${u.is_subscription_active ? 'active' : ''}`}><span className="material-symbols-outlined">workspace_premium</span>{u.plan_name || 'Free'}</span></td>
                     <td><Badge type={u.status} /></td>
                     <td className="text-muted">{fmtDate(u.join_at || u.created_at)}</td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div className="admin-users-actions">
                         <button
-                          className="btn-action"
-                          style={{ backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}
+                          className="admin-user-icon-btn"
                           onClick={() => setSelectedUserId(u.id || u.user_id)}
-                          title="View Detailed Profile"
+                          title="View detailed profile"
+                          aria-label={`View ${u.display_name || u.email || 'user'} details`}
                         >
-                          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>visibility</span>
-                          Details
+                          <span className="material-symbols-outlined">visibility</span>
                         </button>
                         <button
-                          className={`btn-action ${u.status === 'active' ? 'btn-action-danger' : 'btn-action-success'}`}
+                          className={`admin-user-status-btn ${u.status === 'active' ? 'suspend' : 'activate'}`}
                           onClick={() => toggleStatus(u)}
                           disabled={togglingId === (u.user_id || u.id)}
                         >
-                          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{u.status === 'active' ? 'block' : 'check_circle'}</span>
+                          <span className="material-symbols-outlined">{u.status === 'active' ? 'block' : 'check_circle'}</span>
                           {togglingId === (u.user_id || u.id) ? '…' : u.status === 'active' ? 'Suspend' : 'Activate'}
                         </button>
                       </div>
@@ -1474,8 +1498,11 @@ function UsersSection() {
           </div>
         )}
         <div className="admin-pagination">
-          <button disabled={!cursor} onClick={() => { setCursor(null); load(null); }}>← First</button>
-          <button disabled={!nextCursor} onClick={() => { setCursor(nextCursor); load(nextCursor); }}>Next →</button>
+          <span>{users.length ? `${users.length} users on this page` : 'No users to display'}</span>
+          <div>
+            <button disabled={!cursor} onClick={() => { setCursor(null); load(null); }}><span className="material-symbols-outlined">first_page</span>First</button>
+            <button disabled={!nextCursor} onClick={() => { setCursor(nextCursor); load(nextCursor); }}>Next<span className="material-symbols-outlined">chevron_right</span></button>
+          </div>
         </div>
       </div>
       {selectedUserId && <UserDetailModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />}
@@ -1551,15 +1578,19 @@ function RevenueSection() {
   const totalActive = data.total_active_subscriptions || plans.reduce((s, p) => s + (p.active_count || 0), 0) || 1;
 
   return (
-    <div>
-      <div className="admin-section-header">
-        <div className="admin-section-label">Financials</div>
-        <div className="admin-section-title">Revenue</div>
+    <div className="admin-section-content admin-revenue-section">
+      <div className="admin-page-heading">
+        <div>
+          <div className="admin-section-label">Financial performance</div>
+          <div className="admin-section-title">Revenue</div>
+          <p>Monitor recurring revenue and understand the active plan mix.</p>
+        </div>
+        <div className="admin-page-heading-icon revenue"><span className="material-symbols-outlined">monitoring</span></div>
       </div>
-      <div className="admin-stats-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)', marginBottom: 24 }}>
-        <StatCard label="Monthly Recurring (MRR)" value={`$${fmt(data.total_mrr)}`} icon="payments" color="green" />
-        <StatCard label="Active Subscriptions" value={data.total_active_subscriptions} icon="verified" color="blue" />
-        <StatCard label="Expired Subscriptions" value={data.total_expired_subscriptions} icon="history" color="slate" />
+      <div className="admin-revenue-stats">
+        <StatCard label="Monthly recurring revenue" value={data.total_mrr} prefix="$" icon="payments" tone="green" helper="Current subscription run rate" />
+        <StatCard label="Active subscriptions" value={data.total_active_subscriptions} icon="verified" tone="blue" helper="Currently generating access" />
+        <StatCard label="Expired subscriptions" value={data.total_expired_subscriptions} icon="history" tone="amber" helper="No longer active" />
       </div>
       {plans.length > 0 && (
         <div className="admin-card" style={{ padding: '24px 28px' }}>
@@ -1852,17 +1883,30 @@ function SubscriptionsSection() {
       })
     : items;
 
+  const activeDisplayed = filtered.filter(subscription => subscription.is_active).length;
+  const monthlyValueDisplayed = filtered.reduce((sum, subscription) => sum + Number(subscription.price_per_month ?? subscription.plan?.price_per_month ?? 0), 0);
+
   return (
-    <div className="admin-section-content">
-      <div className="admin-section-header">
-        <div className="admin-section-label">Billing Management</div>
-        <div className="admin-section-title">Subscriptions</div>
+    <div className="admin-section-content admin-subscriptions-section">
+      <div className="admin-page-heading">
+        <div>
+          <div className="admin-section-label">Billing management</div>
+          <div className="admin-section-title">Subscriptions</div>
+          <p>Review customer plans, billing status, usage, and renewal dates.</p>
+        </div>
+        <div className="admin-page-heading-icon subscriptions"><span className="material-symbols-outlined">subscriptions</span></div>
       </div>
 
-      <div className="admin-card">
+      <div className="admin-inline-kpis">
+        <div><span className="material-symbols-outlined">receipt_long</span><strong>{fmt(total)}</strong><small>Total subscriptions</small></div>
+        <div><span className="material-symbols-outlined">verified</span><strong>{fmt(activeDisplayed)}</strong><small>Active on this page</small></div>
+        <div><span className="material-symbols-outlined">payments</span><strong>${fmt(monthlyValueDisplayed)}</strong><small>Monthly value displayed</small></div>
+      </div>
+
+      <div className="admin-card admin-subscriptions-card">
         <div className="admin-toolbar">
           <div className="admin-toolbar-group">
-            <span className="admin-card-title">All Subscriptions</span>
+            <span className="admin-card-title">Subscription directory</span>
             {total > 0 && <span className="admin-badge-count">{fmt(total)} total</span>}
           </div>
 
