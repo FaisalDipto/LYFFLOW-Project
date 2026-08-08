@@ -296,6 +296,38 @@
 }
 
 /* --- Overview Tab --- */
+.overview-count-number {
+  display: inline-block;
+  transform-origin: center bottom;
+  animation-name: overview-count-lift;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+
+@keyframes overview-count-lift {
+  0% {
+    opacity: 0.35;
+    transform: translateY(5px) scale(0.94);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  78% {
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overview-count-number {
+    animation: none;
+  }
+}
+
 .pages-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

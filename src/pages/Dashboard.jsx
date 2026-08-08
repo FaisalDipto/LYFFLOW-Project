@@ -21,9 +21,59 @@ const triggerFacebookReauth = () => {
   window.location.href = `${API_BASE}/v1/auth/facebook/reauth?redirect_uri=${redirectUrl}&next=${nextPath}`;
 };
 
+const CountUpNumber = ({ value, duration = 1400 }) => {
+  const targetValue = Math.max(0, Number(value) || 0);
+  const [displayValue, setDisplayValue] = useState(0);
+  const currentValueRef = useRef(0);
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      currentValueRef.current = targetValue;
+      setDisplayValue(targetValue);
+      return undefined;
+    }
+
+    const startValue = currentValueRef.current;
+    const difference = targetValue - startValue;
+    let animationFrame;
+    let startTime;
+
+    const animate = (timestamp) => {
+      if (startTime === undefined) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const easedProgress = progress < 0.5
+        ? 4 * Math.pow(progress, 3)
+        : 1 - (Math.pow(-2 * progress + 2, 3) / 2);
+      const nextValue = Math.round(startValue + (difference * easedProgress));
+
+      currentValueRef.current = nextValue;
+      setDisplayValue(nextValue);
+
+      if (progress < 1) {
+        animationFrame = window.requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [duration, targetValue]);
+
+  return (
+    <span
+      key={targetValue}
+      className="overview-count-number tabular-nums"
+      style={{ animationDuration: `${duration}ms` }}
+      aria-label={targetValue.toLocaleString()}
+    >
+      {displayValue.toLocaleString()}
+    </span>
+  );
+};
+
 // Sub-components
 const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [dropdownPlacement, setDropdownPlacement] = useState('bottom');
   const [isPlatformModalOpen, setIsPlatformModalOpen] = useState(false);
   const [showInstaComingSoon, setShowInstaComingSoon] = useState(false);
   const [assigning, setAssigning] = useState({}); // {pageId: boolean}
@@ -38,6 +88,11 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
   });
 
   const agents = user?.agents || [];
+  const pageCount = Array.isArray(pages) ? pages.length : 0;
+  const assignedPageCount = Array.isArray(pages)
+    ? pages.filter(page => Boolean(selectedAgents[page.page_id])).length
+    : 0;
+  const workspaceName = user?.workspace_name || 'My Workspace';
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -148,6 +203,23 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
     setIsPlatformModalOpen(true);
   };
 
+  const handleAgentDropdownToggle = (pageId, event) => {
+    if (openDropdown === pageId) {
+      setOpenDropdown(null);
+      return;
+    }
+
+    const triggerRect = event.currentTarget.getBoundingClientRect();
+    const agentRows = Math.max(agents.length, 1);
+    const actionRows = selectedAgents[pageId] ? 2 : 1;
+    const estimatedMenuHeight = Math.min((agentRows * 37) + (actionRows * 34) + 20, 360);
+    const spaceBelow = window.innerHeight - triggerRect.bottom - 12;
+    const spaceAbove = triggerRect.top - 12;
+
+    setDropdownPlacement(spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow ? 'top' : 'bottom');
+    setOpenDropdown(pageId);
+  };
+
   const handlePlatformSelect = (platform) => {
     if (platform === 'facebook') {
       setIsPlatformModalOpen(false);
@@ -162,150 +234,190 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
   };
 
   return (
-    <div className="dashboard-content-area animate-fade-in-up flex-1 p-4 md:p-6 xl:p-8 space-y-6 xl:space-y-12 w-full text-left bg-surface-bright">
-      {/* Hero Header */}
-      <div className="flex justify-between items-end">
-        <div>
-          <span className="label-md uppercase tracking-[0.2em] text-outline mb-1 sm:mb-2 block font-label font-semibold text-xs sm:text-sm">Active Workspace</span>
-          <h1 className="text-3xl lg:text-4xl xl:text-5xl font-headline font-black tracking-tighter text-primary">My Workspace</h1>
-        </div>
-        <div className="hidden sm:flex gap-3">
-          <div className="flex -space-x-2">
-            <img alt="Team member" className="w-10 h-10 rounded-full border-2 border-white object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmshpeiThC41D3oYoeWJPdOlPAZgPL4Q27QrQJqYQAk0lqbXxdOvgSHyv35ROzxQfzvc5ATVnSTUsJxi_Lr01YfpSP8hQ_5Ntk_Zpa2wIN9s0vUuGx-9geekTRAiwTnfHxLoiuUsfyimTDVFEZkrqmIJiaeehJD4un5GZv0DOqmeBI17YqzYT12OuO-ELphoCuIF0s0b_vmtjqRMich8eWky8JOxPRQGvY4wcbSc3dMYyptqBqITQtQZAR0p-TXDaZJ-FeUOugt38" />
-            <img alt="Team member" className="w-10 h-10 rounded-full border-2 border-white object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD17OerDChMrHv2dHx2sdIJRo6zgSAywzPvjIFEDcvczs-PE5Lt_tHErvdbnmvZWLkRpa1N-XUEdRbco2MftgKHV7gsnPYCFJy3YllMVT8P21etDi21ooo5rS-C_Yc0ekW6yrBRfUQtFPVdhWr62EFUpv7Z1nVJ3IPUzd7OS9y_U94KPA8aCq2NIvvt4HFN9QdlESzX7KBzxUoCTaWtnZz-m0vmJl6woSLXTGl_nuYalWAxprWDYgsU95Vlqd6Jb8rDVo8dGMNc3tU" />
-            <div className="w-10 h-10 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-xs font-bold text-slate-500">+4</div>
+    <div className="dashboard-content-area animate-fade-in-up flex-1 p-4 md:p-6 xl:p-8 w-full text-left bg-surface-bright">
+      <section className="mb-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm md:px-6 md:py-5">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0">
+            <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Workspace overview</span>
+            <h1 className="m-0 truncate font-headline text-2xl font-black tracking-tight text-slate-950 md:text-3xl">{workspaceName}</h1>
+            <p className="mb-0 mt-1 text-sm font-medium text-slate-500">Manage your connected pages and the agents answering for them.</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 md:gap-x-7">
+            <div>
+              <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={pageCount} /></span>
+              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Pages</span>
+            </div>
+            <div className="h-8 w-px bg-slate-200" aria-hidden="true" />
+            <div>
+              <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={assignedPageCount} /></span>
+              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Assigned</span>
+            </div>
+            <div className="h-8 w-px bg-slate-200" aria-hidden="true" />
+            <div>
+              <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={agents.length} /></span>
+              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Agents</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddPage}
+              className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600 md:ml-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Connect page
+            </button>
           </div>
         </div>
+      </section>
+
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="m-0 text-sm font-black text-slate-900">Connected pages</h2>
+          <p className="mb-0 mt-0.5 text-xs text-slate-500">Choose which agent handles each inbox.</p>
+        </div>
+        <span className="shrink-0 text-xs font-bold text-slate-400">{pageCount} total</span>
       </div>
 
-      {/* Bento Grid Layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-        {Array.isArray(pages) && pages.map((page, index) => {
-          const isEven = index % 2 === 0;
-          const cardBorder = isEven ? "border-emerald-500" : "border-primary";
-          const iconBg = isEven ? "bg-emerald-100" : "bg-slate-900";
-          const iconColor = isEven ? "text-emerald-600" : "text-white";
-          const iconName = isEven ? "movie" : "chat_bubble";
-          const assignHoverBorder = isEven ? "group-hover:border-emerald-100" : "group-hover:border-slate-200";
-          const assignIconColor = isEven ? "text-emerald-500" : "text-primary";
-          const assignIconName = isEven ? "person" : "smart_toy";
-          const barBg = isEven ? "bg-emerald-500" : "bg-primary";
-          const barWidth = isEven ? "75%" : "50%";
-          const percentageColor = isEven ? "text-emerald-600" : "text-primary";
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
+        {Array.isArray(pages) && pages.map((page) => {
+          const selectedAgent = agents.find(agent => agent.agent_id === selectedAgents[page.page_id]);
+          const foreignAgentName = selectedAgents[page.page_id] && String(selectedAgents[page.page_id]).startsWith('foreign_agent_')
+            ? String(selectedAgents[page.page_id]).replace('foreign_agent_', '')
+            : null;
+          const hasAssignedAgent = Boolean(selectedAgents[page.page_id]);
 
           return (
-            <div key={page.page_id} className={`group relative bg-surface-container-lowest rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border-t-4 flex flex-col items-center text-center ${cardBorder}`}>
+            <article
+              key={page.page_id}
+              className={`group relative min-w-0 overflow-visible rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md ${openDropdown === page.page_id ? 'z-[1000]' : 'z-0'}`}
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                  {page.profile_pic_url ? (
+                    <img src={page.profile_pic_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="material-symbols-outlined flex h-full w-full items-center justify-center text-xl text-slate-500">forum</span>
+                  )}
+                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" title="Connected" />
+                </div>
 
-
-
-              <div
-                className={`w-24 h-24 flex items-center justify-center mb-5 border-4 border-white shadow-md ${iconBg} overflow-hidden shrink-0`}
-                style={{ borderRadius: '50%' }}
-              >
-                {page.profile_pic_url ? (
-                  <img src={page.profile_pic_url} alt={page.name || 'Page'} className="w-full h-full object-cover rounded-full" style={{ borderRadius: '50%' }} />
-                ) : (
-                  <span className={`material-symbols-outlined ${iconColor} text-4xl`} data-icon={iconName}>{iconName}</span>
-                )}
-              </div>
-
-              <h3 className="text-2xl font-headline font-bold text-primary mb-2">{page.name}</h3>
-              <p className="text-on-surface-variant text-sm mb-8 px-2 leading-relaxed">{page.description || 'Automated agent assignments for this workspace.'}</p>
-
-              <div className="w-full mt-auto space-y-5">
-                <div className={`flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl border border-transparent ${assignHoverBorder} transition-colors group-hover:bg-white group-hover:shadow-sm relative`}>
-                  <div className="flex items-center gap-2 mb-2 opacity-60">
-                    <span className={`material-symbols-outlined text-[14px] ${assignIconColor}`} data-icon={assignIconName}>{assignIconName}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Assigned Agent</span>
-                  </div>
-                  <div className="relative custom-dropdown-container w-full flex justify-center">
-                    <button
-                      onClick={() => setOpenDropdown(openDropdown === page.page_id ? null : page.page_id)}
-                      disabled={assigning[page.page_id]}
-                      className={`flex items-center justify-center gap-1 bg-transparent border-none text-base font-black p-0 focus:ring-0 cursor-pointer hover:text-emerald-600 transition-colors ${success[page.page_id] ? 'text-green-500' : 'text-slate-800'}`}
-                    >
-                      {assigning[page.page_id] ? 'Assigning...' : (() => {
-                        const selAgent = agents.find(a => a.agent_id === selectedAgents[page.page_id]);
-                        if (selAgent) {
-                          return (
-                            <span className="flex items-center gap-1.5">
-                              <AgentAvatar agent={selAgent} size="w-5 h-5" iconSize="text-[14px]" />
-                              <span>{selAgent.name}</span>
-                            </span>
-                          );
-                        }
-                        return selectedAgents[page.page_id] && String(selectedAgents[page.page_id]).startsWith('foreign_agent_') ? `${String(selectedAgents[page.page_id]).replace('foreign_agent_', '')} (Team)` : 'Select Agent';
-                      })()}
-                      <span className="material-symbols-outlined text-[18px]">expand_more</span>
-                    </button>
-
-                    {openDropdown === page.page_id && (
-                      <div className="absolute top-[120%] left-1/2 -translate-x-1/2 w-[220px] bg-white rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-100 z-[999] overflow-hidden text-left py-1 animate-fade-in-up">
-                        {agents.length === 0 ? (
-                          <div className="px-4 py-3 text-sm text-slate-500 font-medium text-center">No agents available</div>
-                        ) : (
-                          agents.map(agent => (
-                            <button
-                              key={agent.agent_id}
-                              onClick={() => {
-                                handleAssign(page.page_id, agent.agent_id);
-                                setOpenDropdown(null);
-                              }}
-                              className={`w-full text-left px-4 py-2.5 text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center justify-between border-transparent border-none cursor-pointer ${selectedAgents[page.page_id] === agent.agent_id ? 'text-emerald-600 bg-emerald-50/50' : 'text-slate-700 bg-white'}`}
-                            >
-                              <span className="flex items-center gap-2 truncate pr-2">
-                                <AgentAvatar agent={agent} size="w-6 h-6" iconSize="text-[14px]" />
-                                <span className="truncate">{agent.name}</span>
-                              </span>
-                              {selectedAgents[page.page_id] === agent.agent_id && (
-                                <span className="material-symbols-outlined text-[16px] text-emerald-500 shrink-0">check</span>
-                              )}
-                            </button>
-                          ))
-                        )}
-                        <div className="border-t border-slate-100 my-1"></div>
-                        {selectedAgents[page.page_id] && (
-                          <button
-                            onClick={() => {
-                              handleUnassign(page.page_id);
-                              setOpenDropdown(null);
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 border-none bg-white cursor-pointer"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">person_remove</span>
-                            Unassign Agent
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setOpenDropdown(null);
-                            onNavigate('agent'); // Jump straight to Agents tab
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-2 border-none bg-white cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">add</span>
-                          Create New
-                        </button>
-                      </div>
-                    )}
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <h3 className="m-0 truncate text-sm font-black text-slate-900" title={page.name}>{page.name || 'Untitled page'}</h3>
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+                    <span className="material-symbols-outlined text-[13px] text-blue-500">facebook</span>
+                    <span>Connected</span>
                   </div>
                 </div>
 
-
+                <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${hasAssignedAgent ? 'bg-emerald-500' : 'bg-amber-400'}`} title={hasAssignedAgent ? 'Agent assigned' : 'No agent assigned'} />
               </div>
-            </div>
+
+              <p className="mb-0 mt-3 truncate text-xs leading-5 text-slate-500" title={page.description || ''}>
+                {page.description || 'Facebook messaging page'}
+              </p>
+
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Assigned agent</span>
+                  {success[page.page_id] && <span className="text-[10px] font-bold text-emerald-600">Saved</span>}
+                </div>
+
+                <div className="custom-dropdown-container relative mx-auto w-[88%] min-w-0">
+                  <button
+                    type="button"
+                    onClick={(event) => handleAgentDropdownToggle(page.page_id, event)}
+                    disabled={assigning[page.page_id]}
+                    aria-expanded={openDropdown === page.page_id}
+                    aria-haspopup="menu"
+                    className={`flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border px-2.5 text-left text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${hasAssignedAgent ? 'border-emerald-100 bg-emerald-50 text-slate-800 hover:border-emerald-200' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'}`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      {selectedAgent ? (
+                        <AgentAvatar agent={selectedAgent} size="w-5 h-5" iconSize="text-[13px]" />
+                      ) : (
+                        <span className="material-symbols-outlined text-[17px]">smart_toy</span>
+                      )}
+                      <span className="truncate">
+                        {assigning[page.page_id]
+                          ? 'Updating...'
+                          : selectedAgent?.name || (foreignAgentName ? `${foreignAgentName} (Team)` : 'Select an agent')}
+                      </span>
+                    </span>
+                    <ChevronDown size={14} className={`shrink-0 transition-transform ${openDropdown === page.page_id ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {openDropdown === page.page_id && (
+                    <div
+                      className={`absolute left-0 z-[1100] w-full min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 text-left shadow-xl ${dropdownPlacement === 'top' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'}`}
+                      role="menu"
+                    >
+                      {agents.length === 0 ? (
+                        <div className="px-3 py-3 text-center text-xs font-medium text-slate-500">No agents available</div>
+                      ) : (
+                        agents.map(agent => (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            key={agent.agent_id}
+                            onClick={() => {
+                              handleAssign(page.page_id, agent.agent_id);
+                              setOpenDropdown(null);
+                            }}
+                            className={`flex w-full items-center justify-between border-0 px-3 py-2 text-left text-xs font-semibold transition-colors hover:bg-slate-50 ${selectedAgents[page.page_id] === agent.agent_id ? 'bg-emerald-50 text-emerald-700' : 'bg-white text-slate-700'}`}
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <AgentAvatar agent={agent} size="w-5 h-5" iconSize="text-[13px]" />
+                              <span className="truncate">{agent.name}</span>
+                            </span>
+                            {selectedAgents[page.page_id] === agent.agent_id && <CheckCircle2 size={14} className="shrink-0 text-emerald-500" />}
+                          </button>
+                        ))
+                      )}
+                      <div className="my-1 border-t border-slate-100" />
+                      {hasAssignedAgent && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            handleUnassign(page.page_id);
+                            setOpenDropdown(null);
+                          }}
+                          className="flex w-full items-center gap-2 border-0 bg-white px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">person_remove</span>
+                          Unassign
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setOpenDropdown(null);
+                          onNavigate('agent');
+                        }}
+                        className="flex w-full items-center gap-2 border-0 bg-white px-3 py-2 text-left text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">add</span>
+                        Create new agent
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </article>
           );
         })}
 
-        {/* Add Page Placeholder Card */}
-        <button onClick={handleAddPage} className="group border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center gap-4 hover:border-emerald-500 hover:bg-emerald-50/30 transition-all duration-300 min-h-[250px] bg-transparent cursor-pointer">
-          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-            <span className="material-symbols-outlined text-2xl" data-icon="add">add</span>
-          </div>
-          <div className="text-center">
-            <span className="block font-headline font-bold text-slate-400 group-hover:text-emerald-600">Add New Page</span>
-            <span className="text-xs text-slate-300 uppercase tracking-widest font-semibold mt-1 block">Project Canvas</span>
-          </div>
+        <button
+          type="button"
+          onClick={handleAddPage}
+          className="group flex min-h-[174px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4 text-center transition-all hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-emerald-50"
+        >
+          <span className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-xl text-slate-500 shadow-sm transition-colors group-hover:border-emerald-200 group-hover:text-emerald-600">add</span>
+          <span>
+            <span className="block text-sm font-black text-slate-700 group-hover:text-emerald-700">Connect another page</span>
+            <span className="mt-1 block text-[11px] font-medium text-slate-400">Facebook or Instagram</span>
+          </span>
         </button>
       </div>
 
