@@ -165,9 +165,22 @@ const mockData = {
 /**
  * Helper to perform fetch requests with default headers
  */
+const inFlightGetRequests = new Map();
+const responseCache = new Map();
+let cacheGeneration = 0;
+
+const invalidateGetState = () => {
+  cacheGeneration += 1;
+  responseCache.clear();
+  inFlightGetRequests.clear();
+};
+
 const apiFetch = async (endpoint, options = {}) => {
+  const { cacheTtl = 0, invalidateCache = false, ...requestOptions } = options;
+  const method = (requestOptions.method || 'GET').toUpperCase();
+
   if (MOCK_MODE) {
-    console.log(`[MOCK API] ${options.method || 'GET'} ${endpoint}`);
+    console.log(`[MOCK API] ${method} ${endpoint}`);
     await new Promise(r => setTimeout(r, 400)); // Simulate latency
     
     // Exact match or partial match for dynamic IDs
@@ -183,75 +196,108 @@ const apiFetch = async (endpoint, options = {}) => {
   }
 
   const url = `${API_BASE}${endpoint}`;
+  const requestKey = `${method}:${url}`;
 
-  const headers = { ...options.headers };
+  if (invalidateCache) invalidateGetState();
+
+  if (method === 'GET') {
+    const cached = responseCache.get(requestKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    if (cached) responseCache.delete(requestKey);
+
+    const inFlight = inFlightGetRequests.get(requestKey);
+    if (inFlight) return inFlight;
+  } else {
+    // Mutations can affect any dashboard aggregate, so discard short-lived GET data.
+    invalidateGetState();
+  }
+
+  const requestGeneration = cacheGeneration;
+
+  const headers = { ...requestOptions.headers };
   // If the body is FormData, let the browser set the Content-Type with the correct boundary
-  if (!(options.body instanceof FormData)) {
+  if (!(requestOptions.body instanceof FormData)) {
     headers['Content-Type'] = headers['Content-Type'] || 'application/json';
   } else {
     delete headers['Content-Type'];
   }
 
   const mergedOptions = {
-    ...options,
+    ...requestOptions,
     credentials: 'include', // Important: Ensures cookies/sessions are sent with every request
     headers,
   };
 
-  const response = await fetch(url, mergedOptions);
+  const requestPromise = (async () => {
+    const response = await fetch(url, mergedOptions);
 
-  if (!response.ok) {
-    if (response.status === 429) {
-      window.dispatchEvent(new Event('lyfflow-api-rate-limit'));
-      const error = new Error('Too many requests. Please slow down and try again later.');
-      error.status = 429;
+    if (!response.ok) {
+      if (response.status === 429) {
+        window.dispatchEvent(new Event('lyfflow-api-rate-limit'));
+        const error = new Error('Too many requests. Please slow down and try again later.');
+        error.status = 429;
+        throw error;
+      }
+
+      // Attempt to extract JSON error message if provided by FastAPI
+      let errorMessage = 'An error occurred while fetching data';
+      try {
+        const errorData = await response.json();
+        if (Array.isArray(errorData.detail)) {
+          errorMessage = errorData.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join(' | ');
+        } else {
+          errorMessage = errorData.detail || errorMessage;
+        }
+      } catch {
+        // Ignore parsing errors for non-JSON responses
+      }
+      const error = new Error(errorMessage);
+      error.status = response.status;
       throw error;
     }
 
-    // Attempt to extract JSON error message if provided by FastAPI
-    let errorMessage = 'An error occurred while fetching data';
-    try {
-      const errorData = await response.json();
-      if (Array.isArray(errorData.detail)) {
-        errorMessage = errorData.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join(' | ');
-      } else {
-        errorMessage = errorData.detail || errorMessage;
+    // Parse JSON response body if content-type matches
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const text = await response.text();
+      if (!text) return {}; // Handle empty responses gracefully
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text; // Fallback to returning text if JSON is malformed
       }
-    } catch (e) {
-      // Ignore parsing errors for non-JSON responses
     }
-    const error = new Error(errorMessage);
-    error.status = response.status;
-    throw error;
-  }
+    return response.text();
+  })();
 
-  // Parse JSON response body if content-type matches
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
-    const text = await response.text();
-    if (!text) return {}; // Handle empty responses gracefully
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      return text; // Fallback to returning text if JSON is malformed
+  if (method === 'GET') inFlightGetRequests.set(requestKey, requestPromise);
+
+  try {
+    const result = await requestPromise;
+    if (method === 'GET' && cacheTtl > 0 && requestGeneration === cacheGeneration) {
+      responseCache.set(requestKey, { value: result, expiresAt: Date.now() + cacheTtl });
+    }
+    return result;
+  } finally {
+    if (method === 'GET' && inFlightGetRequests.get(requestKey) === requestPromise) {
+      inFlightGetRequests.delete(requestKey);
     }
   }
-  return response.text();
 };
 
 export const apiService = {
   // Returns current logged-in user details including profile_pic_url
-  getUserProfile: () => apiFetch('/v1/user/profile'),
+  getUserProfile: () => apiFetch('/v1/user/profile', { cacheTtl: 5000 }),
 
   // Explicit logout
-  logout: () => apiFetch('/v1/logout'),
+  logout: () => apiFetch('/v1/logout', { invalidateCache: true }),
 
   // Gets the connected Facebook Pages
-  getPages: () => apiFetch('/v1/pages'),
+  getPages: () => apiFetch('/v1/pages', { cacheTtl: 15000 }),
 
   // Knowledge Base
   generateNamespace: (namespaceName = 'New Namespace') => apiFetch('/v1/knowledge/generate-namespace', { method: 'POST', body: JSON.stringify({ namespace_name: namespaceName }) }),
-  getNamespaces: () => apiFetch('/v1/knowledge/get-namespaces'),
+  getNamespaces: () => apiFetch('/v1/knowledge/get-namespaces', { cacheTtl: 15000 }),
 
   getKnowledge: (namespaceId) => apiFetch(`/v1/knowledge/${namespaceId}`),
 
@@ -293,7 +339,7 @@ export const apiService = {
     });
   },
   getProducts: (namespaceId, cursor = null, pageSize = 20, isActive = null, importSource = null) => {
-    let url = `/v1/products/${namespaceId}/all-products?page_size=${pageSize}&_t=${Date.now()}`;
+    let url = `/v1/products/${namespaceId}/all-products?page_size=${pageSize}`;
     if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
     if (isActive !== null) url += `&is_active=${isActive}`;
     if (importSource && importSource !== 'all') url += `&import_source=${importSource}`;
@@ -311,11 +357,6 @@ export const apiService = {
     method: 'POST',
     body: formData,
   }),
-  setPrimaryAsset: (namespaceId, productId, assetId) => apiFetch(`/v1/products/${namespaceId}/update/${productId}/set-assets/primary`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ asset_id: assetId }),
-  }),
   deleteProductAsset: (namespaceId, productId, assetId) => apiFetch(`/v1/products/${namespaceId}/update/${productId}/delete-assets/${assetId}`, {
     method: 'DELETE',
   }),
@@ -329,14 +370,14 @@ export const apiService = {
   }),
   getImportBatch: (namespaceId, batchId) => apiFetch(`/v1/products/${namespaceId}/import/csv/${batchId}`),
   getImportCsvHistory: (namespaceId, status = null, cursor = null, pageSize = 10) => {
-    let url = `/v1/products/${namespaceId}/import/csv/history?page_size=${pageSize}&_t=${Date.now()}`;
+    let url = `/v1/products/${namespaceId}/import/csv/history?page_size=${pageSize}`;
     if (status && status !== 'all') url += `&status=${status}`;
     if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
     return apiFetch(url);
   },
 
   // Agent Management
-  getAgents: () => apiFetch('/v1/agents'),
+  getAgents: () => apiFetch('/v1/agents', { cacheTtl: 15000 }),
   setAgentNamespace: (agentId, namespaceId) => apiFetch(`/v1/agent/${agentId}/set-namespace/${namespaceId}`, { method: 'PATCH' }),
   unsetAgentNamespace: (agentId) => apiFetch(`/v1/agent/${agentId}/unset-namespace`, { method: 'PATCH' }),
 
@@ -443,8 +484,8 @@ export const apiService = {
   }),
 
   // Subscriptions
-  getPlans: () => apiFetch('/v1/plans'),
-  getSubscription: () => apiFetch('/v1/subscription'),
+  getPlans: () => apiFetch('/v1/plans', { cacheTtl: 300000 }),
+  getSubscription: () => apiFetch('/v1/subscription', { cacheTtl: 15000 }),
 
   subscribe: (subscriptionData) => apiFetch('/v1/subscription/subscribe', {
     method: 'POST',
@@ -469,8 +510,8 @@ export const apiService = {
 
   // Admin
   adminLogin: (credentials) => apiFetch('/v1/admin/login', { method: 'POST', body: JSON.stringify(credentials) }),
-  adminMe: () => apiFetch('/v1/admin/me'),
-  adminDashboard: () => apiFetch('/v1/admin/dashboard'),
+  adminMe: () => apiFetch('/v1/admin/me', { cacheTtl: 5000 }),
+  adminDashboard: () => apiFetch('/v1/admin/dashboard', { cacheTtl: 5000 }),
   adminUsers: ({ cursor, page_size, status, search } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
@@ -505,7 +546,7 @@ export const apiService = {
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     if (user_id) q.set('user_id', user_id);
-    return apiFetch(`/v1/admin/pages?${q}`);
+    return apiFetch(`/v1/admin/pages?${q}`, { cacheTtl: 30000 });
   },
   adminConversations: ({ cursor, page_size, page_id } = {}) => {
     const q = new URLSearchParams();

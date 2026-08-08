@@ -23,6 +23,38 @@ const triggerFacebookReauth = () => {
   window.location.href = `${API_BASE}/v1/auth/facebook/reauth?redirect_uri=${redirectUrl}&next=${nextPath}`;
 };
 
+const parseCollection = (data, primaryKey) => {
+  if (Array.isArray(data)) return data;
+  return data?.[primaryKey] || data?.data?.[primaryKey] || data?.data || [];
+};
+
+const fetchProfilePictureUrl = async (userId) => {
+  if (!userId) return null;
+  const response = await fetch(`${API_BASE}/v1/user/profile_pic/${userId}`, { credentials: 'include' });
+  if (!response.ok) return null;
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const data = await response.json();
+    return data.url || data.profile_pic || data.profile_pic_url || data.image_url || null;
+  }
+  if (contentType.includes('image/')) {
+    const blob = await response.blob();
+    return blob.size > 0 ? URL.createObjectURL(blob) : null;
+  }
+
+  const text = await response.text();
+  if (text.startsWith('http')) return text;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed.url || parsed.profile_pic || parsed.profile_pic_url || parsed.image_url || null;
+  } catch {
+    return `${API_BASE}/v1/user/profile_pic/${userId}`;
+  }
+};
+
+const KNOWLEDGE_POLL_DELAYS = [1500, 2500, 4000];
+
 const CountUpNumber = ({ value, duration = 1400 }) => {
   const targetValue = Math.max(0, Number(value) || 0);
   const [displayValue, setDisplayValue] = useState(0);
@@ -668,43 +700,26 @@ const ConversationList = ({ pages, user }) => {
         if (normalized.length > 0) setActiveContact(normalized[0]);
         else setActiveContact(null);
 
-        // Fetch info + last message in parallel for each conversation
-        normalized.forEach(conv => {
+        // The list endpoint already supplies name, picture, handover status, and time.
+        // Only hydrate a missing preview, and let the active chat's full request cover row one.
+        normalized.forEach((conv, index) => {
           const cId = conv.conversation_id || conv.id;
-          if (!cId) return;
-          Promise.allSettled([
-            apiService.getConversationInfo(cId),
-            apiService.getConversationDetails(selectedPageId, cId, null, 1),
-          ]).then(([infoRes, detailsRes]) => {
+          if (!cId || index === 0 || conv.snippet || conv.last_message) return;
+          apiService.getConversationDetails(selectedPageId, cId, null, 1).then(details => {
             if (requestVersion !== conversationsRequestVersionRef.current) return;
-            const info    = infoRes.status    === 'fulfilled' ? infoRes.value    : null;
-            const details = detailsRes.status === 'fulfilled' ? detailsRes.value : null;
             const msgs = details?.messages?.data || details?.messages || details?.data || [];
             const lastMsg = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
-            console.log(`[Convo Debug] Fetched info for ${cId}:`, info);
+            if (!lastMsg) return;
             setContacts(prev => prev.map(c => {
               if ((c.conversation_id || c.id) === cId) {
-                const infoPic = (info?.profile_pic_url && info.profile_pic_url !== 'string' && info.profile_pic_url !== 'null' ? info.profile_pic_url : null)
-                             || info?.profile_pic
-                             || (typeof info?.picture === 'string' ? info.picture : info?.picture?.data?.url);
-                const updatedObj = {
+                return {
                   ...c,
-                  ...(info ? {
-                    _info_name: info.name || null,
-                    profile_pic_url: infoPic || c.profile_pic_url || c.profile_pic,
-                    is_human_needed: info.is_human_needed ?? c.is_human_needed,
-                    updated_time: info.updated_time || c.updated_time,
-                  } : {}),
-                  ...(lastMsg ? {
-                    last_message: lastMsg.message || lastMsg.text || '',
-                  } : {}),
+                  last_message: lastMsg.message || lastMsg.text || '',
                 };
-                setActiveContact(prevAc => prevAc && (prevAc.conversation_id || prevAc.id) === cId ? { ...prevAc, ...updatedObj } : prevAc);
-                return updatedObj;
               }
               return c;
             }));
-          });
+          }).catch(() => {});
         });
       })
       .catch(err => {
@@ -727,8 +742,16 @@ const ConversationList = ({ pages, user }) => {
     apiService.getConversationDetails(selectedPageId, convId)
       .then(data => {
         const msgs = data?.messages?.data || data?.messages || data?.data || [];
+        const newestMessage = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
+        if (newestMessage) {
+          setContacts(prev => prev.map(contact =>
+            (contact.conversation_id || contact.id) === convId
+              ? { ...contact, last_message: newestMessage.message || newestMessage.text || contact.last_message }
+              : contact
+          ));
+        }
         // Typically Facebook returns newest first, reverse for chat UI
-        setMessages(Array.isArray(msgs) ? msgs.reverse() : []);
+        setMessages(Array.isArray(msgs) ? [...msgs].reverse() : []);
         
         if (data?.pagination) {
           setMessagesPagination(data.pagination);
@@ -768,39 +791,22 @@ const ConversationList = ({ pages, user }) => {
 
         normalized.forEach(conv => {
           const cId = conv.conversation_id || conv.id;
-          if (!cId) return;
-          Promise.allSettled([
-            apiService.getConversationInfo(cId),
-            apiService.getConversationDetails(selectedPageId, cId, null, 1),
-          ]).then(([infoRes, detailsRes]) => {
+          if (!cId || conv.snippet || conv.last_message) return;
+          apiService.getConversationDetails(selectedPageId, cId, null, 1).then(details => {
             if (requestVersion !== conversationsRequestVersionRef.current) return;
-            const info    = infoRes.status    === 'fulfilled' ? infoRes.value    : null;
-            const details = detailsRes.status === 'fulfilled' ? detailsRes.value : null;
             const msgs = details?.messages?.data || details?.messages || details?.data || [];
             const lastMsg = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
+            if (!lastMsg) return;
             setContacts(prev => prev.map(c => {
               if ((c.conversation_id || c.id) === cId) {
-                const infoPic = (info?.profile_pic_url && info.profile_pic_url !== 'string' && info.profile_pic_url !== 'null' ? info.profile_pic_url : null)
-                             || info?.profile_pic
-                             || (typeof info?.picture === 'string' ? info.picture : info?.picture?.data?.url);
-                const updatedObj = {
+                return {
                   ...c,
-                  ...(info ? {
-                    _info_name: info.name || null,
-                    profile_pic_url: infoPic || c.profile_pic_url || c.profile_pic,
-                    is_human_needed: info.is_human_needed ?? c.is_human_needed,
-                    updated_time: info.updated_time || c.updated_time,
-                  } : {}),
-                  ...(lastMsg ? {
-                    last_message: lastMsg.message || lastMsg.text || '',
-                  } : {}),
+                  last_message: lastMsg.message || lastMsg.text || '',
                 };
-                setActiveContact(prevAc => prevAc && (prevAc.conversation_id || prevAc.id) === cId ? { ...prevAc, ...updatedObj } : prevAc);
-                return updatedObj;
               }
               return c;
             }));
-          });
+          }).catch(() => {});
         });
       })
       .catch(err => {
@@ -1782,7 +1788,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
   }, [namespaces, selectedNamespaceId]);
 
   useEffect(() => {
-    if (!selectedNamespaceId) return;
+    if (!selectedNamespaceId || activeKnowledgeTab !== 'documents') return;
     setLoading(true);
     apiService.getKnowledge(selectedNamespaceId)
       .then(data => {
@@ -1791,7 +1797,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
       })
       .catch(err => console.error("Failed to load knowledge", err))
       .finally(() => setLoading(false));
-  }, [selectedNamespaceId]);
+  }, [activeKnowledgeTab, selectedNamespaceId]);
 
   const handleAddKnowledge = async (e) => {
     e.preventDefault();
@@ -1854,8 +1860,8 @@ const Knowledge = ({ namespaces, onUpdate }) => {
       apiService.createKnowledge(selectedNamespaceId, payload)
         .then(async () => {
           addToast('Document added successfully!', 'success');
-          for (let i = 0; i < 5; i++) {
-            await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 2000));
+          for (let i = 0; i < KNOWLEDGE_POLL_DELAYS.length; i++) {
+            await new Promise(resolve => setTimeout(resolve, KNOWLEDGE_POLL_DELAYS[i]));
             const rawList = await apiService.getKnowledge(selectedNamespaceId);
             const arr = Array.isArray(rawList) ? rawList : (rawList.results || rawList.items || []);
 
@@ -1866,7 +1872,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
             });
 
             const found = arr.some(k => k.name === name.trim() && k.title === title.trim());
-            if (found || i === 4) break;
+            if (found || i === KNOWLEDGE_POLL_DELAYS.length - 1) break;
           }
         })
         .catch(error => {
@@ -1897,8 +1903,8 @@ const Knowledge = ({ namespaces, onUpdate }) => {
       apiService.uploadKnowledgeFiles(selectedNamespaceId, formData)
         .then(async () => {
           addToast('File(s) uploaded successfully!', 'success');
-          for (let i = 0; i < 5; i++) {
-            await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 2000));
+          for (let i = 0; i < KNOWLEDGE_POLL_DELAYS.length; i++) {
+            await new Promise(resolve => setTimeout(resolve, KNOWLEDGE_POLL_DELAYS[i]));
             const rawList = await apiService.getKnowledge(selectedNamespaceId);
             const arr = Array.isArray(rawList) ? rawList : (rawList.results || rawList.items || []);
 
@@ -1910,7 +1916,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
 
             // Check if the uploaded files are present in backend
             const found = tempItems.every(temp => arr.some(k => k.name === temp.name || k.file_name === temp.name || (k.title && k.title.includes(temp.name))));
-            if (found || i === 4) break;
+            if (found || i === KNOWLEDGE_POLL_DELAYS.length - 1) break;
           }
         })
         .catch(error => {
@@ -3060,8 +3066,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         target.avatar_config = updatedConfig;
       }
     }
-    if (onUpdate) onUpdate();
-
     try {
       const updatedAgent = await apiService.setAgentAvatar(agentId, updatedConfig);
       if (updatedAgent && updatedAgent.avatar_config && user && user.agents) {
@@ -4551,9 +4555,9 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
   );
 };
 
-const SubscriptionPanel = ({ isActive = false }) => {
-  const [subData, setSubData] = useState(null);
-  const [loading, setLoading] = useState(true);
+const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
+  const [subData, setSubData] = useState(initialData);
+  const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -4602,9 +4606,12 @@ const SubscriptionPanel = ({ isActive = false }) => {
   };
 
   useEffect(() => {
-    fetchSubscription();
-    fetchPlans();
-  }, []);
+    if (!isActive) return;
+    if (!subData) fetchSubscription();
+    if (plans.length === 0) fetchPlans();
+  // Data is intentionally retained after the first visit so switching tabs is instant.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
 
   const handleSubscribe = async (planName) => {
     // If it's a paid plan and we haven't shown the modal yet, show it
@@ -5161,6 +5168,8 @@ const TutorialPanel = () => {
 export default function Dashboard() {
   const { theme, isDark, toggleTheme } = useDashboardTheme();
   const [activeTab, setActiveTab] = useState('overview');
+  const visitedTabsRef = useRef(new Set(['overview']));
+  visitedTabsRef.current.add(activeTab);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -5188,31 +5197,27 @@ export default function Dashboard() {
 
     try {
       const userData = await apiService.getUserProfile();
-      const pagesData = await apiService.getPages();
-      let agentsData = { agents: [] };
-      try {
-        agentsData = await apiService.getAgents();
-      } catch (e) {
-        console.warn("Could not fetch agents", e);
-      }
-      
-      let namespacesData = { namespaces: [] };
-      try {
-        namespacesData = await apiService.getNamespaces();
-      } catch (e) {
-        console.warn("Could not fetch namespaces", e);
-      }
-      let subscriptionData = null;
-      try {
-        subscriptionData = await apiService.getSubscription();
-      } catch (e) {
-        console.warn("Could not fetch subscription", e);
-      }
+      const [pagesResult, agentsResult, namespacesResult, subscriptionResult] = await Promise.allSettled([
+        apiService.getPages(),
+        apiService.getAgents(),
+        apiService.getNamespaces(),
+        apiService.getSubscription(),
+      ]);
+
+      if (pagesResult.status === 'rejected') throw pagesResult.reason;
+      if (agentsResult.status === 'rejected') console.warn('Could not fetch agents', agentsResult.reason);
+      if (namespacesResult.status === 'rejected') console.warn('Could not fetch namespaces', namespacesResult.reason);
+      if (subscriptionResult.status === 'rejected') console.warn('Could not fetch subscription', subscriptionResult.reason);
+
+      const pagesData = pagesResult.value;
+      const agentsData = agentsResult.status === 'fulfilled' ? agentsResult.value : { agents: [] };
+      const namespacesData = namespacesResult.status === 'fulfilled' ? namespacesResult.value : { namespaces: [] };
+      const subscriptionData = subscriptionResult.status === 'fulfilled' ? subscriptionResult.value : null;
 
       const parsedUser = userData?.user ? { ...userData.user, ...userData } : (userData || null);
-      const parsedPages = Array.isArray(pagesData) ? pagesData : (pagesData?.pages || pagesData?.data || []);
-      const parsedAgents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || agentsData?.data || []);
-      const parsedNamespaces = Array.isArray(namespacesData) ? namespacesData : (namespacesData?.namespaces || namespacesData?.data || []);
+      const parsedPages = parseCollection(pagesData, 'pages');
+      const parsedAgents = parseCollection(agentsData, 'agents');
+      const parsedNamespaces = parseCollection(namespacesData, 'namespaces');
 
       if (parsedUser) {
         parsedUser.agents = parsedAgents;
@@ -5221,42 +5226,17 @@ export default function Dashboard() {
         if (parsedUser.profile_pic_url || parsedUser.picture || parsedUser.avatar || parsedUser.profile_pic || parsedUser.url) {
           parsedUser.profile_pic_url = parsedUser.profile_pic_url || parsedUser.picture || parsedUser.profile_pic || parsedUser.avatar || parsedUser.url;
         } else {
-          // Fallback to the dedicated endpoint
           const uid = parsedUser.id || parsedUser.user_id || parsedUser._id || parsedUser.uuid;
           if (uid) {
-            try {
-              const picResponse = await fetch(`${API_BASE}/v1/user/profile_pic/${uid}`, { credentials: 'include' });
-
-              if (picResponse.ok) {
-                const contentType = picResponse.headers.get('content-type') || '';
-
-                if (contentType.includes('application/json')) {
-                  const data = await picResponse.json();
-                  parsedUser.profile_pic_url = data.url || data.profile_pic || data.profile_pic_url || data.image_url || null;
-                } else if (contentType.includes('image/')) {
-                  const blob = await picResponse.blob();
-                  if (blob.size > 0) {
-                    parsedUser.profile_pic_url = URL.createObjectURL(blob);
-                  }
-                } else {
-                  const text = await picResponse.text();
-                  // If it's a raw string URL
-                  if (text.startsWith('http')) {
-                    parsedUser.profile_pic_url = text;
-                  } else {
-                    try {
-                      const parsed = JSON.parse(text);
-                      parsedUser.profile_pic_url = parsed.url || parsed.profile_pic || parsed.profile_pic_url || parsed.image_url || null;
-                    } catch (e) {
-                      // Just fallback to the URL directly and hope the browser can figure it out
-                      parsedUser.profile_pic_url = `${API_BASE}/v1/user/profile_pic/${uid}`;
-                    }
-                  }
-                }
-              }
-            } catch (e) {
-              console.warn("Failed to fetch profile pic via dedicated endpoint:", e);
-            }
+            fetchProfilePictureUrl(uid)
+              .then(profilePicUrl => {
+                if (!profilePicUrl) return;
+                setUser(current => {
+                  const currentId = current?.id || current?.user_id || current?._id || current?.uuid;
+                  return current && currentId === uid ? { ...current, profile_pic_url: profilePicUrl } : current;
+                });
+              })
+              .catch(error => console.warn('Failed to fetch profile pic via dedicated endpoint:', error));
           }
         }
       }
@@ -5287,6 +5267,32 @@ export default function Dashboard() {
     }
   }, [navigate]);
 
+  const refreshPages = useCallback(async () => {
+    const pagesData = await apiService.getPages();
+    setPages(parseCollection(pagesData, 'pages'));
+  }, []);
+
+  const refreshAgents = useCallback(async () => {
+    const agentsData = await apiService.getAgents();
+    const parsedAgents = parseCollection(agentsData, 'agents');
+    setUser(current => current ? { ...current, agents: parsedAgents } : current);
+  }, []);
+
+  const refreshNamespaces = useCallback(async () => {
+    const namespacesData = await apiService.getNamespaces();
+    setNamespaces(parseCollection(namespacesData, 'namespaces'));
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    const userData = await apiService.getUserProfile();
+    const parsedProfile = userData?.user ? { ...userData.user, ...userData } : userData;
+    setUser(current => current ? { ...current, ...parsedProfile, agents: current.agents, subscription: current.subscription } : parsedProfile);
+  }, []);
+
+  const refreshAgentWorkspace = useCallback(async () => {
+    await Promise.allSettled([refreshPages(), refreshAgents()]);
+  }, [refreshAgents, refreshPages]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -5316,32 +5322,32 @@ export default function Dashboard() {
     return (
       <>
         <div style={{ display: activeTab === 'overview' ? 'contents' : 'none' }}>
-          <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={fetchData} onAddPage={() => setPreReauthModal(true)} />
+          <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={() => setPreReauthModal(true)} />
         </div>
-        <div style={{ display: activeTab === 'records' ? 'contents' : 'none' }}>
+        {visitedTabsRef.current.has('records') && <div style={{ display: activeTab === 'records' ? 'contents' : 'none' }}>
           <CustomerRecords pages={pages} />
-        </div>
-        <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
+        </div>}
+        {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
           <ConversationList pages={pages} user={user} />
-        </div>
-        <div style={{ display: activeTab === 'knowledge' ? 'contents' : 'none' }}>
-          <Knowledge namespaces={namespaces} onUpdate={fetchData} />
-        </div>
-        <div style={{ display: activeTab === 'agent' ? 'contents' : 'none' }}>
-          <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={fetchData} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />
-        </div>
-        <div style={{ display: activeTab === 'feedback' ? 'contents' : 'none' }}>
+        </div>}
+        {visitedTabsRef.current.has('knowledge') && <div style={{ display: activeTab === 'knowledge' ? 'contents' : 'none' }}>
+          <Knowledge namespaces={namespaces} onUpdate={refreshNamespaces} />
+        </div>}
+        {visitedTabsRef.current.has('agent') && <div style={{ display: activeTab === 'agent' ? 'contents' : 'none' }}>
+          <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={refreshAgentWorkspace} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />
+        </div>}
+        {visitedTabsRef.current.has('feedback') && <div style={{ display: activeTab === 'feedback' ? 'contents' : 'none' }}>
           <FeedbackPanel />
-        </div>
-        <div style={{ display: activeTab === 'settings' ? 'contents' : 'none' }}>
-          <SettingsPanel user={user} onUpdate={fetchData} />
-        </div>
-        <div style={{ display: activeTab === 'subscription' ? 'contents' : 'none' }}>
-          <SubscriptionPanel isActive={activeTab === 'subscription'} />
-        </div>
-        <div style={{ display: activeTab === 'tutorial' ? 'contents' : 'none' }}>
+        </div>}
+        {visitedTabsRef.current.has('settings') && <div style={{ display: activeTab === 'settings' ? 'contents' : 'none' }}>
+          <SettingsPanel user={user} onUpdate={refreshProfile} />
+        </div>}
+        {visitedTabsRef.current.has('subscription') && <div style={{ display: activeTab === 'subscription' ? 'contents' : 'none' }}>
+          <SubscriptionPanel isActive={activeTab === 'subscription'} initialData={user?.subscription || null} />
+        </div>}
+        {visitedTabsRef.current.has('tutorial') && <div style={{ display: activeTab === 'tutorial' ? 'contents' : 'none' }}>
           <TutorialPanel />
-        </div>
+        </div>}
       </>
     );
   };
