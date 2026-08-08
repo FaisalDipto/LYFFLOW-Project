@@ -1542,10 +1542,19 @@ const FeedbackPanel = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  const feedbackOptions = [
+    { value: 'Suggest Improvement', label: 'Improvement', icon: 'auto_awesome', description: 'Refine an existing workflow' },
+    { value: 'Feature Request', label: 'New feature', icon: 'add_circle', description: 'Propose a new capability' },
+    { value: 'Report A Bug', label: 'Report a bug', icon: 'bug_report', description: 'Tell us what went wrong' },
+    { value: 'General', label: 'General', icon: 'chat_bubble', description: 'Share any other feedback' }
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (title.trim() || description.trim()) {
+      setSubmittingFeedback(true);
       try {
         await apiService.submitFeedback({
           type: feedbackType,
@@ -1561,99 +1570,92 @@ const FeedbackPanel = () => {
       } catch (err) {
         console.error('Feedback submit error:', err);
         alert('Failed to submit feedback. Please try again later.');
+      } finally {
+        setSubmittingFeedback(false);
       }
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-start pt-6 pb-20 md:pt-12 relative animate-fade-in-up w-full">
-      {/* Subtle Floating Orbs (Background Texture) */}
-      <div className="fixed top-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full bg-emerald-200 blur-[80px] opacity-40 pointer-events-none -z-10"></div>
-      <div className="fixed bottom-[10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-violet-200 blur-[80px] opacity-40 pointer-events-none -z-10"></div>
-      <div className="fixed top-[40%] left-[60%] w-[300px] h-[300px] rounded-full bg-blue-100 blur-[80px] opacity-40 pointer-events-none -z-10"></div>
+    <div className="min-w-0 flex-1 w-full bg-[#f7f9fb] p-4 md:p-6 xl:p-8 animate-fade-in-up">
+      <div className="mx-auto max-w-[1200px]">
+        <header className="mb-6 rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.05)] md:p-7">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Product feedback</p>
+          <h1 className="font-['Epilogue'] text-3xl font-extrabold tracking-tight text-slate-950">Help shape LYFFLOW</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Share what would make your workspace faster, clearer, or more reliable. Every submission is reviewed by the team.</p>
+        </header>
 
-      {/* Feedback Form Container */}
-      <div className="w-full max-w-2xl bg-white/80 backdrop-blur-2xl rounded-xl p-8 md:p-16 shadow-[0_40px_80px_-15px_rgba(0,0,0,0.05)] border border-white/40">
-        <div className="mb-12 text-center md:text-left">
-          <span className="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-[#57657a] font-bold mb-4 block">Continuous Improvement</span>
-          <h1 className="font-['Epilogue'] text-5xl font-black tracking-tight text-[#000000] mb-4">Share Feedback</h1>
-          <p className="font-['Inter'] text-[#45464d] text-lg leading-relaxed max-w-md">Your insights shape the future of our autonomous agents. Tell us what's working and what's not.</p>
+        <div className="grid overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_14px_44px_rgba(15,23,42,0.06)] lg:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="relative overflow-hidden bg-slate-950 p-6 text-white md:p-8">
+            <div className="relative z-10">
+              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-400/15"><span className="material-symbols-outlined text-[24px]">forum</span></div>
+              <h2 className="text-xl font-extrabold">Useful feedback is specific.</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">A little context helps us understand the impact and respond with the right solution.</p>
+
+              <div className="mt-8 space-y-5">
+                {[
+                  ['ads_click', 'What you were trying to do'],
+                  ['difference', 'What you expected to happen'],
+                  ['error', 'What happened instead']
+                ].map(([icon, text]) => (
+                  <div key={text} className="flex items-start gap-3">
+                    <span className="material-symbols-outlined mt-0.5 text-[18px] text-emerald-400">{icon}</span>
+                    <p className="text-sm font-semibold leading-5 text-slate-200">{text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative z-10 mt-10 border-t border-white/10 pt-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Need account help?</p>
+              <a href="mailto:support@lyfflow.com" className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-white transition hover:text-emerald-300"><Mail size={16} />Contact support</a>
+            </div>
+            <div className="pointer-events-none absolute -bottom-20 -right-20 h-52 w-52 rounded-full border-[38px] border-emerald-400/[0.06]" />
+          </aside>
+
+          <form onSubmit={handleSubmit} className="min-w-0 p-5 md:p-8 lg:p-10">
+            {submitted && (
+              <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
+                <CheckCircle2 size={20} className="mt-0.5 shrink-0" />
+                <div><p className="text-sm font-extrabold">Feedback submitted</p><p className="mt-0.5 text-xs font-medium text-emerald-700">Thank you—your feedback is now with our team.</p></div>
+              </div>
+            )}
+
+            <fieldset>
+              <legend className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">What is this about?</legend>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {feedbackOptions.map(option => {
+                  const isSelected = feedbackType === option.value;
+                  return (
+                    <button key={option.value} type="button" onClick={() => setFeedbackType(option.value)} className={`flex min-w-0 items-center gap-3 rounded-xl border p-3 text-left transition ${isSelected ? 'border-slate-950 bg-slate-950 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`} aria-pressed={isSelected}>
+                      <span className={`material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[18px] ${isSelected ? 'bg-emerald-400 text-slate-950' : 'bg-slate-100 text-slate-500'}`}>{option.icon}</span>
+                      <span className="min-w-0"><span className="block truncate text-xs font-extrabold">{option.label}</span><span className={`mt-0.5 block truncate text-[10px] font-medium ${isSelected ? 'text-slate-400' : 'text-slate-500'}`}>{option.description}</span></span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <div className="mt-7">
+              <div className="mb-2 flex items-center justify-between gap-3"><label className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500" htmlFor="title">Short summary</label><span className={`text-[10px] font-bold ${title.length >= 90 ? 'text-amber-600' : 'text-slate-400'}`}>{title.length}/100</span></div>
+              <input id="title" name="title" type="text" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} placeholder="Summarize your feedback in one sentence" className="box-border h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100/70" required />
+            </div>
+
+            <div className="mt-6">
+              <div className="mb-2 flex items-center justify-between gap-3"><label className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500" htmlFor="details">Details</label><span className={`text-[10px] font-bold ${description.length >= 900 ? 'text-amber-600' : 'text-slate-400'}`}>{description.length}/1000</span></div>
+              <textarea id="details" name="details" value={description} maxLength={1000} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the workflow, expected result, and what happened instead..." rows="7" className="box-border w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100/70" required />
+            </div>
+
+            <div className="mt-7 flex flex-col gap-4 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+              <p className="flex items-center gap-2 text-[11px] font-medium text-slate-400"><ShieldCheck size={15} />Do not include passwords or payment details.</p>
+              <button type="submit" disabled={submitted || submittingFeedback} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
+                <span>{submittingFeedback ? 'Sending...' : submitted ? 'Submitted' : 'Send feedback'}</span>
+                <span className={`material-symbols-outlined text-[18px] ${submittingFeedback ? 'animate-spin' : ''}`}>{submittingFeedback ? 'progress_activity' : submitted ? 'check_circle' : 'arrow_forward'}</span>
+              </button>
+            </div>
+          </form>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-10">
-          {/* Category Dropdown */}
-          <div className="space-y-3">
-            <label className="font-['Epilogue'] text-xs font-extrabold uppercase tracking-widest text-[#000000]" htmlFor="category">Category</label>
-            <div className="relative group">
-              <select
-                className="w-full bg-[#f2f4f6] border-none border-b-2 border-slate-300/40 focus:border-[#000000] focus:ring-0 font-['Inter'] text-base py-4 px-4 transition-all cursor-pointer"
-                id="category"
-                name="category"
-                value={feedbackType}
-                onChange={(e) => setFeedbackType(e.target.value)}
-              >
-                <option disabled value="">Select feedback type</option>
-                <option value="Report A Bug">Report A Bug</option>
-                <option value="Feature Request">Feature Request</option>
-                <option value="General">General</option>
-                <option value="Suggest Improvement">Suggest Improvement</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Title Field */}
-          <div className="space-y-3 relative">
-            <div className="flex justify-between items-center">
-              <label className="font-['Epilogue'] text-xs font-extrabold uppercase tracking-widest text-[#000000]" htmlFor="title">Title</label>
-              <span className={`text-xs ${title.length >= 100 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>{title.length}/100</span>
-            </div>
-            <input
-              className="w-full bg-[#f2f4f6] border-none border-b-2 border-slate-300/40 focus:border-[#000000] focus:ring-0 font-['Inter'] text-base py-4 px-4 transition-all placeholder:text-slate-400"
-              id="title"
-              name="title"
-              placeholder="A brief summary of your feedback"
-              type="text"
-              value={title}
-              maxLength={100}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </div>
-
-          {/* Details Textarea */}
-          <div className="space-y-3 relative">
-            <div className="flex justify-between items-center">
-              <label className="font-['Epilogue'] text-xs font-extrabold uppercase tracking-widest text-[#000000]" htmlFor="details">Details</label>
-              <span className={`text-xs ${description.length >= 1000 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>{description.length}/1000</span>
-            </div>
-            <textarea
-              className="w-full bg-[#f2f4f6] border-none border-b-2 border-slate-300/40 focus:border-[#000000] focus:ring-0 font-['Inter'] text-base py-4 px-4 transition-all resize-none placeholder:text-slate-400"
-              id="details"
-              name="details"
-              placeholder="Tell us more about your experience..."
-              rows="5"
-              value={description}
-              maxLength={1000}
-              onChange={(e) => setDescription(e.target.value)}
-              required
-            ></textarea>
-          </div>
-
-          {/* Submit Button */}
-          <div className="pt-6">
-            <button
-              className="w-full md:w-auto bg-gradient-to-br from-violet-500 to-emerald-500 text-white font-['Epilogue'] font-bold text-lg px-12 py-5 rounded-lg shadow-xl shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
-              type="submit"
-              disabled={submitted}
-            >
-              <span>{submitted ? 'Feedback Submitted' : 'Submit Feedback'}</span>
-              {!submitted && <span className="material-symbols-outlined">send</span>}
-              {submitted && <span className="material-symbols-outlined">check_circle</span>}
-            </button>
-          </div>
-        </form>
       </div>
-
     </div>
   );
 };
