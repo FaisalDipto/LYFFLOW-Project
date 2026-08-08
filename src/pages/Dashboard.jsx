@@ -554,6 +554,7 @@ const ConversationList = ({ pages, user }) => {
   const [activeContact, setActiveContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(false);
@@ -995,9 +996,9 @@ const ConversationList = ({ pages, user }) => {
     if (isMe) {
       // Sent message (AI or agent)
       return (
-        <div key={msgId || Math.random()} className="flex gap-4 max-w-2xl ml-auto flex-row-reverse group">
-          <div className="space-y-2 flex flex-col items-end">
-            <div className="bg-slate-900 text-white p-5 rounded-t-3xl rounded-bl-3xl text-[15px] leading-relaxed shadow-xl">
+        <div key={msgId || Math.random()} className="group ml-auto flex max-w-[min(78%,42rem)] flex-row-reverse gap-3">
+          <div className="flex min-w-0 flex-col items-end gap-1.5">
+            <div className="rounded-2xl rounded-br-md bg-slate-900 px-4 py-3 text-[14px] leading-relaxed text-white shadow-sm">
               {typeof (msg.message || msg.text) === 'object' && (msg.message || msg.text) !== null ? (
                 <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
                   {JSON.stringify(msg.message || msg.text, null, 2)}
@@ -1028,7 +1029,7 @@ const ConversationList = ({ pages, user }) => {
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-slate-400 font-medium px-2 flex items-center gap-1 transition-opacity">
+            <p className="flex items-center gap-1 px-1 text-[10px] font-medium text-slate-400 transition-opacity">
               {isAiSource && (
                 <span className="inline-flex items-center gap-0.5 bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 font-bold" style={{ fontSize: '9px' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '9px' }}>smart_toy</span>AI
@@ -1042,10 +1043,10 @@ const ConversationList = ({ pages, user }) => {
     } else {
       // Received message (customer)
       return (
-        <div key={msgId || Math.random()} className="flex gap-4 max-w-2xl group">
-          {renderAvatar(activeContact, "w-8 h-8 rounded-full self-end")}
-          <div className="space-y-2">
-            <div className="bg-slate-50 text-slate-900 p-5 rounded-t-3xl rounded-br-3xl text-[15px] leading-relaxed shadow-sm border border-slate-200">
+        <div key={msgId || Math.random()} className="group flex max-w-[min(78%,42rem)] gap-2.5">
+          {renderAvatar(activeContact, "w-7 h-7 rounded-full self-end ring-2 ring-white")}
+          <div className="min-w-0 space-y-1.5">
+            <div className="rounded-2xl rounded-bl-md border border-slate-200 bg-white px-4 py-3 text-[14px] leading-relaxed text-slate-900 shadow-sm">
               {typeof (msg.message || msg.text) === 'object' && (msg.message || msg.text) !== null ? (
                 <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
                   {JSON.stringify(msg.message || msg.text, null, 2)}
@@ -1076,7 +1077,7 @@ const ConversationList = ({ pages, user }) => {
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-slate-400 font-medium px-2 transition-opacity flex items-center gap-1">
+            <p className="flex items-center gap-1 px-1 text-[10px] font-medium text-slate-400 transition-opacity">
               {timeStr}
             </p>
           </div>
@@ -1084,6 +1085,15 @@ const ConversationList = ({ pages, user }) => {
       );
     }
   };
+
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const visibleContacts = normalizedSearchQuery
+    ? contacts.filter((contact, index) => {
+        const contactName = contact._info_name || resolveContactName(contact, `User ${index}`);
+        const snippet = contact.snippet || contact.last_message || contact.messages?.data?.[0]?.message || contact.messages?.[0]?.message || '';
+        return `${contactName} ${snippet}`.toLowerCase().includes(normalizedSearchQuery);
+      })
+    : contacts;
 
   if (!pages || pages.length === 0) {
     return (
@@ -1097,19 +1107,24 @@ const ConversationList = ({ pages, user }) => {
   }
 
   return (
-    <div className="flex h-full w-full bg-slate-50 animate-fade-in-up flex-1 overflow-hidden">
+    <div className="flex h-full w-full flex-1 animate-fade-in-up overflow-hidden bg-[#eef2f5]">
       {/* Conversation List Column */}
-      <main className={`flex flex-col bg-slate-50 border-r border-slate-200 shrink-0 ${mobileShowChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 overflow-hidden`}>
-        <div className="p-4 md:p-6 lg:p-8">
-          <header className="mb-8 flex justify-between items-start">
-            <div>
-              <p className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase mb-2">Inbox</p>
-              <h1 className="text-3xl font-black font-['Epilogue'] tracking-tighter text-slate-900">Messages</h1>
+      <main className={`shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white ${mobileShowChat ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] xl:w-[380px]`}>
+        <div className="border-b border-slate-200 p-4 md:p-5">
+          <header className="mb-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="mb-1 flex items-center gap-2">
+                <p className="m-0 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Inbox</p>
+                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-black text-slate-500">{contacts.length}</span>
+              </div>
+              <h1 className="m-0 font-['Epilogue'] text-2xl font-black tracking-tight text-slate-950">Conversations</h1>
             </div>
             <div className="relative page-dropdown-container">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center gap-2 p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors bg-white relative z-0 cursor-pointer"
+                className="relative z-0 flex h-9 max-w-[150px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
+                aria-expanded={isDropdownOpen}
+                aria-haspopup="menu"
               >
                 {(() => {
                   const selP = pages.find(p => p.page_id === selectedPageId);
@@ -1119,16 +1134,16 @@ const ConversationList = ({ pages, user }) => {
                     <span className="material-symbols-outlined text-lg">page_info</span>
                   );
                 })()}
-                <span className="text-xs font-bold truncate max-w-[80px]">
+                 <span className="max-w-[82px] truncate text-xs font-bold">
                   {pages.find(p => p.page_id === selectedPageId)?.name || 'Select Page'}
                 </span>
                 <span className="material-symbols-outlined text-[16px]">expand_more</span>
               </button>
 
               {isDropdownOpen && (
-                <div className="absolute top-[110%] right-0 w-[220px] bg-white rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-100 z-[999] overflow-hidden py-1 animate-fade-in-up">
-                  <div className="px-4 py-2 border-b border-slate-50 mb-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select Page</p>
+                <div className="absolute right-0 top-[calc(100%+6px)] z-[999] w-[220px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl animate-fade-in-up" role="menu">
+                  <div className="mb-1 border-b border-slate-100 px-3 py-2">
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Switch page</p>
                   </div>
                   {pages.map(p => (
                     <button
@@ -1137,7 +1152,7 @@ const ConversationList = ({ pages, user }) => {
                         setSelectedPageId(p.page_id);
                         setIsDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-2.5 text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center justify-between border-none cursor-pointer ${selectedPageId === p.page_id ? 'text-emerald-600 bg-emerald-50/50' : 'text-slate-700 bg-white'}`}
+                      className={`flex w-full items-center justify-between border-0 px-3 py-2.5 text-left text-[13px] font-semibold transition-colors hover:bg-slate-50 ${selectedPageId === p.page_id ? 'bg-emerald-50 text-emerald-700' : 'bg-white text-slate-700'}`}
                     >
                       <div className="flex items-center gap-2.5 truncate pr-2">
                         {p.profile_pic_url ? (
@@ -1156,37 +1171,65 @@ const ConversationList = ({ pages, user }) => {
               )}
             </div>
           </header>
-          <div className="relative group w-full">
-            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-900 transition-colors">search</span>
-            <input className="w-full max-w-full bg-white border border-slate-200 shadow-sm rounded-xl py-4 pl-12 pr-4 text-sm focus:ring-2 focus:ring-slate-900 outline-none text-slate-900 placeholder:text-slate-400 box-border" placeholder="Search conversations..." type="text" />
+
+          <div className="group relative w-full">
+            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[19px] text-slate-400 transition-colors group-focus-within:text-emerald-600">search</span>
+            <input
+              className="box-border h-11 w-full max-w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-9 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              placeholder="Search people or messages"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                aria-label="Clear conversation search"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
-          <div className="mt-3">
-            <label htmlFor="human-needed-filter" className="sr-only">Filter conversations by human support status</label>
-            <select
-              id="human-needed-filter"
-              value={humanNeededFilter}
-              onChange={(e) => setHumanNeededFilter(e.target.value)}
-              className="w-full max-w-full box-border bg-white border border-slate-200 shadow-sm rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-slate-900 outline-none cursor-pointer"
-            >
-              <option value="all">All conversations</option>
-              <option value="human">Needs human support</option>
-              <option value="ai">Managed by AI</option>
-            </select>
+
+          <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" role="group" aria-label="Filter conversations">
+            {[
+              { value: 'all', label: 'All' },
+              { value: 'human', label: 'Human' },
+              { value: 'ai', label: 'AI managed' },
+            ].map(option => (
+              <button
+                type="button"
+                key={option.value}
+                onClick={() => setHumanNeededFilter(option.value)}
+                className={`h-8 rounded-lg px-2 text-[11px] font-bold transition-all ${humanNeededFilter === option.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                aria-pressed={humanNeededFilter === option.value}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-8 space-y-2">
+        <div className="flex-1 space-y-1 overflow-y-auto p-3">
           {loading ? (
-            <div className="p-8 text-center text-slate-400 font-medium text-sm">Loading conversations...</div>
-          ) : contacts.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 font-medium text-sm">
+            <div className="flex flex-col items-center gap-3 p-10 text-center text-sm font-medium text-slate-400">
+              <span className="material-symbols-outlined animate-spin text-2xl text-emerald-500">progress_activity</span>
+              Loading conversations
+            </div>
+          ) : visibleContacts.length === 0 ? (
+            <div className="flex flex-col items-center p-10 text-center text-sm font-medium text-slate-400">
+              <span className="material-symbols-outlined mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-xl">forum</span>
               {humanNeededFilter === 'human'
                 ? 'No conversations need human support.'
                 : humanNeededFilter === 'ai'
                   ? 'No AI-managed conversations.'
-                  : 'No ongoing conversations.'}
+                  : normalizedSearchQuery
+                    ? 'No conversations match your search.'
+                    : 'No ongoing conversations.'}
             </div>
-          ) : contacts.map((contact, i) => {
+          ) : visibleContacts.map((contact, i) => {
             // Prefer the name from /info endpoint, fall back to FB graph resolution
             const contactName = contact._info_name || resolveContactName(contact, `User ${i}`);
             const snippet = contact.snippet || contact.last_message || contact.messages?.data?.[0]?.message || contact.messages?.[0]?.message || 'No messages';
@@ -1196,27 +1239,29 @@ const ConversationList = ({ pages, user }) => {
             const isActive = (activeContact?.id || activeContact?.conversation_id) === id;
 
             return (
-              <div
+              <button
+                type="button"
                 key={id}
                 onClick={() => { setActiveContact(contact); setMobileShowChat(true); }}
-                className={`p-4 rounded-2xl transition-colors cursor-pointer group ${isActive ? 'bg-white shadow-sm border-l-4 border-emerald-500' : 'hover:bg-slate-200/50'}`}
+                className={`group w-full rounded-xl border p-3 text-left transition-all ${isActive ? 'border-emerald-200 bg-emerald-50 shadow-sm' : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'}`}
               >
-                <div className="flex gap-4 items-center">
-                  {renderAvatar(contact, `w-12 h-12 rounded-full ${isActive ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'}`)}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center mb-1 gap-2">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <h3 className="font-bold text-slate-900 truncate">{contactName}</h3>
-                        {contact.is_human_needed && (
-                          <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse" title="Needs Human Support"></span>
-                        )}
+                <div className="flex items-center gap-3">
+                  <div className="relative shrink-0">
+                    {renderAvatar(contact, `h-11 w-11 rounded-xl ${isActive ? 'ring-2 ring-emerald-200' : 'opacity-90 group-hover:opacity-100'}`)}
+                    <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${contact.is_human_needed ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <h3 className="truncate text-sm font-black text-slate-900">{contactName}</h3>
+                        {contact.is_human_needed && <span className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-rose-600">Human</span>}
                       </div>
-                      <span className="text-[10px] text-slate-400 font-medium shrink-0">{updated}</span>
+                      <span className="mr-3 shrink-0 text-[10px] font-semibold text-slate-400">{updated}</span>
                     </div>
-                    <p className={`text-sm truncate font-semibold ${isActive ? 'text-emerald-600' : contact.is_human_needed ? 'text-red-500' : 'text-slate-500 font-medium'}`}>{snippet}</p>
+                    <p className={`truncate text-xs ${isActive ? 'font-semibold text-emerald-700' : 'font-medium text-slate-500'}`}>{snippet}</p>
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
           {conversationsPagination?.has_more && (
@@ -1234,86 +1279,98 @@ const ConversationList = ({ pages, user }) => {
       </main>
 
       {/* Active Chat Window */}
-      <section className={`flex-col bg-white border-r border-slate-100 ${mobileShowChat ? 'flex' : 'hidden md:flex'} flex-1`}>
+      <section className={`min-w-0 flex-1 flex-col overflow-hidden bg-white ${mobileShowChat ? 'flex' : 'hidden md:flex'}`}>
         {activeContact ? (
           <>
-            <header className="h-20 px-4 md:px-8 flex items-center justify-between bg-white/80 backdrop-blur-md z-10 border-b border-slate-50">
-              <div className="flex items-center gap-3">
+            <header className="z-10 flex min-h-[72px] items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-3 md:px-5 lg:px-6">
+              <div className="flex min-w-0 items-center gap-3">
                 {/* Mobile back button */}
                 <button
                   onClick={() => setMobileShowChat(false)}
-                  className="md:hidden p-2 -ml-1 text-slate-500 hover:text-slate-900 transition-colors"
+                  className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 md:hidden"
+                  aria-label="Back to conversations"
                 >
-                  <span className="material-symbols-outlined">arrow_back</span>
+                  <span className="material-symbols-outlined text-xl">arrow_back</span>
                 </button>
-                <div className="relative">
-                  {renderAvatar(activeContact, "w-10 h-10 rounded-full")}
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></div>
+                <div className="relative shrink-0">
+                  {renderAvatar(activeContact, "h-10 w-10 rounded-xl")}
+                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h2 className="font-['Epilogue'] font-bold text-lg text-slate-900 tracking-tight">
-                      {resolveContactName(activeContact, 'User')}
-                    </h2>
-                    <button
-                      onClick={handleToggleAIPause}
-                      className={`px-2.5 py-1 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shrink-0 ${
-                        (activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed)
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600'
-                          : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-500 hover:text-white hover:border-rose-500'
-                      }`}
-                      title={(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? "Resume AI Agent replies" : "Pause AI Agent replies"}
-                    >
-                      <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'play_circle' : 'pause_circle'}
-                      </span>
-                      <span>{(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'Resume AI Agent' : 'Pause AI Agent'}</span>
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
+                <div className="min-w-0">
+                  <h2 className="m-0 truncate font-['Epilogue'] text-[15px] font-black tracking-tight text-slate-900 md:text-base">
+                    {resolveContactName(activeContact, 'User')}
+                  </h2>
+                  <div className="mt-0.5 flex items-center gap-2">
                     {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? (
-                      <p className="text-[10px] text-red-500 font-black tracking-widest uppercase flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[10px] animate-pulse">warning</span>
-                        Manual Support Needed (AI Paused)
+                      <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.12em] text-rose-600 md:text-[10px]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                        Human handling
                       </p>
                     ) : (
-                      <p className="text-[10px] text-emerald-600 font-bold tracking-widest uppercase">Autonomous Mode (AI Active)</p>
+                      <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-600 md:text-[10px]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        AI responding
+                      </p>
                     )}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-4 md:gap-6 text-slate-400">
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleToggleAIPause}
+                  className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black transition-colors md:px-3 ${
+                    (activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed)
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600'
+                  }`}
+                  title={(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'Resume AI replies' : 'Pause AI replies'}
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'smart_toy' : 'front_hand'}
+                  </span>
+                  <span className="hidden lg:inline">
+                    {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'Resume AI' : 'Take over'}
+                  </span>
+                </button>
                 <button
                   onClick={() => setIsProfileVisible(!isProfileVisible)}
-                  className={`hover:text-slate-900 transition-colors ${!isProfileVisible ? 'text-emerald-600' : ''}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${isProfileVisible ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
                   title={isProfileVisible ? "Hide Profile" : "Show Profile"}
                 >
-                  <span className="material-symbols-outlined">{isProfileVisible ? 'side_navigation' : 'person_search'}</span>
+                  <span className="material-symbols-outlined text-[19px]">person</span>
                 </button>
               </div>
             </header>
 
             <div 
               ref={messagesContainerRef} 
-              className="flex-1 overflow-y-auto p-8 space-y-8 bg-slate-50/20"
+              className="flex-1 space-y-4 overflow-y-auto bg-[#f6f8fa] px-4 py-6 md:px-8 lg:px-12"
               onScroll={handleScrollMessages}
             >
               {loadingMsgs ? (
-                <div className="text-center text-slate-400 mt-10">Loading messages...</div>
+                <div className="mt-10 flex items-center justify-center gap-2 text-sm font-medium text-slate-400">
+                  <span className="material-symbols-outlined animate-spin text-lg text-emerald-500">progress_activity</span>
+                  Loading messages
+                </div>
               ) : messages.length === 0 ? (
-                <div className="text-center text-slate-400 mt-10">No messages available.</div>
+                <div className="mx-auto mt-16 flex max-w-xs flex-col items-center text-center text-slate-400">
+                  <span className="material-symbols-outlined mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-2xl">chat_bubble</span>
+                  <p className="text-sm font-bold text-slate-600">No messages yet</p>
+                  <p className="mt-1 text-xs">New messages in this conversation will appear here.</p>
+                </div>
               ) : (
                 <>
                   {loadingMoreMessages && (
-                    <div className="flex justify-center mb-6">
-                      <div className="px-4 py-2 text-[10px] font-bold text-slate-400 bg-slate-100 rounded-full flex items-center gap-2 shadow-sm">
+                    <div className="mb-5 flex justify-center">
+                      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-400 shadow-sm">
                         <span className="material-symbols-outlined text-[14px] animate-spin">sync</span>
                         Loading older messages...
                       </div>
                     </div>
                   )}
                   <div className="flex flex-col items-center">
-                    <span className="text-[10px] font-bold tracking-[0.3em] text-slate-400 uppercase py-2 px-4 rounded-full bg-slate-100 mb-6">Chat History</span>
+                    <span className="mb-5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">Conversation history</span>
                   </div>
                   {messages.map(msg => renderChatMessage(msg))}
 
@@ -1321,80 +1378,84 @@ const ConversationList = ({ pages, user }) => {
               )}
             </div>
 
-            <footer className="p-8 bg-white border-t border-slate-50">
-              <div className="max-w-4xl mx-auto flex items-center gap-4 bg-slate-50 rounded-2xl p-2 pr-4 shadow-sm border border-slate-200 focus-within:border-slate-900 transition-colors">
+            <footer className="border-t border-slate-200 bg-white p-3 md:p-4 lg:px-6">
+              <div className="mx-auto flex max-w-4xl items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5 pl-4 transition-all focus-within:border-emerald-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
                 {/* Attach file button — no functionality yet
                 <button className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors">
                   <span className="material-symbols-outlined">attach_file</span>
                 </button>
                 */}
                 <input
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-medium py-3 text-slate-900 placeholder:text-slate-400 outline-none"
-                  placeholder="Type your message..."
+                  className="min-w-0 flex-1 border-none bg-transparent py-2.5 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
+                  placeholder="Write a reply"
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 />
-                <div className="flex items-center gap-2">
+                <div className="flex items-center">
                   {/* Emoji button — no functionality yet
                   <button className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors">
                     <span className="material-symbols-outlined">mood</span>
                   </button>
                   */}
                   <button
-                    className="bg-slate-900 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-md hover:scale-105 transition-transform"
+                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                     onClick={handleSend}
+                    disabled={!inputText.trim()}
+                    aria-label="Send message"
                   >
-                    <span className="material-symbols-outlined text-xl">send</span>
+                    <span className="material-symbols-outlined text-[19px]">send</span>
                   </button>
                 </div>
               </div>
             </footer>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-slate-400 font-medium">
-            Select a conversation to view chat history
+          <div className="flex flex-1 items-center justify-center bg-[#f6f8fa] p-8 text-center">
+            <div className="max-w-xs">
+              <span className="material-symbols-outlined mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-white text-2xl text-slate-400 shadow-sm">forum</span>
+              <h2 className="text-base font-black text-slate-700">Choose a conversation</h2>
+              <p className="mt-1 text-sm font-medium text-slate-400">Select someone from the inbox to view their messages.</p>
+            </div>
           </div>
         )}
       </section>
 
       {/* Profile Right Sidebar - hidden on mobile */}
       {isProfileVisible && (
-        <aside className="w-80 bg-slate-50 hidden xl:flex flex-col overflow-y-auto shrink-0 border-l border-slate-200 animate-fade-in-right">
+        <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white animate-fade-in-right xl:flex">
           {activeContact ? (
-            <div className="p-8">
-              <div className="flex justify-center mb-8">
+            <div className="p-5">
+              <div className="mb-4 flex justify-center">
                 <div className="relative">
-                  {renderAvatar(activeContact, "w-32 h-32 rounded-3xl shadow-xl")}
-                  <div className="absolute -bottom-2 -right-2 bg-slate-50 p-2 rounded-xl shadow-lg border border-white">
-                    <div className="w-4 h-4 bg-emerald-500 rounded-full"></div>
-                  </div>
+                  {renderAvatar(activeContact, "h-20 w-20 rounded-2xl ring-1 ring-slate-200")}
+                  <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-[3px] border-white bg-emerald-500" />
                 </div>
               </div>
 
-              <div className="text-center mb-10">
-                <h2 className="text-2xl font-black font-['Epilogue'] tracking-tighter text-slate-900">
+              <div className="mb-6 text-center">
+                <h2 className="font-['Epilogue'] text-lg font-black tracking-tight text-slate-900">
                   {resolveContactName(activeContact, 'Chat Participant')}
                 </h2>
-                <p className="text-sm text-slate-500 font-medium mt-1">Chat Participant</p>
-                <div className="flex justify-center flex-wrap gap-2 mt-4">
-                  <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">{user?.subscription?.plan?.plan_name || 'FREE Plan'}</span>
+                <p className="mt-1 text-xs font-medium text-slate-400">Facebook Messenger</p>
+                <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                  <span className="rounded-md bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-blue-700">{user?.subscription?.plan?.plan_name || 'FREE Plan'}</span>
                   {activeContact?.is_human_needed ? (
-                    <span className="bg-red-100 text-red-700 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider animate-bounce-subtle">Needs Human</span>
+                    <span className="rounded-md bg-rose-50 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-rose-700">Human handling</span>
                   ) : (
-                    <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">Managed by AI</span>
+                    <span className="rounded-md bg-emerald-50 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-700">AI managed</span>
                   )}
                 </div>
               </div>
 
-              <div className="flex justify-center w-full mb-8">
+              <div className="mb-6 flex w-full justify-center">
                 <button 
                   onClick={handleToggleAIPause}
-                  className={`flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 ${
+                  className={`flex h-10 w-full items-center justify-center gap-2 rounded-lg border text-xs font-black transition-colors ${
                     (activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) 
-                      ? 'bg-gradient-to-r from-emerald-400 to-emerald-600 text-white shadow-emerald-500/30' 
-                      : 'bg-gradient-to-r from-rose-500 to-red-500 text-white shadow-red-500/30'
+                      ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -1443,38 +1504,6 @@ const ConversationList = ({ pages, user }) => {
                       </div>
                     </li>
                   </ul>
-                </div>
-
-                <div>
-                  <h4 className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-4 border-b border-slate-100 pb-2">Shared Files</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="aspect-square bg-white rounded-xl flex flex-col items-center justify-center gap-1 group hover:bg-slate-900 transition-all cursor-pointer shadow-sm">
-                      <span className="material-symbols-outlined text-slate-400 group-hover:text-white">description</span>
-                      <span className="text-[9px] font-bold text-slate-400 group-hover:text-white uppercase">Report.pdf</span>
-                    </div>
-                    <div className="aspect-square bg-white rounded-xl flex flex-col items-center justify-center gap-1 group hover:bg-slate-900 transition-all cursor-pointer shadow-sm">
-                      <span className="material-symbols-outlined text-slate-400 group-hover:text-white">table_chart</span>
-                      <span className="text-[9px] font-bold text-slate-400 group-hover:text-white uppercase">Metrics.csv</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-4 border-b border-slate-200 pb-2">Shortcuts</h4>
-                  <div className="space-y-2">
-                  {/* Block User — no functionality yet
-                  <button className="w-full text-left p-3 text-xs font-bold text-slate-600 hover:bg-white rounded-xl flex items-center justify-between group shadow-sm bg-transparent border-none cursor-pointer">
-                    Block User
-                    <span className="material-symbols-outlined text-sm text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">block</span>
-                  </button>
-                  */}
-                  {/* Clear Conversation — no functionality yet
-                  <button className="w-full text-left p-3 text-xs font-bold text-slate-600 hover:bg-white rounded-xl flex items-center justify-between group shadow-sm bg-transparent border-none cursor-pointer">
-                    Clear Conversation
-                    <span className="material-symbols-outlined text-sm text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">delete_sweep</span>
-                  </button>
-                  */}
-                  </div>
                 </div>
               </div>
             </div>
