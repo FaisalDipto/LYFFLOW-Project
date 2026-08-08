@@ -397,10 +397,10 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
 
   return (
     <>
-      <div className="max-w-[1080px] mx-auto w-full">
-        <div className="animate-fade-in-up mt-6 p-8 rounded-[40px] bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-2xl shadow-emerald-500/20 relative overflow-hidden">
-          <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-300 opacity-20 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-emerald-300 opacity-30 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="products-tab max-w-[1080px] mx-auto w-full">
+        <div className="products-inventory-shell animate-fade-in-up mt-6 p-8 rounded-[40px] bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-2xl shadow-emerald-500/20 relative overflow-hidden">
+          <div className="products-inventory-glow absolute -top-32 -right-32 w-96 h-96 bg-yellow-300 opacity-20 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="products-inventory-glow absolute -bottom-32 -left-32 w-96 h-96 bg-emerald-300 opacity-30 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative z-10">
         <div className="flex justify-between items-center mb-8">
@@ -419,7 +419,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                 value={activeFilter} 
                 onChange={(e) => setActiveFilter(e.target.value)}
                 style={{ backgroundImage: 'none' }}
-                className="appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
+                className="products-filter-select appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
               >
                 <option value="all" className="text-slate-800 font-semibold">All Status</option>
                 <option value="active" className="text-slate-800 font-semibold">Active</option>
@@ -434,7 +434,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                 value={sourceFilter} 
                 onChange={(e) => setSourceFilter(e.target.value)}
                 style={{ backgroundImage: 'none' }}
-                className="appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
+                className="products-filter-select appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
               >
                 <option value="all" className="text-slate-800 font-semibold">All Sources</option>
                 <option value="manual" className="text-slate-800 font-semibold">Manual</option>
@@ -446,7 +446,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
             </div>
             <button 
               onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg"
+              className="products-import-button flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg"
             >
               <Upload size={16} /> Import CSV
             </button>
@@ -458,7 +458,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                 setExistingAssets([]);
                 setShowCreateModal(true);
               }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm shadow-xl"
+              className="products-create-button flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm shadow-xl"
             >
               <Plus size={16} /> Create Product
             </button>
@@ -466,10 +466,10 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
         </div>
 
         {/* Data Table */}
-        <div className="bg-white/95 backdrop-blur-2xl rounded-3xl border border-white/50 overflow-hidden shadow-2xl">
+        <div className="products-table bg-white/95 backdrop-blur-2xl rounded-3xl border border-white/50 overflow-hidden shadow-2xl">
           <div className="overflow-x-auto w-full no-scrollbar">
             <div className="min-w-[900px] w-full">
-              <div className="grid grid-cols-[3fr_2fr_2fr_2fr_2fr_2fr_100px] gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm">
+              <div className="products-table-header grid grid-cols-[3fr_2fr_2fr_2fr_2fr_2fr_100px] gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm">
                 <div className="pl-6 flex items-center">Product Name</div>
                 <div className="flex items-center">Code</div>
                 <div className="flex items-center">Variant</div>
@@ -479,7 +479,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                 <div className="text-right pr-6 flex items-center justify-end">Actions</div>
               </div>
 
-        <div className="divide-y divide-slate-100">
+        <div className="products-table-body divide-y divide-slate-100">
           {loading ? (
             <div className="p-16 flex justify-center items-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
@@ -494,7 +494,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
             </div>
           ) : (
             products.map((product) => (
-              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className="grid grid-cols-[3fr_2fr_2fr_2fr_2fr_2fr_100px] gap-4 p-5 items-center hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer">
+              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className="products-table-row grid grid-cols-[3fr_2fr_2fr_2fr_2fr_2fr_100px] gap-4 p-5 items-center hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer">
                 <div className="pl-6 font-bold text-sm text-slate-800 truncate pr-4 group-hover:text-emerald-700 transition-colors">
                   {product.name}
                 </div>
@@ -544,7 +544,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
         
         {/* Pagination Controls */}
         {!loading && products.length > 0 && (
-          <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+          <div className="products-pagination p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Page {currentIndex + 1}
             </div>
@@ -557,7 +557,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                   fetchProducts(history[prevIndex]);
                 }}
                 disabled={currentIndex === 0}
-                className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-sm"
+                className="products-pagination-button px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-sm"
               >
                 <span className="material-symbols-outlined text-[18px]">chevron_left</span> Prev
               </button>
@@ -571,7 +571,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                   fetchProducts(nextCursor);
                 }}
                 disabled={!hasMore}
-                className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-sm"
+                className="products-pagination-button px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-sm"
               >
                 Next <span className="material-symbols-outlined text-[18px]">chevron_right</span>
               </button>

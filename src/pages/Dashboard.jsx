@@ -1,4 +1,4 @@
-import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Settings, ShieldCheck, Trash2, TrendingUp, User, UserRound, X, Zap } from 'lucide-react';
+import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, Sun, Trash2, TrendingUp, User, UserRound, X, Zap } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -12,7 +12,9 @@ import ProductsTab from '../components/ProductsTab';
 import { useWidget } from '../context/WidgetContext';
 import { API_BASE } from '../config/env';
 import { apiService } from '../services/api';
+import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import './Dashboard.css';
+import '../styles/dashboard-theme.css';
 
 // Helper to trigger Facebook re-authorization to the API backend directly
 const triggerFacebookReauth = () => {
@@ -292,12 +294,14 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
               className={`group relative min-w-0 overflow-visible rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md ${openDropdown === page.page_id ? 'z-[1000]' : 'z-0'}`}
             >
               <div className="flex min-w-0 items-start gap-3">
-                <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
-                  {page.profile_pic_url ? (
-                    <img src={page.profile_pic_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="material-symbols-outlined flex h-full w-full items-center justify-center text-xl text-slate-500">forum</span>
-                  )}
+                <div className="relative h-11 w-11 shrink-0">
+                  <div className="absolute inset-0 overflow-hidden rounded-full bg-slate-100" style={{ borderRadius: '50%' }}>
+                    {page.profile_pic_url ? (
+                      <img src={page.profile_pic_url} alt="" className="h-full w-full rounded-full object-cover" style={{ borderRadius: '50%' }} />
+                    ) : (
+                      <span className="material-symbols-outlined flex h-full w-full items-center justify-center text-xl text-slate-500">forum</span>
+                    )}
+                  </div>
                   <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" title="Connected" />
                 </div>
 
@@ -329,7 +333,7 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
                     disabled={assigning[page.page_id]}
                     aria-expanded={openDropdown === page.page_id}
                     aria-haspopup="menu"
-                    className={`flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border px-2.5 text-left text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${hasAssignedAgent ? 'border-emerald-100 bg-emerald-50 text-slate-800 hover:border-emerald-200' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'}`}
+                    className={`agent-assignment-trigger ${hasAssignedAgent ? 'is-assigned' : ''} flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border px-2.5 text-left text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${hasAssignedAgent ? 'border-emerald-100 bg-emerald-50 text-slate-800 hover:border-emerald-200' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'}`}
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       {selectedAgent ? (
@@ -1243,7 +1247,7 @@ const ConversationList = ({ pages, user }) => {
                 type="button"
                 key={id}
                 onClick={() => { setActiveContact(contact); setMobileShowChat(true); }}
-                className={`group w-full rounded-xl border p-3 text-left transition-all ${isActive ? 'border-emerald-200 bg-emerald-50 shadow-sm' : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'}`}
+                className={`conversation-contact ${isActive ? 'is-active' : ''} group w-full rounded-xl border p-3 text-left transition-all ${isActive ? 'border-emerald-200 bg-emerald-50 shadow-sm' : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="relative shrink-0">
@@ -1253,7 +1257,7 @@ const ConversationList = ({ pages, user }) => {
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                        <h3 className="truncate text-sm font-black text-slate-900">{contactName}</h3>
+                        <h3 className="conversation-contact-name truncate text-sm font-black text-slate-900">{contactName}</h3>
                         {contact.is_human_needed && <span className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-rose-600">Human</span>}
                       </div>
                       <span className="mr-3 shrink-0 text-[10px] font-semibold text-slate-400">{updated}</span>
@@ -2093,9 +2097,9 @@ const Knowledge = ({ namespaces, onUpdate }) => {
   });
 
   return (
-    <div className="min-w-0 flex-1 w-full bg-[#f7f9fb] p-4 md:p-6 xl:p-8 overflow-y-auto animate-fade-in-up">
+    <div className="knowledge-page min-w-0 flex-1 w-full bg-[#f7f9fb] p-4 md:p-6 xl:p-8 overflow-y-auto animate-fade-in-up">
       <div className="max-w-[1400px] mx-auto space-y-6">
-        <section className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
+        <section className="knowledge-hero overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
           <div className="flex flex-col gap-6 p-5 md:p-7 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0">
               <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Knowledge workspace</p>
@@ -2136,7 +2140,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
             </div>
           </div>
 
-          <div className="flex gap-1 border-t border-slate-100 bg-slate-50/70 px-5 py-2 md:px-7">
+          <div className="knowledge-tabs flex gap-1 border-t border-slate-100 bg-slate-50/70 px-5 py-2 md:px-7">
             <button
               onClick={() => setActiveKnowledgeTab('products')}
               className={`flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold transition ${activeKnowledgeTab === 'products' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900'}`}
@@ -3784,7 +3788,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                     </div>
                   </div>
 
-                  <div className="mb-4 rounded-xl border border-slate-100 p-3">
+                  <div className="mb-4 overflow-hidden rounded-xl border border-slate-100 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Knowledge source</span>
                       <span className={`text-[10px] font-bold ${isAssigned ? 'text-emerald-600' : 'text-amber-600'}`}>{isAssigned ? 'Connected' : 'Not connected'}</span>
@@ -3814,12 +3818,12 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       </button>
                     )}
 
-                    <div className="mt-3 flex min-h-7 items-center justify-between gap-3">
-                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Assigned pages</span>
+                    <div className="mt-3 flex min-h-9 w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-lg bg-slate-50/80 px-2.5 py-1.5">
+                      <span className="min-w-0 truncate text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Assigned pages</span>
                       {assignedPagesForThisAgent.length > 0 ? (
-                        <div className="flex -space-x-2" title={`Assigned to: ${assignedPagesForThisAgent.map(p => p.name || p.page_name).join(', ')}`}>
+                        <div className="flex max-w-[88px] shrink-0 justify-end -space-x-1.5" title={`Assigned to: ${assignedPagesForThisAgent.map(p => p.name || p.page_name).join(', ')}`}>
                         {assignedPagesForThisAgent.slice(0, 3).map((p) => (
-                          <div key={p.page_id} className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-blue-500">
+                          <div key={p.page_id} className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-blue-500">
                             {p.profile_pic_url ? (
                               <img src={p.profile_pic_url} alt={p.name || p.page_name} className="h-full w-full rounded-full object-cover" />
                             ) : (
@@ -3828,7 +3832,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                           </div>
                         ))}
                         {assignedPagesForThisAgent.length > 3 && (
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-[9px] font-extrabold text-white">
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-[8px] font-extrabold text-white">
                             +{assignedPagesForThisAgent.length - 3}
                           </div>
                         )}
@@ -5155,6 +5159,7 @@ const TutorialPanel = () => {
 };
 
 export default function Dashboard() {
+  const { theme, isDark, toggleTheme } = useDashboardTheme();
   const [activeTab, setActiveTab] = useState('overview');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -5385,7 +5390,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="dashboard-layout">
+    <div className={`dashboard-layout theme-${theme}`}>
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div
@@ -5490,6 +5495,18 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="dashboard-theme-toggle"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+              title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+            >
+              <span className="dashboard-theme-toggle-track">
+                <span className="dashboard-theme-toggle-thumb">{isDark ? <Moon size={14} /> : <Sun size={14} />}</span>
+              </span>
+              <span className="dashboard-theme-toggle-label">{isDark ? 'Dark' : 'Light'}</span>
+            </button>
             <div className="hidden items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[10px] font-extrabold text-emerald-700 lg:flex">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               All systems ready

@@ -5,7 +5,9 @@ import { apiService } from '../services/api';
 import logoImg from '../assets/logo1.png';
 import titleImg from '../assets/title.png';
 import CheckpointerDebugModal from '../components/CheckpointerDebugModal';
+import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import './AdminPanel.css';
+import '../styles/dashboard-theme.css';
 
 // ── Helpers ──────────────────────────────────────────────
 const fmt = (n) => (n ?? 0).toLocaleString();
@@ -3628,6 +3630,7 @@ const NAV = NAV_GROUPS.flatMap(group => group.items);
 
 // ── Main Component ─────────────────────────────────────
 export default function AdminPanel() {
+  const { theme, isDark, toggleTheme } = useDashboardTheme();
   const [section, setSection] = useState('dashboard');
   const [admin, setAdmin] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
@@ -3677,7 +3680,7 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className={`admin-layout ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
+    <div className={`admin-layout theme-${theme} ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
       {/* Sidebar */}
       <aside className={`admin-sidebar ${sidebarOpen ? '' : 'collapsed'}`}>
         <div className="admin-sidebar-logo">
@@ -3738,6 +3741,10 @@ export default function AdminPanel() {
             </div>
           </div>
           <div className="admin-topbar-right">
+            <button className="admin-theme-toggle" type="button" onClick={toggleTheme} aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`} title={`Switch to ${isDark ? 'light' : 'dark'} mode`}>
+              <span className="material-symbols-outlined">{isDark ? 'dark_mode' : 'light_mode'}</span>
+              <span>{isDark ? 'Dark' : 'Light'}</span>
+            </button>
             <span className="admin-access-pill"><span className="material-symbols-outlined">shield</span>Admin access</span>
             {admin && (
               <div className="admin-topbar-profile">
