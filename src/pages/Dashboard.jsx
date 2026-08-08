@@ -3080,6 +3080,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
   // Filter State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [agentQuery, setAgentQuery] = useState('');
   const [filters, setFilters] = useState({
     status: 'All',
     role: 'All',
@@ -3089,6 +3090,15 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const activeSelectedAgents = JSON.parse(localStorage.getItem('lyfflow_assigned_agents') || '{}');
 
   const filteredAgents = agents.filter(agent => {
+    const normalizedQuery = agentQuery.trim().toLowerCase();
+    if (normalizedQuery) {
+      const searchableText = [agent.name, agent.role, agent.business_name, agent.tone]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (!searchableText.includes(normalizedQuery)) return false;
+    }
+
     // Role filter
     if (filters.role !== 'All' && agent.role !== filters.role) return false;
 
@@ -3107,6 +3117,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
   const clearFilters = () => setFilters({ status: 'All', role: 'All', tone: 'All' });
   const activeFiltersCount = Object.values(filters).filter(v => v !== 'All').length;
+  const hasActiveAgentSearch = agentQuery.trim().length > 0;
 
   const handleAssign = async (agentId, namespaceId) => {
     if (!namespaceId) return;
@@ -3600,119 +3611,111 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     document.body
   ) : null;
 
+  const configuredAgentsCount = agents.filter(agent => !!agent.namespace_id).length;
+  const assignedPageCount = (pages || []).filter(page => !!getAssignedAgentIdForPage(page)).length;
+
   if (!isCreating && !isEditing) {
     return (
-      <div className="flex-1 w-full p-4 md:p-6 xl:p-8 min-h-screen bg-[#f7f9fb] animate-fade-in-up">
+      <div className="min-w-0 flex-1 w-full p-4 md:p-6 xl:p-8 min-h-screen bg-[#f7f9fb] animate-fade-in-up">
         <div className="max-w-[1400px] mx-auto">
-          {/* Header Section */}
-          <section className="mb-6">
-            <div className="flex justify-between items-center flex-wrap gap-4">
-              <div className="max-w-2xl">
-                <span className="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-[#45464d] mb-1 block font-bold">Fleet Management</span>
-                <h2 className="text-3xl font-extrabold tracking-tight text-primary font-['Epilogue'] mb-1">AI Agents</h2>
-                {/* TODO: 
-                <p className="text-sm text-[#45464d] leading-relaxed">
-                  Deploy, monitor, and scale your autonomous intelligence fleet. Your agents are currently handling <span className="text-emerald-600 font-bold">84%</span> of all support traffic.
-                </p>
-                */}
+          <section className="mb-6 rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.05)] md:p-7">
+            <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Agent workspace</span>
+                <h2 className="mb-2 font-['Epilogue'] text-3xl font-extrabold tracking-tight text-slate-950">AI agents</h2>
+                <p className="max-w-xl text-sm leading-6 text-slate-500">Create, connect, and monitor the agents that handle conversations across your pages.</p>
               </div>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all ${isFilterOpen || activeFiltersCount > 0 ? 'bg-black text-white shadow-lg shadow-black/20' : 'bg-[#e6e8ea] hover:bg-[#e0e3e5]'}`}
-                >
-                  <span className="material-symbols-outlined text-lg border-b-0" data-icon="tune">tune</span>
-                  {activeFiltersCount > 0 ? `Filters (${activeFiltersCount})` : 'Filter View'}
+              <div className="grid w-full min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:w-auto">
+                <div className="grid min-w-0 grid-cols-3 items-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 py-3">
+                  <div className="min-w-0 px-3 text-center sm:px-4"><p className="text-lg font-extrabold leading-none text-slate-950">{agents.length}</p><p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">Agents</p></div>
+                  <div className="min-w-0 border-x border-slate-200 px-2 text-center sm:px-4"><p className="text-lg font-extrabold leading-none text-emerald-600">{configuredAgentsCount}</p><p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">Connected</p></div>
+                  <div className="min-w-0 px-3 text-center sm:px-4"><p className="text-lg font-extrabold leading-none text-blue-600">{assignedPageCount}</p><p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">Pages</p></div>
+                </div>
+                <button onClick={openCreateForm} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition-all hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0 sm:w-auto">
+                  <span className="material-symbols-outlined text-[19px]">add</span>
+                  Create agent
                 </button>
-                <button
-                  onClick={openCreateForm}
-                  className="flex items-center gap-2 px-8 py-3 bg-[#000000] text-white rounded-xl font-bold transition-all hover:opacity-90 active:scale-95 shadow-lg shadow-black/20"
-                >
-                  <span className="material-symbols-outlined font-black" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-                  Create New Agent
-                </button>
-              </div>
-            </div>
-            {/* Filter Bar */}
-            <div className={`overflow-hidden transition-all duration-300 ${isFilterOpen ? 'max-h-40 opacity-100 mb-12' : 'max-h-0 opacity-0 mb-0'}`}>
-              <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-wrap items-center gap-6">
-                <div className="flex flex-col gap-1.5 min-w-[140px]">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1">Status</label>
-                  <select
-                    value={filters.status}
-                    onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-black/5"
-                  >
-                    <option value="All">All Statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="IDLE">IDLE</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5 min-w-[140px]">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1">Role</label>
-                  <select
-                    value={filters.role}
-                    onChange={e => setFilters(prev => ({ ...prev, role: e.target.value }))}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-black/5"
-                  >
-                    <option value="All">All Roles</option>
-                    <option value="Sales Agent">Sales Agent</option>
-                    <option value="Support Agent">Support Agent</option>
-                    <option value="Q&A Agent">Q&A Agent</option>
-                    <option value="General Agent">General Agent</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5 min-w-[140px]">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1">Personality</label>
-                  <select
-                    value={filters.tone}
-                    onChange={e => setFilters(prev => ({ ...prev, tone: e.target.value }))}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-black/5"
-                  >
-                    <option value="All">All Tones</option>
-                    {TONES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-
-                {activeFiltersCount > 0 && (
-                  <button
-                    onClick={clearFilters}
-                    className="mt-5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">refresh</span>
-                    Clear All
-                  </button>
-                )}
               </div>
             </div>
           </section>
 
-          {/* Agents Bento Grid */}
-          <div className="grid grid-cols-12 gap-4">
-
-            {/* Create Agent Card */}
-            <div
-              onClick={openCreateForm}
-              className="col-span-6 md:col-span-4 lg:col-span-3 min-h-[200px] relative group overflow-hidden bg-[#0f172a] rounded-2xl cursor-pointer"
-            >
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center border-2 border-white/10 m-3 rounded-xl border-dashed transition-colors group-hover:border-emerald-400/50">
-                <div className="w-12 h-12 rounded-full border-2 border-white/30 flex items-center justify-center mb-3 group-hover:border-emerald-400 group-hover:scale-110 transition-all duration-300">
-                  <span className="material-symbols-outlined text-white text-2xl group-hover:text-emerald-400">add</span>
+          <section className="mb-5 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <label
+                className="relative flex h-11 min-w-0 items-center overflow-hidden rounded-xl border border-transparent bg-slate-50 transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/60"
+                style={{ width: '1200px', maxWidth: '100%', flex: '0 1 1200px' }}
+              >
+                <span className="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[20px] text-slate-400">search</span>
+                <input
+                  type="text"
+                  value={agentQuery}
+                  onChange={(event) => setAgentQuery(event.target.value)}
+                  placeholder="Search by agent, role, business, or tone"
+                  className="h-full min-w-0 flex-1 border-0 bg-transparent pl-11 pr-10 text-sm font-medium text-slate-800 outline-none focus:border-transparent focus:ring-0"
+                  style={{ width: 0, minWidth: 0, boxSizing: 'border-box' }}
+                />
+                {hasActiveAgentSearch && (
+                  <button type="button" onClick={() => setAgentQuery('')} className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200 hover:text-slate-700" aria-label="Clear agent search">
+                    <span className="material-symbols-outlined text-[17px]">close</span>
+                  </button>
+                )}
+              </label>
+              <button
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className={`relative z-10 flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition ${isFilterOpen || activeFiltersCount > 0 ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+                style={{ width: '112px', flex: '0 0 112px' }}
+                aria-expanded={isFilterOpen}
+              >
+                <span className="material-symbols-outlined text-[19px]">tune</span>
+                Filters
+                {activeFiltersCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-400 px-1.5 text-[10px] font-black text-slate-950">{activeFiltersCount}</span>}
+              </button>
+            </div>
+            <div className={`grid overflow-hidden transition-all duration-300 ${isFilterOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+              <div className="min-h-0">
+                <div className="mt-3 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3">
+                  <div className="flex min-w-[150px] flex-1 flex-col gap-1.5">
+                    <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</label>
+                    <select value={filters.status} onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))} className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-emerald-300">
+                      <option value="All">All statuses</option><option value="Active">Connected</option><option value="IDLE">Needs setup</option>
+                    </select>
+                  </div>
+                  <div className="flex min-w-[150px] flex-1 flex-col gap-1.5">
+                    <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Role</label>
+                    <select value={filters.role} onChange={e => setFilters(prev => ({ ...prev, role: e.target.value }))} className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-emerald-300">
+                      <option value="All">All roles</option><option value="Sales Agent">Sales Agent</option><option value="Support Agent">Support Agent</option><option value="Q&A Agent">Q&A Agent</option><option value="General Agent">General Agent</option>
+                    </select>
+                  </div>
+                  <div className="flex min-w-[150px] flex-1 flex-col gap-1.5">
+                    <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Personality</label>
+                    <select value={filters.tone} onChange={e => setFilters(prev => ({ ...prev, tone: e.target.value }))} className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-emerald-300">
+                      <option value="All">All tones</option>{TONES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  {activeFiltersCount > 0 && <button onClick={clearFilters} className="h-10 rounded-xl px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">Clear filters</button>}
                 </div>
-                <h3 className="text-white text-sm font-bold mb-1 tracking-tight">New Intelligence</h3>
-                <p className="text-white/50 text-xs">Deploy a custom trained model</p>
               </div>
             </div>
+          </section>
 
-            {/* Dynamic Agents List */}
-            {filteredAgents.length === 0 && activeFiltersCount > 0 ? (
-              <div className="col-span-12 py-16 text-center bg-white rounded-2xl border border-dashed border-slate-200">
-                <span className="material-symbols-outlined text-slate-300 text-3xl block mb-3">filter_list_off</span>
-                <h4 className="text-base font-bold text-slate-900 mb-1">No agents match your filters</h4>
-                <p className="text-slate-500 text-sm mb-4">Try adjusting your criteria or clearing all filters.</p>
-                <button onClick={clearFilters} className="text-emerald-600 font-bold text-sm hover:underline">Clear all filters</button>
+          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+            <div><h3 className="text-sm font-extrabold text-slate-900">Your agents</h3><p className="text-xs text-slate-500">{filteredAgents.length} {filteredAgents.length === 1 ? 'agent' : 'agents'} shown</p></div>
+          </div>
+
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-4">
+            {agents.length === 0 ? (
+              <div className="col-span-full flex min-h-[320px] flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-white px-6 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/15"><span className="material-symbols-outlined text-[27px]">smart_toy</span></div>
+                <h4 className="text-lg font-extrabold text-slate-950">Build your first agent</h4>
+                <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">Give it a role, connect a knowledge source, then assign it to a page when you are ready.</p>
+                <button onClick={openCreateForm} className="mt-5 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Create agent</button>
+              </div>
+            ) : filteredAgents.length === 0 ? (
+              <div className="col-span-full flex min-h-[260px] flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-white px-6 text-center">
+                <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">search_off</span>
+                <h4 className="text-base font-extrabold text-slate-900">No matching agents</h4>
+                <p className="mt-1 text-sm text-slate-500">Try another search or reset the current filters.</p>
+                <button onClick={() => { setAgentQuery(''); clearFilters(); }} className="mt-4 text-sm font-bold text-emerald-700 hover:text-emerald-800">Reset search and filters</button>
               </div>
             ) : filteredAgents.map((agent) => {
               const assignedPagesForThisAgent = (pages || []).filter(p => {
@@ -3723,13 +3726,9 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               const isAssignedToPage = assignedPagesForThisAgent.length > 0;
               const isStatusGreen = isAssignedToPage || isAssigned;
               const totalDialog = agent.total_dialog || 0;
-              const initial = (agent.name || '?').charAt(0).toUpperCase();
-
               return (
-                <div key={agent.agent_id} className="col-span-6 md:col-span-4 lg:col-span-3 bg-white rounded-2xl p-5 flex flex-col group hover:shadow-lg transition-all duration-300 border border-[#e8eaed] relative min-h-[200px]">
-
-                  {/* Top row: avatar + status dot */}
-                  <div className="flex items-start justify-between mb-4">
+                <article key={agent.agent_id} className="group flex min-h-[330px] flex-col rounded-[20px] border border-slate-200/90 bg-white p-5 shadow-[0_4px_18px_rgba(15,23,42,0.035)] transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
+                  <div className="mb-4 flex items-start justify-between gap-3">
                     <div
                       onClick={(e) => { e.stopPropagation(); setCustomizingAvatarAgent(agent); }}
                       title="Click to customize agent avatar"
@@ -3737,103 +3736,113 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                     >
                       <AgentAvatar
                         agent={agent}
-                        size="w-11 h-11"
-                        iconSize="text-[22px]"
+                        size="w-12 h-12"
+                        iconSize="text-[23px]"
                         className="group-hover:scale-105 transition-transform"
                       />
                       <div className="absolute inset-0 rounded-full bg-slate-900/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity">
                         <span className="material-symbols-outlined text-white text-[18px]">palette</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {/* Delete */}
+                    <div className="flex items-center gap-1.5">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold ${isStatusGreen ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${isStatusGreen ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                        {isStatusGreen ? 'Ready' : 'Needs setup'}
+                      </span>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent); }}
-                        className="p-1 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 transition-colors"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
                         title="Delete Agent"
                       >
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        <span className="material-symbols-outlined text-[17px]">delete</span>
                       </button>
-                      {/* Status dot */}
-                      <span className={`w-2.5 h-2.5 rounded-full mt-0.5 shrink-0 ${isStatusGreen ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-amber-400'}`} title={isAssignedToPage ? 'Assigned to Page' : (isAssigned ? 'Connected to Namespace' : 'Not Assigned')}></span>
                     </div>
                   </div>
 
-                  {/* Agent name */}
-                  <h3 className="text-base font-bold text-[#0f172a] leading-tight mb-0.5 truncate">{agent.name}</h3>
+                  <h3 className="truncate text-base font-extrabold leading-tight text-slate-950">{agent.name}</h3>
+                  <p className="mt-1 truncate text-xs font-medium text-slate-500">{agent.role || 'General Agent'}{agent.tone ? ` · ${agent.tone}` : ''}</p>
 
-                  {/* Role */}
-                  <p className="text-xs text-slate-500 mb-3 truncate">{agent.role}</p>
-
-                  {/* Dialogue count */}
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-auto">
-                    <span className="material-symbols-outlined text-[14px] text-slate-400">chat_bubble_outline</span>
-                    <span>{totalDialog} dialogues</span>
+                  <div className="my-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                      <div className="flex items-center gap-1.5 text-slate-400"><span className="material-symbols-outlined text-[15px]">chat_bubble_outline</span><span className="text-[9px] font-black uppercase tracking-wider">Dialogues</span></div>
+                      <p className="mt-1 text-sm font-extrabold text-slate-900">{totalDialog}</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                      <div className="flex items-center gap-1.5 text-slate-400"><span className="material-symbols-outlined text-[15px]">web</span><span className="text-[9px] font-black uppercase tracking-wider">Pages</span></div>
+                      <p className="mt-1 text-sm font-extrabold text-slate-900">{assignedPagesForThisAgent.length}</p>
+                    </div>
                   </div>
 
-                  {/* Namespace & Assigned Pages Display */}
-                  <div className="flex items-center justify-between gap-2 mt-2">
+                  <div className="mb-4 rounded-xl border border-slate-100 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Knowledge source</span>
+                      <span className={`text-[10px] font-bold ${isAssigned ? 'text-emerald-600' : 'text-amber-600'}`}>{isAssigned ? 'Connected' : 'Not connected'}</span>
+                    </div>
                     {isAssigned ? (
-                      <button 
+                      <button
                         onClick={() => setAssignModalAgent(agent)}
-                        className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider hover:bg-emerald-100 transition-colors shrink-0"
+                        className="flex w-full min-w-0 items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-left text-[11px] font-bold text-emerald-800 transition hover:bg-emerald-100"
                         title="Change Namespace"
                       >
-                        <span className="material-symbols-outlined text-[12px]">dns</span>
-                        <span>{(() => {
+                        <span className="material-symbols-outlined shrink-0 text-[15px]">database</span>
+                        <span className="truncate">{(() => {
                           const matchedNs = namespaces?.find(n => (n.namespace_id || n.namespace) === agent.namespace_id);
                           const nsName = matchedNs?.namespace_name || matchedNs?.name;
-                          return nsName ? `NS: ${nsName}` : `NS: ${agent.namespace_id.split('-')[0]}...`;
+                          return nsName || `${String(agent.namespace_id).split('-')[0]}...`;
                         })()}</span>
+                        <span className="material-symbols-outlined ml-auto shrink-0 text-[15px]">swap_horiz</span>
                       </button>
                     ) : (
-                      <button 
+                      <button
                         onClick={() => setAssignModalAgent(agent)}
-                        className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded-md border border-slate-200 uppercase tracking-wider hover:bg-slate-100 transition-colors shrink-0"
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-2 text-[11px] font-bold text-slate-600 transition hover:bg-slate-100"
                         title="Connect Namespace"
                       >
-                        <span className="material-symbols-outlined text-[12px]">add_link</span>
-                        <span>Connect Namespace</span>
+                        <span className="material-symbols-outlined text-[15px]">add_link</span>
+                        Connect knowledge
                       </button>
                     )}
 
-                    {assignedPagesForThisAgent.length > 0 && (
-                      <div className="flex items-center gap-1.5 ml-auto overflow-hidden py-0.5" title={`Assigned to: ${assignedPagesForThisAgent.map(p => p.name || p.page_name).join(', ')}`}>
-                        {assignedPagesForThisAgent.slice(0, 4).map((p) => (
-                          <div key={p.page_id} className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shrink-0 overflow-hidden" style={{ borderRadius: '50%' }}>
+                    <div className="mt-3 flex min-h-7 items-center justify-between gap-3">
+                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Assigned pages</span>
+                      {assignedPagesForThisAgent.length > 0 ? (
+                        <div className="flex -space-x-2" title={`Assigned to: ${assignedPagesForThisAgent.map(p => p.name || p.page_name).join(', ')}`}>
+                        {assignedPagesForThisAgent.slice(0, 3).map((p) => (
+                          <div key={p.page_id} className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-blue-500">
                             {p.profile_pic_url ? (
-                              <img src={p.profile_pic_url} alt={p.name || p.page_name} className="w-full h-full object-cover rounded-full" style={{ borderRadius: '50%' }} />
+                              <img src={p.profile_pic_url} alt={p.name || p.page_name} className="h-full w-full rounded-full object-cover" />
                             ) : (
-                              <span className="material-symbols-outlined text-white text-[18px]">facebook</span>
+                              <span className="material-symbols-outlined text-[13px] text-white">facebook</span>
                             )}
                           </div>
                         ))}
-                        {assignedPagesForThisAgent.length > 4 && (
-                          <div className="w-10 h-10 rounded-full bg-slate-800 text-white text-[11px] font-bold flex items-center justify-center shrink-0" style={{ borderRadius: '50%' }}>
-                            +{assignedPagesForThisAgent.length - 4}
+                        {assignedPagesForThisAgent.length > 3 && (
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-[9px] font-extrabold text-white">
+                            +{assignedPagesForThisAgent.length - 3}
                           </div>
                         )}
                       </div>
-                    )}
+                      ) : <span className="text-[11px] font-medium text-slate-400">None yet</span>}
+                    </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1">
+                  <div className="mt-auto grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
                     <button
                       onClick={(e) => { e.stopPropagation(); setAssignPageModalAgent(agent); }}
-                      className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors ${isAssignedToPage ? 'text-emerald-600 hover:bg-emerald-50' : 'text-blue-600 hover:bg-blue-50'}`}
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-200"
                     >
-                      {isAssignedToPage ? '✓ Assigned' : 'Assign'}
+                      <span className="material-symbols-outlined text-[15px]">web</span>
+                      {isAssignedToPage ? 'Manage pages' : 'Assign page'}
                     </button>
                     <button
                       onClick={() => handleEditClick(agent)}
-                      className="text-[11px] font-bold text-emerald-600 px-2.5 py-1.5 hover:bg-emerald-50 rounded-lg whitespace-nowrap transition-colors ml-auto flex items-center gap-1"
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-2 text-[11px] font-bold text-white transition hover:bg-slate-800"
                     >
-                      Configure <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+                      Configure <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </button>
                   </div>
 
-                </div>
+                </article>
               );
             })}
 
