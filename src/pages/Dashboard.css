@@ -4,6 +4,54 @@
   width: 100vw;
   background-color: #f8fafc; /* Very light cool gray background for main app */
   overflow: hidden;
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  text-rendering: optimizeLegibility;
+}
+
+.dashboard-layout button,
+.dashboard-layout input,
+.dashboard-layout textarea,
+.dashboard-layout select {
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+}
+
+.dashboard-layout h1,
+.dashboard-layout h2,
+.dashboard-layout h3,
+.dashboard-layout h4,
+.dashboard-layout h5,
+.dashboard-layout h6,
+.dashboard-layout .font-headline,
+.dashboard-layout [class*="font-['Epilogue']"] {
+  font-family: 'DM Sans', 'Manrope', system-ui, sans-serif !important;
+  letter-spacing: -0.025em;
+}
+
+.dashboard-layout [class*="font-['Inter']"] {
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif !important;
+}
+
+.dashboard-shell-sidebar {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(16, 185, 129, 0.12), transparent 28%),
+    linear-gradient(180deg, #0b1424 0%, #0a1220 100%);
+  color: #ffffff;
+  border-right: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: 12px 0 40px rgba(2, 6, 23, 0.08);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
+.dashboard-shell-sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.dashboard-shell-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
 }
 
 /* --- Sidebar --- */
@@ -93,13 +141,15 @@
 
 /* --- Top Navbar --- */
 .dashboard-top-navbar {
-  height: 64px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
+  height: 72px;
+  min-height: 72px;
+  background-color: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid #e8edf3;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 40px;
+  padding: 0 28px;
   z-index: 50; /* Increased to stay above content */
   position: sticky;
   top: 0;
@@ -263,8 +313,9 @@
 /* ── 18.5-inch / 1366×768 comfortable layout ── */
 @media (max-width: 1440px) and (min-width: 769px) {
   .dashboard-top-navbar {
-    padding: 0 24px;
-    height: 56px;
+    padding: 0 20px;
+    height: 68px;
+    min-height: 68px;
   }
 
   .dashboard-content-area {
@@ -971,6 +1022,8 @@
   /* Top Navbar */
   .dashboard-top-navbar {
     padding: 0 16px;
+    height: 64px;
+    min-height: 64px;
   }
 
   /* Hide workspace name on very small screens */

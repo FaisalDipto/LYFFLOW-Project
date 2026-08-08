@@ -5301,6 +5301,24 @@ export default function Dashboard() {
     );
   };
 
+  const primaryNavItems = [
+    { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
+    { id: 'conversation', icon: MessageSquare, label: 'Conversations' },
+    { id: 'records', icon: ClipboardList, label: 'Customer Records' },
+    { id: 'agent', icon: UserRound, label: 'Agents' },
+    { id: 'knowledge', icon: Book, label: 'Knowledge' }
+  ];
+  const secondaryNavItems = [
+    { id: 'subscription', icon: CreditCard, label: 'Subscription' },
+    { id: 'feedback', icon: MessageCircleWarning, label: 'Feedback' },
+    { id: 'tutorial', icon: Headphones, label: 'Tutorial' }
+  ];
+  const allNavItems = [...primaryNavItems, ...secondaryNavItems, { id: 'settings', icon: Settings, label: 'Settings' }];
+  const activeNavItem = allNavItems.find(item => item.id === activeTab) || primaryNavItems[0];
+  const workspaceName = user?.workspace_name || 'My Workspace';
+  const displayUserName = user?.display_name || (user?.first_name ? `${user.first_name} ${user?.last_name || ''}`.trim() : null) || user?.username || user?.name || user?.email || 'User';
+  const currentPlanName = user?.subscription?.plan?.plan_name || 'Workspace';
+
   if (loading) {
     return <AppLoadingScreen />;
   }
@@ -5336,66 +5354,80 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Sidebar */}
-      <aside className={`bg-slate-900 border-r border-slate-800 flex flex-col font-['Epilogue'] font-medium h-full pb-20 shrink-0 transition-all duration-300
-        fixed top-0 left-0 w-56 z-[10000] overflow-y-auto
+      <aside className={`dashboard-shell-sidebar flex h-full shrink-0 flex-col font-['Epilogue'] transition-all duration-300
+        fixed top-0 left-0 w-[280px] z-[10000] overflow-x-hidden overflow-y-auto
         ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
         ${isSidebarCollapsed ? 'md:-translate-x-full md:w-0 md:px-0 md:border-none md:overflow-hidden' : 'md:translate-x-0 md:relative md:w-56 md:px-3 xl:w-64 xl:px-4 md:z-auto md:shadow-none'}`}>
-        <div className="h-16 mb-6 flex items-center justify-start px-4 border-b border-slate-800 w-full shrink-0">
-          <div className="flex items-center gap-[6px]">
-            <img src={logoImg} alt="LYFFLOW" style={{ height: '32px', width: 'auto', filter: 'brightness(0) saturate(100%) invert(59%) sepia(72%) saturate(450%) hue-rotate(100deg) brightness(95%) contrast(90%)' }} />
-            <img src={titleImg} alt="LYFFLOW" style={{ height: '20px', width: 'auto', filter: 'brightness(0) saturate(100%) invert(59%) sepia(72%) saturate(450%) hue-rotate(100deg) brightness(95%) contrast(90%)' }} />
+        <div className="flex h-[76px] w-full shrink-0 items-center border-b border-white/8 px-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 ring-1 ring-emerald-300/15">
+              <img src={logoImg} alt="" style={{ height: '29px', width: 'auto', filter: 'brightness(0) saturate(100%) invert(73%) sepia(52%) saturate(670%) hue-rotate(103deg) brightness(96%) contrast(92%)' }} />
+            </div>
+            <div className="min-w-0">
+              <img src={titleImg} alt="LYFFLOW" style={{ height: '16px', width: 'auto', filter: 'brightness(0) saturate(100%) invert(80%) sepia(12%) saturate(677%) hue-rotate(181deg) brightness(106%) contrast(94%)' }} />
+              <p className="mt-1 text-[8px] font-black uppercase tracking-[0.2em] text-emerald-400/80">AI workspace</p>
+            </div>
           </div>
-          {/* Mobile Close Button */}
-          <button className="md:hidden ml-auto bg-transparent border-none p-0 cursor-pointer text-slate-400" onClick={() => setIsSidebarOpen(false)}>
-            <X size={24} />
+          <button className="ml-auto flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/10 hover:text-white md:hidden" onClick={() => setIsSidebarOpen(false)} aria-label="Close navigation">
+            <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1">
-          {[
-            { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
-            { id: 'conversation', icon: MessageSquare, label: 'Conversations' },
-            { id: 'records', icon: ClipboardList, label: 'Customer Records' },
-            { id: 'agent', icon: UserRound, label: 'Agents' },
-            { id: 'knowledge', icon: Book, label: 'Knowledge' },
-            { id: 'subscription', icon: CreditCard, label: 'Subscription' },
-            { id: 'feedback', icon: MessageCircleWarning, label: 'Feedback' },
-            { id: 'tutorial', icon: Headphones, label: 'Tutorial' }
-          ].map(item => (
+        <div className="flex-1 px-1 py-5">
+          <p className="mb-2 px-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Workspace</p>
+          <nav className="space-y-1">
+          {primaryNavItems.map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer border-none text-left ${activeTab === item.id
-                  ? 'text-emerald-400 font-bold border-l-0 border-r-4 border-emerald-500 bg-emerald-500/10 rounded-r-none pl-[16px] pr-[12px]'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 bg-transparent'
+              className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id
+                  ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
+                  : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                 }`}
             >
-              {item.id === 'tutorial'
-                ? <span className="material-symbols-outlined text-[20px]">school</span>
-                : <item.icon size={20} />}
-              <span className="text-[15px]">{item.label}</span>
+              {activeTab === item.id && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}><item.icon size={17} strokeWidth={2.2} /></span>
+              <span className="truncate">{item.label}</span>
             </button>
           ))}
-        </nav>
+          </nav>
 
-        <div className="mt-auto pt-8 border-t border-slate-100 space-y-1 mb-16">
+          <div className="my-5 h-px bg-white/[0.07]" />
+          <p className="mb-2 px-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Manage</p>
+          <nav className="space-y-1">
+            {secondaryNavItems.map(item => (
+              <button key={item.id} onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }} className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}>
+                {activeTab === item.id && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                  {item.id === 'tutorial' ? <span className="material-symbols-outlined text-[18px]">school</span> : <item.icon size={17} strokeWidth={2.2} />}
+                </span>
+                <span className="truncate">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="mt-auto border-t border-white/[0.08] px-1 py-4">
+          <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-3">
+            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.65)]" /><span className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-300">Workspace online</span></div>
+            <p className="mt-2 truncate text-[11px] font-medium text-slate-500">{pages.length} pages · {(user?.agents || []).length} agents</p>
+          </div>
           <button onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 transition-all rounded-lg cursor-pointer border-none text-left ${activeTab === 'settings' ? 'text-emerald-400 font-bold bg-emerald-500/10' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 bg-transparent'}`}
+            className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === 'settings' ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}
           >
-            <span className="material-symbols-outlined text-[20px]">settings</span>
-            <span className="text-[15px]">Settings</span>
+            {activeTab === 'settings' && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
+            <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${activeTab === 'settings' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}><Settings size={17} strokeWidth={2.2} /></span>
+            <span>Settings</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="dashboard-main">
-        {/* Top Navbar */}
         <header className="dashboard-top-navbar">
-          <div className="top-nav-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className="flex min-w-0 items-center gap-3">
             <button
-              className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
               onClick={() => {
                 if (window.innerWidth < 768) {
                   setIsSidebarOpen(true);
@@ -5404,27 +5436,43 @@ export default function Dashboard() {
                 }
               }}
               title="Toggle Sidebar"
+              aria-label="Toggle sidebar"
             >
-              <Menu size={24} />
+              <Menu size={20} />
             </button>
-            <span className="workspace-name" style={{ fontWeight: 700, fontSize: '18px', color: '#0f172a' }}>My Workspace</span>
+            <div className="hidden h-8 w-px bg-slate-200 sm:block" />
+            <div className="min-w-0">
+              <p className="hidden truncate text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:block">{workspaceName}</p>
+              <div className="flex items-center gap-2">
+                <h2 className="truncate text-sm font-extrabold text-slate-950 sm:text-[15px]">{activeNavItem.label}</h2>
+                <span className="hidden h-1.5 w-1.5 rounded-full bg-emerald-400 sm:block" />
+              </div>
+            </div>
           </div>
-          <div className="top-nav-right">
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[10px] font-extrabold text-emerald-700 lg:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              All systems ready
+            </div>
             <button
-              className="profile-toggle-btn"
+              className={`flex h-11 min-w-0 items-center gap-2 rounded-xl border px-2 transition sm:px-3 ${isProfileOpen ? 'border-slate-300 bg-slate-100' : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'}`}
               onClick={() => setIsProfileOpen(!isProfileOpen)}
+              aria-expanded={isProfileOpen}
             >
-              <div className="contact-avatar very-small overflow-hidden relative" style={{ backgroundColor: '#0ea5e9', color: 'white' }}>
+              <div className="contact-avatar very-small overflow-hidden relative ring-2 ring-white shadow-sm" style={{ backgroundColor: '#10b981', color: 'white' }}>
                 {user?.profile_pic_url && (
                   <img src={user.profile_pic_url} alt="Profile" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
                 )}
                 <span className="relative z-0">
                   {(user?.display_name || user?.first_name || user?.name || user?.username || 'U').charAt(0).toUpperCase()}
                   {user?.last_name ? user.last_name.charAt(0).toUpperCase() : ''}
-                </span>
+                  </span>
               </div>
-              <span className="profile-name">{user?.display_name || (user?.first_name ? `${user.first_name} ${user?.last_name || ''}`.trim() : null) || user?.username || user?.name || user?.email || 'User'}</span>
-              <ChevronDown size={16} className={`profile-chevron ${isProfileOpen ? 'rotated' : ''}`} />
+              <span className="hidden min-w-0 text-left sm:block">
+                <span className="block max-w-[160px] truncate text-xs font-extrabold text-slate-900">{displayUserName}</span>
+                <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">{currentPlanName}</span>
+              </span>
+              <ChevronDown size={15} className={`shrink-0 text-slate-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
           </div>
         </header>
