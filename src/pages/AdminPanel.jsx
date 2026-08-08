@@ -12,7 +12,7 @@ const fmt = (n) => (n ?? 0).toLocaleString();
 const initials = (str) => (str || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-function CountUp({ end, duration = 1500, prefix = '' }) {
+function CountUp({ end, duration = 1500, prefix = '', suffix = '' }) {
   const [count, setCount] = useState(0);
   useEffect(() => {
     let start = 0;
@@ -30,19 +30,74 @@ function CountUp({ end, duration = 1500, prefix = '' }) {
     }, 16);
     return () => clearInterval(timer);
   }, [end, duration]);
-  return <span>{prefix}{fmt(count)}</span>;
+  return <span>{prefix}{fmt(count)}{suffix}</span>;
 }
 
-function StatCard({ label, value, icon, color }) {
+function StatCard({ label, value, icon, tone = 'blue', helper, prefix = '' }) {
   return (
-    <div className={`admin-stat-card colored ${color || 'slate'}`}>
-      <div className="admin-stat-card-header">
-        <span className="material-symbols-outlined stat-icon">{icon}</span>
-        <span className="admin-stat-card-label">{label}</span>
+    <div className={`admin-overview-stat tone-${tone}`}>
+      <div className="admin-overview-stat-top">
+        <span className="admin-overview-stat-label">{label}</span>
+        <span className="admin-overview-stat-icon material-symbols-outlined">{icon}</span>
       </div>
-      <div className="admin-stat-card-value">
-        <CountUp end={value} />
+      <div className="admin-overview-stat-value">
+        <CountUp end={value} prefix={prefix} />
       </div>
+      <div className="admin-overview-stat-helper">{helper}</div>
+    </div>
+  );
+}
+
+function ActivityMetric({ label, value, icon, tone = 'blue' }) {
+  return (
+    <div className="admin-activity-metric">
+      <span className={`admin-activity-icon tone-${tone} material-symbols-outlined`}>{icon}</span>
+      <div>
+        <div className="admin-activity-value"><CountUp end={value} /></div>
+        <div className="admin-activity-label">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function RingChart({ label, value, total, tone, icon }) {
+  const safeValue = Number(value) || 0;
+  const safeTotal = Number(total) || 0;
+  const percentage = safeTotal ? Math.min(100, Math.round((safeValue / safeTotal) * 100)) : 0;
+
+  return (
+    <div className={`admin-ring-chart tone-${tone}`}>
+      <div className="admin-ring-visual">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle className="admin-ring-track" cx="60" cy="60" r="50" pathLength="100" />
+          <circle
+            className="admin-ring-progress"
+            cx="60"
+            cy="60"
+            r="50"
+            pathLength="100"
+            style={{ '--ring-progress': percentage }}
+          />
+        </svg>
+        <div className="admin-ring-center">
+          <span className="material-symbols-outlined">{icon}</span>
+          <strong><CountUp end={percentage} suffix="%" /></strong>
+        </div>
+      </div>
+      <div className="admin-ring-copy">
+        <span>{label}</span>
+        <small>{fmt(safeValue)} of {fmt(safeTotal)}</small>
+      </div>
+    </div>
+  );
+}
+
+function SnapshotRow({ label, value, icon, tone = 'neutral' }) {
+  return (
+    <div className="admin-snapshot-row">
+      <span className={`admin-snapshot-icon tone-${tone} material-symbols-outlined`}>{icon}</span>
+      <span className="admin-snapshot-label">{label}</span>
+      <span className="admin-snapshot-value"><CountUp end={value} /></span>
     </div>
   );
 }
@@ -79,41 +134,109 @@ function DashboardSection() {
   if (loading) return <LoadingState />;
   if (!stats) return <EmptyState text="Could not load dashboard stats." />;
 
-  const cards = [
-    { label: 'Total Users', value: stats.total_users, icon: 'group', color: 'indigo' },
-    { label: 'Active Users', value: stats.active_users, icon: 'person_check', color: 'green' },
-    { label: 'Suspended', value: stats.suspended_users, icon: 'person_off', color: 'red' },
-    { label: 'Subscriptions', value: stats.total_subscriptions, icon: 'subscriptions', color: 'blue' },
-    { label: 'Active Subs', value: stats.active_subscriptions, icon: 'verified', color: 'emerald' },
-    { label: 'AI Agents', value: stats.total_agents, icon: 'smart_toy', color: 'purple' },
-    { label: 'Pages', value: stats.total_pages, icon: 'pages', color: 'cyan' },
-    { label: 'Conversations', value: stats.total_conversations, icon: 'chat', color: 'sky' },
-    { label: 'Messages', value: stats.total_messages, icon: 'message', color: 'violet' },
-    { label: 'Feedbacks', value: stats.total_feedbacks, icon: 'feedback', color: 'amber' },
-    { label: 'Leads', value: stats.total_leads, icon: 'contacts', color: 'rose' },
-    { label: 'Tokens Used', value: stats.total_tokens_used, icon: 'data_usage', color: 'slate' },
+  const totalUsers = Number(stats.total_users) || 0;
+  const activeUsers = Number(stats.active_users) || 0;
+  const totalSubscriptions = Number(stats.total_subscriptions) || 0;
+  const activeSubscriptions = Number(stats.active_subscriptions) || 0;
+  const suspendedUsers = Number(stats.suspended_users) || 0;
+  const activeUserRate = totalUsers ? Math.round((activeUsers / totalUsers) * 100) : 0;
+
+  const headlineCards = [
+    {
+      label: 'Total users', value: totalUsers, icon: 'group', tone: 'blue',
+      helper: `${activeUserRate}% currently active`,
+    },
+    {
+      label: 'Active users', value: activeUsers, icon: 'person_check', tone: 'green',
+      helper: 'Accounts in good standing',
+    },
+    {
+      label: 'Active subscriptions', value: activeSubscriptions, icon: 'verified', tone: 'violet',
+      helper: `${fmt(totalSubscriptions)} subscriptions total`,
+    },
+    {
+      label: 'Total revenue', value: stats.total_revenue, icon: 'payments', tone: 'amber', prefix: '$',
+      helper: 'Across all subscriptions',
+    },
+  ];
+
+  const activityMetrics = [
+    { label: 'AI agents', value: stats.total_agents, icon: 'smart_toy', tone: 'violet' },
+    { label: 'Connected pages', value: stats.total_pages, icon: 'web', tone: 'cyan' },
+    { label: 'Conversations', value: stats.total_conversations, icon: 'forum', tone: 'blue' },
+    { label: 'Messages', value: stats.total_messages, icon: 'chat_bubble', tone: 'green' },
+    { label: 'Tokens used', value: stats.total_tokens_used, icon: 'data_usage', tone: 'amber' },
   ];
 
   return (
-    <div>
-      <div className="admin-section-header">
-        <div className="admin-section-label">Overview</div>
-        <div className="admin-section-title">Dashboard</div>
-      </div>
-      <div className="admin-stats-grid">
-        {cards.map(c => <StatCard key={c.label} {...c} />)}
-      </div>
-      {stats.total_revenue !== undefined && (
-        <div className="admin-stat-card colored emerald" style={{ marginTop: 24 }}>
-          <div className="admin-stat-card-header">
-            <span className="material-symbols-outlined stat-icon">payments</span>
-            <span className="admin-stat-card-label">Total Revenue</span>
-          </div>
-          <div className="admin-stat-card-value" style={{ fontSize: 42 }}>
-            <CountUp end={stats.total_revenue} prefix="$" />
-          </div>
+    <div className="admin-overview">
+      <div className="admin-overview-heading">
+        <div>
+          <div className="admin-section-label">Command center</div>
+          <div className="admin-section-title">Platform overview</div>
+          <p className="admin-overview-subtitle">A clear snapshot of customers, subscriptions, and product activity.</p>
         </div>
-      )}
+        <div className="admin-overview-status">
+          <span className="admin-overview-status-dot" />
+          Current snapshot
+        </div>
+      </div>
+
+      <div className="admin-overview-stats">
+        {headlineCards.map(card => <StatCard key={card.label} {...card} />)}
+      </div>
+
+      <div className="admin-overview-panels">
+        <section className="admin-overview-panel admin-activity-panel">
+          <div className="admin-overview-panel-heading">
+            <div>
+              <h2>Platform activity</h2>
+              <p>Usage across connected workspaces.</p>
+            </div>
+            <span className="admin-overview-panel-mark material-symbols-outlined">monitoring</span>
+          </div>
+          <div className="admin-activity-grid">
+            {activityMetrics.map(metric => <ActivityMetric key={metric.label} {...metric} />)}
+          </div>
+        </section>
+
+        <section className="admin-overview-panel admin-health-panel">
+          <div className="admin-overview-panel-heading">
+            <div>
+              <h2>Account health</h2>
+              <p>Active share of users and subscriptions.</p>
+            </div>
+            <span className="admin-overview-panel-mark health material-symbols-outlined">donut_large</span>
+          </div>
+          <div className="admin-ring-grid">
+            <RingChart label="Users active" value={activeUsers} total={totalUsers} tone="green" icon="person" />
+            <RingChart label="Subscriptions active" value={activeSubscriptions} total={totalSubscriptions} tone="violet" icon="verified" />
+          </div>
+          <div className="admin-health-legend">
+            <span><i className="active" />Active</span>
+            <span><i className="remaining" />Remaining</span>
+          </div>
+        </section>
+
+        <section className="admin-overview-panel admin-snapshot-panel">
+          <div className="admin-overview-panel-heading">
+            <div>
+              <h2>Admin snapshot</h2>
+              <p>Items worth keeping an eye on.</p>
+            </div>
+            <span className="admin-overview-panel-mark material-symbols-outlined">shield_person</span>
+          </div>
+          <div className="admin-snapshot-list">
+            <SnapshotRow label="Suspended accounts" value={suspendedUsers} icon="person_off" tone="red" />
+            <SnapshotRow label="Feedback received" value={stats.total_feedbacks} icon="reviews" tone="amber" />
+            <SnapshotRow label="Leads captured" value={stats.total_leads} icon="contacts" tone="blue" />
+          </div>
+          <div className="admin-snapshot-footnote">
+            <span className="material-symbols-outlined">info</span>
+            Counts reflect the latest available platform data.
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
