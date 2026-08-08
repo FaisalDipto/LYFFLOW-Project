@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import logoImg from '../assets/logo1.png';
 import titleImg from '../assets/title.png';
+import AppLoadingScreen from '../components/AppLoadingScreen';
 import AgentAvatar from '../components/AgentAvatar';
 import AgentAvatarModal from '../components/AgentAvatarModal';
 import CustomerRecords from '../components/CustomerRecords';
@@ -5070,7 +5071,7 @@ export default function Dashboard() {
       console.error("Failed to fetch user data:", err);
       if (err.status === 401) {
         isRedirecting = true;
-        navigate('/login', { replace: true });
+        navigate('/get-started', { replace: true });
         return;
       }
 
@@ -5142,14 +5143,7 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center px-6">
-        <div className="flex flex-col items-center gap-4" role="status" aria-live="polite">
-          <div className="h-10 w-10 rounded-full border-4 border-slate-200 border-t-emerald-500 animate-spin" aria-hidden="true" />
-          <p className="m-0 text-sm font-semibold text-slate-600">Checking your session...</p>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen />;
   }
 
   if (loadError) {

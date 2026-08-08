@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react' // Final check on imports
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { WidgetProvider } from './context/WidgetContext'
+import AppLoadingScreen from './components/AppLoadingScreen'
 import './App.css'
 import './pages/GetStarted.css'
 import './pages/Login.css'
@@ -97,7 +98,7 @@ function App() {
     <WidgetProvider>
       <RateLimitModal />
       <ScrollManager />
-      <Suspense fallback={<div className="h-screen w-full flex items-center justify-center"><div className="animate-pulse text-slate-400 font-bold">Loading LYFFLOW...</div></div>}>
+      <Suspense fallback={<AppLoadingScreen />}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/get-started" element={<GetStarted />} />

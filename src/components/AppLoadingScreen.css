@@ -1,0 +1,252 @@
+.app-loading-screen {
+  --loading-ink: #07110f;
+  --loading-muted: #7e978f;
+  --loading-line: #19352d;
+  --loading-accent: #34d399;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  overflow: hidden;
+  background: var(--loading-ink);
+  color: #f4fbf8;
+  font-family: 'Epilogue', system-ui, sans-serif;
+}
+
+.app-loading-screen::before,
+.app-loading-screen::after {
+  position: absolute;
+  content: '';
+  pointer-events: none;
+  background: #10241f;
+}
+
+.app-loading-screen::before {
+  top: 0;
+  bottom: 0;
+  left: clamp(22px, 7vw, 104px);
+  width: 1px;
+}
+
+.app-loading-screen::after {
+  right: clamp(22px, 7vw, 104px);
+  bottom: clamp(22px, 6vh, 72px);
+  left: clamp(22px, 7vw, 104px);
+  height: 1px;
+}
+
+.app-loading-frame {
+  position: relative;
+  display: flex;
+  width: min(82vw, 360px);
+  flex-direction: column;
+  align-items: center;
+}
+
+.app-loading-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+}
+
+.app-loading-mark {
+  width: 52px;
+  height: 36px;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(76%) sepia(52%) saturate(626%) hue-rotate(101deg) brightness(91%) contrast(92%);
+}
+
+.app-loading-divider {
+  width: 1px;
+  height: 30px;
+  background: #24443b;
+}
+
+.app-loading-wordmark {
+  width: 137px;
+  height: auto;
+  filter: brightness(0) invert(1);
+}
+
+.app-loading-flow {
+  position: relative;
+  width: min(76vw, 308px);
+  height: 28px;
+  margin-top: 38px;
+}
+
+.app-loading-line {
+  position: absolute;
+  top: 13px;
+  right: 7px;
+  left: 7px;
+  height: 1px;
+  background: var(--loading-line);
+}
+
+.app-loading-node {
+  position: absolute;
+  top: 9px;
+  width: 9px;
+  height: 9px;
+  border: 1px solid #31564b;
+  background: var(--loading-ink);
+  transform: rotate(45deg);
+  animation: app-loading-node 2.4s ease-in-out infinite;
+}
+
+.app-loading-node-one {
+  left: 3px;
+}
+
+.app-loading-node-two {
+  left: 33.33%;
+  animation-delay: .35s;
+}
+
+.app-loading-node-three {
+  left: 66.66%;
+  animation-delay: .7s;
+}
+
+.app-loading-node-four {
+  right: 3px;
+  animation-delay: 1.05s;
+}
+
+.app-loading-signal {
+  position: absolute;
+  top: 10px;
+  left: 5px;
+  width: 24px;
+  height: 7px;
+  background: var(--loading-accent);
+  box-shadow: 0 0 16px rgba(52, 211, 153, .42);
+  animation: app-loading-travel 2.4s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+
+.app-loading-copy {
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+  margin: 18px 0 0;
+  color: var(--loading-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.app-loading-dots {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 7px;
+}
+
+.app-loading-dots span {
+  width: 3px;
+  height: 3px;
+  background: var(--loading-accent);
+  opacity: .25;
+  animation: app-loading-dot 1.2s ease-in-out infinite;
+}
+
+.app-loading-dots span:nth-child(2) {
+  animation-delay: .16s;
+}
+
+.app-loading-dots span:nth-child(3) {
+  animation-delay: .32s;
+}
+
+@keyframes app-loading-travel {
+  0% {
+    transform: translateX(0) scaleX(.35);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  48% {
+    transform: translateX(135px) scaleX(1);
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(274px) scaleX(.35);
+    opacity: 0;
+  }
+}
+
+@keyframes app-loading-node {
+  0%, 18%, 100% {
+    border-color: #31564b;
+    background: var(--loading-ink);
+  }
+  24%, 36% {
+    border-color: var(--loading-accent);
+    background: var(--loading-accent);
+  }
+}
+
+@keyframes app-loading-dot {
+  0%, 70%, 100% {
+    opacity: .2;
+  }
+  35% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-loading-mark {
+    width: 46px;
+  }
+
+  .app-loading-wordmark {
+    width: 122px;
+  }
+
+  .app-loading-copy {
+    font-size: 10px;
+    letter-spacing: .12em;
+  }
+
+  @keyframes app-loading-travel {
+    0% {
+      transform: translateX(0) scaleX(.35);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    48% {
+      transform: translateX(calc((min(76vw, 308px) - 24px) / 2)) scaleX(1);
+    }
+    88% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(calc(min(76vw, 308px) - 34px)) scaleX(.35);
+      opacity: 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-loading-node,
+  .app-loading-signal,
+  .app-loading-dots span {
+    animation: none;
+  }
+
+  .app-loading-signal {
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 1;
+  }
+}
