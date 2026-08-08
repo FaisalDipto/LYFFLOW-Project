@@ -4462,7 +4462,90 @@ const SettingsPanel = ({ user, onUpdate }) => {
   );
 };
 
-const SubscriptionPanel = () => {
+const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
+  const usedValue = Math.max(0, Number(used) || 0);
+  const maxValue = Number(max);
+  const isUnlimited = max === -1 || max == null || !Number.isFinite(maxValue) || maxValue <= 0;
+  const targetPercentage = isUnlimited ? 100 : Math.min((usedValue / maxValue) * 100, 100);
+  const [animationProgress, setAnimationProgress] = useState(0);
+
+  useEffect(() => {
+    if (!isActive) {
+      setAnimationProgress(0);
+      return undefined;
+    }
+
+    if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setAnimationProgress(1);
+      return undefined;
+    }
+
+    setAnimationProgress(0);
+    let animationFrame;
+    let startTime;
+    const duration = 1600;
+
+    const animateGauge = (timestamp) => {
+      if (startTime === undefined) startTime = timestamp;
+      const elapsed = Math.min((timestamp - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - elapsed, 4);
+      setAnimationProgress(eased);
+      if (elapsed < 1) animationFrame = window.requestAnimationFrame(animateGauge);
+    };
+
+    animationFrame = window.requestAnimationFrame(animateGauge);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [isActive, targetPercentage, usedValue]);
+
+  const animatedPercentage = targetPercentage * animationProgress;
+  const animatedUsedValue = Math.round(usedValue * animationProgress);
+  const roundedPercentage = Math.round(animatedPercentage);
+
+  return (
+    <article className="flex min-w-0 flex-col items-center rounded-2xl border border-slate-200/80 bg-slate-50/60 p-5 text-center">
+      <div className="mb-4 flex w-full items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 text-left">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: softColor, color }}>
+            <span className="material-symbols-outlined text-[19px]">{icon}</span>
+          </span>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+        </div>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold text-slate-500 shadow-sm ring-1 ring-slate-200/70">
+          {isUnlimited ? 'Unlimited' : `${roundedPercentage}%`}
+        </span>
+      </div>
+
+      <div
+        className="relative h-[108px] w-[184px] shrink-0"
+        role="progressbar"
+        aria-label={`${label} usage`}
+        aria-valuemin={0}
+        aria-valuemax={isUnlimited ? undefined : maxValue}
+        aria-valuenow={usedValue}
+      >
+        <div className="absolute inset-x-0 top-0 h-[92px] overflow-hidden">
+          <div
+            className="absolute left-0 top-0 h-[184px] w-[184px] rounded-full"
+            style={{ borderRadius: '50%', background: `conic-gradient(from 270deg, ${color} 0deg ${animatedPercentage * 1.8}deg, #e7edf4 ${animatedPercentage * 1.8}deg 180deg, transparent 180deg 360deg)` }}
+          >
+            <div className="absolute left-[22px] top-[22px] h-[140px] w-[140px] rounded-full bg-white shadow-[0_8px_24px_rgba(15,23,42,0.08)]" style={{ borderRadius: '50%' }} />
+          </div>
+        </div>
+        <div className="absolute inset-x-0 top-[50px] flex flex-col items-center justify-center">
+          <span className="text-2xl font-extrabold leading-none text-slate-950">{isUnlimited ? '∞' : `${roundedPercentage}%`}</span>
+          <span className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">{isUnlimited ? 'limit' : 'used'}</span>
+        </div>
+      </div>
+
+      <div className="mt-4 min-w-0">
+        <p className="truncate text-lg font-extrabold tabular-nums text-slate-950">{animatedUsedValue.toLocaleString()}</p>
+        <p className="mt-1 text-[11px] font-medium text-slate-400">{isUnlimited ? 'No usage limit' : `of ${maxValue.toLocaleString()}`}</p>
+      </div>
+    </article>
+  );
+};
+
+const SubscriptionPanel = ({ isActive = false }) => {
   const [subData, setSubData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -4563,10 +4646,7 @@ const SubscriptionPanel = () => {
     year: 'numeric', month: 'short', day: 'numeric'
   }) : 'N/A';
 
-  const getProgress = (used, max) => {
-    if (!max || max === 0) return 0;
-    return Math.min((used / max) * 100, 100);
-  };
+  const pageLimit = currentPlan.max_pages ?? currentPlan.max_connected_pages ?? currentPlan.max_facebook_pages;
 
   return (
     <div className="dashboard-content-area space-y-8 animate-fade-in-up pb-12">
@@ -4630,61 +4710,19 @@ const SubscriptionPanel = () => {
         </div>
       </div>
 
-      {/* Usage Section */}
-
-
-
-      {/* Usage Section */}
-      <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-        <h2 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-2">
-          <TrendingUp className="text-blue-500" />
-          Usage Statistics
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          <div className="space-y-4">
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Pages Connected</p>
-                <p className="text-2xl font-black text-slate-900">{usage.pages_used} <span className="text-sm font-normal text-slate-400">/ {currentPlan.max_pages}</span></p>
-              </div>
-            </div>
-            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all duration-1000"
-                style={{ width: `${getProgress(usage.pages_used, currentPlan.max_pages)}%` }}
-              />
-            </div>
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm md:p-7">
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">Current cycle</p>
+            <h2 className="flex items-center gap-2 text-xl font-extrabold text-slate-950"><TrendingUp size={20} className="text-blue-500" />Usage statistics</h2>
           </div>
+          <p className="text-xs font-medium text-slate-400">Limits reset with your monthly billing cycle.</p>
+        </div>
 
-          <div className="space-y-4">
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Agents Created</p>
-                <p className="text-2xl font-black text-slate-900">{usage.agents_used} <span className="text-sm font-normal text-slate-400">/ {currentPlan.max_agents}</span></p>
-              </div>
-            </div>
-            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
-                style={{ width: `${getProgress(usage.agents_used, currentPlan.max_agents)}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Tokens Used (Monthly)</p>
-                <p className="text-2xl font-black text-slate-900">{usage.tokens_used?.toLocaleString()} <span className="text-sm font-normal text-slate-400">/ {currentPlan.max_tokens_per_month?.toLocaleString()}</span></p>
-              </div>
-            </div>
-            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-purple-500 rounded-full transition-all duration-1000"
-                style={{ width: `${getProgress(usage.tokens_used, currentPlan.max_tokens_per_month)}%` }}
-              />
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <UsageGauge label="Pages connected" used={usage.pages_used} max={pageLimit} color="#3b82f6" softColor="#eff6ff" icon="web" isActive={isActive} />
+          <UsageGauge label="Agents created" used={usage.agents_used} max={currentPlan.max_agents} color="#10b981" softColor="#ecfdf5" icon="smart_toy" isActive={isActive} />
+          <UsageGauge label="Monthly tokens" used={usage.tokens_used} max={currentPlan.max_tokens_per_month} color="#8b5cf6" softColor="#f5f3ff" icon="token" isActive={isActive} />
         </div>
       </div>
 
@@ -5292,7 +5330,7 @@ export default function Dashboard() {
           <SettingsPanel user={user} onUpdate={fetchData} />
         </div>
         <div style={{ display: activeTab === 'subscription' ? 'contents' : 'none' }}>
-          <SubscriptionPanel />
+          <SubscriptionPanel isActive={activeTab === 'subscription'} />
         </div>
         <div style={{ display: activeTab === 'tutorial' ? 'contents' : 'none' }}>
           <TutorialPanel />
