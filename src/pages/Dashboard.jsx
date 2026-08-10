@@ -2555,37 +2555,43 @@ const Knowledge = ({ namespaces, onUpdate }) => {
 const PERSONAS = [
   {
     id: 'sales',
+    value: 'Sales Agent',
     icon: TrendingUp,
     iconColor: '#8b5cf6',
     iconBg: 'rgba(139,92,246,0.1)',
-    title: 'Sales Assistant',
-    desc: 'Helps with product recommendations and sales inquiries.',
+    title: 'Sales Agent',
+    desc: 'Qualifies interest, recommends products, and helps move conversations toward a sale.',
   },
   {
     id: 'support',
+    value: 'Support Agent',
     icon: Headphones,
     iconColor: '#0ea5e9',
     iconBg: 'rgba(14,165,233,0.1)',
     title: 'Support Agent',
-    desc: 'Provides customer support and troubleshooting.',
-  },
-  {
-    id: 'qa',
-    icon: HelpCircle,
-    iconColor: '#10b981',
-    iconBg: 'rgba(16,185,129,0.1)',
-    title: 'Q&A Bot',
-    desc: 'Answers questions based on your knowledge base.',
+    desc: 'Resolves customer questions, troubleshoots issues, and guides people to the right help.',
   },
   {
     id: 'general',
+    value: 'General Agent',
     icon: Settings,
     iconColor: '#f59e0b',
     iconBg: 'rgba(245,158,11,0.1)',
     title: 'General Agent',
-    desc: 'Handles general queries and varied tasks.',
+    desc: 'Handles a broad mix of questions and everyday customer conversations.',
   },
 ];
+
+const DEFAULT_AGENT_FALLBACK = "I'm not sure about that, let me connect you with someone who can help.";
+const ROLE_BY_PERSONA = Object.fromEntries(PERSONAS.map(persona => [persona.id, persona.value]));
+
+const normalizeAgentResponse = (agent = {}) => ({
+  ...agent,
+  name: agent.name || agent.agent_name,
+  role: agent.role || agent.agent_role,
+  tone: agent.tone || agent.agent_tone,
+  language: agent.language || agent.agent_language,
+});
 
 /* ─────────────────────────────────────────
    AGENT LOG COMPONENT
@@ -3036,12 +3042,17 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [agentName, setAgentName] = useState('');
   const [selectedPersona, setSelectedPersona] = useState(null);
   const [tone, setTone] = useState('Professional');
-  const [language, setLanguage] = useState('English');
+  const [language, setLanguage] = useState('Mimic User Language');
   const [businessName, setBusinessName] = useState('');
   const [businessDesc, setBusinessDesc] = useState('');
   const [instructions, setInstructions] = useState('');
-  const [fallbackMessage, setFallbackMessage] = useState('');
+  const [fallbackMessage, setFallbackMessage] = useState(DEFAULT_AGENT_FALLBACK);
   const [agentTimezone, setAgentTimezone] = useState('');
+  const [creationStep, setCreationStep] = useState(1);
+  const [preQuestions, setPreQuestions] = useState([]);
+  const [preQuestionAnswers, setPreQuestionAnswers] = useState({});
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [onboardingError, setOnboardingError] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [created, setCreated] = useState(false);
@@ -3090,11 +3101,15 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setBusinessName('');
     setBusinessDesc('');
     setInstructions('');
-    setFallbackMessage('');
+    setFallbackMessage(DEFAULT_AGENT_FALLBACK);
     setSelectedPersona(null);
     setTone('Professional');
-    setLanguage('English');
+    setLanguage('Mimic User Language');
     setAgentTimezone('');
+    setCreationStep(1);
+    setPreQuestions([]);
+    setPreQuestionAnswers({});
+    setOnboardingError('');
   };
 
   // Filter State
@@ -3252,7 +3267,78 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const TONES = ["Professional", "Friendly", "Formal", "Casual", "Persuasive", "Empathetic", "Confident"];
   const LANGUAGES = ["Mimic User Language", "English", "Arabic", "Spanish", "French", "German", "Portuguese", "Hindi", "Bengali"];
 
-  const REVERSE_ROLE_MAP = { 'Sales Agent': 'sales', 'Support Agent': 'support', 'Q&A Agent': 'qa', 'General Agent': 'general' };
+  const REVERSE_ROLE_MAP = { 'Sales Agent': 'sales', 'Support Agent': 'support', 'General Agent': 'general' };
+
+  const closeAgentForm = () => {
+    setIsCreating(false);
+    setIsEditing(false);
+    setEditingAgentId(null);
+    setAttemptedSubmit(false);
+    setCreationError(null);
+    setOnboardingError('');
+  };
+
+  const handlePersonaSelect = (personaId) => {
+    if (isEditing) return;
+    if (personaId !== selectedPersona) {
+      setPreQuestions([]);
+      setPreQuestionAnswers({});
+      setInstructions('');
+    }
+    setSelectedPersona(personaId);
+    setOnboardingError('');
+  };
+
+  const handleRoleNext = async () => {
+    const agentRole = ROLE_BY_PERSONA[selectedPersona];
+    if (!agentRole) {
+      setOnboardingError('Choose the role that best matches what you want this agent to do.');
+      return;
+    }
+
+    setOnboardingLoading(true);
+    setOnboardingError('');
+    try {
+      const response = await apiService.getAgentPreQuestions(agentRole);
+      const questions = (Array.isArray(response) ? response : response?.questions || [])
+        .filter(question => question?.question_id && question?.question_text)
+        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      setPreQuestions(questions);
+      setPreQuestionAnswers({});
+      setCreationStep(2);
+    } catch (error) {
+      setOnboardingError(error.message || 'We could not load the setup questions. Please try again.');
+    } finally {
+      setOnboardingLoading(false);
+    }
+  };
+
+  const handleQuestionsNext = async () => {
+    const unansweredCount = preQuestions.filter(question => !Object.prototype.hasOwnProperty.call(preQuestionAnswers, question.question_id)).length;
+    if (unansweredCount > 0) {
+      setOnboardingError(`Answer ${unansweredCount === 1 ? 'the remaining question' : `all ${unansweredCount} remaining questions`} to continue.`);
+      return;
+    }
+
+    setOnboardingLoading(true);
+    setOnboardingError('');
+    try {
+      const answers = preQuestions.map(question => ({
+        question_id: question.question_id,
+        answer: preQuestionAnswers[question.question_id],
+      }));
+      const response = await apiService.getAgentPreInstructions(ROLE_BY_PERSONA[selectedPersona], answers);
+      const generatedInstructions = (Array.isArray(response?.instructions) ? response.instructions : [])
+        .filter(Boolean)
+        .join('\n');
+      setInstructions(generatedInstructions);
+      setCreationStep(3);
+    } catch (error) {
+      setOnboardingError(error.message || 'We could not prepare the agent instructions. Please try again.');
+    } finally {
+      setOnboardingLoading(false);
+    }
+  };
 
   const handleEditClick = (agent) => {
     setIsEditing(true);
@@ -3261,15 +3347,19 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setAttemptedSubmit(false);
     setCreationError(null);
 
-    setAgentName(agent.name || '');
+    setAgentName(agent.name || agent.agent_name || '');
     setBusinessName(agent.business_name || '');
     setBusinessDesc(agent.business_description || '');
     setInstructions(agent.instructions || '');
-    setFallbackMessage(agent.fallback_message || '');
-    setSelectedPersona(REVERSE_ROLE_MAP[agent.role] || 'sales');
-    setTone(agent.tone || 'Professional');
-    setLanguage(agent.language || 'English');
+    setFallbackMessage(agent.fallback_message || DEFAULT_AGENT_FALLBACK);
+    setSelectedPersona(REVERSE_ROLE_MAP[agent.role || agent.agent_role] || 'general');
+    setTone(agent.tone || agent.agent_tone || 'Professional');
+    setLanguage(agent.language || agent.agent_language || 'Mimic User Language');
     setAgentTimezone(agent.agent_timezone || '');
+    setCreationStep(3);
+    setPreQuestions([]);
+    setPreQuestionAnswers({});
+    setOnboardingError('');
   };
 
   const handleCreate = async (e) => {
@@ -3298,28 +3388,28 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
     setLoading(true);
     try {
-      const roleMap = { 'sales': 'Sales Agent', 'support': 'Support Agent', 'qa': 'Q&A Agent', 'general': 'General Agent' };
-      const payload = {
-        name: agentName,
-        role: roleMap[selectedPersona],
-        tone,
-        language,
-        business_name: businessName,
-        business_description: businessDesc,
+      const sharedPayload = {
+        agent_name: agentName.trim(),
+        agent_tone: tone,
+        agent_language: language,
+        business_name: businessName.trim(),
+        business_description: businessDesc.trim(),
         instructions: instructions.trim() || null,
         fallback_message: fallbackMessage.trim() || null,
         agent_timezone: agentTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
       };
 
-      console.log("Create Agent Payload:", JSON.stringify(payload, null, 2));
-
       if (isEditing) {
-        await apiService.updateAgent(editingAgentId, payload);
-        if (onAgentEdited) onAgentEdited(editingAgentId, payload);
+        const updatedAgent = await apiService.updateAgent(editingAgentId, sharedPayload);
+        if (onAgentEdited) onAgentEdited(editingAgentId, normalizeAgentResponse(updatedAgent || sharedPayload));
       } else {
+        const payload = {
+          ...sharedPayload,
+          agent_role: ROLE_BY_PERSONA[selectedPersona],
+        };
         try {
           const newAgent = await apiService.createAgent(payload);
-          if (onAgentCreated) onAgentCreated(newAgent);
+          if (onAgentCreated) onAgentCreated(normalizeAgentResponse(newAgent));
         } catch (error) {
           // If the error is about a missing subscription, try to auto-subscribe and retry once
           if (error.status === 403 && (error.message || '').toLowerCase().includes('subscription')) {
@@ -3330,7 +3420,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               await new Promise(resolve => setTimeout(resolve, 500));
               // Retry creation after silent fix
               const retryAgent = await apiService.createAgent(payload);
-              if (onAgentCreated) onAgentCreated(retryAgent);
+              if (onAgentCreated) onAgentCreated(normalizeAgentResponse(retryAgent));
             } catch (retryError) {
               throw retryError; // If it still fails, let the main catch handle it
             }
@@ -3348,8 +3438,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         setBusinessName('');
         setBusinessDesc('');
         setInstructions('');
-        setFallbackMessage('');
+        setFallbackMessage(DEFAULT_AGENT_FALLBACK);
         setAgentTimezone('');
+        setCreationStep(1);
+        setPreQuestions([]);
+        setPreQuestionAnswers({});
         setIsCreating(false);
         setIsEditing(false);
         setEditingAgentId(null);
@@ -3877,26 +3970,217 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     );
   }
 
+  const selectedRole = PERSONAS.find(persona => persona.id === selectedPersona);
+  const SelectedRoleIcon = selectedRole?.icon;
+
+  if (!isEditing && creationStep < 3) {
+    const answeredCount = preQuestions.filter(question => Object.prototype.hasOwnProperty.call(preQuestionAnswers, question.question_id)).length;
+
+    return (
+      <div className="dashboard-content-area animate-fade-in-up px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-4xl">
+          <button onClick={closeAgentForm} className="mb-6 inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">
+            <ChevronDown size={18} className="rotate-90" /> Back to agents
+          </button>
+
+          <section className="agent-onboarding-shell overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+            <header className="border-b border-slate-100 px-6 py-7 sm:px-10 sm:py-9">
+              <div className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-emerald-600">Guided agent setup</span>
+                  <h2 className="font-['Epilogue'] text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
+                    {creationStep === 1 ? 'What should your agent do?' : 'Shape how your agent works'}
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                    {creationStep === 1
+                      ? 'Start with the closest role. We will tailor the next questions and prepare a useful first draft for you.'
+                      : `Answer each question for your ${selectedRole?.title || 'agent'}. Your choices will become editable instructions in the final step.`}
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-extrabold text-slate-400">Step {creationStep} of 3</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2" aria-label={`Agent creation step ${creationStep} of 3`}>
+                {[
+                  ['Role', 'Choose a purpose'],
+                  ['Preferences', 'Answer a few questions'],
+                  ['Details', 'Review and create'],
+                ].map(([label, helper], index) => {
+                  const stepNumber = index + 1;
+                  const isCurrent = stepNumber === creationStep;
+                  const isComplete = stepNumber < creationStep;
+                  return (
+                    <div key={label} className={`rounded-xl border px-3 py-3 transition sm:px-4 ${isCurrent ? 'border-emerald-300 bg-emerald-50' : isComplete ? 'border-emerald-200 bg-white' : 'border-slate-200 bg-slate-50'}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${isCurrent || isComplete ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                          {isComplete ? <CheckCircle2 size={14} /> : stepNumber}
+                        </span>
+                        <span className={`text-xs font-extrabold ${isCurrent || isComplete ? 'text-slate-900' : 'text-slate-500'}`}>{label}</span>
+                      </div>
+                      <p className="mt-1 hidden pl-8 text-[10px] font-medium text-slate-400 sm:block">{helper}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </header>
+
+            <div className="px-6 py-7 sm:px-10 sm:py-9">
+              {creationStep === 1 ? (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {PERSONAS.map(persona => {
+                    const Icon = persona.icon;
+                    const isSelected = selectedPersona === persona.id;
+                    return (
+                      <button
+                        key={persona.id}
+                        type="button"
+                        onClick={() => handlePersonaSelect(persona.id)}
+                        aria-pressed={isSelected}
+                        className={`group relative min-h-[218px] rounded-2xl border-2 p-5 text-left transition-all duration-200 ${isSelected ? 'border-emerald-400 bg-emerald-50 shadow-[0_10px_30px_rgba(16,185,129,0.12)]' : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg'}`}
+                      >
+                        <span className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full border-2 border-slate-200 bg-white">
+                          {isSelected && <span className="h-3 w-3 rounded-full bg-emerald-500" />}
+                        </span>
+                        <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: persona.iconBg }}>
+                          <Icon size={23} color={persona.iconColor} />
+                        </span>
+                        <span className="block text-base font-extrabold text-slate-950">{persona.title}</span>
+                        <span className="mt-2 block text-sm leading-6 text-slate-500">{persona.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div>
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-extrabold text-slate-950">A few quick preferences</h3>
+                      <p className="mt-1 text-sm text-slate-500">There are no wrong answers. Choose what fits your workflow today.</p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-extrabold text-slate-600">{answeredCount} of {preQuestions.length} answered</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {preQuestions.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm font-medium text-slate-500">
+                        No extra preferences are needed for this role. Continue to finish the setup.
+                      </div>
+                    ) : preQuestions.map((question, index) => {
+                      const hasAnswer = Object.prototype.hasOwnProperty.call(preQuestionAnswers, question.question_id);
+                      const answer = preQuestionAnswers[question.question_id];
+                      return (
+                        <fieldset key={question.question_id} className={`rounded-2xl border p-4 transition sm:flex sm:items-center sm:justify-between sm:gap-6 sm:p-5 ${hasAnswer ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-white'}`}>
+                          <legend className="sr-only">{question.question_text}</legend>
+                          <div className="flex min-w-0 items-start gap-3">
+                            <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${hasAnswer ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{index + 1}</span>
+                            <p className="font-bold leading-6 text-slate-900">{question.question_text}</p>
+                          </div>
+                          <div className="mt-4 grid shrink-0 grid-cols-2 gap-2 sm:mt-0 sm:w-[190px]">
+                            {[true, false].map(value => (
+                              <button
+                                key={String(value)}
+                                type="button"
+                                aria-pressed={hasAnswer && answer === value}
+                                onClick={() => {
+                                  setPreQuestionAnswers(previous => ({ ...previous, [question.question_id]: value }));
+                                  setOnboardingError('');
+                                }}
+                                className={`rounded-xl border px-4 py-2.5 text-sm font-extrabold transition ${hasAnswer && answer === value ? 'border-slate-950 bg-slate-950 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'}`}
+                              >
+                                {value ? 'Yes' : 'No'}
+                              </button>
+                            ))}
+                          </div>
+                        </fieldset>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {onboardingError && (
+                <div role="alert" className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  <MessageCircleWarning size={18} className="mt-0.5 shrink-0" /> {onboardingError}
+                </div>
+              )}
+
+              <div className="mt-7 flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  onClick={creationStep === 1 ? closeAgentForm : () => { setCreationStep(1); setOnboardingError(''); }}
+                  className="rounded-xl px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                >
+                  {creationStep === 1 ? 'Cancel' : 'Back to role'}
+                </button>
+                <button
+                  type="button"
+                  onClick={creationStep === 1 ? handleRoleNext : handleQuestionsNext}
+                  disabled={onboardingLoading}
+                  className="inline-flex min-w-[190px] items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0"
+                >
+                  {onboardingLoading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+                  {onboardingLoading ? (creationStep === 1 ? 'Loading questions...' : 'Preparing instructions...') : (creationStep === 1 ? 'Continue to questions' : 'Prepare my agent')}
+                  {!onboardingLoading && <span className="material-symbols-outlined text-[18px]">arrow_forward</span>}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+        {overlays}
+      </div>
+    );
+  }
+
   return (
-    <div className="dashboard-content-area animate-fade-in-up">
-      <div className="dashboard-header flex-between" style={{ alignItems: 'center', marginBottom: '32px', maxWidth: '600px', margin: '0 auto' }}>
-        <button onClick={() => { setIsCreating(false); setIsEditing(false); setEditingAgentId(null); setAttemptedSubmit(false); setCreationError(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, padding: '0' }}>
-          <ChevronDown size={18} style={{ transform: 'rotate(90deg)' }} /> Back to Agents
+    <div className="dashboard-content-area animate-fade-in-up px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl">
+        <button
+          onClick={isEditing ? closeAgentForm : () => { setCreationStep(2); setOnboardingError(''); }}
+          className="mb-6 inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+        >
+          <ChevronDown size={18} className="rotate-90" /> {isEditing ? 'Back to agents' : 'Back to preferences'}
         </button>
-      </div>
 
-      <div className="dashboard-header" style={{ textAlign: 'center', marginBottom: '32px', maxWidth: '600px', margin: '0 auto 32px auto' }}>
-        <h3 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px' }}>{isEditing ? 'Edit Your Agent' : 'Create Your Agent'}</h3>
-        <p style={{ color: '#64748b', fontSize: '14px' }}>
-          Configure your AI agent&apos;s personality, behavior, and business context.
-        </p>
-      </div>
+        <section className="agent-onboarding-shell overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+          <header className="border-b border-slate-100 px-6 py-7 sm:px-10 sm:py-9">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-emerald-600">{isEditing ? 'Agent settings' : 'Guided agent setup'}</span>
+                <h2 className="font-['Epilogue'] text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">{isEditing ? 'Edit your agent' : 'Review and create'}</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                  {isEditing ? 'Update the personality, behavior, and business context for this agent.' : 'Your starter instructions are ready. Add the business details, review everything, and make it yours.'}
+                </p>
+              </div>
+              {!isEditing && <span className="shrink-0 text-xs font-extrabold text-slate-400">Step 3 of 3</span>}
+            </div>
+            {!isEditing && (
+              <div className="mt-7 grid grid-cols-3 gap-2" aria-label="Agent creation step 3 of 3">
+                {['Role', 'Preferences', 'Details'].map((label, index) => (
+                  <div key={label} className={`rounded-xl border px-3 py-3 sm:px-4 ${index === 2 ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-200 bg-white'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">{index < 2 ? <CheckCircle2 size={14} /> : <span className="text-[11px] font-black">3</span>}</span>
+                      <span className="text-xs font-extrabold text-slate-900">{label}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </header>
 
-      <form
-        onSubmit={handleCreate}
-        style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '22px' }}
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <form onSubmit={handleCreate} className="flex flex-col gap-6 px-6 py-7 sm:px-10 sm:py-9">
+            {!isEditing && selectedRole && (
+              <div className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: selectedRole.iconBg }}>
+                  {SelectedRoleIcon && <SelectedRoleIcon size={21} color={selectedRole.iconColor} />}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Selected role</p>
+                  <p className="truncate text-sm font-extrabold text-slate-950">{selectedRole.title}</p>
+                </div>
+              </div>
+            )}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !agentName.trim()) ? '#ef4444' : 'inherit' }}>
@@ -3921,7 +4205,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           </div>
         </div>
 
-        <div className="form-group">
+        {isEditing && <div className="form-group">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !selectedPersona) ? '#ef4444' : 'inherit' }}>
               Select Persona * {(attemptedSubmit && !selectedPersona) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Please select a persona)</span>}
@@ -3942,9 +4226,9 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               );
             })}
           </div>
-        </div>
+        </div>}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Tone *</label>
             <select value={tone} onChange={e => setTone(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }}>
@@ -4001,12 +4285,15 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <label style={{ fontSize: '14px', fontWeight: 600 }}>Custom Instructions (Optional)</label>
+            <div>
+              <label style={{ fontSize: '14px', fontWeight: 600 }}>{isEditing ? 'Custom Instructions (Optional)' : 'Agent Instructions'}</label>
+              {!isEditing && <p className="mt-1 text-xs font-medium text-emerald-700">Prepared from your answers. Review and edit anything you want.</p>}
+            </div>
             <span style={{ fontSize: '12px', fontWeight: 600, color: (instructions || '').length > 500 ? '#ef4444' : '#64748b' }}>
               {(instructions || '').length}/500 {(instructions || '').length > 500 && '• Limit exceeded!'}
             </span>
           </div>
-          <textarea placeholder="e.g. Always end conversations with 'Have a great day!'" value={instructions} onChange={(e) => setInstructions(e.target.value)} rows="2" style={{ width: '100%', padding: '12px 14px', border: (instructions || '').length > 500 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (instructions || '').length > 500 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+          <textarea placeholder="e.g. Always end conversations with 'Have a great day!'" value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={isEditing ? 3 : 6} style={{ width: '100%', padding: '12px 14px', border: (instructions || '').length > 500 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (instructions || '').length > 500 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6 }} />
         </div>
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
@@ -4022,12 +4309,15 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         {(() => {
           const hasLimitError = agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > 500) || (fallbackMessage && fallbackMessage.length > 250);
           return (
-            <button type="submit" className="btn-submit" disabled={loading} style={{ backgroundColor: hasLimitError ? '#ef4444' : (created ? '#22c55e' : (loading ? '#94a3b8' : 'var(--text-primary)')), color: '#fff', border: 'none', borderRadius: '8px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background-color 0.25s' }}>
-              {hasLimitError ? '⚠️ Character Limit Exceeded' : (loading ? (isEditing ? 'Saving...' : 'Creating...') : (created ? (isEditing ? '✓ Settings Saved!' : '✓ Agent Created!') : (isEditing ? 'Save Changes' : 'Create Agent')))}
+            <button type="submit" className={`btn-submit inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-[15px] font-extrabold text-white shadow-lg transition ${hasLimitError ? 'bg-red-500 shadow-red-500/10' : created ? 'bg-emerald-500 shadow-emerald-500/10' : 'bg-slate-950 shadow-slate-950/10 hover:-translate-y-0.5 hover:bg-slate-800'} disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0`} disabled={loading}>
+              {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+              {hasLimitError ? 'Character limit exceeded' : (loading ? (isEditing ? 'Saving changes...' : 'Creating agent...') : (created ? (isEditing ? 'Settings saved' : 'Agent created') : (isEditing ? 'Save changes' : 'Create agent')))}
             </button>
           );
         })()}
       </form>
+        </section>
+      </div>
       {overlays}
       {assignPagePortal}
       {avatarModalPortal}

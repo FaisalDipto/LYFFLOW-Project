@@ -20,6 +20,18 @@ const mockData = {
     { agent_id: 'agent_1', name: 'SalesBot', role: 'Sales' },
     { agent_id: 'agent_2', name: 'SupportBot', role: 'Support' }
   ],
+  '/v1/agent/on-boarding/pre-questions': [
+    { question_id: 'qualify_leads', question_text: 'Should this agent qualify customers before recommending the next step?', display_order: 1 },
+    { question_id: 'collect_details', question_text: 'Should this agent collect contact details when a customer is interested?', display_order: 2 },
+    { question_id: 'human_handover', question_text: 'Should this agent offer a human handover when it cannot resolve a request?', display_order: 3 }
+  ],
+  '/v1/agent/on-boarding/pre-instructions': {
+    instructions: [
+      'Ask a few focused questions before making a recommendation.',
+      'Collect contact details only when the customer clearly shows interest.',
+      'Offer to connect the customer with a person when the request cannot be resolved.'
+    ]
+  },
   '/v1/subscription': { is_active: true, plan: { plan_name: 'Enterprise', price: 99 } },
   '/v1/page/page_1/conversations': {
     conversations: [
@@ -176,7 +188,7 @@ const invalidateGetState = () => {
 };
 
 const apiFetch = async (endpoint, options = {}) => {
-  const { cacheTtl = 0, invalidateCache = false, ...requestOptions } = options;
+  const { cacheTtl = 0, invalidateCache = false, preserveGetCache = false, ...requestOptions } = options;
   const method = (requestOptions.method || 'GET').toUpperCase();
 
   if (MOCK_MODE) {
@@ -207,7 +219,7 @@ const apiFetch = async (endpoint, options = {}) => {
 
     const inFlight = inFlightGetRequests.get(requestKey);
     if (inFlight) return inFlight;
-  } else {
+  } else if (!preserveGetCache) {
     // Mutations can affect any dashboard aggregate, so discard short-lived GET data.
     invalidateGetState();
   }
@@ -394,6 +406,16 @@ export const apiService = {
   createAgent: (agentData) => apiFetch('/v1/agent/create', {
     method: 'POST',
     body: JSON.stringify(agentData),
+  }),
+
+  getAgentPreQuestions: (agentRole) => apiFetch(`/v1/agent/on-boarding/pre-questions?agent_role=${encodeURIComponent(agentRole)}`, {
+    cacheTtl: 300000,
+  }),
+
+  getAgentPreInstructions: (agentRole, answers) => apiFetch(`/v1/agent/on-boarding/pre-instructions?agent_role=${encodeURIComponent(agentRole)}`, {
+    method: 'POST',
+    body: JSON.stringify(answers),
+    preserveGetCache: true,
   }),
 
   updateAgent: (agentId, agentData) => apiFetch(`/v1/agent/update/${agentId}`, {

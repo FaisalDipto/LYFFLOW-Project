@@ -80,6 +80,14 @@ html[data-dashboard-theme="dark"] .dashboard-layout.theme-dark .products-create-
 .dashboard-layout.theme-dark .conversation-contact.is-active .conversation-contact-name{color:#10251f!important}
 .dashboard-layout.theme-dark .agent-assignment-trigger.is-assigned{background:#102d2b!important;border-color:#28675a!important;color:#a7f3d0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
 .dashboard-layout.theme-dark .agent-assignment-trigger.is-assigned:hover{background:#143733!important;border-color:#34816e!important;color:#d1fae5!important}
+.dashboard-layout.theme-dark .agent-onboarding-shell{background:#0f1b2d!important;border-color:#2a3b52!important;box-shadow:0 24px 70px rgba(0,0,0,.28)!important}
+.dashboard-layout.theme-dark .agent-onboarding-shell [class*="bg-emerald-50"]{background:#102d2b!important}
+.dashboard-layout.theme-dark .agent-onboarding-shell [class*="border-emerald-2"],
+.dashboard-layout.theme-dark .agent-onboarding-shell [class*="border-emerald-3"],
+.dashboard-layout.theme-dark .agent-onboarding-shell [class*="border-emerald-4"]{border-color:#28675a!important}
+.dashboard-layout.theme-dark .agent-onboarding-shell [class*="bg-red-50"]{background:#341c27!important}
+.dashboard-layout.theme-dark .agent-onboarding-shell [class*="border-red-200"]{border-color:#713247!important}
+.dashboard-layout.theme-dark .agent-onboarding-shell [class*="text-red-700"]{color:#fda4af!important}
 
 /* Tailwind utility surfaces used throughout the user dashboard and its portals */
 html[data-dashboard-theme="dark"] .dashboard-layout .bg-white,
