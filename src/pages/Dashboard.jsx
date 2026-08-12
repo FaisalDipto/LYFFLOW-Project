@@ -16,6 +16,8 @@ import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import './Dashboard.css';
 import '../styles/dashboard-theme.css';
 
+const AGENT_INSTRUCTIONS_LIMIT = 1500;
+
 // Helper to trigger Facebook re-authorization to the API backend directly
 const triggerFacebookReauth = () => {
   const nextPath = '/dashboard';
@@ -3380,7 +3382,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     }
     setCreationError(null);
 
-    if (agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > 500) || (fallbackMessage && fallbackMessage.length > 250)) {
+    if (agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > AGENT_INSTRUCTIONS_LIMIT) || (fallbackMessage && fallbackMessage.length > 250)) {
       setCreationError(`Cannot ${isEditing ? 'save changes' : 'create agent'}. One or more input fields exceed the maximum allowed character limit.`);
       addToast("Character limit exceeded!", 'error');
       return;
@@ -4289,11 +4291,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               <label style={{ fontSize: '14px', fontWeight: 600 }}>{isEditing ? 'Custom Instructions (Optional)' : 'Agent Instructions'}</label>
               {!isEditing && <p className="mt-1 text-xs font-medium text-emerald-700">Prepared from your answers. Review and edit anything you want.</p>}
             </div>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: (instructions || '').length > 500 ? '#ef4444' : '#64748b' }}>
-              {(instructions || '').length}/500 {(instructions || '').length > 500 && '• Limit exceeded!'}
+            <span style={{ fontSize: '12px', fontWeight: 600, color: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '#ef4444' : '#64748b' }}>
+              {(instructions || '').length}/{AGENT_INSTRUCTIONS_LIMIT} {(instructions || '').length > AGENT_INSTRUCTIONS_LIMIT && '• Limit exceeded!'}
             </span>
           </div>
-          <textarea placeholder="e.g. Always end conversations with 'Have a great day!'" value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={isEditing ? 3 : 6} style={{ width: '100%', padding: '12px 14px', border: (instructions || '').length > 500 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (instructions || '').length > 500 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6 }} />
+          <textarea placeholder="e.g. Always end conversations with 'Have a great day!'" value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={isEditing ? 3 : 6} style={{ width: '100%', padding: '12px 14px', border: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6 }} />
         </div>
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
@@ -4307,7 +4309,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         </div>
 
         {(() => {
-          const hasLimitError = agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > 500) || (fallbackMessage && fallbackMessage.length > 250);
+          const hasLimitError = agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > AGENT_INSTRUCTIONS_LIMIT) || (fallbackMessage && fallbackMessage.length > 250);
           return (
             <button type="submit" className={`btn-submit inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-[15px] font-extrabold text-white shadow-lg transition ${hasLimitError ? 'bg-red-500 shadow-red-500/10' : created ? 'bg-emerald-500 shadow-emerald-500/10' : 'bg-slate-950 shadow-slate-950/10 hover:-translate-y-0.5 hover:bg-slate-800'} disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0`} disabled={loading}>
               {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
