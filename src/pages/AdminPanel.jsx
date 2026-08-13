@@ -1701,9 +1701,10 @@ function ActivitySection() {
     apiService.adminActivityRecent({ cursor: cur, page_size: 20 })
       .then(r => {
         const list = r?.activities || r?.data?.activities || [];
+        const pagination = r?.pagination || r?.data?.pagination;
         setRecent(Array.isArray(list) ? list : []);
-        setNextRecentCursor(r?.pagination?.next_cursor || null);
-        setRecentTotal(r?.pagination?.total ?? list.length ?? 0);
+        setNextRecentCursor(pagination?.next_cursor || null);
+        setRecentTotal(pagination?.total ?? list.length ?? 0);
       })
       .catch(() => { })
       .finally(() => setRecentLoading(false));
@@ -1738,11 +1739,11 @@ function ActivitySection() {
 
   const filteredRecent = recentSearch.trim()
     ? recent.filter(a =>
-      (a.user_query || '').toLowerCase().includes(recentSearch.toLowerCase()) ||
-      (a.agent_response || '').toLowerCase().includes(recentSearch.toLowerCase()) ||
       (a.agent_name || '').toLowerCase().includes(recentSearch.toLowerCase()) ||
       (a.user_display_name || '').toLowerCase().includes(recentSearch.toLowerCase()) ||
-      (a.model_name || '').toLowerCase().includes(recentSearch.toLowerCase())
+      (a.model_name || '').toLowerCase().includes(recentSearch.toLowerCase()) ||
+      (a.platform || '').toLowerCase().includes(recentSearch.toLowerCase()) ||
+      (a.status || '').toLowerCase().includes(recentSearch.toLowerCase())
     )
     : recent;
 
@@ -1855,7 +1856,7 @@ function ActivitySection() {
           <div className="admin-filter-row">
             <div className="admin-search-bar">
               <span className="material-symbols-outlined">search</span>
-              <input placeholder="Search queries or responses…" value={recentSearch} onChange={e => setRecentSearch(e.target.value)} />
+              <input placeholder="Search user, agent, model or platform…" value={recentSearch} onChange={e => setRecentSearch(e.target.value)} />
             </div>
           </div>
         </div>
@@ -1863,7 +1864,7 @@ function ActivitySection() {
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead><tr>
-                <th>User / Agent</th><th>Model</th><th>Status</th><th>User Query</th><th>Agent Response</th><th>Tokens & Cost</th><th>Time & Date</th><th>Actions</th>
+                <th>User / Agent</th><th>Model</th><th>Platform</th><th>Status</th><th>Time & Date</th><th>Actions</th>
               </tr></thead>
               <tbody>
                 {filteredRecent.map((a, idx) => {
@@ -1879,25 +1880,20 @@ function ActivitySection() {
                           <div className="admin-avatar">{initials(a.user_display_name || 'U')}</div>
                           <div>
                             <div className="font-bold">{a.user_display_name || 'Unknown User'}</div>
-                            <div className="text-muted" style={{ fontSize: 11 }}>Agent: <span className="badge badge-blue" style={{ fontSize: 10, padding: '2px 6px' }}>{a.agent_name || a.agent_id?.slice(0, 8) || '—'}</span></div>
+                            <div className="text-muted" style={{ fontSize: 11 }}>Agent: <span className="badge badge-blue" style={{ fontSize: 10, padding: '2px 6px' }}>{a.agent_name || '—'}</span></div>
                           </div>
                         </div>
                       </td>
                       <td><span className="badge badge-slate">{a.model_name || '—'}</span></td>
+                      <td><span className="badge badge-blue" style={{ textTransform: 'capitalize' }}>{a.platform || '—'}</span></td>
                       <td>
                         <span className={`badge ${badgeColor}`}>
                           <span className="material-symbols-outlined" style={{ fontSize: 11 }}>{isSuccess ? 'check_circle' : isErr ? 'error' : 'pending'}</span>
                           {a.status || 'Unknown'}
                         </span>
                       </td>
-                      <td style={{ maxWidth: 220 }}><div className="font-bold" style={{ fontSize: 12, whiteSpace: 'normal' }}>{a.user_query || '—'}</div></td>
-                      <td style={{ maxWidth: 260 }}><div className="text-muted" style={{ fontSize: 12, whiteSpace: 'normal' }}>{a.agent_response || '—'}</div></td>
                       <td>
-                        <div className="font-bold">{fmt((a.input_tokens || 0) + (a.output_tokens || 0))} tokens</div>
-                        <div className="text-muted" style={{ fontSize: 11 }}>In: {fmt(a.input_tokens || 0)} / Out: {fmt(a.output_tokens || 0)} | ${fmt(a.token_cost || 0)}</div>
-                      </td>
-                      <td>
-                        <div className="font-bold">{(Number(a.response_time_ms || a.latency_ms || a.duration_ms || 0) / 1000).toFixed(2)} s</div>
+                        <div className="font-bold">{(Number(a.response_time_ms || 0) / 1000).toFixed(2)} s</div>
                         <div className="text-muted" style={{ fontSize: 11 }}>{fmtDate(a.created_at)}</div>
                       </td>
                       <td>
