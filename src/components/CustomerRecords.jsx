@@ -1,6 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target } from 'lucide-react';
 import { apiService } from '../services/api';
+
+const LEAD_STATUSES = ['new', 'contacted', 'converted', 'cancelled'];
+const ORDER_STATUSES = [
+  'new', 'pending', 'delivered_approval_pending', 'partial_delivered_approval_pending',
+  'cancelled_approval_pending', 'unknown_approval_pending', 'delivered',
+  'partial_delivered', 'cancelled', 'hold', 'in_review', 'unknown'
+];
+
+const normalizeRecord = (record, type) => ({
+  ...record,
+  id: type === 'lead'
+    ? (record.customer_lead_id || record.lead_id)
+    : (record.customer_order_id || record.order_id),
+  type,
+});
 
 const CustomerRecords = ({ pages }) => {
   const [selectedPageId, setSelectedPageId] = useState('');
@@ -10,13 +25,14 @@ const CustomerRecords = ({ pages }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPaginating, setIsPaginating] = useState(false);
 
-  const [filterType, setFilterType] = useState('');
+  const [filterType, setFilterType] = useState('lead');
   const [filterStatus, setFilterStatus] = useState('');
   
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  const fetchRecords = async (cursor = null) => {
+  const fetchRecords = useCallback(async (cursor = null) => {
     if (!selectedPageId) return;
     
     if (cursor) {
@@ -27,47 +43,74 @@ const CustomerRecords = ({ pages }) => {
     }
 
     try {
-      const data = await apiService.getCustomerRecords(selectedPageId, {
-        record_type: filterType || undefined,
-        record_status: filterStatus || undefined,
-        cursor: cursor
+      const request = filterType === 'lead' ? apiService.getCustomerLeads : apiService.getCustomerOrders;
+      const response = await request(selectedPageId, {
+        status: filterStatus || undefined,
+        cursor,
+        page_size: 20,
       });
+      const data = response?.data || response;
+      const collection = filterType === 'lead'
+        ? (data?.leads || data?.customer_leads)
+        : (data?.orders || data?.customer_orders);
+      const nextRecords = Array.isArray(collection)
+        ? collection.map(record => normalizeRecord(record, filterType))
+        : [];
 
-      if (data && data.records) {
-        if (cursor) {
-          setRecords(prev => [...prev, ...data.records]);
-        } else {
-          setRecords(data.records);
-        }
-        setNextCursor(data.pagination?.next_cursor || null);
-        setHasMore(data.pagination?.has_more || false);
-      }
+      setRecords(prev => cursor ? [...prev, ...nextRecords] : nextRecords);
+      setNextCursor(data?.pagination?.next_cursor || null);
+      setHasMore(Boolean(data?.pagination?.has_more));
     } catch (error) {
-      console.error('Failed to fetch customer records:', error);
+      console.error(`Failed to fetch customer ${filterType}s:`, error);
     } finally {
       setIsLoading(false);
       setIsPaginating(false);
     }
-  };
+  }, [selectedPageId, filterType, filterStatus]);
 
   useEffect(() => {
     if (pages && pages.length > 0 && !selectedPageId) {
       setSelectedPageId(pages[0].page_id);
     }
-  }, [pages]);
+  }, [pages, selectedPageId]);
 
   useEffect(() => {
     fetchRecords();
-  }, [selectedPageId, filterType, filterStatus]);
+  }, [fetchRecords]);
+
+  const handleSelectRecord = async (record) => {
+    setSelectedRecord(record);
+    setIsDetailLoading(true);
+    try {
+      const request = record.type === 'lead' ? apiService.getCustomerLead : apiService.getCustomerOrder;
+      const response = await request(selectedPageId, record.id);
+      const data = response?.data || response;
+      const detail = record.type === 'lead' ? (data?.lead || data) : (data?.order || data);
+      setSelectedRecord(normalizeRecord(detail, record.type));
+    } catch (error) {
+      console.error(`Failed to fetch customer ${record.type} details:`, error);
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
 
   const handleUpdateStatus = async (recordId, newStatus) => {
     setIsUpdatingStatus(true);
     try {
-      await apiService.updateCustomerRecordStatus(selectedPageId, recordId, newStatus);
-      // Update local state
-      setRecords(prev => prev.map(r => r.customer_record_id === recordId ? { ...r, record_status: newStatus } : r));
-      if (selectedRecord && selectedRecord.customer_record_id === recordId) {
-        setSelectedRecord({ ...selectedRecord, record_status: newStatus });
+      const request = selectedRecord.type === 'lead'
+        ? apiService.updateCustomerLeadStatus
+        : apiService.updateCustomerOrderStatus;
+      const response = await request(selectedPageId, recordId, newStatus);
+      const data = response?.data || response;
+      const updated = selectedRecord.type === 'lead' ? (data?.lead || data) : (data?.order || data);
+      const updatedId = selectedRecord.type === 'lead'
+        ? (updated?.customer_lead_id || updated?.lead_id)
+        : (updated?.customer_order_id || updated?.order_id);
+      setRecords(prev => prev.map(record => record.id === recordId ? { ...record, status: newStatus } : record));
+      if (selectedRecord?.id === recordId) {
+        setSelectedRecord(updatedId
+          ? normalizeRecord(updated, selectedRecord.type)
+          : { ...selectedRecord, status: newStatus });
       }
     } catch (error) {
       console.error('Failed to update status:', error);
@@ -80,12 +123,19 @@ const CustomerRecords = ({ pages }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'new': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'pending':
+      case 'hold':
+      case 'in_review': return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'contacted': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'converted': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
+      case 'converted':
+      case 'delivered': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'cancelled':
+      case 'cancelled_approval_pending': return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
+
+  const statusOptions = filterType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
 
   const getTypeIcon = (type) => {
     return type === 'order' ? <ShoppingCart size={16} /> : <Target size={16} />;
@@ -95,7 +145,7 @@ const CustomerRecords = ({ pages }) => {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400">
         <Users size={48} className="mb-4 opacity-20" />
-        <p>Please select a Facebook page to view its customer records.</p>
+        <p>Please select a Facebook page to view its captured leads and orders.</p>
       </div>
     );
   }
@@ -106,7 +156,7 @@ const CustomerRecords = ({ pages }) => {
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
             <Users className="text-emerald-500" />
-            Customer Records
+            Customer Leads & Orders
           </h2>
           <p className="text-slate-500 text-sm mt-1">Manage leads and orders generated by your AI agents.</p>
         </div>
@@ -130,10 +180,13 @@ const CustomerRecords = ({ pages }) => {
             <Filter size={16} className="text-slate-400" />
             <select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                setFilterStatus('');
+                setSelectedRecord(null);
+              }}
               className="bg-transparent border-none text-sm font-medium focus:ring-0 text-slate-700 cursor-pointer p-0 pl-1 pr-8"
             >
-              <option value="">All Types</option>
               <option value="lead">Leads</option>
               <option value="order">Orders</option>
             </select>
@@ -147,10 +200,9 @@ const CustomerRecords = ({ pages }) => {
               className="bg-transparent border-none text-sm font-medium focus:ring-0 text-slate-700 cursor-pointer p-0 pl-1 pr-8"
             >
               <option value="">All Statuses</option>
-              <option value="new">New</option>
-              <option value="contacted">Contacted</option>
-              <option value="converted">Converted</option>
-              <option value="cancelled">Cancelled</option>
+              {statusOptions.map(status => (
+                <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -165,8 +217,8 @@ const CustomerRecords = ({ pages }) => {
         ) : records.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-white border border-slate-200 rounded-3xl border-dashed">
             <Users className="opacity-20 mb-4" size={48} />
-            <p className="font-medium text-slate-500">No records found.</p>
-            <p className="text-sm">Try adjusting your filters or wait for the AI to capture leads.</p>
+            <p className="font-medium text-slate-500">No {filterType}s found.</p>
+            <p className="text-sm">Try adjusting the status filter or wait for the AI to capture new {filterType}s.</p>
           </div>
         ) : (
           <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
@@ -176,7 +228,7 @@ const CustomerRecords = ({ pages }) => {
                   <tr className="bg-slate-50/50 border-b border-slate-100">
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Items</th>
+                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Reference</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-12">Action</th>
@@ -185,9 +237,9 @@ const CustomerRecords = ({ pages }) => {
                 <tbody className="divide-y divide-slate-100">
                   {records.map(record => (
                     <tr 
-                      key={record.customer_record_id} 
+                      key={record.id}
                       className="hover:bg-slate-50 transition-colors cursor-pointer group"
-                      onClick={() => setSelectedRecord(record)}
+                      onClick={() => handleSelectRecord(record)}
                     >
                       <td className="p-4">
                         <div className="flex flex-col">
@@ -200,26 +252,18 @@ const CustomerRecords = ({ pages }) => {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 capitalize">
-                          {getTypeIcon(record.record_type)}
-                          {record.record_type}
+                          {getTypeIcon(record.type)}
+                          {record.type}
                         </div>
                       </td>
                       <td className="p-4">
-                        {record.order_items && record.order_items.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5 max-w-[300px]">
-                            {record.order_items.map((item, idx) => (
-                              <span key={idx} className="px-2 py-0.5 bg-white border border-slate-200 text-slate-600 rounded-md text-[11px] font-semibold whitespace-nowrap shadow-sm">
-                                {item.quantity}x {item.name}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-slate-400">-</span>
-                        )}
+                        <span className="text-sm text-slate-500 font-mono">
+                          {record.type === 'order' ? (record.order_id || record.id) : record.id}
+                        </span>
                       </td>
                       <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold border capitalize ${getStatusColor(record.record_status)}`}>
-                          {record.record_status}
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold border capitalize ${getStatusColor(record.status)}`}>
+                          {record.status?.replaceAll('_', ' ')}
                         </span>
                       </td>
                       <td className="p-4 text-sm text-slate-500 font-medium">
@@ -260,7 +304,7 @@ const CustomerRecords = ({ pages }) => {
                 <h3 className="text-xl font-black text-slate-800">{selectedRecord.contact_name || 'Customer Details'}</h3>
                 <div className="flex items-center gap-3 mt-2">
                   <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 capitalize">
-                    {getTypeIcon(selectedRecord.record_type)} {selectedRecord.record_type}
+                    {getTypeIcon(selectedRecord.type)} {selectedRecord.type}
                   </div>
                   <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                   <span className="text-sm text-slate-500 flex items-center gap-1.5">
@@ -277,6 +321,13 @@ const CustomerRecords = ({ pages }) => {
             </div>
 
             <div className="p-6 md:p-8 flex-1 overflow-y-auto space-y-6">
+              {isDetailLoading ? (
+                <div className="flex flex-col items-center justify-center h-48 text-slate-400">
+                  <Loader2 className="animate-spin mb-3" size={28} />
+                  <p>Loading {selectedRecord.type} details...</p>
+                </div>
+              ) : (
+                <>
               
               {/* Contact Info */}
               <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
@@ -302,7 +353,7 @@ const CustomerRecords = ({ pages }) => {
               </div>
 
               {/* Order Items (If order) */}
-              {selectedRecord.record_type === 'order' && selectedRecord.order_items && selectedRecord.order_items.length > 0 && (
+              {selectedRecord.type === 'order' && selectedRecord.order_items && selectedRecord.order_items.length > 0 && (
                 <div className="space-y-3">
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Order Items</h4>
                   <div className="border border-slate-200 rounded-2xl overflow-hidden">
@@ -323,7 +374,7 @@ const CustomerRecords = ({ pages }) => {
                             </td>
                             <td className="px-4 py-3 text-center text-slate-600">{item.quantity}</td>
                             <td className="px-4 py-3 text-right font-bold text-slate-800">
-                              ${item.price.toFixed(2)}
+                              ${Number(item.price || 0).toFixed(2)}
                             </td>
                           </tr>
                         ))}
@@ -342,21 +393,22 @@ const CustomerRecords = ({ pages }) => {
                   </p>
                 </div>
               )}
+                </>
+              )}
             </div>
 
             <div className="p-6 md:p-8 border-t border-slate-100 bg-white flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-bold text-slate-600">Status:</span>
                 <select
-                  value={selectedRecord.record_status}
-                  onChange={(e) => handleUpdateStatus(selectedRecord.customer_record_id, e.target.value)}
-                  disabled={isUpdatingStatus}
-                  className={`border-2 rounded-xl px-4 py-2 text-sm font-bold cursor-pointer transition-colors outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${getStatusColor(selectedRecord.record_status)} ${isUpdatingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  value={selectedRecord.status}
+                  onChange={(e) => handleUpdateStatus(selectedRecord.id, e.target.value)}
+                  disabled={isUpdatingStatus || isDetailLoading}
+                  className={`border-2 rounded-xl px-4 py-2 text-sm font-bold cursor-pointer transition-colors outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${getStatusColor(selectedRecord.status)} ${isUpdatingStatus || isDetailLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <option value="new">New</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="converted">Converted</option>
-                  <option value="cancelled">Cancelled</option>
+                  {(selectedRecord.type === 'lead' ? LEAD_STATUSES : ORDER_STATUSES).map(status => (
+                    <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
+                  ))}
                 </select>
                 {isUpdatingStatus && <Loader2 className="animate-spin text-slate-400" size={16} />}
               </div>

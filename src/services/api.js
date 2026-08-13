@@ -514,18 +514,32 @@ export const apiService = {
     body: JSON.stringify(subscriptionData),
   }),
 
-  // Customer Records
-  getCustomerRecords: (pageId, { record_type, record_status, cursor, page_size } = {}) => {
+  // Captured customer leads
+  getCustomerLeads: (pageId, { status, cursor, page_size } = {}) => {
     const q = new URLSearchParams();
-    if (record_type) q.set('record_type', record_type);
-    if (record_status) q.set('record_status', record_status);
+    if (status) q.set('status', status);
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return apiFetch(`/v1/pages/${pageId}/customer-records${qs}`);
+    return apiFetch(`/v1/pages/${pageId}/leads${qs}`);
   },
-  getCustomerRecord: (pageId, recordId) => apiFetch(`/v1/pages/${pageId}/customer-records/${recordId}`),
-  updateCustomerRecordStatus: (pageId, recordId, status) => apiFetch(`/v1/pages/${pageId}/customer-records/${recordId}/status`, {
+  getCustomerLead: (pageId, leadId) => apiFetch(`/v1/pages/${pageId}/leads/${leadId}`),
+  updateCustomerLeadStatus: (pageId, leadId, status) => apiFetch(`/v1/pages/${pageId}/leads/${leadId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  }),
+
+  // Captured customer orders
+  getCustomerOrders: (pageId, { status, cursor, page_size } = {}) => {
+    const q = new URLSearchParams();
+    if (status) q.set('status', status);
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return apiFetch(`/v1/pages/${pageId}/orders${qs}`);
+  },
+  getCustomerOrder: (pageId, orderId) => apiFetch(`/v1/pages/${pageId}/orders/${orderId}`),
+  updateCustomerOrderStatus: (pageId, orderId, status) => apiFetch(`/v1/pages/${pageId}/orders/${orderId}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   }),
@@ -621,14 +635,21 @@ export const apiService = {
     if (category) q.set('category', category);
     return apiFetch(`/v1/admin/products?${q}`);
   },
-  adminCustomerRecords: ({ cursor, page_size, page_id, record_type, record_status } = {}) => {
+  adminCustomerLeads: ({ cursor, page_size, page_id, status } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     if (page_id) q.set('page_id', page_id);
-    if (record_type) q.set('record_type', record_type);
-    if (record_status) q.set('record_status', record_status);
-    return apiFetch(`/v1/admin/customer-records?${q}`);
+    if (status) q.set('status', status);
+    return apiFetch(`/v1/admin/customer-leads?${q}`);
+  },
+  adminCustomerOrders: ({ cursor, page_size, page_id, status } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', page_size);
+    if (page_id) q.set('page_id', page_id);
+    if (status) q.set('status', status);
+    return apiFetch(`/v1/admin/customer-orders?${q}`);
   },
   adminKnowledges: ({ cursor, page_size, user_id, namespace_id, knowledge_type } = {}) => {
     const q = new URLSearchParams();

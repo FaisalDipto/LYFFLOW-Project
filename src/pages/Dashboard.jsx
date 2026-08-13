@@ -5647,7 +5647,7 @@ export default function Dashboard() {
   const primaryNavItems = [
     { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
     { id: 'conversation', icon: MessageSquare, label: 'Conversations' },
-    { id: 'records', icon: ClipboardList, label: 'Customer Records' },
+    { id: 'records', icon: ClipboardList, label: 'Leads & Orders' },
     { id: 'agent', icon: UserRound, label: 'Agents' },
     { id: 'knowledge', icon: Book, label: 'Knowledge' }
   ];

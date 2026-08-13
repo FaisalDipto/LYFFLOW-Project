@@ -13,6 +13,12 @@ import '../styles/dashboard-theme.css';
 const fmt = (n) => (n ?? 0).toLocaleString();
 const initials = (str) => (str || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+const CAPTURED_LEAD_STATUSES = ['new', 'contacted', 'converted', 'cancelled'];
+const CAPTURED_ORDER_STATUSES = [
+  'new', 'pending', 'delivered_approval_pending', 'partial_delivered_approval_pending',
+  'cancelled_approval_pending', 'unknown_approval_pending', 'delivered',
+  'partial_delivered', 'cancelled', 'hold', 'in_review', 'unknown'
+];
 
 function CountUp({ end, duration = 1500, prefix = '', suffix = '' }) {
   const [count, setCount] = useState(0);
@@ -3205,7 +3211,7 @@ function ConversationsSection() {
   );
 }
 
-// ── Customer Records Section ───────────────────────────
+// ── Customer Leads & Orders Section ────────────────────
 function CustomerRecordsSection() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -3214,7 +3220,7 @@ function CustomerRecordsSection() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [pageIdFilter, setPageIdFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('lead');
   const [statusFilter, setStatusFilter] = useState('');
   const [pagesList, setPagesList] = useState([]);
 
@@ -3226,18 +3232,30 @@ function CustomerRecordsSection() {
 
   const load = useCallback((cur = null) => {
     setLoading(true);
-    apiService.adminCustomerRecords({
+    const request = typeFilter === 'lead' ? apiService.adminCustomerLeads : apiService.adminCustomerOrders;
+    request({
       cursor: cur,
       page_size: 20,
       page_id: pageIdFilter,
-      record_type: typeFilter,
-      record_status: statusFilter,
+      status: statusFilter,
     })
       .then(r => {
-        const list = r?.records || r?.data?.records || [];
-        setRecords(Array.isArray(list) ? list : []);
-        setNextCursor(r?.pagination?.next_cursor || null);
-        setTotal(r?.pagination?.total ?? list.length ?? 0);
+        const data = r?.data || r;
+        const list = typeFilter === 'lead'
+          ? (data?.leads || data?.customer_leads)
+          : (data?.orders || data?.customer_orders);
+        const normalized = Array.isArray(list)
+          ? list.map(item => ({
+            ...item,
+            id: typeFilter === 'lead'
+              ? (item.customer_lead_id || item.lead_id)
+              : (item.customer_order_id || item.order_id),
+            type: typeFilter,
+          }))
+          : [];
+        setRecords(normalized);
+        setNextCursor(data?.pagination?.next_cursor || null);
+        setTotal(data?.pagination?.total ?? normalized.length);
       })
       .catch(() => { })
       .finally(() => setLoading(false));
@@ -3252,7 +3270,8 @@ function CustomerRecordsSection() {
       (r.contact_phone || '').toLowerCase().includes(search.toLowerCase()) ||
       (r.page_name || '').toLowerCase().includes(search.toLowerCase()) ||
       (r.notes || '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.customer_record_id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.order_id || '').toLowerCase().includes(search.toLowerCase()) ||
       (r.conversation_id || '').toLowerCase().includes(search.toLowerCase())
     )
     : records;
@@ -3261,11 +3280,11 @@ function CustomerRecordsSection() {
     <div>
       <div className="admin-section-header">
         <div className="admin-section-label">Inbox & Capture</div>
-        <div className="admin-section-title">Customer Records</div>
+        <div className="admin-section-title">Customer Leads & Orders</div>
       </div>
       <div className="admin-card">
         <div className="admin-card-header">
-          <span className="admin-card-title">Captured Leads & Orders{total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
+          <span className="admin-card-title">Captured {typeFilter === 'lead' ? 'Leads' : 'Orders'}{total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
           <div className="admin-filter-row">
             <div className="admin-search-bar">
               <span className="material-symbols-outlined">search</span>
@@ -3286,22 +3305,28 @@ function CustomerRecordsSection() {
             <select
               className="admin-filter-select"
               value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value)}
+              onChange={e => {
+                setTypeFilter(e.target.value);
+                setStatusFilter('');
+              }}
             >
-              <option value="">All Types</option>
-              <option value="lead">Lead</option>
-              <option value="order">Order</option>
+              <option value="lead">Leads</option>
+              <option value="order">Orders</option>
             </select>
-            <input
-              placeholder="Filter Status…"
+            <select
               className="admin-filter-select"
               style={{ padding: '6px 12px', width: 130 }}
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-            />
+            >
+              <option value="">All Statuses</option>
+              {(typeFilter === 'lead' ? CAPTURED_LEAD_STATUSES : CAPTURED_ORDER_STATUSES).map(status => (
+                <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
+              ))}
+            </select>
           </div>
         </div>
-        {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="assignment_ind" text="No customer records found." /> : (
+        {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="assignment_ind" text={`No customer ${typeFilter}s found.`} /> : (
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead><tr>
@@ -3309,15 +3334,15 @@ function CustomerRecordsSection() {
               </tr></thead>
               <tbody>
                 {filtered.map(r => {
-                  const t = (r.record_type || '').toLowerCase();
-                  const isOrder = t === 'order';
-                  const st = (r.record_status || '').toLowerCase();
-                  const isCompleted = st === 'completed' || st === 'closed' || st === 'fulfilled' || st === 'converted';
-                  const isPending = st === 'pending' || st === 'new' || st === 'open';
-                  const statusColor = isCompleted ? 'badge-green' : isPending ? 'badge-blue' : 'badge-slate';
+                  const isOrder = r.type === 'order';
+                  const st = (r.status || '').toLowerCase();
+                  const isCompleted = st === 'converted' || st === 'delivered';
+                  const isCancelled = st === 'cancelled' || st === 'cancelled_approval_pending';
+                  const isPending = st === 'pending' || st === 'new' || st === 'contacted' || st === 'hold' || st === 'in_review';
+                  const statusColor = isCompleted ? 'badge-green' : isCancelled ? 'badge-red' : isPending ? 'badge-blue' : 'badge-slate';
 
                   return (
-                    <tr key={r.customer_record_id}>
+                    <tr key={r.id}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div className="admin-avatar" style={{ background: isOrder ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
@@ -3336,11 +3361,11 @@ function CustomerRecordsSection() {
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
                           <span className={`badge ${isOrder ? 'badge-blue' : 'badge-purple'}`} style={{ textTransform: 'uppercase', fontSize: 10 }}>
-                            {r.record_type || 'General'}
+                            {r.type}
                           </span>
-                          {r.record_status && (
+                          {r.status && (
                             <span className={`badge ${statusColor}`} style={{ fontSize: 11 }}>
-                              {r.record_status}
+                              {r.status.replaceAll('_', ' ')}
                             </span>
                           )}
                         </div>
@@ -3381,7 +3406,7 @@ function CustomerRecordsSection() {
                       </td>
                       <td>
                         <div className="font-bold" style={{ fontSize: 12 }}>{fmtDate(r.created_at)}</div>
-                        <div className="text-muted" style={{ fontSize: 11 }}>ID: {r.customer_record_id?.slice(0, 8)}…</div>
+                        <div className="text-muted" style={{ fontSize: 11 }}>ID: {r.id?.slice(0, 8)}…</div>
                       </td>
                     </tr>
                   );
@@ -3614,7 +3639,7 @@ const NAV_GROUPS = [
     label: 'Operations',
     items: [
       { id: 'conversations', label: 'Conversations', icon: 'forum' },
-      { id: 'customer-records', label: 'Captured Records', icon: 'assignment_ind' },
+      { id: 'customer-records', label: 'Leads & Orders', icon: 'assignment_ind' },
       { id: 'feedbacks', label: 'Feedbacks', icon: 'reviews' },
       { id: 'activity', label: 'Activity', icon: 'query_stats' },
       { id: 'jobs', label: 'Background Jobs', icon: 'work_history' },
