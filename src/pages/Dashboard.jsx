@@ -2731,9 +2731,14 @@ const AgentLog = ({ agents }) => {
           <select
             value={selectedAgentId}
             onChange={e => setSelectedAgentId(e.target.value)}
-            className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-black/10 cursor-pointer shadow-sm"
+            className="min-w-[180px] max-w-[260px] bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-black/10 cursor-pointer shadow-sm"
+            aria-label="Select agent logs"
           >
-            {agents.map(a => <option key={a.agent_id} value={a.agent_id}>{a.name}</option>)}
+            {agents.map(agent => (
+              <option key={agent.agent_id} value={agent.agent_id}>
+                {agent.name || agent.agent_name || 'Unnamed Agent'}
+              </option>
+            ))}
           </select>
         </div>
       </div>
