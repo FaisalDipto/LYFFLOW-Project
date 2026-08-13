@@ -515,31 +515,33 @@ export const apiService = {
   }),
 
   // Captured customer leads
-  getCustomerLeads: (pageId, { status, cursor, page_size } = {}) => {
+  getCustomerLeads: ({ page_id, status, cursor, page_size } = {}) => {
     const q = new URLSearchParams();
+    if (page_id) q.set('page_id', page_id);
     if (status) q.set('status', status);
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return apiFetch(`/v1/pages/${pageId}/leads${qs}`);
+    return apiFetch(`/v1/pages/leads${qs}`);
   },
-  getCustomerLead: (pageId, leadId) => apiFetch(`/v1/pages/${pageId}/leads/${leadId}`),
-  updateCustomerLeadStatus: (pageId, leadId, status) => apiFetch(`/v1/pages/${pageId}/leads/${leadId}/status`, {
+  getCustomerLead: (leadId) => apiFetch(`/v1/pages/leads/${leadId}`),
+  updateCustomerLeadStatus: (leadId, status) => apiFetch(`/v1/pages/leads/${leadId}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   }),
 
   // Captured customer orders
-  getCustomerOrders: (pageId, { status, cursor, page_size } = {}) => {
+  getCustomerOrders: ({ page_id, status, cursor, page_size } = {}) => {
     const q = new URLSearchParams();
+    if (page_id) q.set('page_id', page_id);
     if (status) q.set('status', status);
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return apiFetch(`/v1/pages/${pageId}/orders${qs}`);
+    return apiFetch(`/v1/pages/orders${qs}`);
   },
-  getCustomerOrder: (pageId, orderId) => apiFetch(`/v1/pages/${pageId}/orders/${orderId}`),
-  updateCustomerOrderStatus: (pageId, orderId, status) => apiFetch(`/v1/pages/${pageId}/orders/${orderId}/status`, {
+  getCustomerOrder: (orderId) => apiFetch(`/v1/pages/orders/${orderId}`),
+  updateCustomerOrderStatus: (orderId, status) => apiFetch(`/v1/pages/orders/${orderId}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   }),
@@ -641,7 +643,7 @@ export const apiService = {
     if (page_size) q.set('page_size', page_size);
     if (page_id) q.set('page_id', page_id);
     if (status) q.set('status', status);
-    return apiFetch(`/v1/admin/customer-leads?${q}`);
+    return apiFetch(`/v1/admin/captured-leads?${q}`);
   },
   adminCustomerOrders: ({ cursor, page_size, page_id, status } = {}) => {
     const q = new URLSearchParams();
@@ -649,7 +651,7 @@ export const apiService = {
     if (page_size) q.set('page_size', page_size);
     if (page_id) q.set('page_id', page_id);
     if (status) q.set('status', status);
-    return apiFetch(`/v1/admin/customer-orders?${q}`);
+    return apiFetch(`/v1/admin/captured-orders?${q}`);
   },
   adminKnowledges: ({ cursor, page_size, user_id, namespace_id, knowledge_type } = {}) => {
     const q = new URLSearchParams();

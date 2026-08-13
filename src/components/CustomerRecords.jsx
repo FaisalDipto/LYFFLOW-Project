@@ -44,7 +44,8 @@ const CustomerRecords = ({ pages }) => {
 
     try {
       const request = filterType === 'lead' ? apiService.getCustomerLeads : apiService.getCustomerOrders;
-      const response = await request(selectedPageId, {
+      const response = await request({
+        page_id: selectedPageId,
         status: filterStatus || undefined,
         cursor,
         page_size: 20,
@@ -83,7 +84,7 @@ const CustomerRecords = ({ pages }) => {
     setIsDetailLoading(true);
     try {
       const request = record.type === 'lead' ? apiService.getCustomerLead : apiService.getCustomerOrder;
-      const response = await request(selectedPageId, record.id);
+      const response = await request(record.id);
       const data = response?.data || response;
       const detail = record.type === 'lead' ? (data?.lead || data) : (data?.order || data);
       setSelectedRecord(normalizeRecord(detail, record.type));
@@ -100,7 +101,7 @@ const CustomerRecords = ({ pages }) => {
       const request = selectedRecord.type === 'lead'
         ? apiService.updateCustomerLeadStatus
         : apiService.updateCustomerOrderStatus;
-      const response = await request(selectedPageId, recordId, newStatus);
+      const response = await request(recordId, newStatus);
       const data = response?.data || response;
       const updated = selectedRecord.type === 'lead' ? (data?.lead || data) : (data?.order || data);
       const updatedId = selectedRecord.type === 'lead'
