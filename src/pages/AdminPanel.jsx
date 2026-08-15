@@ -3552,6 +3552,330 @@ function LeadsSection() {
 }
 
 // ── Nav Items ──────────────────────────────────────────
+const ONBOARDING_AGENT_ROLES = ['Sales Agent', 'Support Agent', 'General Agent'];
+const EMPTY_ONBOARDING_QUESTION = {
+  question_id: '',
+  agent_role: 'Sales Agent',
+  display_order: 0,
+  question_text: '',
+  instruction_for_yes: '',
+  instruction_for_no: '',
+  is_active: true,
+};
+
+function OnboardingQuestionModal({ question, saving, error, onClose, onSubmit }) {
+  const isEditing = Boolean(question);
+  const [form, setForm] = useState(() => ({
+    ...EMPTY_ONBOARDING_QUESTION,
+    ...(question || {}),
+    instruction_for_yes: question?.instruction_for_yes || '',
+    instruction_for_no: question?.instruction_for_no || '',
+  }));
+
+  const updateField = (field, value) => setForm(current => ({ ...current, [field]: value }));
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onSubmit({
+      question_id: form.question_id.trim(),
+      agent_role: form.agent_role,
+      display_order: Number(form.display_order),
+      question_text: form.question_text.trim(),
+      instruction_for_yes: form.instruction_for_yes.trim() || null,
+      instruction_for_no: form.instruction_for_no.trim() || null,
+      is_active: form.is_active,
+    });
+  };
+
+  return createPortal(
+    <div className="admin-question-modal-backdrop" role="presentation" onMouseDown={event => {
+      if (event.target === event.currentTarget && !saving) onClose();
+    }}>
+      <form className="admin-question-modal" onSubmit={handleSubmit}>
+        <div className="admin-question-modal-header">
+          <div>
+            <span className="admin-section-label">Agent setup</span>
+            <h2>{isEditing ? 'Edit onboarding question' : 'Create onboarding question'}</h2>
+          </div>
+          <button type="button" className="admin-question-icon-button" onClick={onClose} disabled={saving} aria-label="Close">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="admin-question-form">
+          <div className="admin-question-form-grid">
+            <label className="admin-question-field">
+              <span>Question ID</span>
+              <input
+                value={form.question_id}
+                onChange={event => updateField('question_id', event.target.value)}
+                maxLength={64}
+                placeholder="e.g. collect_contact_details"
+                disabled={isEditing}
+                required
+              />
+              <small>{isEditing ? 'The question ID cannot be changed.' : 'Required by the API; maximum 64 characters.'}</small>
+            </label>
+            <label className="admin-question-field">
+              <span>Agent role</span>
+              <select value={form.agent_role} onChange={event => updateField('agent_role', event.target.value)} required>
+                {ONBOARDING_AGENT_ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+              </select>
+            </label>
+            <label className="admin-question-field">
+              <span>Display order</span>
+              <input
+                type="number"
+                value={form.display_order}
+                onChange={event => updateField('display_order', event.target.value)}
+                required
+              />
+            </label>
+            <label className="admin-question-toggle">
+              <input
+                type="checkbox"
+                checked={form.is_active}
+                onChange={event => updateField('is_active', event.target.checked)}
+              />
+              <span>
+                <strong>Active</strong>
+                <small>Show this question during agent onboarding.</small>
+              </span>
+            </label>
+          </div>
+
+          <label className="admin-question-field">
+            <span>Question text</span>
+            <textarea
+              value={form.question_text}
+              onChange={event => updateField('question_text', event.target.value)}
+              maxLength={300}
+              rows={3}
+              placeholder="Enter the yes/no onboarding question"
+              required
+            />
+            <small>{form.question_text.length}/300 characters</small>
+          </label>
+
+          <div className="admin-question-instruction-grid">
+            <label className="admin-question-field">
+              <span>Instruction when Yes</span>
+              <textarea
+                value={form.instruction_for_yes}
+                onChange={event => updateField('instruction_for_yes', event.target.value)}
+                rows={4}
+                placeholder="Optional instruction applied when the answer is yes"
+              />
+            </label>
+            <label className="admin-question-field">
+              <span>Instruction when No</span>
+              <textarea
+                value={form.instruction_for_no}
+                onChange={event => updateField('instruction_for_no', event.target.value)}
+                rows={4}
+                placeholder="Optional instruction applied when the answer is no"
+              />
+            </label>
+          </div>
+
+          {error && <div className="admin-question-error" role="alert">{error}</div>}
+        </div>
+
+        <div className="admin-question-modal-actions">
+          <button type="button" className="admin-question-secondary-button" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={saving}>
+            <span className="material-symbols-outlined">{saving ? 'progress_activity' : 'save'}</span>
+            {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create question'}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body
+  );
+}
+
+function OnboardingQuestionsSection() {
+  const [questions, setQuestions] = useState([]);
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [editingQuestion, setEditingQuestion] = useState(undefined);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [deletingId, setDeletingId] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
+      const params = activeFilter === 'all' ? {} : { is_active: activeFilter === 'active' };
+      const response = await apiService.adminOnboardingQuestions(params);
+      const list = Array.isArray(response) ? response : response?.questions || response?.data || [];
+      setQuestions(Array.isArray(list) ? list : []);
+    } catch (error) {
+      setQuestions([]);
+      setLoadError(error.message || 'Failed to load onboarding questions.');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeFilter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openCreate = () => {
+    setFormError('');
+    setEditingQuestion(null);
+  };
+
+  const openEdit = (question) => {
+    setFormError('');
+    setEditingQuestion(question);
+  };
+
+  const closeForm = () => {
+    if (!saving) setEditingQuestion(undefined);
+  };
+
+  const saveQuestion = async (form) => {
+    setSaving(true);
+    setFormError('');
+    try {
+      if (editingQuestion) {
+        const payload = {
+          agent_role: form.agent_role,
+          display_order: form.display_order,
+          question_text: form.question_text,
+          instruction_for_yes: form.instruction_for_yes,
+          instruction_for_no: form.instruction_for_no,
+          is_active: form.is_active,
+        };
+        await apiService.adminUpdateOnboardingQuestion(editingQuestion.question_id, payload);
+      } else {
+        await apiService.adminCreateOnboardingQuestion(form);
+      }
+      setEditingQuestion(undefined);
+      await load();
+    } catch (error) {
+      setFormError(error.message || 'Failed to save the onboarding question.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteQuestion = async (questionId) => {
+    if (!window.confirm(`Delete onboarding question “${questionId}”? This cannot be undone.`)) return;
+    setDeletingId(questionId);
+    setLoadError('');
+    try {
+      await apiService.adminDeleteOnboardingQuestion(questionId);
+      await load();
+    } catch (error) {
+      setLoadError(error.message || 'Failed to delete the onboarding question.');
+    } finally {
+      setDeletingId('');
+    }
+  };
+
+  const sortedQuestions = [...questions].sort((a, b) =>
+    Number(a.display_order ?? 0) - Number(b.display_order ?? 0) ||
+    String(a.question_id).localeCompare(String(b.question_id))
+  );
+
+  return (
+    <div className="admin-onboarding-section">
+      <div className="admin-section-header admin-question-page-heading">
+        <div>
+          <div className="admin-section-label">Agent setup</div>
+          <div className="admin-section-title">Onboarding Questions</div>
+          <p>Manage the role-specific yes/no questions shown during agent onboarding.</p>
+        </div>
+        <button className="btn-primary" onClick={openCreate}>
+          <span className="material-symbols-outlined">add</span>
+          New question
+        </button>
+      </div>
+
+      <div className="admin-card admin-question-card">
+        <div className="admin-card-header">
+          <span className="admin-card-title">Questions <span className="admin-badge-count">{questions.length}</span></span>
+          <div className="admin-filter-row">
+            <select className="admin-filter-select" value={activeFilter} onChange={event => setActiveFilter(event.target.value)} aria-label="Filter questions by status">
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <button className="admin-question-refresh" onClick={load} disabled={loading} aria-label="Refresh questions">
+              <span className="material-symbols-outlined">refresh</span>
+            </button>
+          </div>
+        </div>
+
+        {loadError && (
+          <div className="admin-question-list-error" role="alert">
+            <span className="material-symbols-outlined">error</span>
+            <span>{loadError}</span>
+            <button onClick={load}>Try again</button>
+          </div>
+        )}
+
+        {loading ? <LoadingState /> : sortedQuestions.length === 0 ? (
+          <EmptyState icon="quiz" text={loadError ? 'Questions could not be loaded.' : 'No onboarding questions match this filter.'} />
+        ) : (
+          <div className="admin-table-wrapper">
+            <table className="admin-table admin-question-table">
+              <thead><tr>
+                <th>Order</th><th>Question</th><th>Role</th><th>Instructions</th><th>Status</th><th>Created</th><th>Actions</th>
+              </tr></thead>
+              <tbody>
+                {sortedQuestions.map(question => (
+                  <tr key={question.question_id}>
+                    <td><span className="admin-question-order">{question.display_order}</span></td>
+                    <td>
+                      <div className="admin-question-copy">
+                        <strong>{question.question_text}</strong>
+                        <code>{question.question_id}</code>
+                      </div>
+                    </td>
+                    <td><span className="badge badge-blue">{question.agent_role}</span></td>
+                    <td>
+                      <div className="admin-question-instructions">
+                        <span><b>Yes</b>{question.instruction_for_yes || 'No instruction'}</span>
+                        <span><b>No</b>{question.instruction_for_no || 'No instruction'}</span>
+                      </div>
+                    </td>
+                    <td><span className={`badge ${question.is_active ? 'badge-green' : 'badge-slate'}`}>{question.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td className="text-muted">{fmtDate(question.created_at)}</td>
+                    <td>
+                      <div className="admin-question-actions">
+                        <button className="btn-action btn-action-blue" onClick={() => openEdit(question)}>
+                          <span className="material-symbols-outlined">edit</span> Edit
+                        </button>
+                        <button className="btn-action btn-action-danger" onClick={() => deleteQuestion(question.question_id)} disabled={deletingId === question.question_id}>
+                          <span className="material-symbols-outlined">delete</span> {deletingId === question.question_id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {editingQuestion !== undefined && (
+        <OnboardingQuestionModal
+          key={editingQuestion?.question_id || 'new'}
+          question={editingQuestion}
+          saving={saving}
+          error={formError}
+          onClose={closeForm}
+          onSubmit={saveQuestion}
+        />
+      )}
+    </div>
+  );
+}
+
 const NAV_GROUPS = [
   {
     label: 'Workspace',
@@ -3572,6 +3896,7 @@ const NAV_GROUPS = [
     label: 'Automation',
     items: [
       { id: 'agents', label: 'AI Agents', icon: 'smart_toy' },
+      { id: 'onboarding-questions', label: 'Onboarding Questions', icon: 'quiz' },
       { id: 'platforms', label: 'Platforms & Apps', icon: 'hub' },
       { id: 'pages', label: 'Pages', icon: 'web' },
     ],
@@ -3643,6 +3968,7 @@ export default function AdminPanel() {
       case 'subscriptions': return <SubscriptionsSection />;
       case 'revenue': return <RevenueSection />;
       case 'agents': return <AgentsSection />;
+      case 'onboarding-questions': return <OnboardingQuestionsSection />;
       case 'platforms': return <PlatformsSection />;
       case 'pages': return <PagesSection />;
       case 'namespaces': return <NamespacesSection />;

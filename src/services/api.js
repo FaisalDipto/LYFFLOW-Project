@@ -579,6 +579,23 @@ export const apiService = {
     if (user_id) q.set('user_id', user_id);
     return apiFetch(`/v1/admin/agents?${q}`);
   },
+  adminOnboardingQuestions: ({ is_active } = {}) => {
+    const q = new URLSearchParams();
+    if (typeof is_active === 'boolean') q.set('is_active', String(is_active));
+    const qs = q.toString();
+    return apiFetch(`/v1/admin/agent/onboarding-questions${qs ? `?${qs}` : ''}`);
+  },
+  adminCreateOnboardingQuestion: (payload) => apiFetch('/v1/admin/agent/onboarding-question/create', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+  adminUpdateOnboardingQuestion: (questionId, payload) => apiFetch(`/v1/admin/agent/onboarding-question/update/${encodeURIComponent(questionId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  }),
+  adminDeleteOnboardingQuestion: (questionId) => apiFetch(`/v1/admin/agent/onboarding-question/delete/${encodeURIComponent(questionId)}`, {
+    method: 'DELETE',
+  }),
   adminPages: ({ cursor, page_size, user_id } = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
