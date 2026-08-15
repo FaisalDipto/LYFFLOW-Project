@@ -3211,8 +3211,8 @@ function ConversationsSection() {
   );
 }
 
-// ── Customer Leads & Orders Section ────────────────────
-function CustomerRecordsSection() {
+// ── Customer Leads / Orders Section ────────────────────
+function CustomerRecordsSection({ recordType }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [nextCursor, setNextCursor] = useState(null);
@@ -3220,7 +3220,6 @@ function CustomerRecordsSection() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [pageIdFilter, setPageIdFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('lead');
   const [statusFilter, setStatusFilter] = useState('');
   const [pagesList, setPagesList] = useState([]);
 
@@ -3232,7 +3231,7 @@ function CustomerRecordsSection() {
 
   const load = useCallback((cur = null) => {
     setLoading(true);
-    const request = typeFilter === 'lead' ? apiService.adminCustomerLeads : apiService.adminCustomerOrders;
+    const request = recordType === 'lead' ? apiService.adminCustomerLeads : apiService.adminCustomerOrders;
     request({
       cursor: cur,
       page_size: 20,
@@ -3241,16 +3240,16 @@ function CustomerRecordsSection() {
     })
       .then(r => {
         const data = r?.data || r;
-        const list = typeFilter === 'lead'
+        const list = recordType === 'lead'
           ? (data?.leads || data?.customer_leads)
           : (data?.orders || data?.customer_orders);
         const normalized = Array.isArray(list)
           ? list.map(item => ({
             ...item,
-            id: typeFilter === 'lead'
+            id: recordType === 'lead'
               ? (item.customer_lead_id || item.lead_id)
               : (item.customer_order_id || item.order_id),
-            type: typeFilter,
+            type: recordType,
           }))
           : [];
         setRecords(normalized);
@@ -3259,20 +3258,18 @@ function CustomerRecordsSection() {
       })
       .catch(() => { })
       .finally(() => setLoading(false));
-  }, [pageIdFilter, typeFilter, statusFilter]);
+  }, [pageIdFilter, recordType, statusFilter]);
 
   useEffect(() => { setCursor(null); load(null); }, [load]);
 
   const filtered = search.trim()
     ? records.filter(r =>
       (r.contact_name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.contact_email || '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.contact_phone || '').toLowerCase().includes(search.toLowerCase()) ||
       (r.page_name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.notes || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.page_id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.status || '').toLowerCase().includes(search.toLowerCase()) ||
       (r.id || '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.order_id || '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.conversation_id || '').toLowerCase().includes(search.toLowerCase())
+      (r.order_id || '').toLowerCase().includes(search.toLowerCase())
     )
     : records;
 
@@ -3280,15 +3277,15 @@ function CustomerRecordsSection() {
     <div>
       <div className="admin-section-header">
         <div className="admin-section-label">Inbox & Capture</div>
-        <div className="admin-section-title">Customer Leads & Orders</div>
+        <div className="admin-section-title">Customer {recordType === 'lead' ? 'Leads' : 'Orders'}</div>
       </div>
       <div className="admin-card">
         <div className="admin-card-header">
-          <span className="admin-card-title">Captured {typeFilter === 'lead' ? 'Leads' : 'Orders'}{total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
+          <span className="admin-card-title">Captured {recordType === 'lead' ? 'Leads' : 'Orders'}{total > 0 && <span className="text-muted" style={{ fontWeight: 400, fontSize: 13, marginLeft: 8 }}>({fmt(total)} total)</span>}</span>
           <div className="admin-filter-row">
             <div className="admin-search-bar">
               <span className="material-symbols-outlined">search</span>
-              <input placeholder="Search contact name, email, phone or notes…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input placeholder="Search contact, page, status or ID…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <select
               className="admin-filter-select"
@@ -3304,37 +3301,26 @@ function CustomerRecordsSection() {
             </select>
             <select
               className="admin-filter-select"
-              value={typeFilter}
-              onChange={e => {
-                setTypeFilter(e.target.value);
-                setStatusFilter('');
-              }}
-            >
-              <option value="lead">Leads</option>
-              <option value="order">Orders</option>
-            </select>
-            <select
-              className="admin-filter-select"
               style={{ padding: '6px 12px', width: 130 }}
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
             >
               <option value="">All Statuses</option>
-              {(typeFilter === 'lead' ? CAPTURED_LEAD_STATUSES : CAPTURED_ORDER_STATUSES).map(status => (
+              {(recordType === 'lead' ? CAPTURED_LEAD_STATUSES : CAPTURED_ORDER_STATUSES).map(status => (
                 <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
               ))}
             </select>
           </div>
         </div>
-        {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="assignment_ind" text={`No customer ${typeFilter}s found.`} /> : (
+        {loading ? <LoadingState /> : filtered.length === 0 ? <EmptyState icon="assignment_ind" text={`No customer ${recordType}s found.`} /> : (
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead><tr>
-                <th>Contact Info</th><th>Type & Status</th><th>Page & Conversation</th><th>Order Items</th><th>Notes</th><th>Captured At</th>
+                <th>Contact</th><th>Status</th><th>Page</th>{recordType === 'order' && <th>Order Reference</th>}<th>Captured At</th>
               </tr></thead>
               <tbody>
                 {filtered.map(r => {
-                  const isOrder = r.type === 'order';
+                  const isOrder = recordType === 'order';
                   const st = (r.status || '').toLowerCase();
                   const isCompleted = st === 'converted' || st === 'delivered';
                   const isCancelled = st === 'cancelled' || st === 'cancelled_approval_pending';
@@ -3350,60 +3336,23 @@ function CustomerRecordsSection() {
                           </div>
                           <div>
                             <div className="font-bold">{r.contact_name || 'Anonymous Contact'}</div>
-                            <div className="text-muted" style={{ fontSize: 11 }}>
-                              {r.contact_email && <span>📧 {r.contact_email} </span>}
-                              {r.contact_phone && <span>📞 {r.contact_phone}</span>}
-                              {!r.contact_email && !r.contact_phone && '—'}
-                            </div>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
-                          <span className={`badge ${isOrder ? 'badge-blue' : 'badge-purple'}`} style={{ textTransform: 'uppercase', fontSize: 10 }}>
-                            {r.type}
+                        {r.status ? (
+                          <span className={`badge ${statusColor}`} style={{ fontSize: 11 }}>
+                            {r.status.replaceAll('_', ' ')}
                           </span>
-                          {r.status && (
-                            <span className={`badge ${statusColor}`} style={{ fontSize: 11 }}>
-                              {r.status.replaceAll('_', ' ')}
-                            </span>
-                          )}
-                        </div>
+                        ) : <span className="text-muted">—</span>}
                       </td>
                       <td>
                         <div className="font-bold">{r.page_name || '—'}</div>
                         <div className="text-muted" style={{ fontSize: 11 }}>
-                          Conv ID: <span style={{ fontFamily: 'monospace' }}>{r.conversation_id?.slice(0, 8) || '—'}</span>…
+                          Page ID: <span style={{ fontFamily: 'monospace' }}>{r.page_id?.slice(0, 8) || '—'}</span>{r.page_id ? '…' : ''}
                         </div>
                       </td>
-                      <td>
-                        {Array.isArray(r.order_items) && r.order_items.length > 0 ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 80, overflowY: 'auto' }}>
-                            {r.order_items.map((it, idx) => {
-                              let display = it;
-                              if (typeof it === 'object' && it !== null) {
-                                if (it.name) {
-                                  display = `${it.quantity ? it.quantity + 'x ' : ''}${it.name}`;
-                                } else {
-                                  display = JSON.stringify(it);
-                                }
-                              }
-                              return (
-                                <div key={idx} style={{ fontSize: 12, fontWeight: 600, color: '#334155' }} title={typeof it === 'object' ? JSON.stringify(it) : ''}>
-                                  • {display}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
-                      </td>
-                      <td style={{ maxWidth: 220 }}>
-                        <div style={{ fontSize: 12, color: '#475569', whiteSpace: 'normal', maxHeight: 80, overflowY: 'auto' }}>
-                          {typeof r.notes === 'object' && r.notes !== null ? JSON.stringify(r.notes) : (r.notes || '—')}
-                        </div>
-                      </td>
+                      {isOrder && <td><span className="badge badge-slate">{r.order_id || '—'}</span></td>}
                       <td>
                         <div className="font-bold" style={{ fontSize: 12 }}>{fmtDate(r.created_at)}</div>
                         <div className="text-muted" style={{ fontSize: 11 }}>ID: {r.id?.slice(0, 8)}…</div>
@@ -3639,7 +3588,15 @@ const NAV_GROUPS = [
     label: 'Operations',
     items: [
       { id: 'conversations', label: 'Conversations', icon: 'forum' },
-      { id: 'customer-records', label: 'Leads & Orders', icon: 'assignment_ind' },
+      {
+        id: 'customer-records',
+        label: 'Customer Records',
+        icon: 'assignment_ind',
+        children: [
+          { id: 'customer-leads', label: 'Leads', icon: 'person_search' },
+          { id: 'customer-orders', label: 'Orders', icon: 'shopping_bag' },
+        ],
+      },
       { id: 'feedbacks', label: 'Feedbacks', icon: 'reviews' },
       { id: 'activity', label: 'Activity', icon: 'query_stats' },
       { id: 'jobs', label: 'Background Jobs', icon: 'work_history' },
@@ -3647,7 +3604,7 @@ const NAV_GROUPS = [
   },
 ];
 
-const NAV = NAV_GROUPS.flatMap(group => group.items);
+const NAV = NAV_GROUPS.flatMap(group => group.items.flatMap(item => item.children || [item]));
 
 // ── Main Component ─────────────────────────────────────
 export default function AdminPanel() {
@@ -3655,6 +3612,7 @@ export default function AdminPanel() {
   const [section, setSection] = useState('dashboard');
   const [admin, setAdmin] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
+  const [customerRecordsExpanded, setCustomerRecordsExpanded] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -3691,7 +3649,8 @@ export default function AdminPanel() {
       case 'products': return <ProductsSection />;
       case 'knowledges': return <KnowledgesSection />;
       case 'conversations': return <ConversationsSection />;
-      case 'customer-records': return <CustomerRecordsSection />;
+      case 'customer-leads': return <CustomerRecordsSection recordType="lead" />;
+      case 'customer-orders': return <CustomerRecordsSection recordType="order" />;
       case 'feedbacks': return <FeedbacksSection />;
       case 'leads': return <LeadsSection />;
       case 'activity': return <ActivitySection />;
@@ -3715,18 +3674,57 @@ export default function AdminPanel() {
           {NAV_GROUPS.map(group => (
             <div className="admin-nav-group" key={group.label}>
               <div className="admin-nav-group-label">{group.label}</div>
-              {group.items.map(item => (
-                <button
-                  key={item.id}
-                  className={`admin-nav-item ${section === item.id ? 'active' : ''}`}
-                  onClick={() => handleSectionChange(item.id)}
-                  aria-current={section === item.id ? 'page' : undefined}
-                >
-                  <span className="admin-nav-icon-wrap"><span className="material-symbols-outlined nav-icon">{item.icon}</span></span>
-                  <span className="admin-nav-label">{item.label}</span>
-                  {section === item.id && <span className="admin-nav-active-dot" />}
-                </button>
-              ))}
+              {group.items.map(item => {
+                const hasChildren = Array.isArray(item.children);
+                const isChildActive = hasChildren && item.children.some(child => child.id === section);
+
+                if (hasChildren) {
+                  return (
+                    <div className="admin-nav-parent" key={item.id}>
+                      <button
+                        type="button"
+                        className={`admin-nav-item ${isChildActive ? 'active-parent' : ''}`}
+                        onClick={() => setCustomerRecordsExpanded(expanded => !expanded)}
+                        aria-expanded={customerRecordsExpanded}
+                      >
+                        <span className="admin-nav-icon-wrap"><span className="material-symbols-outlined nav-icon">{item.icon}</span></span>
+                        <span className="admin-nav-label">{item.label}</span>
+                        <span className={`material-symbols-outlined admin-nav-chevron ${customerRecordsExpanded ? 'expanded' : ''}`}>expand_more</span>
+                      </button>
+                      {customerRecordsExpanded && (
+                        <div className="admin-nav-children">
+                          {item.children.map(child => (
+                            <button
+                              type="button"
+                              key={child.id}
+                              className={`admin-nav-item admin-nav-child ${section === child.id ? 'active' : ''}`}
+                              onClick={() => handleSectionChange(child.id)}
+                              aria-current={section === child.id ? 'page' : undefined}
+                            >
+                              <span className="admin-nav-icon-wrap"><span className="material-symbols-outlined nav-icon">{child.icon}</span></span>
+                              <span className="admin-nav-label">{child.label}</span>
+                              {section === child.id && <span className="admin-nav-active-dot" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <button
+                    key={item.id}
+                    className={`admin-nav-item ${section === item.id ? 'active' : ''}`}
+                    onClick={() => handleSectionChange(item.id)}
+                    aria-current={section === item.id ? 'page' : undefined}
+                  >
+                    <span className="admin-nav-icon-wrap"><span className="material-symbols-outlined nav-icon">{item.icon}</span></span>
+                    <span className="admin-nav-label">{item.label}</span>
+                    {section === item.id && <span className="admin-nav-active-dot" />}
+                  </button>
+                );
+              })}
             </div>
           ))}
         </nav>
