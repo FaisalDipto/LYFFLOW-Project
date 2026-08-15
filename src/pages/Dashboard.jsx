@@ -1,4 +1,4 @@
-import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, Sun, Trash2, TrendingUp, User, UserRound, X, Zap } from 'lucide-react';
+import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -5470,6 +5470,7 @@ export default function Dashboard() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isCustomerRecordsExpanded, setIsCustomerRecordsExpanded] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -5621,8 +5622,11 @@ export default function Dashboard() {
         <div style={{ display: activeTab === 'overview' ? 'contents' : 'none' }}>
           <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={() => setPreReauthModal(true)} />
         </div>
-        {visitedTabsRef.current.has('records') && <div style={{ display: activeTab === 'records' ? 'contents' : 'none' }}>
-          <CustomerRecords pages={pages} />
+        {visitedTabsRef.current.has('customer-leads') && <div style={{ display: activeTab === 'customer-leads' ? 'contents' : 'none' }}>
+          <CustomerRecords pages={pages} recordType="lead" />
+        </div>}
+        {visitedTabsRef.current.has('customer-orders') && <div style={{ display: activeTab === 'customer-orders' ? 'contents' : 'none' }}>
+          <CustomerRecords pages={pages} recordType="order" />
         </div>}
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
           <ConversationList pages={pages} user={user} />
@@ -5652,7 +5656,15 @@ export default function Dashboard() {
   const primaryNavItems = [
     { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
     { id: 'conversation', icon: MessageSquare, label: 'Conversations' },
-    { id: 'records', icon: ClipboardList, label: 'Leads & Orders' },
+    {
+      id: 'customer-records',
+      icon: ClipboardList,
+      label: 'Customer Records',
+      children: [
+        { id: 'customer-leads', icon: Target, label: 'Leads' },
+        { id: 'customer-orders', icon: ShoppingCart, label: 'Orders' },
+      ],
+    },
     { id: 'agent', icon: UserRound, label: 'Agents' },
     { id: 'knowledge', icon: Book, label: 'Knowledge' }
   ];
@@ -5661,7 +5673,11 @@ export default function Dashboard() {
     { id: 'feedback', icon: MessageCircleWarning, label: 'Feedback' },
     { id: 'tutorial', icon: Headphones, label: 'Tutorial' }
   ];
-  const allNavItems = [...primaryNavItems, ...secondaryNavItems, { id: 'settings', icon: Settings, label: 'Settings' }];
+  const allNavItems = [
+    ...primaryNavItems.flatMap(item => item.children || [item]),
+    ...secondaryNavItems,
+    { id: 'settings', icon: Settings, label: 'Settings' },
+  ];
   const activeNavItem = allNavItems.find(item => item.id === activeTab) || primaryNavItems[0];
   const workspaceName = user?.workspace_name || 'My Workspace';
   const displayUserName = user?.display_name || (user?.first_name ? `${user.first_name} ${user?.last_name || ''}`.trim() : null) || user?.username || user?.name || user?.email || 'User';
@@ -5724,20 +5740,66 @@ export default function Dashboard() {
         <div className="flex-1 px-1 py-5">
           <p className="mb-2 px-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Workspace</p>
           <nav className="space-y-1">
-          {primaryNavItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-              className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id
-                  ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
-                  : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
-                }`}
-            >
-              {activeTab === item.id && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
-              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}><item.icon size={17} strokeWidth={2.2} /></span>
-              <span className="truncate">{item.label}</span>
-            </button>
-          ))}
+          {primaryNavItems.map(item => {
+            const hasChildren = Array.isArray(item.children);
+            const isChildActive = hasChildren && item.children.some(child => child.id === activeTab);
+
+            if (hasChildren) {
+              return (
+                <div key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomerRecordsExpanded(expanded => !expanded)}
+                    className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${isChildActive
+                      ? 'bg-white/[0.08] text-slate-100'
+                      : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
+                    }`}
+                    aria-expanded={isCustomerRecordsExpanded}
+                  >
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${isChildActive ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                      <item.icon size={17} strokeWidth={2.2} />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    <ChevronDown size={15} className={`shrink-0 transition-transform duration-200 ${isCustomerRecordsExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isCustomerRecordsExpanded && (
+                    <div className="ml-5 mt-1 space-y-1 border-l border-white/10 pl-3">
+                      {item.children.map(child => (
+                        <button
+                          key={child.id}
+                          type="button"
+                          onClick={() => { setActiveTab(child.id); setIsSidebarOpen(false); }}
+                          className={`group relative flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[12px] font-bold transition-all ${activeTab === child.id
+                            ? 'bg-white text-slate-950 shadow-[0_6px_18px_rgba(0,0,0,0.18)]'
+                            : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-100'
+                          }`}
+                        >
+                          <child.icon size={15} strokeWidth={2.2} className={activeTab === child.id ? 'text-emerald-600' : ''} />
+                          <span className="truncate">{child.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
+                className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id
+                    ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
+                    : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
+                  }`}
+              >
+                {activeTab === item.id && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}><item.icon size={17} strokeWidth={2.2} /></span>
+                <span className="truncate">{item.label}</span>
+              </button>
+            );
+          })}
           </nav>
 
           <div className="my-5 h-px bg-white/[0.07]" />
