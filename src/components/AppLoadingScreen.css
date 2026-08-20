@@ -54,7 +54,7 @@
 
 .app-loading-mark {
   width: 52px;
-  height: 36px;
+  height: auto;
   object-fit: contain;
   filter: brightness(0) saturate(100%) invert(76%) sepia(52%) saturate(626%) hue-rotate(101deg) brightness(91%) contrast(92%);
 }

@@ -843,7 +843,7 @@ const ProductsTab = ({ selectedNamespaceId, namespaces = [] }) => {
                 <div className="space-y-2">
                   <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Select CSV File</label>
                   <label className="w-full h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all">
-                    <span className="material-symbols-outlined text-emerald-500 mb-2 text-3xl">csv</span>
+                    <FileText className="mb-2 h-8 w-8 text-emerald-500" strokeWidth={1.8} aria-hidden="true" />
                     <span className="text-sm font-semibold text-slate-600">{csvFile ? csvFile.name : 'Click to browse'}</span>
                     <input 
                       type="file" 

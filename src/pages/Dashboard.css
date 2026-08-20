@@ -1,10 +1,22 @@
+@font-face {
+  font-family: 'Dashboard Symbols';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/material-symbols-dashboard.woff2') format('woff2');
+}
+
+body.dashboard-route .material-symbols-outlined {
+  font-family: 'Dashboard Symbols';
+}
+
 .dashboard-layout {
   display: flex;
   height: 100vh;
   width: 100vw;
   background-color: #f8fafc; /* Very light cool gray background for main app */
   overflow: hidden;
-  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
   text-rendering: optimizeLegibility;
 }
@@ -13,7 +25,7 @@
 .dashboard-layout input,
 .dashboard-layout textarea,
 .dashboard-layout select {
-  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
 .dashboard-layout h1,
@@ -24,12 +36,12 @@
 .dashboard-layout h6,
 .dashboard-layout .font-headline,
 .dashboard-layout [class*="font-['Epilogue']"] {
-  font-family: 'DM Sans', 'Manrope', system-ui, sans-serif !important;
+  font-family: 'Epilogue', system-ui, sans-serif !important;
   letter-spacing: -0.025em;
 }
 
 .dashboard-layout [class*="font-['Inter']"] {
-  font-family: 'Manrope', 'Inter', system-ui, sans-serif !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
 }
 
 .dashboard-shell-sidebar {
@@ -351,6 +363,7 @@
   display: inline-block;
   transform-origin: center bottom;
   animation-name: overview-count-lift;
+  animation-duration: .45s;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   animation-fill-mode: both;
 }

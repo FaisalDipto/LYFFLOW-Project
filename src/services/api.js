@@ -9,6 +9,7 @@ import { API_BASE } from '../config/env';
 
 // Set to true to test frontend without a running backend
 const MOCK_MODE = window.location.search.includes('mock=true');
+const MOCK_DELAY_MS = Math.max(0, Number(new URLSearchParams(window.location.search).get('mockDelay')) || 0);
 
 const mockData = {
   '/v1/user/profile': { user: { id: 'mock_123', first_name: 'Demo', last_name: 'User', display_name: 'Demo User', email: 'demo@lyfflow.com', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' } },
@@ -193,7 +194,9 @@ const apiFetch = async (endpoint, options = {}) => {
 
   if (MOCK_MODE) {
     console.log(`[MOCK API] ${method} ${endpoint}`);
-    await new Promise(r => setTimeout(r, 400)); // Simulate latency
+    if (MOCK_DELAY_MS > 0) {
+      await new Promise(resolve => setTimeout(resolve, MOCK_DELAY_MS));
+    }
     
     // Exact match or partial match for dynamic IDs
     const mockResponse = mockData[endpoint] || 

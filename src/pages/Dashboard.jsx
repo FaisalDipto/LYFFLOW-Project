@@ -1,14 +1,11 @@
 import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import logoImg from '../assets/logo1.png';
-import titleImg from '../assets/title.png';
+import logoImg from '../assets/logo1.webp';
+import titleImg from '../assets/title.webp';
 import AppLoadingScreen from '../components/AppLoadingScreen';
 import AgentAvatar from '../components/AgentAvatar';
-import AgentAvatarModal from '../components/AgentAvatarModal';
-import CustomerRecords from '../components/CustomerRecords';
-import ProductsTab from '../components/ProductsTab';
 import { useWidget } from '../context/WidgetContext';
 import { API_BASE } from '../config/env';
 import { apiService } from '../services/api';
@@ -16,7 +13,17 @@ import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import './Dashboard.css';
 import '../styles/dashboard-theme.css';
 
+const AgentAvatarModal = lazy(() => import('../components/AgentAvatarModal'));
+const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
+const ProductsTab = lazy(() => import('../components/ProductsTab'));
+
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
+
+const FacebookMark = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M14 8V6.5c0-.83.67-1.5 1.5-1.5H18V1h-3c-3.31 0-6 2.69-6 6v1H6v4h3v11h5V12h3.5l.5-4h-4Z" />
+  </svg>
+);
 
 // Helper to trigger Facebook re-authorization to the API backend directly
 const triggerFacebookReauth = () => {
@@ -57,51 +64,16 @@ const fetchProfilePictureUrl = async (userId) => {
 
 const KNOWLEDGE_POLL_DELAYS = [1500, 2500, 4000];
 
-const CountUpNumber = ({ value, duration = 1400 }) => {
+const CountUpNumber = ({ value }) => {
   const targetValue = Math.max(0, Number(value) || 0);
-  const [displayValue, setDisplayValue] = useState(0);
-  const currentValueRef = useRef(0);
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      currentValueRef.current = targetValue;
-      setDisplayValue(targetValue);
-      return undefined;
-    }
-
-    const startValue = currentValueRef.current;
-    const difference = targetValue - startValue;
-    let animationFrame;
-    let startTime;
-
-    const animate = (timestamp) => {
-      if (startTime === undefined) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const easedProgress = progress < 0.5
-        ? 4 * Math.pow(progress, 3)
-        : 1 - (Math.pow(-2 * progress + 2, 3) / 2);
-      const nextValue = Math.round(startValue + (difference * easedProgress));
-
-      currentValueRef.current = nextValue;
-      setDisplayValue(nextValue);
-
-      if (progress < 1) {
-        animationFrame = window.requestAnimationFrame(animate);
-      }
-    };
-
-    animationFrame = window.requestAnimationFrame(animate);
-    return () => window.cancelAnimationFrame(animationFrame);
-  }, [duration, targetValue]);
 
   return (
     <span
       key={targetValue}
       className="overview-count-number tabular-nums"
-      style={{ animationDuration: `${duration}ms` }}
       aria-label={targetValue.toLocaleString()}
     >
-      {displayValue.toLocaleString()}
+      {targetValue.toLocaleString()}
     </span>
   );
 };
@@ -270,11 +242,11 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
   };
 
   return (
-    <div className="dashboard-content-area animate-fade-in-up flex-1 p-4 md:p-6 xl:p-8 w-full text-left bg-surface-bright">
+    <div className="dashboard-content-area flex-1 p-4 md:p-6 xl:p-8 w-full text-left bg-surface-bright">
       <section className="mb-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm md:px-6 md:py-5">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
-            <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Workspace overview</span>
+            <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Workspace overview</span>
             <h1 className="m-0 truncate font-headline text-2xl font-black tracking-tight text-slate-950 md:text-3xl">{workspaceName}</h1>
             <p className="mb-0 mt-1 text-sm font-medium text-slate-500">Manage your connected pages and the agents answering for them.</p>
           </div>
@@ -282,17 +254,17 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 md:gap-x-7">
             <div>
               <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={pageCount} /></span>
-              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Pages</span>
+              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">Pages</span>
             </div>
             <div className="h-8 w-px bg-slate-200" aria-hidden="true" />
             <div>
               <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={assignedPageCount} /></span>
-              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Assigned</span>
+              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">Assigned</span>
             </div>
             <div className="h-8 w-px bg-slate-200" aria-hidden="true" />
             <div>
               <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={agents.length} /></span>
-              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Agents</span>
+              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">Agents</span>
             </div>
             <button
               type="button"
@@ -311,7 +283,7 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
           <h2 className="m-0 text-sm font-black text-slate-900">Connected pages</h2>
           <p className="mb-0 mt-0.5 text-xs text-slate-500">Choose which agent handles each inbox.</p>
         </div>
-        <span className="shrink-0 text-xs font-bold text-slate-400">{pageCount} total</span>
+        <span className="shrink-0 text-xs font-bold text-slate-600">{pageCount} total</span>
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
@@ -341,8 +313,8 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
 
                 <div className="min-w-0 flex-1 pt-0.5">
                   <h3 className="m-0 truncate text-sm font-black text-slate-900" title={page.name}>{page.name || 'Untitled page'}</h3>
-                  <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
-                    <span className="material-symbols-outlined text-[13px] text-blue-500">facebook</span>
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                    <FacebookMark className="h-[13px] w-[13px] shrink-0 text-blue-700" />
                     <span>Connected</span>
                   </div>
                 </div>
@@ -356,7 +328,7 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
 
               <div className="mt-3 border-t border-slate-100 pt-3">
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Assigned agent</span>
+                  <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-600">Assigned agent</span>
                   {success[page.page_id] && <span className="text-[10px] font-bold text-emerald-600">Saved</span>}
                 </div>
 
@@ -454,7 +426,7 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
           <span className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-xl text-slate-500 shadow-sm transition-colors group-hover:border-emerald-200 group-hover:text-emerald-600">add</span>
           <span>
             <span className="block text-sm font-black text-slate-700 group-hover:text-emerald-700">Connect another page</span>
-            <span className="mt-1 block text-[11px] font-medium text-slate-400">Facebook or Instagram</span>
+            <span className="mt-1 block text-[11px] font-medium text-slate-600">Facebook or Instagram</span>
           </span>
         </button>
       </div>
@@ -1170,7 +1142,7 @@ const ConversationList = ({ pages, user }) => {
                         {p.profile_pic_url ? (
                           <img src={p.profile_pic_url} alt={p.name} className="w-5 h-5 rounded-full object-cover shrink-0 border border-slate-200" />
                         ) : (
-                          <span className="material-symbols-outlined text-[16px] text-blue-500 shrink-0">facebook</span>
+                          <FacebookMark className="h-4 w-4 shrink-0 text-blue-600" />
                         )}
                         <span className="truncate">{p.name}</span>
                       </div>
@@ -1606,12 +1578,12 @@ const FeedbackPanel = () => {
 
               <div className="mt-8 space-y-5">
                 {[
-                  ['ads_click', 'What you were trying to do'],
-                  ['difference', 'What you expected to happen'],
-                  ['error', 'What happened instead']
-                ].map(([icon, text]) => (
+                  [Target, 'What you were trying to do'],
+                  [CheckCircle2, 'What you expected to happen'],
+                  [MessageCircleWarning, 'What happened instead']
+                ].map(([TipIcon, text]) => (
                   <div key={text} className="flex items-start gap-3">
-                    <span className="material-symbols-outlined mt-0.5 text-[18px] text-emerald-400">{icon}</span>
+                    <TipIcon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-emerald-400" strokeWidth={2.2} aria-hidden="true" />
                     <p className="text-sm font-semibold leading-5 text-slate-200">{text}</p>
                   </div>
                 ))}
@@ -2323,7 +2295,9 @@ const Knowledge = ({ namespaces, onUpdate }) => {
         </div>
           </>
         ) : (
-          <ProductsTab selectedNamespaceId={selectedNamespaceId} namespaces={namespaces} />
+          <Suspense fallback={<div className="min-h-[220px] rounded-2xl bg-white" aria-label="Loading products" />}>
+            <ProductsTab selectedNamespaceId={selectedNamespaceId} namespaces={namespaces} />
+          </Suspense>
         )}
       </div>
 
@@ -3606,12 +3580,14 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   ) : null;
 
   const avatarModalPortal = typeof document !== 'undefined' && customizingAvatarAgent ? ReactDOM.createPortal(
-    <AgentAvatarModal
-      agent={customizingAvatarAgent}
-      isOpen={!!customizingAvatarAgent}
-      onClose={() => setCustomizingAvatarAgent(null)}
-      onSave={handleSaveAvatar}
-    />,
+    <Suspense fallback={null}>
+      <AgentAvatarModal
+        agent={customizingAvatarAgent}
+        isOpen={!!customizingAvatarAgent}
+        onClose={() => setCustomizingAvatarAgent(null)}
+        onSave={handleSaveAvatar}
+      />
+    </Suspense>,
     document.body
   ) : null;
 
@@ -3675,7 +3651,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       {page.profile_pic_url ? (
                         <img src={page.profile_pic_url} alt={page.page_name || page.name} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
-                        <span className="material-symbols-outlined text-blue-500 text-sm">facebook</span>
+                        <FacebookMark className="h-3.5 w-3.5 shrink-0 text-blue-600" />
                       )}
                       <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {page.page_name || page.name || `Page ${page.page_id}`}
@@ -3931,7 +3907,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                             {p.profile_pic_url ? (
                               <img src={p.profile_pic_url} alt={p.name || p.page_name} className="h-full w-full rounded-full object-cover" />
                             ) : (
-                              <span className="material-symbols-outlined text-[13px] text-white">facebook</span>
+                              <FacebookMark className="h-[13px] w-[13px] text-white" />
                             )}
                           </div>
                         ))}
@@ -5489,6 +5465,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
+  useEffect(() => {
+    document.body.classList.add('dashboard-route');
+    return () => document.body.classList.remove('dashboard-route');
+  }, []);
+
   const fetchData = useCallback(async () => {
     let isRedirecting = false;
     setLoadError(null);
@@ -5623,10 +5604,14 @@ export default function Dashboard() {
           <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={() => setPreReauthModal(true)} />
         </div>
         {visitedTabsRef.current.has('customer-leads') && <div style={{ display: activeTab === 'customer-leads' ? 'contents' : 'none' }}>
-          <CustomerRecords pages={pages} recordType="lead" />
+          <Suspense fallback={<AppLoadingScreen />}>
+            <CustomerRecords pages={pages} recordType="lead" />
+          </Suspense>
         </div>}
         {visitedTabsRef.current.has('customer-orders') && <div style={{ display: activeTab === 'customer-orders' ? 'contents' : 'none' }}>
-          <CustomerRecords pages={pages} recordType="order" />
+          <Suspense fallback={<AppLoadingScreen />}>
+            <CustomerRecords pages={pages} recordType="order" />
+          </Suspense>
         </div>}
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
           <ConversationList pages={pages} user={user} />
@@ -5725,7 +5710,7 @@ export default function Dashboard() {
         <div className="flex h-[76px] w-full shrink-0 items-center border-b border-white/8 px-3">
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 ring-1 ring-emerald-300/15">
-              <img src={logoImg} alt="" style={{ height: '29px', width: 'auto', filter: 'brightness(0) saturate(100%) invert(73%) sepia(52%) saturate(670%) hue-rotate(103deg) brightness(96%) contrast(92%)' }} />
+              <img src={logoImg} alt="" width="40" height="23" style={{ width: '40px', height: 'auto', filter: 'brightness(0) saturate(100%) invert(73%) sepia(52%) saturate(670%) hue-rotate(103deg) brightness(96%) contrast(92%)' }} />
             </div>
             <div className="min-w-0">
               <img src={titleImg} alt="LYFFLOW" style={{ height: '16px', width: 'auto', filter: 'brightness(0) saturate(100%) invert(80%) sepia(12%) saturate(677%) hue-rotate(181deg) brightness(106%) contrast(94%)' }} />
@@ -5855,7 +5840,7 @@ export default function Dashboard() {
             </button>
             <div className="hidden h-8 w-px bg-slate-200 sm:block" />
             <div className="min-w-0">
-              <p className="hidden truncate text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:block">{workspaceName}</p>
+              <p className="hidden truncate text-[9px] font-black uppercase tracking-[0.16em] text-slate-600 sm:block">{workspaceName}</p>
               <div className="flex items-center gap-2">
                 <h2 className="truncate text-sm font-extrabold text-slate-950 sm:text-[15px]">{activeNavItem.label}</h2>
                 <span className="hidden h-1.5 w-1.5 rounded-full bg-emerald-400 sm:block" />
@@ -5867,7 +5852,7 @@ export default function Dashboard() {
               type="button"
               className="dashboard-theme-toggle"
               onClick={toggleTheme}
-              aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+              aria-label={`${isDark ? 'Dark' : 'Light'} mode. Switch to ${isDark ? 'light' : 'dark'} mode`}
               title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
             >
               <span className="dashboard-theme-toggle-track">
@@ -5895,7 +5880,7 @@ export default function Dashboard() {
               </div>
               <span className="hidden min-w-0 text-left sm:block">
                 <span className="block max-w-[160px] truncate text-xs font-extrabold text-slate-900">{displayUserName}</span>
-                <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">{currentPlanName}</span>
+                <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-wider text-slate-600">{currentPlanName}</span>
               </span>
               <ChevronDown size={15} className={`shrink-0 text-slate-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -6047,7 +6032,7 @@ export default function Dashboard() {
                   )}
 
                   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
-                    <span className="material-symbols-outlined text-amber-500 text-[18px] mt-0.5 shrink-0">Warning</span>
+                    <span className="material-symbols-outlined text-amber-500 text-[18px] mt-0.5 shrink-0">warning</span>
                     <p className="text-xs text-amber-800 font-semibold leading-relaxed">
                       Unchecking them will disconnect them from LYFFLOW and stop their AI agents.
                     </p>

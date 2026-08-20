@@ -2,9 +2,9 @@ import { useEffect, useState, lazy, Suspense } from 'react' // Final check on im
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { WidgetProvider } from './context/WidgetContext'
 import AppLoadingScreen from './components/AppLoadingScreen'
-import Home from './pages/Home'
 import './App.css'
 
+const Home = lazy(() => import('./pages/Home'))
 const GetStarted = lazy(() => import('./pages/GetStarted'))
 const Login = lazy(() => import('./pages/Login'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -22,7 +22,9 @@ function RouteFontLoader() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    if (pathname === '/' || document.getElementById('lyfflow-app-fonts')) return;
+    // The home page and user dashboard ship their own small, local font files.
+    // Keep the larger Google Fonts bundle for routes that still depend on it.
+    if (pathname === '/' || pathname.startsWith('/dashboard') || document.getElementById('lyfflow-app-fonts')) return;
 
     const stylesheet = document.createElement('link');
     stylesheet.id = 'lyfflow-app-fonts';
