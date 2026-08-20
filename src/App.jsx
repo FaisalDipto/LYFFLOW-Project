@@ -2,14 +2,9 @@ import { useEffect, useState, lazy, Suspense } from 'react' // Final check on im
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { WidgetProvider } from './context/WidgetContext'
 import AppLoadingScreen from './components/AppLoadingScreen'
+import Home from './pages/Home'
 import './App.css'
-import './pages/GetStarted.css'
-import './pages/Login.css'
-import './pages/Dashboard.css'
-import './pages/Feedback.css'
-import './pages/AdminPanel.css'
 
-const Home = lazy(() => import('./pages/Home'))
 const GetStarted = lazy(() => import('./pages/GetStarted'))
 const Login = lazy(() => import('./pages/Login'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -20,6 +15,24 @@ const Sales = lazy(() => import('./pages/Sales'))
 const Contact = lazy(() => import('./pages/Contact'))
 const AdminLogin = lazy(() => import('./pages/AdminLogin'))
 const AdminPanel = lazy(() => import('./pages/AdminPanel'))
+
+const APP_FONT_STYLESHEET = 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&family=Manrope:wght@400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap';
+
+function RouteFontLoader() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (pathname === '/' || document.getElementById('lyfflow-app-fonts')) return;
+
+    const stylesheet = document.createElement('link');
+    stylesheet.id = 'lyfflow-app-fonts';
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = APP_FONT_STYLESHEET;
+    document.head.appendChild(stylesheet);
+  }, [pathname]);
+
+  return null;
+}
 
 // Handles scroll-to-top on route change and smooth-scroll to hash sections
 function ScrollManager() {
@@ -35,7 +48,7 @@ function ScrollManager() {
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
-        } catch (e) {
+        } catch {
           // ignore invalid selectors
         }
       }, 80);
@@ -93,9 +106,9 @@ function RateLimitModal() {
 }
 
 function App() {
-  const location = useLocation();
   return (
     <WidgetProvider>
+      <RouteFontLoader />
       <RateLimitModal />
       <ScrollManager />
       <Suspense fallback={<AppLoadingScreen />}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ProductShowcase.css';
-import logoImg  from '../assets/logo1.png';
-import titleImg from '../assets/title.png';
+import logoImg  from '../assets/logo1.webp';
+import titleImg from '../assets/title.webp';
 
 /* ── DATA ──────────────────────────────────────────────────── */
 const FEATURES = [

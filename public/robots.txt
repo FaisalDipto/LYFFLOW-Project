@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /login
+
+Sitemap: https://www.lyfflow.com/sitemap.xml

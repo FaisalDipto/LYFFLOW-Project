@@ -2,8 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import './Hero.css';
 import ProductShowcase from './ProductShowcase';
-import teamCorporate from '../assets/team_corporate.png';
-import dashboardCorporate from '../assets/dashboard_corporate.png';
+import teamCorporate from '../assets/team_corporate.webp';
 
 const TEAM = [
   {
@@ -108,7 +107,7 @@ export default function Hero() {
 
         {/* CONTENT LAYER */}
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center relative z-10 w-full overflow-x-hidden sm:overflow-visible">
-          <div className="space-y-8 animate-fade-up min-w-0 w-full max-w-full">
+          <div className="space-y-8 min-w-0 w-full max-w-full">
             <span className="inline-block px-4 py-1.5 bg-secondary text-white text-[10px] font-bold tracking-[0.2em] uppercase rounded-full shadow-lg shadow-secondary/20">Automate Everything</span>
             <h1 className="font-headline text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-tighter leading-[1.1] text-primary break-words">
               Automate Conversations on <span className="text-tertiary flex flex-wrap items-center gap-x-1.5 sm:gap-x-3 gap-y-2 mt-2 sm:mt-3">
@@ -326,6 +325,10 @@ export default function Hero() {
                 alt="Creative team collaborating"
                 className="w-full h-full object-cover contrast-125 transition-all duration-700"
                 src={teamCorporate}
+                width="820"
+                height="1024"
+                loading="lazy"
+                decoding="async"
               />
             </div>
             {/* Floating stat */}

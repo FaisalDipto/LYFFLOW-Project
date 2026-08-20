@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import logoImg from '../assets/logo1.png';
-import titleImg from '../assets/title.png';
+import logoImg from '../assets/logo1.webp';
+import titleImg from '../assets/title.webp';
 
 export default function Footer() {
   return (
@@ -10,8 +10,8 @@ export default function Footer() {
         <div className="mb-10 md:mb-0 text-center md:text-left">
           <div className="text-2xl font-black text-primary mb-3 tracking-tighter flex items-center justify-center md:justify-start gap-1">
           <Link to="/" className="nav-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src={logoImg} alt="LYFFLOW Logo" style={{ height: '32px', width: 'auto' }} />
-            <img src={titleImg} alt="LYFFLOW" style={{ height: '18px', width: 'auto' }} />
+            <img src={logoImg} alt="LYFFLOW Logo" width="56" height="32" loading="lazy" decoding="async" style={{ height: '32px', width: 'auto' }} />
+            <img src={titleImg} alt="LYFFLOW" width="88" height="18" loading="lazy" decoding="async" style={{ height: '18px', width: 'auto' }} />
           </Link>
           </div>
           <p className="font-['Inter'] text-slate-500 text-sm">© {new Date().getFullYear()} LYFFLOW, Inc. All rights reserved.</p>

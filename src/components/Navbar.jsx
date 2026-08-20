@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import './Navbar.css';
-import logoImg from '../assets/logo1.png';
-import titleImg from '../assets/title.png';
+import logoImg from '../assets/logo1.webp';
+import titleImg from '../assets/title.webp';
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -43,8 +43,8 @@ export default function Navbar() {
       <nav className={`navbar ${isScrolled ? 'scrolled' : ''}`}>
         {/* Logo Section */}
         <Link to="/" className="nav-logo">
-          <img src={logoImg} alt="LYFFLOW Logo" className="brand-logo-img" />
-          <img src={titleImg} alt="LYFFLOW" className="brand-title-img" />
+          <img src={logoImg} alt="LYFFLOW Logo" className="brand-logo-img" width="56" height="32" />
+          <img src={titleImg} alt="LYFFLOW" className="brand-title-img" width="137" height="28" />
         </Link>
 
         {/* Hamburger Menu Button */}
