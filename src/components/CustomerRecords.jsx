@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target } from 'lucide-react';
+import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target, Truck } from 'lucide-react';
 import { apiService } from '../services/api';
 
 const LEAD_STATUSES = ['new', 'contacted', 'converted', 'cancelled'];
@@ -30,6 +30,12 @@ const CustomerRecords = ({ pages, recordType }) => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [steadfastPrefill, setSteadfastPrefill] = useState(null);
+  const [isSteadfastPrefillLoading, setIsSteadfastPrefillLoading] = useState(false);
+  const [steadfastPrefillError, setSteadfastPrefillError] = useState('');
+  const [steadfastPlacement, setSteadfastPlacement] = useState(null);
+  const [isSteadfastPlacing, setIsSteadfastPlacing] = useState(false);
+  const [steadfastPlacementError, setSteadfastPlacementError] = useState('');
 
   const fetchRecords = useCallback(async (cursor = null) => {
     if (!selectedPageId) return;
@@ -73,6 +79,10 @@ const CustomerRecords = ({ pages, recordType }) => {
   }, [fetchRecords]);
 
   const handleSelectRecord = async (record) => {
+    setSteadfastPrefill(null);
+    setSteadfastPrefillError('');
+    setSteadfastPlacement(null);
+    setSteadfastPlacementError('');
     setSelectedRecord(record);
     setIsDetailLoading(true);
     try {
@@ -85,6 +95,73 @@ const CustomerRecords = ({ pages, recordType }) => {
       console.error(`Failed to fetch customer ${record.type} details:`, error);
     } finally {
       setIsDetailLoading(false);
+    }
+  };
+
+  const closeRecordModal = () => {
+    setSelectedRecord(null);
+    setSteadfastPrefill(null);
+    setSteadfastPrefillError('');
+    setIsSteadfastPrefillLoading(false);
+    setSteadfastPlacement(null);
+    setSteadfastPlacementError('');
+    setIsSteadfastPlacing(false);
+  };
+
+  const handleLoadSteadfastPrefill = async () => {
+    if (!selectedRecord?.id || selectedRecord.type !== 'order') return;
+
+    setIsSteadfastPrefillLoading(true);
+    setSteadfastPrefillError('');
+    try {
+      const response = await apiService.getSteadfastOrderPrefill(selectedRecord.id);
+      setSteadfastPrefill(response?.data || response);
+      setSteadfastPlacement(null);
+      setSteadfastPlacementError('');
+    } catch (error) {
+      console.error('Failed to load Steadfast order prefill:', error);
+      setSteadfastPrefillError(error.message || 'Could not load the Steadfast order prefill.');
+    } finally {
+      setIsSteadfastPrefillLoading(false);
+    }
+  };
+
+  const handleSteadfastFieldChange = (field, value) => {
+    setSteadfastPrefill(current => ({ ...current, [field]: value }));
+  };
+
+  const handlePlaceSteadfastOrder = async (event) => {
+    event.preventDefault();
+    if (!selectedRecord?.id || !steadfastPrefill || steadfastPlacement) return;
+
+    const confirmed = window.confirm(
+      `Place order ${steadfastPrefill.invoice || selectedRecord.id} with Steadfast Courier? This will create a real consignment.`
+    );
+    if (!confirmed) return;
+
+    const payload = {
+      recipient_name: steadfastPrefill.recipient_name || '',
+      recipient_phone: steadfastPrefill.recipient_phone || '',
+      alternative_phone: steadfastPrefill.alternative_phone || '',
+      recipient_email: steadfastPrefill.recipient_email || '',
+      recipient_address: steadfastPrefill.recipient_address || '',
+      cod_amount: Number(steadfastPrefill.cod_amount) || 0,
+      note: steadfastPrefill.note || '',
+      item_description: steadfastPrefill.item_description || '',
+      total_lot: Number(steadfastPrefill.total_lot) || 0,
+      delivery_type: Number(steadfastPrefill.delivery_type) || 0,
+    };
+
+    setIsSteadfastPlacing(true);
+    setSteadfastPlacementError('');
+    try {
+      const response = await apiService.placeSteadfastOrder(selectedRecord.id, payload);
+      setSteadfastPlacement(response?.data || response);
+    } catch (error) {
+      console.error('Failed to place Steadfast order:', error);
+      setSteadfastPlacementError(error.message || 'Could not place the order with Steadfast Courier.');
+    } finally {
+      setIsSteadfastPlacing(false);
     }
   };
 
@@ -152,7 +229,7 @@ const CustomerRecords = ({ pages, recordType }) => {
               value={selectedPageId}
               onChange={e => {
                 setSelectedPageId(e.target.value);
-                setSelectedRecord(null);
+                closeRecordModal();
               }}
               className="bg-transparent border-none text-sm font-bold focus:ring-0 text-slate-700 cursor-pointer p-0 pl-1 pr-8 outline-none"
             >
@@ -291,7 +368,7 @@ const CustomerRecords = ({ pages, recordType }) => {
                 </div>
               </div>
               <button 
-                onClick={() => setSelectedRecord(null)}
+                onClick={closeRecordModal}
                 className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-full transition-colors"
               >
                 <X size={20} />
@@ -362,6 +439,114 @@ const CustomerRecords = ({ pages, recordType }) => {
                 </div>
               )}
 
+              {/* Steadfast Courier Prefill */}
+              {selectedRecord.type === 'order' && (
+                <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="flex items-center gap-2 text-sm font-black text-slate-800">
+                        <Truck size={18} className="text-emerald-600" />
+                        Steadfast Courier
+                      </h4>
+                      <p className="mt-1 text-xs text-slate-500">Review the values prepared for this courier order.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLoadSteadfastPrefill}
+                      disabled={isSteadfastPrefillLoading || isSteadfastPlacing || Boolean(steadfastPlacement)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSteadfastPrefillLoading && <Loader2 size={16} className="animate-spin" />}
+                      {steadfastPlacement ? 'Order placed' : steadfastPrefill ? 'Refresh prefill' : 'Load courier prefill'}
+                    </button>
+                  </div>
+
+                  {steadfastPrefillError && (
+                    <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                      {steadfastPrefillError}
+                    </p>
+                  )}
+
+                  {steadfastPrefill && (
+                    <form onSubmit={handlePlaceSteadfastOrder} className="space-y-4">
+                      <div className="rounded-xl border border-emerald-100 bg-white p-3">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Invoice</p>
+                        <p className="mt-1 break-words text-sm font-semibold text-slate-700">
+                          {steadfastPrefill.invoice || 'Assigned by Steadfast'}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {[
+                          { field: 'recipient_name', label: 'Recipient', required: true },
+                          { field: 'recipient_phone', label: 'Phone', required: true },
+                          { field: 'alternative_phone', label: 'Alternative phone' },
+                          { field: 'recipient_email', label: 'Email', type: 'email' },
+                          { field: 'cod_amount', label: 'COD amount', type: 'number', min: 0, step: 'any', required: true },
+                          { field: 'total_lot', label: 'Total lot', type: 'number', min: 0, step: 1, required: true },
+                          { field: 'delivery_type', label: 'Delivery type', type: 'number', min: 0, step: 1, required: true },
+                          { field: 'recipient_address', label: 'Address', required: true, multiline: true, fullWidth: true },
+                          { field: 'item_description', label: 'Item description', multiline: true, fullWidth: true },
+                          { field: 'note', label: 'Note', multiline: true, fullWidth: true },
+                        ].map(({ field, label, type = 'text', min, step, required, multiline, fullWidth }) => {
+                          const sharedProps = {
+                            value: steadfastPrefill[field] ?? '',
+                            onChange: event => handleSteadfastFieldChange(field, event.target.value),
+                            disabled: isSteadfastPlacing || Boolean(steadfastPlacement),
+                            required,
+                            className: 'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-50 disabled:text-slate-500',
+                          };
+
+                          return (
+                            <label key={field} className={`block ${fullWidth ? 'sm:col-span-2' : ''}`}>
+                              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                                {label}{required && <span className="text-red-500"> *</span>}
+                              </span>
+                              {multiline ? (
+                                <textarea {...sharedProps} rows={2} />
+                              ) : (
+                                <input {...sharedProps} type={type} min={min} step={step} />
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      {steadfastPlacementError && (
+                        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                          {steadfastPlacementError}
+                        </p>
+                      )}
+
+                      {steadfastPlacement ? (
+                        <div className="rounded-xl border border-emerald-300 bg-emerald-100/70 p-4 text-sm text-emerald-900">
+                          <p className="font-black">{steadfastPlacement.message || 'Order placed successfully.'}</p>
+                          {steadfastPlacement.consignment && (
+                            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <p><span className="font-bold">Tracking:</span> {steadfastPlacement.consignment.tracking_code || 'Not provided'}</p>
+                              <p><span className="font-bold">Consignment ID:</span> {steadfastPlacement.consignment.consignment_id ?? 'Not provided'}</p>
+                              <p><span className="font-bold">Invoice:</span> {steadfastPlacement.consignment.invoice || 'Not provided'}</p>
+                              <p><span className="font-bold">Status:</span> {steadfastPlacement.consignment.status || 'Not provided'}</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            disabled={isSteadfastPlacing}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isSteadfastPlacing && <Loader2 size={16} className="animate-spin" />}
+                            {isSteadfastPlacing ? 'Placing order...' : 'Place order with Steadfast'}
+                          </button>
+                        </div>
+                      )}
+                    </form>
+                  )}
+                </div>
+              )}
+
               {/* Notes */}
               {selectedRecord.notes && (
                 <div className="space-y-2">
@@ -391,7 +576,7 @@ const CustomerRecords = ({ pages, recordType }) => {
                 {isUpdatingStatus && <Loader2 className="animate-spin text-slate-400" size={16} />}
               </div>
               <button 
-                onClick={() => setSelectedRecord(null)}
+                onClick={closeRecordModal}
                 className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm"
               >
                 Close

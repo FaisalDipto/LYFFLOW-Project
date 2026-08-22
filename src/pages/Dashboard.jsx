@@ -4336,6 +4336,12 @@ const SettingsPanel = ({ user, onUpdate }) => {
   const [email, setEmail] = useState(user?.email || '');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [steadfastApiKey, setSteadfastApiKey] = useState('');
+  const [steadfastSecretKey, setSteadfastSecretKey] = useState('');
+  const [steadfastConnecting, setSteadfastConnecting] = useState(false);
+  const [steadfastError, setSteadfastError] = useState('');
+  const [steadfastConnection, setSteadfastConnection] = useState(null);
+  const [copiedSteadfastField, setCopiedSteadfastField] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -4363,6 +4369,45 @@ const SettingsPanel = ({ user, onUpdate }) => {
       alert("Failed to update profile: " + err.message);
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleSteadfastConnect = async (e) => {
+    e.preventDefault();
+    const apiKey = steadfastApiKey.trim();
+    const secretKey = steadfastSecretKey.trim();
+
+    if (!apiKey || !secretKey) {
+      setSteadfastError('Enter both your Steadfast API key and secret key.');
+      return;
+    }
+
+    setSteadfastConnecting(true);
+    setSteadfastError('');
+    setSteadfastConnection(null);
+
+    try {
+      const connection = await apiService.connectSteadfast({
+        api_key: apiKey,
+        secret_key: secretKey,
+      });
+      setSteadfastConnection(connection);
+      setSteadfastSecretKey('');
+    } catch (err) {
+      setSteadfastError(err.message || 'Could not connect your Steadfast account.');
+    } finally {
+      setSteadfastConnecting(false);
+    }
+  };
+
+  const copySteadfastValue = async (field, value) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedSteadfastField(field);
+      setTimeout(() => setCopiedSteadfastField(''), 1800);
+    } catch {
+      setSteadfastError('Could not copy automatically. Select the value and copy it manually.');
     }
   };
 
@@ -4418,6 +4463,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
 
   const settingsTabs = [
     { id: 'profile', icon: User, label: 'Profile' },
+    { id: 'integrations', icon: Zap, label: 'Integrations' },
     // { id: 'themes', icon: Palette, label: 'Themes' },         // no functionality yet
     // { id: 'widget', icon: Monitor, label: 'Widget Appearance' }, // no functionality yet
     // { id: 'team', icon: Users, label: 'Team Members' },       // no functionality yet
@@ -4489,6 +4535,106 @@ const SettingsPanel = ({ user, onUpdate }) => {
               {profileSaving ? 'Saving...' : profileSaved ? '✓ Profile Updated!' : 'Save Changes'}
             </button>
           </form>
+        )}
+
+        {/* Steadfast integration */}
+        {activeSettings === 'integrations' && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '24px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Zap size={21} />
+              </div>
+              <div>
+                <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '5px' }}>Connect Steadfast</h3>
+                <p style={{ color: '#64748b', fontSize: '13.5px', lineHeight: 1.55 }}>
+                  Connect or reconnect your Steadfast account to receive delivery updates in LYFFLOW.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSteadfastConnect} style={{ padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', backgroundColor: '#fff' }}>
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                <label htmlFor="steadfast-api-key" style={{ fontSize: '13.5px', fontWeight: 600 }}>API Key</label>
+                <input
+                  id="steadfast-api-key"
+                  type="password"
+                  autoComplete="off"
+                  value={steadfastApiKey}
+                  onChange={(e) => setSteadfastApiKey(e.target.value)}
+                  placeholder="Enter your Steadfast API key"
+                  disabled={steadfastConnecting}
+                  style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: steadfastConnecting ? '#f8fafc' : '#fff' }}
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                <label htmlFor="steadfast-secret-key" style={{ fontSize: '13.5px', fontWeight: 600 }}>Secret Key</label>
+                <input
+                  id="steadfast-secret-key"
+                  type="password"
+                  autoComplete="new-password"
+                  value={steadfastSecretKey}
+                  onChange={(e) => setSteadfastSecretKey(e.target.value)}
+                  placeholder="Enter your Steadfast secret key"
+                  disabled={steadfastConnecting}
+                  style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: steadfastConnecting ? '#f8fafc' : '#fff' }}
+                  required
+                />
+              </div>
+
+              <p style={{ color: '#94a3b8', fontSize: '12px', lineHeight: 1.5, marginBottom: '16px' }}>
+                Your credentials are sent securely to LYFFLOW and are not saved in this browser.
+              </p>
+
+              {steadfastError && (
+                <div role="alert" style={{ marginBottom: '16px', padding: '11px 13px', borderRadius: '8px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '12.5px', lineHeight: 1.45 }}>
+                  {steadfastError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={steadfastConnecting}
+                style={{ backgroundColor: '#0f172a', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 22px', fontWeight: 700, fontSize: '14px', cursor: steadfastConnecting ? 'not-allowed' : 'pointer', opacity: steadfastConnecting ? 0.7 : 1 }}
+              >
+                {steadfastConnecting ? 'Connecting...' : 'Connect Steadfast'}
+              </button>
+            </form>
+
+            {steadfastConnection && (
+              <div role="status" style={{ marginTop: '18px', padding: '20px', borderRadius: '14px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#047857', fontWeight: 700, fontSize: '14px', marginBottom: '7px' }}>
+                  <CheckCircle2 size={18} /> Steadfast connected successfully
+                </div>
+                <p style={{ color: '#475569', fontSize: '12.5px', lineHeight: 1.5, marginBottom: '16px' }}>
+                  Add the following values to your Steadfast webhook configuration. Keep the authentication token private.
+                </p>
+
+                {[
+                  ['webhook', 'Webhook URL', steadfastConnection.webhook_url],
+                  ['token', 'Authentication Token', steadfastConnection.auth_token],
+                ].map(([field, label, value]) => (
+                  <div key={field} style={{ marginTop: field === 'token' ? '12px' : 0 }}>
+                    <label style={{ display: 'block', color: '#334155', fontSize: '11.5px', fontWeight: 700, marginBottom: '6px' }}>{label}</label>
+                    <div style={{ display: 'flex', alignItems: 'stretch', gap: '8px' }}>
+                      <code style={{ flex: 1, minWidth: 0, padding: '10px 11px', borderRadius: '8px', backgroundColor: '#fff', border: '1px solid #d1fae5', color: '#0f172a', fontSize: '12px', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+                        {value || 'Not returned by the server'}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => copySteadfastValue(field, value)}
+                        disabled={!value}
+                        style={{ minWidth: '66px', padding: '0 12px', borderRadius: '8px', border: '1px solid #a7f3d0', backgroundColor: '#fff', color: '#047857', fontSize: '12px', fontWeight: 700, cursor: value ? 'pointer' : 'not-allowed' }}
+                      >
+                        {copiedSteadfastField === field ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* ── THEMES ── no functionality yet */}

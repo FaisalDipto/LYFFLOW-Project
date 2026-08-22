@@ -34,6 +34,40 @@ const mockData = {
     ]
   },
   '/v1/subscription': { is_active: true, plan: { plan_name: 'Enterprise', price: 99 } },
+  '/v1/steadfast/connect': {
+    webhook_url: 'https://api.lyfflow.com/v1/steadfast/webhook/mock-user',
+    auth_token: 'mock_steadfast_webhook_token'
+  },
+  '/v1/steadfast/orders/{order_id}/prefill': {
+    invoice: 'INV-1001',
+    recipient_name: 'John Doe',
+    recipient_phone: '01700000000',
+    alternative_phone: '',
+    recipient_email: 'john@example.com',
+    recipient_address: 'Dhaka, Bangladesh',
+    cod_amount: 1250,
+    note: 'Please call before delivery.',
+    item_description: 'Customer order items',
+    total_lot: 1,
+    delivery_type: 0
+  },
+  '/v1/steadfast/orders/{order_id}/place': {
+    status: 200,
+    message: 'Consignment created successfully.',
+    consignment: {
+      consignment_id: 100001,
+      invoice: 'INV-1001',
+      tracking_code: 'MOCK-TRACK-1001',
+      recipient_name: 'John Doe',
+      recipient_phone: '01700000000',
+      recipient_address: 'Dhaka, Bangladesh',
+      cod_amount: 1250,
+      status: 'pending',
+      note: 'Please call before delivery.',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+  },
   '/v1/page/page_1/conversations': {
     conversations: [
       { id: 'conv_1', conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', updated_time: new Date().toISOString(), profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
@@ -198,8 +232,12 @@ const apiFetch = async (endpoint, options = {}) => {
       await new Promise(resolve => setTimeout(resolve, MOCK_DELAY_MS));
     }
     
-    // Exact match or partial match for dynamic IDs
-    const mockResponse = mockData[endpoint] || 
+    // Exact match, supported dynamic route, or partial match for dynamic IDs
+    const steadfastOrderAction = endpoint.match(/^\/v1\/steadfast\/orders\/[^/]+\/(prefill|place)$/)?.[1];
+    const steadfastOrderMock = steadfastOrderAction
+      ? mockData[`/v1/steadfast/orders/{order_id}/${steadfastOrderAction}`]
+      : null;
+    const mockResponse = mockData[endpoint] || steadfastOrderMock ||
                          Object.entries(mockData).find(([k]) => endpoint.startsWith(k))?.[1];
 
     if (mockResponse) return mockResponse;
@@ -490,6 +528,22 @@ export const apiService = {
 
   // Auth / Reauth
   getFacebookReauthUrl: () => apiFetch('/v1/auth/facebook/reauth'),
+
+  // Integrations
+  connectSteadfast: (credentials) => apiFetch('/v1/steadfast/connect', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  }),
+  getSteadfastOrderPrefill: (orderId) => apiFetch(
+    `/v1/steadfast/orders/${encodeURIComponent(orderId)}/prefill`
+  ),
+  placeSteadfastOrder: (orderId, orderData) => apiFetch(
+    `/v1/steadfast/orders/${encodeURIComponent(orderId)}/place`,
+    {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    }
+  ),
 
   // General AI Chat
   aiChat: (prompt) => apiFetch(`/v1/chat?prompt=${encodeURIComponent(prompt)}`, {
