@@ -33,7 +33,46 @@ const mockData = {
       'Offer to connect the customer with a person when the request cannot be resolved.'
     ]
   },
-  '/v1/subscription': { is_active: true, plan: { plan_name: 'Enterprise', price: 99 } },
+  '/v1/subscription': {
+    is_active: true,
+    started_at: '2026-08-01T00:00:00.000Z',
+    expires_at: '2026-09-01T00:00:00.000Z',
+    conversations_remaining: 7500,
+    plan: {
+      plan_name: 'Enterprise',
+      price_per_month: 99,
+      max_pages: 10,
+      max_agents: 20,
+      max_conversations_per_month: 10000
+    },
+    usage: {
+      pages_used: 3,
+      agents_used: 5,
+      conversations_used: 2500
+    }
+  },
+  '/v1/plans': [
+    {
+      plan_name: 'FREE',
+      plan_level: 0,
+      price_per_month: 0,
+      max_namespaces: 1,
+      max_products: 25,
+      max_agents: 1,
+      max_conversations_per_month: 500,
+      max_storage_bytes: 104857600
+    },
+    {
+      plan_name: 'PRO',
+      plan_level: 2,
+      price_per_month: 99,
+      max_namespaces: 10,
+      max_products: 1000,
+      max_agents: 20,
+      max_conversations_per_month: 10000,
+      max_storage_bytes: 10737418240
+    }
+  ],
   '/v1/steadfast/connect': {
     webhook_url: 'https://api.lyfflow.com/v1/steadfast/webhook/mock-user',
     auth_token: 'mock_steadfast_webhook_token'
@@ -116,7 +155,7 @@ const mockData = {
     total_messages: 48900,
     total_feedbacks: 180,
     total_leads: 620,
-    total_tokens_used: 1542000,
+    total_conversations_used: 9620,
     total_revenue: 28450
   },
   '/v1/admin/jobs': {
@@ -183,7 +222,7 @@ const mockData = {
         started_at: "2026-07-17T06:52:26.820Z",
         expires_at: "2027-07-17T06:52:26.820Z",
         is_active: true,
-        tokens_used: 125400,
+        conversations_used: 8400,
         price_per_month: 299
       },
       {
@@ -196,7 +235,7 @@ const mockData = {
         started_at: "2026-06-01T10:00:00.000Z",
         expires_at: "2026-07-01T10:00:00.000Z",
         is_active: false,
-        tokens_used: 48200,
+        conversations_used: 3100,
         price_per_month: 99
       }
     ],

@@ -173,7 +173,7 @@ function DashboardSection() {
     { label: 'Connected pages', value: stats.total_pages, icon: 'web', tone: 'cyan' },
     { label: 'Conversations', value: stats.total_conversations, icon: 'forum', tone: 'blue' },
     { label: 'Messages', value: stats.total_messages, icon: 'chat_bubble', tone: 'green' },
-    { label: 'Tokens used', value: stats.total_tokens_used, icon: 'data_usage', tone: 'amber' },
+    { label: 'Conversations used', value: stats.total_conversations_used, icon: 'forum', tone: 'amber' },
   ];
 
   return (
@@ -361,9 +361,21 @@ function UserDetailModal({ userId, onClose }) {
                       <div style={{ marginTop: 2 }}><Badge type={detail.subscription.is_active ? 'active' : 'inactive'} /></div>
                     </div>
                     <div>
-                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Tokens Used</div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Conversations Used</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
-                        {Number(detail.subscription.tokens_used || 0).toLocaleString()} / {Number(detail.subscription.max_tokens_per_month || 0).toLocaleString()}
+                        {Number(detail.subscription.conversations_used || 0).toLocaleString()} / {detail.subscription.max_conversations_per_month === -1 ? 'Unlimited' : Number(detail.subscription.max_conversations_per_month || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Conversations Remaining</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
+                        {detail.subscription.conversations_remaining === -1 ? 'Unlimited' : Number(detail.subscription.conversations_remaining || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Conversation Reset</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 2 }}>
+                        {fmtDate(detail.subscription.conversations_reset_at)}
                       </div>
                     </div>
                     <div>
@@ -954,7 +966,7 @@ function SubscriptionDetailModal({ subscription, onClose }) {
   const subId = sub.subscription_id || sub.id || '—';
   const planName = sub.plan_name || sub.plan?.plan_name || '—';
   const price = sub.price_per_month ?? sub.plan?.price_per_month ?? 0;
-  const tokensUsed = sub.tokens_used ?? sub.usage?.tokens_used ?? 0;
+  const conversationsUsed = sub.conversations_used ?? sub.usage?.conversations_used ?? 0;
   const displayName = sub.user_display_name || `${sub.first_name || ''} ${sub.last_name || ''}`.trim() || '—';
   const displayEmail = sub.user_email || sub.email || '—';
   const isActive = Boolean(sub.is_active);
@@ -1059,9 +1071,9 @@ function SubscriptionDetailModal({ subscription, onClose }) {
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Tokens Used</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Conversations Used</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#6366f1', marginTop: 4 }}>
-                  {fmt(tokensUsed)} <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>tokens</span>
+                  {fmt(conversationsUsed)} <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>conversations</span>
                 </div>
               </div>
               <div>
@@ -1090,8 +1102,8 @@ function SubscriptionDetailModal({ subscription, onClose }) {
                   formattedVal = fmtDate(val);
                 } else if (key === 'price_per_month' && typeof val === 'number') {
                   formattedVal = `$${fmt(val)}/month`;
-                } else if (key === 'tokens_used' && typeof val === 'number') {
-                  formattedVal = `${fmt(val)} tokens`;
+                } else if (key === 'conversations_used' && typeof val === 'number') {
+                  formattedVal = `${fmt(val)} conversations`;
                 }
 
                 return (
@@ -2053,7 +2065,7 @@ function SubscriptionsSection() {
                 {filtered.map((s, idx) => {
                   const planName = s.plan_name || s.plan?.plan_name || '—';
                   const price = s.price_per_month ?? s.plan?.price_per_month ?? 0;
-                  const tokensUsed = s.tokens_used ?? s.usage?.tokens_used ?? 0;
+                  const conversationsUsed = s.conversations_used ?? s.usage?.conversations_used ?? 0;
                   const displayName = s.user_display_name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || '—';
                   const displayEmail = s.user_email || s.email || '—';
 
@@ -2086,8 +2098,8 @@ function SubscriptionsSection() {
                       <td><div className="font-bold">${fmt(price)}<span className="text-muted" style={{ fontSize: 10, fontWeight: 400 }}>/mo</span></div></td>
                       <td>
                         <div className="admin-usage-cell">
-                          <span className="font-bold">{fmt(tokensUsed)}</span>
-                          <span className="text-muted" style={{ fontSize: 10 }}>tokens</span>
+                          <span className="font-bold">{fmt(conversationsUsed)}</span>
+                          <span className="text-muted" style={{ fontSize: 10 }}>conversations</span>
                         </div>
                       </td>
                       <td>

@@ -5013,7 +5013,7 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
             `${apiPlan.max_namespaces === -1 ? 'Unlimited' : apiPlan.max_namespaces} Namespaces`,
             `${apiPlan.max_products === -1 ? 'Unlimited' : apiPlan.max_products} Products`,
             `${apiPlan.max_agents === -1 ? 'Unlimited' : apiPlan.max_agents} Agents`,
-            `${apiPlan.max_tokens_per_month === -1 ? 'Unlimited Tokens' : (apiPlan.max_tokens_per_month >= 1000000 ? (apiPlan.max_tokens_per_month / 1000000) + 'M Tokens/mo' : (apiPlan.max_tokens_per_month / 1000) + 'K Tokens/mo')}`,
+            `${apiPlan.max_conversations_per_month === -1 ? 'Unlimited Conversations' : `${Number(apiPlan.max_conversations_per_month || 0).toLocaleString()} Conversations/mo`}`,
             `${apiPlan.max_storage_bytes === -1 ? 'Unlimited Storage' : (apiPlan.max_storage_bytes >= 1073741824 ? (apiPlan.max_storage_bytes / 1073741824) + ' GB Storage' : (apiPlan.max_storage_bytes / 1048576) + ' MB Storage')}`
           ]
         };
@@ -5067,7 +5067,7 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
   if (loading) return <div className="p-8 text-center text-slate-400">Loading subscription details...</div>;
 
   const currentPlan = subData?.plan || { plan_name: 'NONE' };
-  const usage = subData?.usage || { pages_used: 0, agents_used: 0, tokens_used: 0 };
+  const usage = subData?.usage || { pages_used: 0, agents_used: 0, conversations_used: 0 };
 
   // Format dates from API response
   const startedAt = subData?.started_at ? new Date(subData.started_at).toLocaleDateString(undefined, {
@@ -5132,12 +5132,17 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
         <div className="bg-slate-900 rounded-3xl p-8 text-white shadow-xl flex flex-col justify-between overflow-hidden relative group">
           <Zap className="absolute -top-4 -right-4 w-32 h-32 text-white opacity-[0.03] rotate-12 group-hover:scale-110 transition-transform duration-700" />
           <div>
-            <h3 className="text-lg font-bold mb-1">Usable Tokens</h3>
-            <p className="text-slate-400 text-sm mb-6">Available for AI operations</p>
-            <div className="text-4xl font-black">{subData?.usable_token?.toLocaleString() || 0}</div>
+            <h3 className="text-lg font-bold mb-1">Conversations Remaining</h3>
+            <p className="text-slate-400 text-sm mb-6">Available in your current billing cycle</p>
+            <div className="text-4xl font-black">{Number(subData?.conversations_remaining ?? 0).toLocaleString()}</div>
           </div>
           <div className="mt-8">
-            <button className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold transition-colors shadow-lg shadow-emerald-500/20">Buy More Tokens</button>
+            <button
+              onClick={() => setShowPlansModal(true)}
+              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold transition-colors shadow-lg shadow-emerald-500/20"
+            >
+              View Plans
+            </button>
           </div>
         </div>
       </div>
@@ -5154,7 +5159,7 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <UsageGauge label="Pages connected" used={usage.pages_used} max={pageLimit} color="#3b82f6" softColor="#eff6ff" icon="web" isActive={isActive} />
           <UsageGauge label="Agents created" used={usage.agents_used} max={currentPlan.max_agents} color="#10b981" softColor="#ecfdf5" icon="smart_toy" isActive={isActive} />
-          <UsageGauge label="Monthly tokens" used={usage.tokens_used} max={currentPlan.max_tokens_per_month} color="#8b5cf6" softColor="#f5f3ff" icon="token" isActive={isActive} />
+          <UsageGauge label="Monthly conversations" used={usage.conversations_used} max={currentPlan.max_conversations_per_month} color="#8b5cf6" softColor="#f5f3ff" icon="forum" isActive={isActive} />
         </div>
       </div>
 
