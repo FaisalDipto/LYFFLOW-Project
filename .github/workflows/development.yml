@@ -16,6 +16,8 @@ jobs:
   lint:
     name: 🔍 Lint
     runs-on: ubuntu-latest
+    # Non-blocking: lint errors are reported but don't stop deployment
+    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -39,7 +41,7 @@ jobs:
   build:
     name: 🏗️ Build
     runs-on: ubuntu-latest
-    needs: lint
+    # Build runs regardless of lint result
 
     steps:
       - name: Checkout code

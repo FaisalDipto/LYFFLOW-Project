@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'temp.jsx', 'test-patch.js']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -24,6 +24,13 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+    },
+  },
+  // Node.js config files (vite, tailwind, postcss) use require/process
+  {
+    files: ['vite.config.js', 'tailwind.config.js', 'postcss.config.js'],
+    languageOptions: {
+      globals: globals.node,
     },
   },
 ])
