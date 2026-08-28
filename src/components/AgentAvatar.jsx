@@ -1,4 +1,5 @@
 import React from 'react';
+import AgentAvatarIcon from './AgentAvatarIcon';
 
 export const AgentAvatar = ({
   agent = null,
@@ -34,7 +35,7 @@ export const AgentAvatar = ({
         className={`${size} ${avatarConfig.shape === 'rounded' ? 'rounded-2xl' : 'rounded-full'} flex items-center justify-center shrink-0 text-white shadow-md select-none overflow-hidden ${onClick ? 'cursor-pointer' : ''} ${className}`}
         style={{ background: avatarConfig.gradient }}
       >
-        <span className={`material-symbols-outlined ${iconSize}`}>{avatarConfig.icon}</span>
+        <AgentAvatarIcon id={avatarConfig.icon} className={iconSize} />
       </div>
     );
   }

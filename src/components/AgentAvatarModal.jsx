@@ -1,24 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Check, X } from 'lucide-react';
 import AgentAvatar from './AgentAvatar';
-
-const ICONS = [
-  { id: 'smart_toy', label: 'Robot' },
-  { id: 'support_agent', label: 'Support Agent' },
-  { id: 'psychology', label: 'Brain / AI' },
-  { id: 'auto_awesome', label: 'Sparkles' },
-  { id: 'bolt', label: 'Lightning' },
-  { id: 'headset_mic', label: 'Headset' },
-  { id: 'security', label: 'Shield' },
-  { id: 'memory', label: 'Processor' },
-  { id: 'rocket_launch', label: 'Rocket' },
-  { id: 'hub', label: 'Network' },
-  { id: 'verified_user', label: 'Verified' },
-  { id: 'neurology', label: 'Neural' },
-  { id: 'forum', label: 'Dialogues' },
-  { id: 'trending_up', label: 'Growth' },
-  { id: 'monitoring', label: 'Analytics' },
-  { id: 'token', label: 'Token' }
-];
+import AgentAvatarIcon from './AgentAvatarIcon';
+import { AGENT_AVATAR_ICON_OPTIONS } from './agentAvatarIconOptions';
 
 const GRADIENTS = [
   { id: 'cosmic', label: 'Cosmic Indigo', value: 'linear-gradient(135deg, #6366F1, #A855F7)' },
@@ -108,15 +92,17 @@ export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
             <p className="text-xs text-slate-500 font-medium">Design a vector identity for {agent.name}</p>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close avatar settings"
             className="p-1.5 rounded-xl hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 transition-colors"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </div>
 
         {/* Scrollable Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-6 overflow-y-auto overflow-x-hidden space-y-6 flex-1">
           
           {/* Live Preview Banner */}
           <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200/60 flex items-center gap-4">
@@ -179,7 +165,7 @@ export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
                     style={{ background: g.value }}
                   >
                     {isSelected && (
-                      <span className="material-symbols-outlined text-white text-[18px] drop-shadow">check</span>
+                      <Check aria-hidden="true" className="h-[18px] w-[18px] text-white drop-shadow" strokeWidth={2.5} />
                     )}
                   </button>
                 );
@@ -192,17 +178,19 @@ export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2.5">
               Agent Vector Icon
             </label>
-            <div className="grid grid-cols-4 sm:grid-cols-4 gap-2.5 max-h-[180px] overflow-y-auto pr-1">
-              {ICONS.map((item) => {
+            <div className="grid grid-cols-4 gap-2.5 max-h-[180px] overflow-y-auto overflow-x-hidden pr-1">
+              {AGENT_AVATAR_ICON_OPTIONS.map((item) => {
                 const isSelected = selectedIcon === item.id;
                 return (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => setSelectedIcon(item.id)}
-                    className={`flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all ${isSelected ? 'border-indigo-600 bg-indigo-50/80 text-indigo-700 shadow-sm' : 'border-slate-200/80 text-slate-600 hover:bg-slate-50 hover:border-slate-300'}`}
+                    aria-label={`Use ${item.label} icon`}
+                    aria-pressed={isSelected}
+                    className={`min-w-0 overflow-hidden flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all ${isSelected ? 'border-indigo-600 bg-indigo-50/80 text-indigo-700 shadow-sm' : 'border-slate-200/80 text-slate-600 hover:bg-slate-50 hover:border-slate-300'}`}
                   >
-                    <span className="material-symbols-outlined text-[24px] mb-1">{item.id}</span>
+                    <AgentAvatarIcon id={item.id} className="mb-1 text-[24px] shrink-0" />
                     <span className="text-[10px] font-semibold truncate w-full text-center">{item.label}</span>
                   </button>
                 );
@@ -226,7 +214,7 @@ export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
             onClick={handleSave}
             className="px-6 py-2.5 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-[16px]">check</span>
+            <Check aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} />
             <span>Save Avatar</span>
           </button>
         </div>
