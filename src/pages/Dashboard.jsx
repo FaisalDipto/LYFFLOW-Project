@@ -1,4 +1,4 @@
-import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap } from 'lucide-react';
+import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap, Package, FileText } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -1644,8 +1644,7 @@ const FeedbackPanel = () => {
   );
 };
 
-const Knowledge = ({ namespaces, onUpdate }) => {
-  const [activeKnowledgeTab, setActiveKnowledgeTab] = useState('products');
+const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
   const [showModal, setShowModal] = useState(false);
   const [selectedNamespaceId, setSelectedNamespaceId] = useState('');
   const [knowledgeList, setKnowledgeList] = useState([]);
@@ -1771,7 +1770,7 @@ const Knowledge = ({ namespaces, onUpdate }) => {
       })
       .catch(err => console.error("Failed to load knowledge", err))
       .finally(() => setLoading(false));
-  }, [activeKnowledgeTab, selectedNamespaceId]);
+  }, [activeSection, selectedNamespaceId]);
 
   const handleAddKnowledge = async (e) => {
     e.preventDefault();
@@ -2120,26 +2119,9 @@ const Knowledge = ({ namespaces, onUpdate }) => {
             </div>
           </div>
 
-          <div className="knowledge-tabs flex gap-1 border-t border-slate-100 bg-slate-50/70 px-5 py-2 md:px-7">
-            <button
-              onClick={() => setActiveKnowledgeTab('products')}
-              className={`flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold transition ${activeKnowledgeTab === 'products' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900'}`}
-            >
-              <span className="material-symbols-outlined text-[18px]">inventory_2</span>
-              Products
-            </button>
-            <button
-              onClick={() => setActiveKnowledgeTab('documents')}
-              className={`flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold transition ${activeKnowledgeTab === 'documents' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900'}`}
-            >
-              <span className="material-symbols-outlined text-[18px]">description</span>
-              Documents
-              {knowledgeList.length > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${activeKnowledgeTab === 'documents' ? 'bg-white/15 text-white' : 'bg-slate-200 text-slate-600'}`}>{knowledgeList.length}</span>}
-            </button>
-          </div>
         </section>
 
-        {activeKnowledgeTab === 'documents' ? (
+        {activeSection === 'documents' ? (
           <>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {[
@@ -5767,8 +5749,8 @@ export default function Dashboard() {
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
           <ConversationList pages={pages} user={user} />
         </div>}
-        {visitedTabsRef.current.has('knowledge') && <div style={{ display: activeTab === 'knowledge' ? 'contents' : 'none' }}>
-          <Knowledge namespaces={namespaces} onUpdate={refreshNamespaces} />
+        {(visitedTabsRef.current.has('knowledge-products') || visitedTabsRef.current.has('knowledge-documents')) && <div style={{ display: (activeTab === 'knowledge-products' || activeTab === 'knowledge-documents') ? 'contents' : 'none' }}>
+          <Knowledge namespaces={namespaces} onUpdate={refreshNamespaces} activeSection={activeTab === 'knowledge-products' ? 'products' : 'documents'} />
         </div>}
         {visitedTabsRef.current.has('agent') && <div style={{ display: activeTab === 'agent' ? 'contents' : 'none' }}>
           <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={refreshAgentWorkspace} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />
@@ -5802,7 +5784,15 @@ export default function Dashboard() {
       ],
     },
     { id: 'agent', icon: UserRound, label: 'Agents' },
-    { id: 'knowledge', icon: Book, label: 'Knowledge' }
+    {
+      id: 'knowledge',
+      icon: Book,
+      label: 'Knowledge',
+      children: [
+        { id: 'knowledge-products', icon: Package, label: 'Products' },
+        { id: 'knowledge-documents', icon: FileText, label: 'Documents' },
+      ],
+    }
   ];
   const secondaryNavItems = [
     { id: 'subscription', icon: CreditCard, label: 'Subscription' },
