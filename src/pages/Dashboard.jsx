@@ -1761,7 +1761,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
   }, [namespaces, selectedNamespaceId]);
 
   useEffect(() => {
-    if (!selectedNamespaceId || activeKnowledgeTab !== 'documents') return;
+    if (!selectedNamespaceId || activeSection !== 'documents') return;
     setLoading(true);
     apiService.getKnowledge(selectedNamespaceId)
       .then(data => {
@@ -5715,9 +5715,6 @@ export default function Dashboard() {
     const reauth = params.get('reauth');
     const reason = params.get('reason');
     const pagesParam = params.get('pages');
-
-    console.log('[Reauth Debug] location.search:', location.search);
-    console.log('[Reauth Debug] reauth:', reauth, '| reason:', reason, '| pages:', pagesParam);
 
     if ((reauth === 'error' || reauth === 'warning') && reason === 'revoked_pages' && pagesParam) {
       const revokedList = pagesParam.split(',').map(p => p.trim()).filter(Boolean);
