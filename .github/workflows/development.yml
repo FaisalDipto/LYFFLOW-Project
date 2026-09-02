@@ -1,4 +1,4 @@
-name: Staging CI/CD (dev)
+name: Development CI/CD (dev)
 
 on:
   push:
