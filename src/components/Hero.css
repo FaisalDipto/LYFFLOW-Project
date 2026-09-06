@@ -167,3 +167,5 @@
   animation: stretch-shrink-loop 4s ease-in-out infinite;
   display: inline-block;
 }
+.bg-hero-dots { background-image: radial-gradient(rgba(100, 116, 139, 0.15) 1px, transparent 1px); background-size: 24px 24px; } .bg-hero-dots::after { content: ''; position: absolute; inset: 0; background-image: radial-gradient(rgba(16, 185, 129, 0.4) 1.5px, transparent 1.5px); background-size: 24px 24px; opacity: var(--spot-o, 0); mask-image: radial-gradient(600px circle at var(--spot-x, 0px) var(--spot-y, 0px), black, transparent); -webkit-mask-image: radial-gradient(600px circle at var(--spot-x, 0px) var(--spot-y, 0px), black, transparent); transition: opacity 0.5s ease; pointer-events: none; } 
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } } .animate-marquee { animation: marquee 30s linear infinite; } .animate-marquee:hover { animation-play-state: paused; } 

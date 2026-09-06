@@ -1,9 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useSpotlight } from '../hooks/useSpotlight';
 import './Hero.css';
 import ProductShowcase from './ProductShowcase';
-import teamCorporate from '../assets/team_corporate.webp';
+import meharazPhoto from '../assets/team/meharaz.jpg';
+import swajanPhoto from '../assets/team/swajan.jpg';
+import mehediPhoto from '../assets/team/mehedi.jpg';
+import faisalPhoto from '../assets/team/faisal.jpg';
+import teamCorporate from '../assets/team_corporate.png';
+import dashboardCorporate from '../assets/dashboard_corporate.png';
 
 const TEAM = [
   {
@@ -13,8 +17,8 @@ const TEAM = [
     role: 'Backend & AI Developer',
     background: 'B.Sc. Engg. in CSE, Bangladesh University of Business and Technology',
     interests: null,
+    photo: meharazPhoto,
     delay: '',
-    icon: 'memory'
   },
   {
     id: 'mehedi',
@@ -23,8 +27,8 @@ const TEAM = [
     role: 'Backend Developer',
     background: 'B.Sc. Engg. in CSE, Bangladesh University of Business and Technology',
     interests: null,
+    photo: mehediPhoto,
     delay: '[transition-delay:100ms]',
-    icon: 'dns'
   },
   {
     id: 'faisal',
@@ -33,8 +37,8 @@ const TEAM = [
     role: 'UI/UX & Frontend Developer',
     background: 'B.Sc. Engg. in CSE, Bangladesh University of Business and Technology',
     interests: null,
+    photo: faisalPhoto,
     delay: '[transition-delay:200ms]',
-    icon: 'design_services'
   },
   {
     id: 'swajan',
@@ -43,48 +47,12 @@ const TEAM = [
     role: 'Backend Developer',
     background: 'B.Sc. Engg. in CSE, American International University Bangladesh (AIUB)',
     interests: null,
+    photo: swajanPhoto,
     delay: '[transition-delay:300ms]',
-    icon: 'database'
   },
 ];
 
-function MessengerGlyph({ className, style }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} style={style} fill="currentColor" aria-hidden="true">
-      <path d="M12 2C6.48 2 2 6.15 2 11.25c0 2.9 1.46 5.49 3.75 7.19V22l3.43-1.88c.9.25 1.86.38 2.82.38 5.52 0 10-4.15 10-9.25S17.52 2 12 2Zm1 12.5-2.55-2.72-4.98 2.72 5.48-5.82L13.5 11.4l4.98-2.72L13 14.5Z" />
-    </svg>
-  );
-}
-function InstagramGlyph({ className, style }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} style={style} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-function WhatsAppGlyph({ className, style }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} style={style} fill="currentColor" aria-hidden="true">
-      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.06-1.33A10 10 0 1 0 12 2Zm5.4 14.2c-.23.64-1.35 1.23-1.87 1.28-.5.06-1.08.26-3.63-.76-3.08-1.24-5.06-4.4-5.22-4.6-.15-.2-1.24-1.65-1.24-3.15s.79-2.23 1.07-2.54c.28-.3.6-.38.8-.38h.58c.19 0 .43-.03.66.51.24.56.8 1.95.87 2.09.07.15.11.32.02.51-.09.2-.14.32-.28.49-.14.17-.29.37-.42.5-.14.14-.28.29-.12.57.16.28.72 1.2 1.55 1.94 1.06.95 1.96 1.25 2.24 1.39.28.14.44.12.6-.07.16-.2.68-.8.87-1.07.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.53.33.07.12.07.68-.16 1.19Z" />
-    </svg>
-  );
-}
-
-import { BookOpen, Zap, Clock } from 'lucide-react';
-
-const MARQUEE_ITEMS = [
-  { icon: WhatsAppGlyph, label: 'WhatsApp', color: '#25D366' },
-  { icon: InstagramGlyph, label: 'Instagram DMs', color: '#E1306C' },
-  { icon: MessengerGlyph, label: 'Messenger', color: '#0084FF' },
-  { icon: BookOpen, label: 'Your Knowledge Base', color: 'currentColor' },
-  { icon: Zap, label: 'Instant Replies', color: 'currentColor' },
-  { icon: Clock, label: '24/7 Coverage', color: 'currentColor' },
-];
-
 export default function Hero() {
-  const spotlightRef = useSpotlight();
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const [hoveredMember, setHoveredMember] = useState(null);
   const [tappedMember, setTappedMember] = useState(null);
@@ -122,10 +90,10 @@ export default function Hero() {
   return (
     <>
       {/* Hero Section */}
-      <section ref={spotlightRef} className="relative isolate min-h-[100svh] flex flex-col justify-center pt-24 pb-32 sm:pb-48 overflow-hidden">
-        <div className="absolute inset-0 bg-background bg-hero-dots -z-30"></div>
+      <section className="relative isolate min-h-screen flex items-center pt-[96px] sm:pt-[136px] pb-[60px] sm:pb-[88px] overflow-hidden">
+        <div className="absolute inset-0 bg-background -z-30"></div>
         
-          {/* Floating Background Layers — hidden on very small screens */}
+          {/* Floating Background Layers ΓÇö hidden on very small screens */}
           <div className="absolute inset-0 -z-10 pointer-events-none hidden sm:block">
             {/* Rect 1: Top Left */}
             <div className="absolute top-[12%] left-[8%] w-[450px] h-[450px] bg-[#10B981]/15 opacity-60 rounded-[12px] animate-rect1"></div>
@@ -143,14 +111,14 @@ export default function Hero() {
           </div>
 
         {/* CONTENT LAYER */}
-        <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center relative z-10 w-full overflow-x-hidden sm:overflow-visible">
-          <div className="space-y-8 min-w-0 w-full max-w-full">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center relative z-10 w-full">
+          <div className="space-y-8 animate-fade-up">
             <span className="inline-block px-4 py-1.5 bg-secondary text-white text-[10px] font-bold tracking-[0.2em] uppercase rounded-full shadow-lg shadow-secondary/20">Automate Everything</span>
-            <h1 className="font-headline text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-tighter leading-[1.1] text-primary break-words">
-              Automate Conversations on <span className="text-tertiary flex flex-wrap items-center gap-x-1.5 sm:gap-x-3 gap-y-2 mt-2 sm:mt-3">
-                <span className="animate-stretch-shrink" style={{transformOrigin: 'bottom left'}}>Facebook,</span>
-                <span className="animate-stretch-shrink" style={{transformOrigin: 'bottom center'}}>Instagram</span>
-                <span className="animate-stretch-shrink" style={{transformOrigin: 'bottom center'}}>&amp;</span>
+            <h1 className="font-headline text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tighter leading-[1.05] text-primary">
+              Automate Conversations on <span className="text-tertiary">
+                <span className="animate-stretch-shrink" style={{transformOrigin: 'bottom left'}}>Facebook,</span>{' '}
+                <span className="animate-stretch-shrink" style={{transformOrigin: 'bottom center'}}>Instagram</span>{' '}
+                <span className="animate-stretch-shrink" style={{transformOrigin: 'bottom center'}}>&amp;</span>{' '}
                 <span className="animate-stretch-shrink" style={{transformOrigin: 'bottom right'}}>WhatsApp</span>
               </span>
             </h1>
@@ -158,54 +126,52 @@ export default function Hero() {
               Scale your customer engagement with instant AI-powered replies, automated lead capture, and hyper-growth sales funnels that work 24/7.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Link to="/get-started" className="bg-primary text-on-primary px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all group shadow-xl shadow-primary/10">
+              <Link to="/app/get-started" className="bg-primary text-on-primary px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all group shadow-xl shadow-primary/10">
                 Start Free Trial
                 <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
               </Link>
-              {/* Watch Demo button — no functionality yet
               <button className="bg-white border border-slate-200 text-primary px-8 py-4 rounded-xl font-bold shadow-sm hover:bg-slate-50 transition-all">
                 Watch Demo
               </button>
-              */}
             </div>
           </div>
-          {/* Detailed Chat Interface — hidden on small mobile, shown from sm+ */}
+          {/* Detailed Chat Interface ΓÇö hidden on small mobile, shown from sm+ */}
           <div className="relative animate-fade-in [animation-delay:200ms] hidden sm:block">
-            {/* Accent Blur 1 — Green #108981, 160×160, bottom-left overflow, 60% opacity, layer blur */}
+            {/* Accent Blur 1 ΓÇö Green #108981, 160├ù160, bottom-left overflow, 60% opacity, layer blur */}
             <div className="absolute -bottom-[40px] -left-[40px] w-[160px] h-[160px] bg-[#10B981]/5 opacity-30 rounded-[12px] blur-[32px] z-20 pointer-events-none"></div>
-            {/* Accent Blur 2 — Amber #FEF3C7, 128×128, top-right overflow, 60% opacity, layer blur */}
+            {/* Accent Blur 2 ΓÇö Amber #FEF3C7, 128├ù128, top-right overflow, 60% opacity, layer blur */}
             <div className="absolute -top-[40px] -right-[40px] w-[128px] h-[128px] bg-[#FEF3C7]/50 opacity-30 rounded-[12px] blur-[32px] z-20 pointer-events-none"></div>
-            <div className="relative z-10 bg-white/40 dark:bg-white/5 backdrop-blur-3xl border border-white/60 dark:border-white/10 rounded-[2.5rem] p-8 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] dark:shadow-none">
+            <div className="relative z-10 bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] p-8 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)]">
               <div className="space-y-6">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
                     <span className="material-symbols-outlined text-slate-400 text-sm">person</span>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 py-3 px-5 rounded-[1.5rem] rounded-tl-none shadow-sm max-w-[85%] border border-slate-100 dark:border-slate-700/50">
-                    <p className="text-[15px] font-medium leading-relaxed">Hi there 👋 How can we help you?</p>
+                  <div className="bg-slate-50 text-slate-700 py-3 px-5 rounded-[1.5rem] rounded-tl-none shadow-sm max-w-[85%] border border-slate-100">
+                    <p className="text-[15px] font-medium leading-relaxed">Hi there ≡ƒæï How can we help you?</p>
                   </div>
                 </div>
                 <div className="flex items-start justify-end gap-3">
                   <div className="bg-[#0ea5e9] text-white py-3 px-5 rounded-[1.5rem] rounded-tr-none shadow-lg shadow-blue-500/20 max-w-[85%]">
-                    <p className="text-[15px] font-medium leading-relaxed">Yes 😊 Would you like pricing or a demo?</p>
+                    <p className="text-[15px] font-medium leading-relaxed">Yes ≡ƒÿè Would you like pricing or a demo?</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
                     <span className="material-symbols-outlined text-slate-400 text-sm">person</span>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 py-3 px-5 rounded-[1.5rem] rounded-tl-none shadow-sm max-w-[85%] border border-slate-100 dark:border-slate-700/50">
-                    <p className="text-[15px] font-medium leading-relaxed">Book me a demo 🚀</p>
+                  <div className="bg-slate-50 text-slate-700 py-3 px-5 rounded-[1.5rem] rounded-tl-none shadow-sm max-w-[85%] border border-slate-100">
+                    <p className="text-[15px] font-medium leading-relaxed">Book me a demo ≡ƒÜÇ</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-tertiary flex items-center justify-center flex-shrink-0 shadow-lg shadow-tertiary/30">
                     <span className="material-symbols-outlined text-white text-[10px]">bolt</span>
                   </div>
-                  <div className="bg-white dark:bg-slate-800/80 py-3 px-5 rounded-[1.5rem] rounded-tl-none border border-slate-100 dark:border-slate-700/50 flex gap-1 items-center">
-                    <div className="w-1.5 h-1.5 bg-slate-300 dark:bg-slate-500 rounded-full animate-bounce"></div>
-                    <div className="w-1.5 h-1.5 bg-slate-300 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                    <div className="w-1.5 h-1.5 bg-slate-300 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                  <div className="bg-white py-3 px-5 rounded-[1.5rem] rounded-tl-none border border-slate-100 flex gap-1 items-center">
+                    <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce"></div>
+                    <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                    <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.4s]"></div>
                   </div>
                 </div>
               </div>
@@ -214,61 +180,36 @@ export default function Hero() {
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-secondary-container rounded-full blur-3xl opacity-60 -z-10"></div>
           </div>
         </div>
-
-        {/* Marquee ticker — a strip of real channels/capabilities in a subtle, slow horizontal pan. */}
-        <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-md border-t border-white/60 dark:border-white/10 z-20 pointer-events-auto py-4">
-          <div className="flex w-max animate-marquee">
-            {[0, 1, 2, 3].map((set) => (
-              <div key={set} className="flex justify-start items-center gap-16 px-8">
-                {MARQUEE_ITEMS.map((item, idx) => (
-                  <div key={`${set}-${idx}`} className="flex items-center gap-3 shrink-0 cursor-default hover:opacity-80 transition-opacity">
-                    <item.icon className="w-5 h-5" style={{ color: item.color }} />
-                    <span className="text-[15px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap tracking-wide">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
       </section>
 
       {/* How it Works */}
       <section className="py-20 sm:py-40 bg-surface-container-lowest">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
           <div className="text-center mb-24 reveal">
-            <label className="font-label text-sm font-extrabold tracking-[0.25em] uppercase mb-4 block text-[#00C896]">THE PROCESS</label>
-            <h2 className="font-headline text-4xl md:text-5xl font-black tracking-tight text-[#0D1F3C] dark:text-white">From Setup to Automation in Minutes</h2>
+            <label className="font-label text-sm font-extrabold tracking-[0.25em] uppercase text-secondary mb-4 block">The Process</label>
+            <h2 className="font-headline text-4xl md:text-5xl font-black tracking-tight text-primary">Three steps to automation</h2>
           </div>
-          <div className="flex flex-col md:grid md:grid-cols-3 gap-12 md:gap-8 lg:gap-12">
-            <div className="reveal">
-              <div className="group h-full p-8 lg:p-10 rounded-[2rem] border border-[#D8DBFF] dark:border-indigo-900/50 bg-[#EEF0FF] dark:bg-indigo-950/30 hover:shadow-2xl hover:shadow-[#EEF0FF]/60 dark:hover:shadow-indigo-900/20 transition-all duration-500 hover:-translate-y-2">
-                <div className="w-16 h-16 bg-white dark:bg-indigo-900/80 rounded-[1.5rem] flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform duration-500 text-[#6366F1] dark:text-indigo-400">
-                  <span className="material-symbols-outlined text-3xl" data-icon="link">link</span>
-                </div>
-                <p className="text-sm font-extrabold tracking-[0.2em] uppercase mb-2 text-[#00C896]">Step 1</p>
-                <h3 className="font-headline text-2xl font-bold mb-4 text-[#0D1F3C] dark:text-white">Connect Your Page</h3>
-                <p className="leading-relaxed text-[17px] text-[#4B5563] dark:text-slate-400">Link your Facebook or Instagram Business page in seconds. Lyfflow instantly syncs with your Messenger channel — no complex configuration, no developer needed.</p>
+          <div className="grid md:grid-cols-3 gap-16">
+            <div className="group reveal">
+              <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-10 group-hover:bg-tertiary group-hover:text-white transition-all duration-500 shadow-sm border border-slate-100 group-hover:shadow-xl group-hover:shadow-tertiary/20">
+                <span className="material-symbols-outlined text-3xl" data-icon="hub">hub</span>
               </div>
+              <h3 className="font-headline text-2xl font-bold mb-5">Connect</h3>
+              <p className="text-on-surface-variant leading-relaxed">Securely link your social profiles in seconds with our one-click integration suite.</p>
             </div>
-            <div className="reveal [transition-delay:150ms]">
-              <div className="group h-full p-8 lg:p-10 rounded-[2rem] border border-[#C2EBE0] dark:border-emerald-900/50 bg-[#E6F7F2] dark:bg-emerald-950/30 hover:shadow-2xl hover:shadow-[#E6F7F2]/60 dark:hover:shadow-emerald-900/20 transition-all duration-500 hover:-translate-y-2">
-                <div className="w-16 h-16 bg-white dark:bg-emerald-900/80 rounded-[1.5rem] flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform duration-500 text-[#00C896]">
-                  <span className="material-symbols-outlined text-3xl" data-icon="auto_awesome">auto_awesome</span>
-                </div>
-                <p className="text-sm font-extrabold tracking-[0.2em] uppercase mb-2 text-[#00C896]">Step 2</p>
-                <h3 className="font-headline text-2xl font-bold mb-4 text-[#0D1F3C] dark:text-white">Build Your AI Agent</h3>
-                <p className="leading-relaxed text-[17px] text-[#4B5563] dark:text-slate-400">Define your agent's personality, upload your business knowledge, and configure response logic. Your AI learns your brand voice and handles queries with precision.</p>
+            <div className="group reveal [transition-delay:150ms]">
+              <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-10 group-hover:bg-secondary group-hover:text-white transition-all duration-500 shadow-sm border border-slate-100 group-hover:shadow-xl group-hover:shadow-secondary/20">
+                <span className="material-symbols-outlined text-3xl" data-icon="auto_awesome">auto_awesome</span>
               </div>
+              <h3 className="font-headline text-2xl font-bold mb-5">Automate</h3>
+              <p className="text-on-surface-variant leading-relaxed">Build intelligent conversation flows using our visual drag-and-drop AI architect.</p>
             </div>
-            <div className="reveal [transition-delay:300ms]">
-              <div className="group h-full p-8 lg:p-10 rounded-[2rem] border border-[#D9DCE1] dark:border-slate-700/50 bg-[#F0F2F5] dark:bg-slate-800/40 hover:shadow-2xl hover:shadow-[#F0F2F5]/60 dark:hover:shadow-slate-700/30 transition-all duration-500 hover:-translate-y-2">
-                <div className="w-16 h-16 bg-white dark:bg-slate-700/80 rounded-[1.5rem] flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform duration-500 text-[#6B7280] dark:text-slate-300">
-                  <span className="material-symbols-outlined text-3xl" data-icon="trending_up">trending_up</span>
-                </div>
-                <p className="text-sm font-extrabold tracking-[0.2em] uppercase mb-2 text-[#00C896]">Step 3</p>
-                <h3 className="font-headline text-2xl font-bold mb-4 text-[#0D1F3C] dark:text-white">Deploy &amp; Monitor</h3>
-                <p className="leading-relaxed text-[17px] text-[#4B5563] dark:text-slate-400">Go live across your channels with full control over permissions. Track conversations, measure performance, and let your AI work 24/7 — while you focus on growth.</p>
+            <div className="group reveal [transition-delay:300ms]">
+              <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-10 group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-sm border border-slate-100 group-hover:shadow-xl group-hover:shadow-primary/20">
+                <span className="material-symbols-outlined text-3xl" data-icon="trending_up">trending_up</span>
               </div>
+              <h3 className="font-headline text-2xl font-bold mb-5">Grow</h3>
+              <p className="text-on-surface-variant leading-relaxed">Watch your lead list expand and conversion rates soar with 24/7 engagement.</p>
             </div>
           </div>
         </div>
@@ -277,13 +218,13 @@ export default function Hero() {
 
 
 
-      {/* ── WHAT WE DO — Feature Grid ── */}
+      {/* ΓöÇΓöÇ WHAT WE DO ΓÇö Feature Grid ΓöÇΓöÇ */}
       {/* <section className="py-20 sm:py-32 bg-surface-container-lowest">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
           <div className="text-center mb-24">
             <label className="font-label text-xs font-bold tracking-[0.3em] uppercase text-secondary mb-4 block">Our Platform</label>
             <h2 className="font-headline text-4xl md:text-5xl font-black tracking-tight text-primary mb-6">Designed for impact.</h2>
-            <p className="text-on-surface-variant text-xl max-w-2xl mx-auto">Our features aren't just utilities — they are tools that refine your digital presence into a curated, high-performance experience.</p>
+            <p className="text-on-surface-variant text-xl max-w-2xl mx-auto">Our features aren't just utilities ΓÇö they are tools that refine your digital presence into a curated, high-performance experience.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
             <div className="group">
@@ -320,7 +261,7 @@ export default function Hero() {
 
       <ProductShowcase />
 
-      {/* ── OUR MISSION & PRINCIPLES ── */}
+      {/* ΓöÇΓöÇ OUR MISSION & PRINCIPLES ΓöÇΓöÇ */}
       <section className="py-20 sm:py-32 bg-surface">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
           <div className="flex flex-col lg:flex-row gap-20">
@@ -334,30 +275,30 @@ export default function Hero() {
             </div>
             {/* Cards */}
             <div className="lg:w-2/3 space-y-8">
-              <div className="p-10 bg-primary border border-white/10 rounded-[2rem] transition-all duration-300 hover:shadow-2xl hover:shadow-primary/40 hover:-translate-y-2">
+              <div className="p-10 bg-surface-container-lowest border border-outline-variant/20 rounded-[2rem] transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
                 <div className="flex items-start gap-8">
-                  <span className="font-headline text-5xl text-white/30 font-black flex-shrink-0">01</span>
+                  <span className="font-headline text-5xl text-primary/20 font-black flex-shrink-0">01</span>
                   <div>
-                    <h3 className="font-headline text-2xl mb-4 text-white">Simplicity</h3>
-                    <p className="text-white/90 text-lg leading-relaxed">Complexity is the enemy of execution. We design every interface to be intuitive, stripping away the friction until only the essentials remain.</p>
+                    <h3 className="font-headline text-2xl mb-4 text-primary">Simplicity</h3>
+                    <p className="text-on-surface-variant text-lg leading-relaxed">Complexity is the enemy of execution. We design every interface to be intuitive, stripping away the friction until only the essentials remain.</p>
                   </div>
                 </div>
               </div>
-              <div className="p-10 bg-secondary border border-white/10 rounded-[2rem] transition-all duration-300 hover:shadow-2xl hover:shadow-secondary/40 hover:-translate-y-2">
+              <div className="p-10 bg-surface-container-lowest border border-outline-variant/20 rounded-[2rem] transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
                 <div className="flex items-start gap-8">
-                  <span className="font-headline text-5xl text-white/30 font-black flex-shrink-0">02</span>
+                  <span className="font-headline text-5xl text-secondary/25 font-black flex-shrink-0">02</span>
                   <div>
-                    <h3 className="font-headline text-2xl mb-4 text-white">Intelligence</h3>
-                    <p className="text-white/90 text-lg leading-relaxed">Data without context is noise. Our AI isn't just fast; it's smart. It learns from your history to predict the needs of your future customers.</p>
+                    <h3 className="font-headline text-2xl mb-4 text-primary">Intelligence</h3>
+                    <p className="text-on-surface-variant text-lg leading-relaxed">Data without context is noise. Our AI isn't just fast; it's smart. It learns from your history to predict the needs of your future customers.</p>
                   </div>
                 </div>
               </div>
-              <div className="p-10 bg-tertiary border border-white/10 rounded-[2rem] transition-all duration-300 hover:shadow-2xl hover:shadow-tertiary/40 hover:-translate-y-2">
+              <div className="p-10 bg-surface-container-lowest border border-outline-variant/20 rounded-[2rem] transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
                 <div className="flex items-start gap-8">
-                  <span className="font-headline text-5xl text-white/30 font-black flex-shrink-0">03</span>
+                  <span className="font-headline text-5xl text-tertiary/25 font-black flex-shrink-0">03</span>
                   <div>
-                    <h3 className="font-headline text-2xl mb-4 text-white">Scalability</h3>
-                    <p className="text-white/90 text-lg leading-relaxed">Growth should never be painful. Whether you're handling ten chats or ten million, Lyfflow scales horizontally to meet the demand without missing a beat.</p>
+                    <h3 className="font-headline text-2xl mb-4 text-primary">Scalability</h3>
+                    <p className="text-on-surface-variant text-lg leading-relaxed">Growth should never be painful. Whether you're handling ten chats or ten million, Lyfflow scales horizontally to meet the demand without missing a beat.</p>
                   </div>
                 </div>
               </div>
@@ -368,7 +309,7 @@ export default function Hero() {
 
 
 
-      {/* ── WHO WE ARE ── */}
+      {/* ΓöÇΓöÇ WHO WE ARE ΓöÇΓöÇ */}
       <section id="about" className="bg-surface-container-low py-20 sm:py-32">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 grid grid-cols-1 md:grid-cols-2 gap-12 sm:gap-20 items-center">
           {/* Left: image + stat card */}
@@ -378,10 +319,6 @@ export default function Hero() {
                 alt="Creative team collaborating"
                 className="w-full h-full object-cover contrast-125 transition-all duration-700"
                 src={teamCorporate}
-                width="820"
-                height="1024"
-                loading="lazy"
-                decoding="async"
               />
             </div>
             {/* Floating stat */}
@@ -427,7 +364,7 @@ export default function Hero() {
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="hidden md:block text-slate-400 font-bold text-xs uppercase tracking-widest text-right z-20 transition-colors group-hover:text-white">{member.role}</span>
                     {/* Mobile chevron */}
-                    <span className={`md:hidden text-white/50 text-lg transition-transform duration-300 ${tappedMember === member.id ? 'rotate-180' : ''}`}>▾</span>
+                    <span className={`md:hidden text-white/50 text-lg transition-transform duration-300 ${tappedMember === member.id ? 'rotate-180' : ''}`}>Γû╛</span>
                   </div>
                 </div>
 
@@ -435,28 +372,20 @@ export default function Hero() {
                 <div className={`md:hidden overflow-hidden transition-all duration-500 ease-in-out ${
                   tappedMember === member.id ? 'max-h-[400px] opacity-100 mt-6' : 'max-h-0 opacity-0 mt-0'
                 }`}>
-                  <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-6 border border-white/10 shadow-2xl">
-                    <div className="flex items-center gap-4 mb-5">
-                      <div className="w-12 h-12 bg-tertiary/15 rounded-xl flex items-center justify-center border border-tertiary/30 shrink-0">
-                        <span className="material-symbols-outlined text-tertiary text-2xl">{member.icon || 'terminal'}</span>
-                      </div>
-                      <div>
-                        <p className="text-white font-bold text-lg leading-tight">{member.name}</p>
-                        <p className="text-tertiary text-[10px] font-bold uppercase tracking-widest mt-1">{member.role}</p>
-                      </div>
-                    </div>
-                    <div className="h-px bg-white/10 w-full mb-5"></div>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-slate-400 text-[10px] uppercase tracking-widest font-bold mb-1">Background</p>
-                        <p className="text-slate-200 text-sm leading-relaxed">{member.background}</p>
-                      </div>
+                  <div className="flex items-start gap-5 bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/10">
+                    <img
+                      src={member.photo}
+                      alt={member.name}
+                      className="w-24 h-24 rounded-xl object-cover flex-shrink-0 shadow-lg"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-white font-bold text-base">{member.name}</p>
+                      <p className="text-tertiary text-xs font-semibold uppercase tracking-wider mb-3">{member.role}</p>
+                      <p className="text-slate-300 text-sm leading-relaxed">{member.background}</p>
                       {member.interests && (
-                        <div>
-                          <p className="text-slate-400 text-[10px] uppercase tracking-widest font-bold mb-1">Focus</p>
-                          <p className="text-slate-200 text-sm leading-relaxed">{member.interests}</p>
-                        </div>
+                        <p className="text-slate-400 text-xs mt-2">≡ƒÄ» {member.interests}</p>
                       )}
+                      <p className="text-slate-500 text-xs mt-2 uppercase tracking-widest">{member.since}</p>
                     </div>
                   </div>
                 </div>
@@ -478,10 +407,10 @@ export default function Hero() {
               Join 10,000+ businesses automating their growth with Lyfflow. Start your 14-day free trial today.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Link to="/get-started" className="bg-white text-primary px-12 py-5 rounded-2xl font-black text-xl hover:scale-105 transition-all shadow-2xl shadow-white/5">
+              <Link to="/app/get-started" className="bg-white text-primary px-12 py-5 rounded-2xl font-black text-xl hover:scale-105 transition-all shadow-2xl shadow-white/5">
                 Create Free Account
               </Link>
-              <Link to="/sales" className="bg-transparent border-2 border-white/20 text-white px-12 py-5 rounded-2xl font-bold text-xl hover:bg-white/5 transition-all">
+              <Link to="/app/sales" className="bg-transparent border-2 border-white/20 text-white px-12 py-5 rounded-2xl font-bold text-xl hover:bg-white/5 transition-all">
                 Talk to Sales
               </Link>
             </div>
@@ -489,7 +418,7 @@ export default function Hero() {
         </div>
       </section>
 
-      {/* Cursor-following team card — desktop only */}
+      {/* Cursor-following team card ΓÇö desktop only */}
       {hoveredMember && window.innerWidth >= 768 && (() => {
         const member = TEAM.find(m => m.id === hoveredMember);
         if (!member) return null;
@@ -507,23 +436,15 @@ export default function Hero() {
             className="team-cursor-card"
             style={{ left: x, top: y }}
           >
+            <img className="team-cursor-photo" alt={member.name} src={member.photo} />
             <div className="team-cursor-info">
-              <div className="team-cursor-header">
-                <div className="team-cursor-icon">
-                  <span className="material-symbols-outlined">{member.icon || 'terminal'}</span>
-                </div>
-                <div>
-                  <p className="team-cursor-name">{member.name}</p>
-                  <p className="team-cursor-role">{member.role}</p>
-                </div>
-              </div>
+              <p className="team-cursor-name">{member.name}</p>
+              <p className="team-cursor-role">{member.role}</p>
               <div className="team-cursor-divider" />
-              <div className="team-cursor-body">
-                <p className="team-cursor-meta"><strong>Background</strong> <span>{member.background}</span></p>
-                {member.interests && (
-                  <p className="team-cursor-meta"><strong>Focus</strong> <span>{member.interests}</span></p>
-                )}
-              </div>
+              <p className="team-cursor-meta"><strong>Background:</strong> <span>{member.background}</span></p>
+              {member.interests && (
+                <p className="team-cursor-meta"><strong>Interests:</strong> <span>{member.interests}</span></p>
+              )}
             </div>
           </div>
         );

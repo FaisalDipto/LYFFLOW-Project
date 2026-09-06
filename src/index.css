@@ -55,6 +55,69 @@
   --transition-fast: 0.2s ease;
   --transition-medium: 0.3s ease-in-out;
   --transition-slow: 0.5s ease-in-out;
+
+  /* Homepage theme tokens (light) — scoped in effect via [data-theme], set only on Home's
+     root element, so these defaults are what every other route already renders today. */
+  --lf-background: 253 253 254;
+  --lf-surface: 253 253 254;
+  --lf-surface-container-lowest: 255 255 255;
+  --lf-surface-container-low: 242 244 246;
+  --lf-surface-container-high: 230 232 234;
+  --lf-surface-container-highest: 224 227 229;
+  --lf-on-surface: 25 28 30;
+  --lf-on-surface-variant: 69 70 77;
+  --lf-outline-variant: 198 198 205;
+  --lf-primary: 15 23 42;
+  --lf-on-primary: 255 255 255;
+  --lf-tertiary: 99 102 241;
+  --lf-secondary-container: 254 243 199;
+}
+
+[data-theme='dark'] {
+  --lf-background: 9 11 15;
+  --lf-surface: 15 18 25;
+  --lf-surface-container-lowest: 5 6 9;
+  --lf-surface-container-low: 18 22 30;
+  --lf-surface-container-high: 32 38 51;
+  --lf-surface-container-highest: 44 51 68;
+  --lf-on-surface: 234 236 240;
+  --lf-on-surface-variant: 158 164 176;
+  --lf-outline-variant: 38 43 54;
+  --lf-primary: 27 40 66;
+  --lf-on-primary: 255 255 255;
+  --lf-tertiary: 129 132 250;
+  --lf-secondary-container: 74 55 20;
+
+  /* Navbar.css parameterizes almost everything through this one global var —
+     overriding it here, scoped to Home's subtree only, re-themes it for free. */
+  --text-primary: #eaecf0;
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Base state for useScrollReveal targets (src/hooks/useScrollReveal.js) —
+   matches what the hook sets at progress 0, so there's no flash before the
+   first frame runs. When reduced motion is on, the hook never registers
+   (it no-ops), so this state must be overridden directly here rather than
+   relying on the animation-duration hack above, which only touches actual
+   CSS animations/transitions, not one-off inline styles. */
+.scroll-reveal {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0) scale(0.94);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 * {

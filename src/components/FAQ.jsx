@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
+import { MessageSquare, ChevronDown } from 'lucide-react';
 import './FAQ.css';
 
 const faqData = [
@@ -79,26 +80,19 @@ export default function FAQ() {
   return (
     <section className="faq-section" id="faq">
       <div className="faq-container max-w-4xl mx-auto px-6 py-24">
-        <div className="faq-header text-center mb-24 relative flex flex-col items-center justify-center min-h-[300px]">
-          {/* Giant background text */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[12rem] md:text-[20rem] font-black text-secondary/5 select-none pointer-events-none tracking-tighter">
-            FAQ
+        <div className="faq-header text-center mb-20 flex flex-col items-center justify-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 text-secondary font-semibold text-sm mb-8 border border-secondary/20 animate-fade-up">
+            <MessageSquare size={16} />
+            Got Questions? We've Got Answers
           </div>
-          
-          <div className="relative z-10 flex flex-col items-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 text-secondary font-semibold text-sm mb-8 border border-secondary/20 animate-fade-up">
-              <span className="material-symbols-outlined text-base">forum</span>
-              Got Questions? We've Got Answers
-            </div>
-            
-            <h2 className="text-5xl md:text-7xl font-headline font-black mb-8 tracking-tighter bg-gradient-to-br from-primary via-primary to-secondary bg-clip-text text-transparent pb-2 animate-fade-up" style={{ animationDelay: '0.1s' }}>
-              Frequently Asked <br className="hidden md:block" /> Questions
-            </h2>
-            
-            <p className="text-lg md:text-xl text-on-surface-variant max-w-2xl mx-auto leading-relaxed animate-fade-up" style={{ animationDelay: '0.2s' }}>
-              Everything you need to know about Lyfflow, how it works, and how it can help you automate your customer interactions seamlessly.
-            </p>
-          </div>
+
+          <h2 className="text-4xl md:text-6xl font-headline font-black mb-8 tracking-tighter text-on-surface animate-fade-up" style={{ animationDelay: '0.1s' }}>
+            Frequently Asked Questions
+          </h2>
+
+          <p className="text-lg md:text-xl text-on-surface-variant max-w-2xl mx-auto leading-relaxed animate-fade-up" style={{ animationDelay: '0.2s' }}>
+            Everything you need to know about Lyfflow, how it works, and how it can help you automate your customer interactions seamlessly.
+          </p>
         </div>
 
         <div className="faq-list flex flex-col gap-4">
@@ -123,11 +117,9 @@ export default function FAQ() {
                       {faq.question}
                     </span>
                     <div className={`faq-icon flex-shrink-0 ml-4 rounded-full w-8 h-8 flex items-center justify-center transition-all duration-300 ${
-                      isOpen ? 'bg-secondary text-white transform rotate-180' : 'bg-surface-container-high text-on-surface-variant'
+                      isOpen ? 'bg-secondary text-white rotate-180' : 'bg-surface-container-high text-on-surface-variant'
                     }`}>
-                      <span className="material-symbols-outlined text-xl">
-                        expand_more
-                      </span>
+                      <ChevronDown size={18} />
                     </div>
                   </div>
                 </button>

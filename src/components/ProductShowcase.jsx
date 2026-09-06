@@ -31,7 +31,7 @@ const FEATURES = [
   },
   {
     id: 'overview',
-    tabIcon: 'grid_view',
+    tabIcon: 'dashboard',
     tabLabel: 'Live Overview',
     activeNav: 'Overview',
     color: '#f59e0b',
@@ -388,7 +388,7 @@ export default function ProductShowcase() {
                 >
                   <span
                     className="material-symbols-outlined"
-                    style={{ fontSize: 20, color: activeIdx === i ? f.color : '#475569' }}
+                    style={{ fontSize: 20, color: activeIdx === i ? f.color : '#475569', textTransform: 'none' }}
                   >
                     {f.tabIcon}
                   </span>

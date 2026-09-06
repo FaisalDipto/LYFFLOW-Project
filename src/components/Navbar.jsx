@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Sun, Moon } from 'lucide-react';
 import './Navbar.css';
 import logoImg from '../assets/logo1.webp';
 import titleImg from '../assets/title.webp';
 
-export default function Navbar() {
+export default function Navbar({ theme, onToggleTheme }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeAccordion, setActiveAccordion] = useState(null);
@@ -162,6 +163,17 @@ export default function Navbar() {
 
           {/* Action Section */}
           <div className="nav-actions">
+            {onToggleTheme && (
+              <button
+                type="button"
+                className="theme-toggle-btn"
+                onClick={onToggleTheme}
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {theme === 'dark' ? <Sun size={18} strokeWidth={2} /> : <Moon size={18} strokeWidth={2} />}
+              </button>
+            )}
             <Link to="/login" className="btn-signin">Sign In</Link>
             <Link to="/get-started" className="btn-get-started">Get Started</Link>
           </div>
