@@ -1004,13 +1004,14 @@ const ConversationList = ({ pages, user }) => {
     if (msgId && convId && msg._infoFetched === undefined) {
       msg._infoFetched = false; // mark as in-flight
       apiService.getMessageInfo(convId, msgId)
-        .then(info => {
-          msg._infoFetched = true;
-          msg._hasAttachment = info.has_attachment;
-          msg._isAiMsg = info.is_ai_msg;
-          // Force a re-render by nudging messages state
-          setMessages(prev => [...prev]);
-        })
+          .then(info => {
+            msg._infoFetched = true;
+            msg._hasAttachment = info.has_attachment;
+            msg._isAiMsg = info.is_ai_msg;
+            msg._agentActivityId = info.agent_activity_id;
+            // Force a re-render by nudging messages state
+            setMessages(prev => [...prev]);
+          })
         .catch(() => { msg._infoFetched = true; });
     }
 
@@ -6293,6 +6294,10 @@ export default function Dashboard() {
     </div>
   );
 }
+
+
+
+
 
 
 
