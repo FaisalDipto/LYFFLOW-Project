@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import AgentAvatarIcon from './AgentAvatarIcon';
 
 export const AgentAvatar = ({
@@ -20,7 +20,7 @@ export const AgentAvatar = ({
       if (localMap[agent.agent_id]) {
         avatarConfig = localMap[agent.agent_id];
       }
-    } catch (e) {
+    } catch {
       // ignore JSON parse error
     }
   }
@@ -52,3 +52,4 @@ export const AgentAvatar = ({
 };
 
 export default AgentAvatar;
+

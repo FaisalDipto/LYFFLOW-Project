@@ -7,7 +7,7 @@ import swajanPhoto from '../assets/team/swajan.jpg';
 import mehediPhoto from '../assets/team/mehedi.jpg';
 import faisalPhoto from '../assets/team/faisal.jpg';
 import teamCorporate from '../assets/team_corporate.png';
-import dashboardCorporate from '../assets/dashboard_corporate.png';
+// import dashboardCorporate from '../assets/dashboard_corporate.png';
 
 const TEAM = [
   {
@@ -452,3 +452,4 @@ export default function Hero() {
     </>
   );
 }
+

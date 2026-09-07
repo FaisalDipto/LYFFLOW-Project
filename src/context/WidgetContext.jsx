@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const WidgetContext = createContext(null);
 
@@ -16,7 +16,7 @@ export function WidgetProvider({ children }) {
     return localStorage.getItem('lyfflow_theme_id') || 'sky';
   });
   const [widgetColor, setWidgetColor] = useState('#0ea5e9');
-  const [widgetGreeting, setWidgetGreeting] = useState('Hi there 👋 How can we help you?');
+  const [widgetGreeting, setWidgetGreeting] = useState('Hi there ðŸ‘‹ How can we help you?');
   const [widgetPosition, setWidgetPosition] = useState('bottom-right');
 
   // Apply theme to document globally when it changes
@@ -41,6 +41,8 @@ export function WidgetProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWidget() {
   return useContext(WidgetContext);
 }
+

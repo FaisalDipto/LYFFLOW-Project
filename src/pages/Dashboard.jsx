@@ -1,4 +1,4 @@
-﻿import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap, Package, FileText } from 'lucide-react';
+import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap, Package, FileText } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -1485,7 +1485,12 @@ const ConversationList = ({ pages, user }) => {
                     <div className="space-y-4">
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Status</p>
-                        <span className={inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold }>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          sidebarActivityDetail.status === 'success' ? 'bg-emerald-100 text-emerald-700' :
+                          sidebarActivityDetail.status === 'error' ? 'bg-rose-100 text-rose-700' :
+                          sidebarActivityDetail.status === 'human_handover' ? 'bg-amber-100 text-amber-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
                           {sidebarActivityDetail.status}
                         </span>
                       </div>
@@ -6367,6 +6372,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
 
 
 

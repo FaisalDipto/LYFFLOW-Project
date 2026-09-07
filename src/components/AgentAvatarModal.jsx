@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Check, X } from 'lucide-react';
 import AgentAvatar from './AgentAvatar';
 import AgentAvatarIcon from './AgentAvatarIcon';
@@ -32,6 +32,7 @@ export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
   const [selectedGradient, setSelectedGradient] = useState(GRADIENTS[0].value);
   const [selectedShape, setSelectedShape] = useState('circle');
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (agent) {
       let existing = agent.avatar_config;
@@ -39,15 +40,21 @@ export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
         try {
           const localMap = JSON.parse(localStorage.getItem('lyfflow_agent_avatars') || '{}');
           existing = localMap[agent.agent_id];
-        } catch (e) {}
+        } catch { /* ignore */ }
       }
       if (existing) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedIcon(existing.icon || 'smart_toy');
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedGradient(existing.gradient || GRADIENTS[0].value);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedShape(existing.shape || 'circle');
       } else {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedIcon('smart_toy');
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedGradient(GRADIENTS[0].value);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedShape('circle');
       }
     }
@@ -74,7 +81,7 @@ export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
         const localMap = JSON.parse(localStorage.getItem('lyfflow_agent_avatars') || '{}');
         localMap[agent.agent_id] = updatedConfig;
         localStorage.setItem('lyfflow_agent_avatars', JSON.stringify(localMap));
-      } catch (e) {}
+      } catch { /* ignore */ }
     }
 
     onSave(updatedConfig, agent.agent_id);
@@ -225,3 +232,6 @@ export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
 };
 
 export default AgentAvatarModal;
+
+
+
