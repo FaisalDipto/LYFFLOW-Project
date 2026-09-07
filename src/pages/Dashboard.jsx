@@ -1459,10 +1459,83 @@ const ConversationList = ({ pages, user }) => {
       </section>
 
       {/* Profile Right Sidebar - hidden on mobile */}
-      {isProfileVisible && (
-        <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white animate-fade-in-right xl:flex">
-          {activeContact ? (
-            <div className="p-5">
+        {isProfileVisible && (
+          <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white animate-fade-in-right xl:flex">
+            {selectedMessageActivityId ? (
+              <div className="p-5 flex flex-col h-full">
+                <button 
+                  onClick={() => setSelectedMessageActivityId(null)}
+                  className="mb-4 flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                  Back to Profile
+                </button>
+                
+                {isSidebarActivityLoading ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="material-symbols-outlined animate-spin text-slate-300 text-3xl">refresh</span>
+                  </div>
+                ) : sidebarActivityDetail ? (
+                  <div className="flex-1 flex flex-col">
+                    <div className="mb-4">
+                      <h3 className="font-['Epilogue'] text-base font-black tracking-tight text-slate-900">AI Message Details</h3>
+                      <p className="text-[10px] font-mono text-slate-400 mt-1 truncate" title={sidebarActivityDetail.activity_id}>{sidebarActivityDetail.activity_id}</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Status</p>
+                        <span className={inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold }>
+                          {sidebarActivityDetail.status}
+                        </span>
+                      </div>
+
+                      {sidebarActivityDetail.response_time_ms != null && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Response Time</p>
+                          <p className="text-xs font-semibold text-slate-700">{sidebarActivityDetail.response_time_ms} ms</p>
+                        </div>
+                      )}
+
+                      {sidebarActivityDetail.total_tokens != null && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Tokens Used</p>
+                          <p className="text-xs font-semibold text-slate-700">{sidebarActivityDetail.total_tokens}</p>
+                        </div>
+                      )}
+                      
+                      {sidebarActivityDetail.tools_used && sidebarActivityDetail.tools_used.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Tools Called</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {sidebarActivityDetail.tools_used.map(t => (
+                              <span key={t} className="bg-slate-100 text-slate-600 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-200">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {sidebarActivityDetail.error_message && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-rose-400 mb-1">Error</p>
+                          <p className="text-[11px] font-medium text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-100 break-words">
+                            {sidebarActivityDetail.error_message}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center">
+                    <span className="material-symbols-outlined text-slate-300 text-4xl mb-2">info</span>
+                    <p className="text-sm font-semibold text-slate-500">Activity details unavailable.</p>
+                  </div>
+                )}
+              </div>
+            ) : activeContact ? (
+              <div className="p-5">
               <div className="mb-4 flex justify-center">
                 <div className="relative">
                   {renderAvatar(activeContact, "h-20 w-20 rounded-2xl ring-1 ring-slate-200")}
@@ -6294,6 +6367,8 @@ export default function Dashboard() {
     </div>
   );
 }
+
+
 
 
 
