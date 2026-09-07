@@ -585,7 +585,7 @@ const ConversationList = ({ pages, user }) => {
             }
           } catch (e) {}
         }
-        if (!agentId && agents?.length > 0) agentId = agents[0].agent_id;
+        if (!agentId && user?.agents?.length > 0) agentId = user.agents[0].agent_id;
         
         if (agentId) {
            const res = await apiService.getAgentActivityDetail(agentId, selectedMessageActivityId);
@@ -601,7 +601,7 @@ const ConversationList = ({ pages, user }) => {
       }
     };
     fetchDetail();
-  }, [selectedMessageActivityId, selectedPageId, pages, agents]);
+  }, [selectedMessageActivityId, selectedPageId, pages, user?.agents]);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -6293,6 +6293,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
 
 
 
