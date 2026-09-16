@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../services/api';
+import { useOnKeyChange } from '../hooks/useOnKeyChange';
 
 export default function CheckpointerDebugModal({ conversationId, onClose }) {
   const [loading, setLoading] = useState(true);
@@ -12,10 +13,9 @@ export default function CheckpointerDebugModal({ conversationId, onClose }) {
   const [traceFilterType, setTraceFilterType] = useState('all');
   const [traceSearch, setTraceSearch] = useState('');
 
+  useOnKeyChange(conversationId, () => { setLoading(true); setError(null); });
   useEffect(() => {
     if (!conversationId) return;
-    setLoading(true);
-    setError(null);
     apiService.adminGetCheckpointerState(conversationId)
       .then(res => {
         const payload = res?.data || res;
@@ -51,7 +51,7 @@ export default function CheckpointerDebugModal({ conversationId, onClose }) {
     if (typeof val === 'object') {
       try {
         return JSON.stringify(val);
-      } catch (e) {
+      } catch {
         return String(val);
       }
     }

@@ -6,6 +6,7 @@ import logoImg from '../assets/logo1.png';
 import titleImg from '../assets/title.png';
 import CheckpointerDebugModal from '../components/CheckpointerDebugModal';
 import { useDashboardTheme } from '../hooks/useDashboardTheme';
+import { useOnKeyChange } from '../hooks/useOnKeyChange';
 import './AdminPanel.css';
 import '../styles/dashboard-theme.css';
 
@@ -22,10 +23,10 @@ const CAPTURED_ORDER_STATUSES = [
 
 function CountUp({ end, duration = 1500, prefix = '', suffix = '' }) {
   const [count, setCount] = useState(0);
+  const target = Number(end) || 0;
   useEffect(() => {
     let start = 0;
-    const target = Number(end) || 0;
-    if (target === 0) { setCount(0); return; }
+    if (target === 0) return;
     const step = (target / (duration / 16));
     const timer = setInterval(() => {
       start += step;
@@ -37,8 +38,8 @@ function CountUp({ end, duration = 1500, prefix = '', suffix = '' }) {
       }
     }, 16);
     return () => clearInterval(timer);
-  }, [end, duration]);
-  return <span>{prefix}{fmt(count)}{suffix}</span>;
+  }, [target, duration]);
+  return <span>{prefix}{fmt(target === 0 ? 0 : count)}{suffix}</span>;
 }
 
 function StatCard({ label, value, icon, tone = 'blue', helper, prefix = '' }) {
@@ -255,10 +256,9 @@ function UserDetailModal({ userId, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  useOnKeyChange(userId, () => { setLoading(true); setError(null); });
   useEffect(() => {
     if (!userId) return;
-    setLoading(true);
-    setError(null);
     apiService.adminGetUser(userId)
       .then(r => setDetail(r?.data || r))
       .catch(e => setError(e.message || 'Failed to load detailed user profile'))
@@ -453,10 +453,9 @@ function ActivityDetailModal({ activityId, onClose }) {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState(null);
 
+  useOnKeyChange(activityId, () => { setLoading(true); setError(null); });
   useEffect(() => {
     if (!activityId) return;
-    setLoading(true);
-    setError(null);
     apiService.adminGetActivity(activityId)
       .then(res => setDetail(res?.data || res))
       .catch(e => setError('Failed to load activity details: ' + (e.message || 'Error')))
@@ -728,10 +727,9 @@ function JobDetailModal({ jobId, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  useOnKeyChange(jobId, () => { setLoading(true); setError(null); });
   useEffect(() => {
     if (!jobId) return;
-    setLoading(true);
-    setError(null);
     apiService.adminGetJob(jobId)
       .then(res => {
         const data = res?.job || res?.data || res;
@@ -936,19 +934,15 @@ function JobDetailModal({ jobId, onClose }) {
 
 // ── Subscription Detail Modal ──────────────────────────
 function SubscriptionDetailModal({ subscription, onClose }) {
+  const requestedSubId = subscription?.subscription_id || subscription?.id;
+  const canFetchDetail = Boolean(requestedSubId) && typeof requestedSubId === 'string';
   const [detail, setDetail] = useState(subscription);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(canFetchDetail);
 
+  useOnKeyChange(subscription, () => { setDetail(subscription); setLoading(canFetchDetail); });
   useEffect(() => {
-    if (!subscription) {
-      setDetail(null);
-      return;
-    }
-    setDetail(subscription);
-    const subId = subscription.subscription_id || subscription.id;
-    if (subId && typeof subId === 'string') {
-      setLoading(true);
-      apiService.adminGetSubscription(subId)
+    if (canFetchDetail) {
+      apiService.adminGetSubscription(requestedSubId)
         .then(res => {
           const data = res?.subscription || res?.data || res;
           if (data && typeof data === 'object') {
@@ -958,7 +952,7 @@ function SubscriptionDetailModal({ subscription, onClose }) {
         .catch(() => {})
         .finally(() => setLoading(false));
     }
-  }, [subscription]);
+  }, [subscription, requestedSubId, canFetchDetail]);
 
   if (!subscription) return null;
 
@@ -972,13 +966,13 @@ function SubscriptionDetailModal({ subscription, onClose }) {
   const isActive = Boolean(sub.is_active);
 
   // Extract all scalar properties for complete record display
-  const scalarEntries = Object.entries(sub).filter(([key, val]) =>
+  const scalarEntries = Object.entries(sub).filter(([, val]) =>
     val !== null &&
     typeof val !== 'object' &&
     typeof val !== 'function'
   );
 
-  const objectEntries = Object.entries(sub).filter(([key, val]) =>
+  const objectEntries = Object.entries(sub).filter(([, val]) =>
     val !== null &&
     typeof val === 'object' &&
     !Array.isArray(val) &&
@@ -1190,8 +1184,7 @@ function JobsSection() {
       .catch(err => console.error("Failed to load job stats:", err));
   }, []);
 
-  const loadJobs = useCallback((currentCursor = null) => {
-    setLoading(true);
+  const fetchJobs = useCallback((currentCursor = null) => {
     loadStats();
     apiService.adminJobs({
       cursor: currentCursor,
@@ -1212,10 +1205,12 @@ function JobsSection() {
       .catch(err => console.error("Failed to load background jobs:", err))
       .finally(() => setLoading(false));
   }, [statusFilter, jobTypeFilter, loadStats]);
+  const loadJobs = (currentCursor = null) => { setLoading(true); fetchJobs(currentCursor); };
 
+  useOnKeyChange(`${statusFilter}|${jobTypeFilter}|${cursor}`, () => setLoading(true));
   useEffect(() => {
-    loadJobs(cursor);
-  }, [loadJobs, cursor]);
+    fetchJobs(cursor);
+  }, [fetchJobs, cursor]);
 
   const filteredJobs = search.trim()
     ? jobs.filter(j =>
@@ -1450,8 +1445,7 @@ function UsersSection() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminUsers({ search, status: statusFilter, cursor: cur, page_size: 20 })
       .then(r => {
         // Response: { users: [...], pagination: { next_cursor, has_more, total } }
@@ -1464,8 +1458,10 @@ function UsersSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [search, statusFilter]);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { setCursor(null); load(null); }, [search, statusFilter]);
+  useOnKeyChange(`${search}|${statusFilter}`, () => { setLoading(true); setCursor(null); });
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   const toggleStatus = async (user) => {
     const newStatus = user.status === 'active' ? 'suspended' : 'active';
@@ -1586,8 +1582,7 @@ function GenericListSection({ title, label, icon, fetcher, columns }) {
   const [nextCursor, setNextCursor] = useState(null);
   const [cursor, setCursor] = useState(null);
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     fetcher({ cursor: cur, page_size: 20 })
       .then(r => {
         const data = r?.data || r;
@@ -1597,8 +1592,10 @@ function GenericListSection({ title, label, icon, fetcher, columns }) {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [fetcher]);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { load(null); }, [load]);
+  useOnKeyChange(fetcher, () => setLoading(true));
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   return (
     <div>
@@ -1688,10 +1685,9 @@ function ActivitySection() {
   const [stats, setStats] = useState(null);
   const [daily, setDaily] = useState([]);
   const [loading, setLoading] = useState(true);
-  const today = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
-  const [start, setStart] = useState(monthAgo);
-  const [end, setEnd] = useState(today);
+  // Lazy initializers: the default range is computed once on mount, not on every render.
+  const [start, setStart] = useState(() => new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
+  const [end, setEnd] = useState(() => new Date().toISOString().slice(0, 10));
 
   // Recent activity state
   const [recent, setRecent] = useState([]);
@@ -1702,8 +1698,7 @@ function ActivitySection() {
   const [recentSearch, setRecentSearch] = useState('');
   const [selectedActivityId, setSelectedActivityId] = useState(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
+  const fetchStats = useCallback(() => {
     Promise.all([
       apiService.adminActivityStats(start, end),
       apiService.adminActivityDaily(start, end),
@@ -1713,9 +1708,9 @@ function ActivitySection() {
       setDaily(Array.isArray(arr) ? arr : []);
     }).catch(() => { }).finally(() => setLoading(false));
   }, [start, end]);
+  const load = () => { setLoading(true); fetchStats(); };
 
-  const loadRecent = useCallback((cur = null) => {
-    setRecentLoading(true);
+  const fetchRecent = useCallback((cur = null) => {
     apiService.adminActivityRecent({ cursor: cur, page_size: 20 })
       .then(r => {
         const list = r?.activities || r?.data?.activities || [];
@@ -1727,33 +1722,14 @@ function ActivitySection() {
       .catch(() => { })
       .finally(() => setRecentLoading(false));
   }, []);
+  const loadRecent = (cur = null) => { setRecentLoading(true); fetchRecent(cur); };
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadRecent(recentCursor); }, [loadRecent, recentCursor]);
+  useOnKeyChange(`${start}|${end}`, () => setLoading(true));
+  useOnKeyChange(recentCursor, () => setRecentLoading(true));
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchRecent(recentCursor); }, [fetchRecent, recentCursor]);
 
   const maxVal = Math.max(...daily.map(d => d.request_count || d.total_tokens || d.messages || d.count || d.total || 0), 1);
-
-  // Helper to get icon for a stat key
-  const getStatIcon = (key) => {
-    const map = {
-      total_requests: 'bar_chart',
-      total_success_requests: 'check_circle',
-      total_failed_requests: 'error',
-      total_input_tokens: 'input',
-      total_output_tokens: 'output',
-      total_tokens: 'data_usage',
-      total_cost: 'payments',
-      unique_agents: 'smart_toy',
-      unique_users: 'group',
-      total_messages: 'message',
-      total_dialogs: 'chat',
-      active_users: 'group',
-      new_leads: 'contacts',
-      tokens_used: 'memory',
-      conversations: 'forum'
-    };
-    return map[key] || 'analytics';
-  };
 
   const filteredRecent = recentSearch.trim()
     ? recent.filter(a =>
@@ -1953,8 +1929,7 @@ function SubscriptionsSection() {
   const [activeOnly, setActiveOnly] = useState(false);
   const [selectedSub, setSelectedSub] = useState(null);
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminSubscriptions({ cursor: cur, page_size: 20, plan_type: planFilter || undefined, active_only: activeOnly })
       .then(r => {
         let list = [];
@@ -1970,8 +1945,10 @@ function SubscriptionsSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [planFilter, activeOnly]);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { setCursor(null); load(null); }, [planFilter, activeOnly]);
+  useOnKeyChange(`${planFilter}|${activeOnly}`, () => { setLoading(true); setCursor(null); });
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   const filtered = search.trim()
     ? items.filter(s => {
@@ -2151,8 +2128,7 @@ function AgentsSection() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminAgents({ cursor: cur, page_size: 20 })
       .then(r => {
         const list = r?.agents || r?.data?.agents || [];
@@ -2163,8 +2139,9 @@ function AgentsSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { load(null); }, [load]);
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   // Client-side search filter
   const filtered = search.trim()
@@ -2244,8 +2221,7 @@ function PlatformsSection() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminPlatforms({ cursor: cur, page_size: 20, platform_type: typeFilter })
       .then(r => {
         const list = r?.platforms || r?.data?.platforms || [];
@@ -2256,8 +2232,10 @@ function PlatformsSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [typeFilter]);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { setCursor(null); load(null); }, [load]);
+  useOnKeyChange(`${typeFilter}`, () => { setLoading(true); setCursor(null); });
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   const filtered = search.trim()
     ? platforms.filter(pl =>
@@ -2370,8 +2348,7 @@ function PagesSection() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminPages({ cursor: cur, page_size: 20 })
       .then(r => {
         const list = r?.pages || r?.data?.pages || [];
@@ -2382,8 +2359,9 @@ function PagesSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { load(null); }, [load]);
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   // Client-side search filter
   const filtered = search.trim()
@@ -2470,8 +2448,7 @@ function NamespacesSection() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminNamespaces({ cursor: cur, page_size: 20 })
       .then(r => {
         const list = r?.namespaces || r?.data?.namespaces || [];
@@ -2482,8 +2459,9 @@ function NamespacesSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { load(null); }, [load]);
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   const filtered = search.trim()
     ? namespaces.filter(ns =>
@@ -2580,8 +2558,7 @@ function ProductsSection() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminProducts({ cursor: cur, page_size: 20, category: categoryFilter })
       .then(r => {
         const list = r?.products || r?.data?.products || [];
@@ -2592,8 +2569,10 @@ function ProductsSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [categoryFilter]);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { setCursor(null); load(null); }, [load]);
+  useOnKeyChange(`${categoryFilter}`, () => { setLoading(true); setCursor(null); });
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   // Client-side search filter
   const filtered = search.trim()
@@ -2702,8 +2681,7 @@ function KnowledgesSection() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminKnowledges({ cursor: cur, page_size: 20, knowledge_type: typeFilter })
       .then(r => {
         const list = r?.items || r?.data?.items || [];
@@ -2714,8 +2692,10 @@ function KnowledgesSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [typeFilter]);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { setCursor(null); load(null); }, [load]);
+  useOnKeyChange(`${typeFilter}`, () => { setLoading(true); setCursor(null); });
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   const filtered = search.trim()
     ? items.filter(it =>
@@ -2832,12 +2812,12 @@ function ConversationMessagesModal({ conversation, onClose, onDebug }) {
   const [error, setError] = useState(null);
   const [nextCursor, setNextCursor] = useState(null);
 
+  useOnKeyChange(conversation, () => setLoading(true));
   useEffect(() => {
     if (!conversation) return;
     const cid = conversation.conversation_id || conversation.id;
     if (!cid) return;
-    
-    setLoading(true);
+
     apiService.adminGetConversationMessages(cid)
       .then(res => {
         const msgs = res?.messages || res?.data?.messages || res?.data || [];
@@ -3079,8 +3059,7 @@ function ConversationsSection() {
       .catch(() => {});
   }, []);
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminConversations({ cursor: cur, page_size: 20, page_id: pageIdFilter })
       .then(r => {
         const list = r?.conversations || r?.data?.conversations || [];
@@ -3091,8 +3070,10 @@ function ConversationsSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [pageIdFilter]);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { setCursor(null); load(null); }, [load]);
+  useOnKeyChange(`${pageIdFilter}`, () => { setLoading(true); setCursor(null); });
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   // Client-side search filter
   const filtered = search.trim()
@@ -3241,8 +3222,7 @@ function CustomerRecordsSection({ recordType }) {
       .catch(() => {});
   }, []);
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     const request = recordType === 'lead' ? apiService.adminCustomerLeads : apiService.adminCustomerOrders;
     request({
       cursor: cur,
@@ -3271,8 +3251,10 @@ function CustomerRecordsSection({ recordType }) {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [pageIdFilter, recordType, statusFilter]);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { setCursor(null); load(null); }, [load]);
+  useOnKeyChange(`${pageIdFilter}|${recordType}|${statusFilter}`, () => { setLoading(true); setCursor(null); });
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   const filtered = search.trim()
     ? records.filter(r =>
@@ -3395,8 +3377,7 @@ function FeedbacksSection() {
   const [typeFilter, setTypeFilter] = useState('');
   const [search, setSearch] = useState('');
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminFeedbacks({ cursor: cur, page_size: 20, type: typeFilter || undefined })
       .then(r => {
         const list = r?.feedbacks || r?.data?.feedbacks || [];
@@ -3407,8 +3388,10 @@ function FeedbacksSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [typeFilter]);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { load(null); }, [load]);
+  useOnKeyChange(`${typeFilter}`, () => { setLoading(true); });
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   const filtered = search.trim()
     ? items.filter(f =>
@@ -3485,8 +3468,7 @@ function LeadsSection() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
 
-  const load = useCallback((cur = null) => {
-    setLoading(true);
+  const fetchPage = useCallback((cur = null) => {
     apiService.adminLeads({ cursor: cur, page_size: 20 })
       .then(r => {
         const list = r?.leads || r?.data?.leads || [];
@@ -3497,8 +3479,9 @@ function LeadsSection() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
+  const load = (cur = null) => { setLoading(true); fetchPage(cur); };
 
-  useEffect(() => { load(null); }, [load]);
+  useEffect(() => { fetchPage(null); }, [fetchPage]);
 
   const filtered = search.trim()
     ? items.filter(l =>
@@ -3961,7 +3944,7 @@ export default function AdminPanel() {
           navigate('/admin/login');
         }
       });
-  }, []);
+  }, [navigate]);
 
 
   const handleLogout = () => navigate('/admin/login');

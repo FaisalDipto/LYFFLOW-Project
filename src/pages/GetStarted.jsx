@@ -8,6 +8,7 @@ import LegalCenter from '../components/LegalCenter';
 import catAnimationUrl from '../../animation/catLottieJSON.json?url';
 import { apiService } from '../services/api';
 import { API_BASE } from '../config/env';
+import { useOnKeyChange } from '../hooks/useOnKeyChange';
 
 const PricingCards = ({ onSelect }) => {
   return (
@@ -193,8 +194,13 @@ export default function GetStarted() {
   const location = useLocation();
   
   // Steps: 'loading' | 'pricing' | 'connect'
-  const [currentStep, setCurrentStep] = useState('connect');
-  
+  // The URL decides the starting step: explicit pricing (e.g. redirected from Dashboard guard),
+  // loading while we check the subscription after FB OAuth, otherwise connect.
+  const query = new URLSearchParams(location.search);
+  const routeStep = query.get('step') === 'pricing' ? 'pricing' : query.get('check') === 'sub' ? 'loading' : 'connect';
+  const [currentStep, setCurrentStep] = useState(routeStep);
+  useOnKeyChange(location.search, () => setCurrentStep(routeStep));
+
   const [agreed, setAgreed] = useState(false);
   const [showError, setShowError] = useState(false);
 
@@ -202,16 +208,7 @@ export default function GetStarted() {
   // via the API to decide whether to show the dashboard or the pricing step.
   useEffect(() => {
     const query = new URLSearchParams(location.search);
-
-    // Explicit pricing step (e.g. redirected from Dashboard guard)
-    if (query.get('step') === 'pricing') {
-      setCurrentStep('pricing');
-      return;
-    }
-
-    // User just came back from FB OAuth — check their subscription
-    if (query.get('check') === 'sub') {
-      setCurrentStep('loading');
+    if (query.get('step') !== 'pricing' && query.get('check') === 'sub') {
       apiService.getSubscription()
         .then(sub => {
           if (sub && sub.is_active) {
@@ -226,16 +223,8 @@ export default function GetStarted() {
           // API error (possibly not logged in yet) → show pricing
           setCurrentStep('pricing');
         });
-      return;
     }
-
-    // Default — show the connect step
-    setCurrentStep('connect');
   }, [location.search, navigate]);
-
-  const handleAcceptTerms = () => {
-    // Legacy function, handled inline now
-  };
 
   const handleSelectPackage = async (packageName) => {
     try {

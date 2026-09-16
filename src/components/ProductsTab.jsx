@@ -1046,7 +1046,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                         <div className="p-4 bg-white border border-slate-200/80 rounded-xl shadow-2xs">
                           <div className="font-mono text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-1.5">VECTOR SYNC & LIFECYCLE</div>
                           <p className="text-xs text-slate-600 leading-relaxed font-mono">
-                            Pinecone Vector ID: <span className="text-emerald-700 font-bold">{selectedProductDetail.pinecone_vector_id || 'NOT_SYNCED'}</span> â€¢ Last Updated: {selectedProductDetail.updated_at ? new Date(selectedProductDetail.updated_at).toLocaleString() : 'Just now'}
+                            Pinecone Vector ID: <span className="text-emerald-700 font-bold">{selectedProductDetail.pinecone_vector_id || 'NOT_SYNCED'}</span> {'•'} Last Updated: {selectedProductDetail.updated_at ? new Date(selectedProductDetail.updated_at).toLocaleString() : 'Just now'}
                           </p>
                         </div>
                       </div> */}

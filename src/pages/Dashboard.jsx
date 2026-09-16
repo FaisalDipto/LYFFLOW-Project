@@ -1,5 +1,5 @@
 ﻿import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap, Package, FileText } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import logoImg from '../assets/logo1.webp';
@@ -10,6 +10,7 @@ import { useWidget } from '../context/WidgetContext';
 import { API_BASE } from '../config/env';
 import { apiService } from '../services/api';
 import { useDashboardTheme } from '../hooks/useDashboardTheme';
+import { useOnKeyChange } from '../hooks/useOnKeyChange';
 import './Dashboard.css';
 import '../styles/dashboard-theme.css';
 
@@ -18,6 +19,8 @@ const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
 const ProductsTab = lazy(() => import('../components/ProductsTab'));
 
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
+// Themes, Widget Appearance and Team Members settings have no backend yet; flip to show them.
+const SHOW_UNFINISHED_SETTINGS = false;
 
 const FacebookMark = ({ className = '' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -79,7 +82,7 @@ const CountUpNumber = ({ value }) => {
 };
 
 // Sub-components
-const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
+const Overview = ({ user, pages, onNavigate, onAddPage }) => {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [dropdownPlacement, setDropdownPlacement] = useState('bottom');
   const [isPlatformModalOpen, setIsPlatformModalOpen] = useState(false);
@@ -90,12 +93,12 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
     try {
       const cached = localStorage.getItem('lyfflow_assigned_agents');
       return cached ? JSON.parse(cached) : {};
-    } catch (e) {
+    } catch {
       return {};
     }
   });
 
-  const agents = user?.agents || [];
+  const agents = useMemo(() => user?.agents || [], [user?.agents]);
   const pageCount = Array.isArray(pages) ? pages.length : 0;
   const assignedPageCount = Array.isArray(pages)
     ? pages.filter(page => Boolean(selectedAgents[page.page_id])).length
@@ -149,7 +152,9 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
       if (changed) {
         try {
           localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(nextAgents));
-        } catch (e) { }
+        } catch {
+          // Ignore storage failures (private mode, quota); state still updates.
+        }
         return nextAgents;
       }
       return prev;
@@ -166,7 +171,9 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
         const nextState = { ...prev, [pageId]: agentId };
         try {
           localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(nextState));
-        } catch (e) { }
+        } catch {
+          // Ignore storage failures (private mode, quota); state still updates.
+        }
         return nextState;
       });
       setSuccess(prev => ({ ...prev, [pageId]: true }));
@@ -191,7 +198,7 @@ const Overview = ({ user, pages, onNavigate, onUpdate, onAddPage }) => {
         delete nextState[pageId];
         try {
           localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(nextState));
-        } catch (e) { }
+        } catch { /* ignore storage/JSON errors */ }
         return nextState;
       });
       setSuccess(prev => ({ ...prev, [pageId]: true }));
@@ -583,7 +590,7 @@ const ConversationList = ({ pages, user }) => {
               const parsed = JSON.parse(cached);
               agentId = parsed[selectedPageId];
             }
-          } catch (e) {}
+          } catch { /* ignore storage/JSON errors */ }
         }
         if (agentId && String(agentId).startsWith('foreign_agent_')) { agentId = null; }
           if (!agentId && user?.agents?.length > 0) agentId = user.agents[0].agent_id;
@@ -673,8 +680,9 @@ const ConversationList = ({ pages, user }) => {
   }, [messages]);
 
   useEffect(() => {
-    if (pages && pages.length > 0 && !selectedPageId) {
-      setSelectedPageId(pages[0].page_id);
+    if (pages && pages.length > 0) {
+      // Functional update: only defaults when nothing is selected, without depending on selectedPageId.
+      setSelectedPageId(prev => prev || pages[0].page_id);
     }
   }, [pages]);
 
@@ -1712,12 +1720,12 @@ const FeedbackPanel = () => {
                   [Target, 'What you were trying to do'],
                   [CheckCircle2, 'What you expected to happen'],
                   [MessageCircleWarning, 'What happened instead']
-                ].map(([TipIcon, text]) => (
+                ].map(([icon, text]) => { const TipIcon = icon; return (
                   <div key={text} className="flex items-start gap-3">
                     <TipIcon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-emerald-400" strokeWidth={2.2} aria-hidden="true" />
                     <p className="text-sm font-semibold leading-5 text-slate-200">{text}</p>
                   </div>
-                ))}
+                ); })}
               </div>
             </div>
 
@@ -2327,7 +2335,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
 
                 let extType = 'Text File';
                 if (isFile) {
-                  const extMatch = name.match(/\.([0-9a-z]+)(?:[\?#]|$)/i);
+                  const extMatch = name.match(/\.([0-9a-z]+)(?:[?#]|$)/i);
                   if (extMatch) {
                     const ext = extMatch[1].toLowerCase();
                     if (ext === 'pdf') extType = 'PDF Document';
@@ -2700,8 +2708,9 @@ const AgentLog = ({ agents }) => {
   const [responseMsgInfo, setResponseMsgInfo] = useState(null);
 
   useEffect(() => {
-    if (agents && agents.length > 0 && !selectedAgentId) {
-      setSelectedAgentId(agents[0].agent_id);
+    if (agents && agents.length > 0) {
+      // Functional update: only defaults when nothing is selected, without depending on selectedAgentId.
+      setSelectedAgentId(prev => prev || agents[0].agent_id);
     }
   }, [agents]);
 
@@ -3150,7 +3159,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
   const [loading, setLoading] = useState(false);
   const [created, setCreated] = useState(false);
-  const [unassigningId, setUnassigningId] = useState(null);
 
   const [toasts, setToasts] = useState([]);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
@@ -3160,7 +3168,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [assignPageModalAgent, setAssignPageModalAgent] = useState(null);
   const [assigningPageId, setAssigningPageId] = useState(null);
   const [customizingAvatarAgent, setCustomizingAvatarAgent] = useState(null);
-  const [localAvatarsTick, setLocalAvatarsTick] = useState(0);
+  const [, setLocalAvatarsTick] = useState(0); // bumped to re-render after avatar changes
   const [creationError, setCreationError] = useState(null);
 
   const handleSaveAvatar = async (updatedConfig, agentId) => {
@@ -3214,8 +3222,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     role: 'All',
     tone: 'All'
   });
-
-  const activeSelectedAgents = JSON.parse(localStorage.getItem('lyfflow_assigned_agents') || '{}');
 
   const filteredAgents = agents.filter(agent => {
     const normalizedQuery = agentQuery.trim().toLowerCase();
@@ -3271,20 +3277,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     }, 4000);
   };
 
-  const handleUnassign = async (agentId) => {
-    setUnassigningId(agentId);
-    try {
-      await apiService.unsetAgentNamespace(agentId);
-      addToast('Agent unassigned successfully', 'success');
-      if (onAgentEdited) onAgentEdited(agentId, { namespace_id: null });
-    } catch (e) {
-      console.error(e);
-      addToast('Failed to unassign: ' + e.message, 'error');
-    } finally {
-      setUnassigningId(null);
-    }
-  };
-
   const getAssignedAgentIdForPage = (page) => {
     try {
       const cached = localStorage.getItem('lyfflow_assigned_agents');
@@ -3292,7 +3284,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         const parsed = JSON.parse(cached);
         if (parsed[page.page_id]) return parsed[page.page_id];
       }
-    } catch (e) {}
+    } catch { /* ignore storage/JSON errors */ }
     if (page.agent_name) {
       const matched = agents.find(a => a.name === page.agent_name);
       if (matched) return matched.agent_id;
@@ -3309,7 +3301,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         const nextState = cached ? JSON.parse(cached) : {};
         nextState[pageId] = agentId;
         localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(nextState));
-      } catch (e) {}
+      } catch { /* ignore storage/JSON errors */ }
       addToast('Agent assigned to page successfully', 'success');
       if (onUpdate) onUpdate();
     } catch (e) {
@@ -3329,7 +3321,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         const nextState = cached ? JSON.parse(cached) : {};
         delete nextState[pageId];
         localStorage.setItem('lyfflow_assigned_agents', JSON.stringify(nextState));
-      } catch (e) {}
+      } catch { /* ignore storage/JSON errors */ }
       addToast('Agent unassigned from page successfully', 'success');
       if (onUpdate) onUpdate();
     } catch (e) {
@@ -3507,17 +3499,14 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         } catch (error) {
           // If the error is about a missing subscription, try to auto-subscribe and retry once
           if (error.status === 403 && (error.message || '').toLowerCase().includes('subscription')) {
-            try {
-              console.log("Subscription missing on create, attempting silent fix...");
-              await apiService.subscribe({ subscription_type: 'FREE', num_months: 120 });
-              // Small delay to ensure DB propagation
-              await new Promise(resolve => setTimeout(resolve, 500));
-              // Retry creation after silent fix
-              const retryAgent = await apiService.createAgent(payload);
-              if (onAgentCreated) onAgentCreated(normalizeAgentResponse(retryAgent));
-            } catch (retryError) {
-              throw retryError; // If it still fails, let the main catch handle it
-            }
+            // If the retry still fails, the error propagates to the main catch
+            console.log("Subscription missing on create, attempting silent fix...");
+            await apiService.subscribe({ subscription_type: 'FREE', num_months: 120 });
+            // Small delay to ensure DB propagation
+            await new Promise(resolve => setTimeout(resolve, 500));
+            // Retry creation after silent fix
+            const retryAgent = await apiService.createAgent(payload);
+            if (onAgentCreated) onAgentCreated(normalizeAgentResponse(retryAgent));
           } else {
             throw error;
           }
@@ -4751,7 +4740,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
         )}
 
         {/* ── THEMES ── no functionality yet */}
-        {false && activeSettings === 'themes' && (
+        {SHOW_UNFINISHED_SETTINGS && activeSettings === 'themes' && (
           <div>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Themes</h3>
             <p style={{ color: '#64748b', fontSize: '13.5px', marginBottom: '24px' }}>Choose a color theme for your dashboard.</p>
@@ -4795,7 +4784,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
         )}
 
         {/* ── WIDGET APPEARANCE ── no functionality yet */}
-        {false && activeSettings === 'widget' && (
+        {SHOW_UNFINISHED_SETTINGS && activeSettings === 'widget' && (
           <form onSubmit={handleWidgetSave}>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Widget Appearance</h3>
             <p style={{ color: '#64748b', fontSize: '13.5px', marginBottom: '24px' }}>Customize how your chat widget looks to visitors.</p>
@@ -4942,7 +4931,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
         )}
 
         {/* ── TEAM MEMBERS ── no functionality yet */}
-        {false && activeSettings === 'team' && (
+        {SHOW_UNFINISHED_SETTINGS && activeSettings === 'team' && (
           <div>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Team Members</h3>
             <p style={{ color: '#64748b', fontSize: '13.5px', marginBottom: '24px' }}>Manage who has access to your workspace.</p>
@@ -5009,20 +4998,14 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
   const maxValue = Number(max);
   const isUnlimited = max === -1 || max == null || !Number.isFinite(maxValue) || maxValue <= 0;
   const targetPercentage = isUnlimited ? 100 : Math.min((usedValue / maxValue) * 100, 100);
+  const reduceMotion = typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [animationProgress, setAnimationProgress] = useState(0);
+  // Restart the fill from empty whenever the gauge is shown or its value changes.
+  useOnKeyChange(`${isActive}|${targetPercentage}|${usedValue}`, () => setAnimationProgress(0));
 
   useEffect(() => {
-    if (!isActive) {
-      setAnimationProgress(0);
-      return undefined;
-    }
+    if (!isActive || reduceMotion) return undefined;
 
-    if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setAnimationProgress(1);
-      return undefined;
-    }
-
-    setAnimationProgress(0);
     let animationFrame;
     let startTime;
     const duration = 1600;
@@ -5037,10 +5020,11 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
 
     animationFrame = window.requestAnimationFrame(animateGauge);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [isActive, targetPercentage, usedValue]);
+  }, [isActive, reduceMotion, targetPercentage, usedValue]);
 
-  const animatedPercentage = targetPercentage * animationProgress;
-  const animatedUsedValue = Math.round(usedValue * animationProgress);
+  const progress = !isActive ? 0 : reduceMotion ? 1 : animationProgress;
+  const animatedPercentage = targetPercentage * progress;
+  const animatedUsedValue = Math.round(usedValue * progress);
   const roundedPercentage = Math.round(animatedPercentage);
 
   return (
@@ -5090,7 +5074,7 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
 const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
   const [subData, setSubData] = useState(initialData);
   const [loading, setLoading] = useState(!initialData);
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);

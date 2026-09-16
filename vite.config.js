@@ -10,7 +10,7 @@ let IS_DEV_BRANCH = false;
 try {
   const branchName = execSync('git branch --show-current', { stdio: 'pipe' }).toString().trim();
   IS_DEV_BRANCH = branchName === 'dev' || branchName.includes('dev');
-} catch (e) {
+} catch {
   IS_DEV_BRANCH = process.env.PORT === '3001' || process.env.DEV_BRANCH === 'true';
 }
 

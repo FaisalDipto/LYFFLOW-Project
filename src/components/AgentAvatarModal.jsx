@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import AgentAvatar from './AgentAvatar';
 import AgentAvatarIcon from './AgentAvatarIcon';
 import { AGENT_AVATAR_ICON_OPTIONS } from './agentAvatarIconOptions';
+import { useOnKeyChange } from '../hooks/useOnKeyChange';
 
 const GRADIENTS = [
   { id: 'cosmic', label: 'Cosmic Indigo', value: 'linear-gradient(135deg, #6366F1, #A855F7)' },
@@ -27,38 +28,36 @@ const GRADIENTS = [
   { id: 'deep_violet', label: 'Deep Violet', value: 'linear-gradient(135deg, #310E68, #5F0A87)' }
 ];
 
-export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
-  const [selectedIcon, setSelectedIcon] = useState('smart_toy');
-  const [selectedGradient, setSelectedGradient] = useState(GRADIENTS[0].value);
-  const [selectedShape, setSelectedShape] = useState('circle');
+const readAvatarConfig = (agent) => {
+  let existing = agent?.avatar_config;
+  if (!existing && agent?.agent_id) {
+    try {
+      const localMap = JSON.parse(localStorage.getItem('lyfflow_agent_avatars') || '{}');
+      existing = localMap[agent.agent_id];
+    } catch { /* ignore */ }
+  }
+  return {
+    icon: existing?.icon || 'smart_toy',
+    gradient: existing?.gradient || GRADIENTS[0].value,
+    shape: existing?.shape || 'circle',
+  };
+};
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => {
-    if (agent) {
-      let existing = agent.avatar_config;
-      if (!existing && agent.agent_id) {
-        try {
-          const localMap = JSON.parse(localStorage.getItem('lyfflow_agent_avatars') || '{}');
-          existing = localMap[agent.agent_id];
-        } catch { /* ignore */ }
-      }
-      if (existing) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectedIcon(existing.icon || 'smart_toy');
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectedGradient(existing.gradient || GRADIENTS[0].value);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectedShape(existing.shape || 'circle');
-      } else {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectedIcon('smart_toy');
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectedGradient(GRADIENTS[0].value);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectedShape('circle');
-      }
-    }
-  }, [agent, isOpen]);
+export const AgentAvatarModal = ({ agent, isOpen, onClose, onSave }) => {
+  const [selectedIcon, setSelectedIcon] = useState(() => readAvatarConfig(agent).icon);
+  const [selectedGradient, setSelectedGradient] = useState(() => readAvatarConfig(agent).gradient);
+  const [selectedShape, setSelectedShape] = useState(() => readAvatarConfig(agent).shape);
+
+  // Reload the saved avatar whenever a different agent is shown or the modal is reopened.
+  const syncFromAgent = () => {
+    if (!agent) return;
+    const config = readAvatarConfig(agent);
+    setSelectedIcon(config.icon);
+    setSelectedGradient(config.gradient);
+    setSelectedShape(config.shape);
+  };
+  useOnKeyChange(agent, syncFromAgent);
+  useOnKeyChange(isOpen, syncFromAgent);
 
   if (!isOpen || !agent) return null;
 
