@@ -107,6 +107,58 @@ const mockData = {
       updated_at: new Date().toISOString()
     }
   },
+  '/v1/pathao/connect': {
+    status: true,
+    message: 'Pathao account connected successfully.',
+    webhook_url: 'https://api.lyfflow.com/v1/pathao/webhook/mock-user',
+    auth_token: 'mock_pathao_webhook_token'
+  },
+  '/v1/pathao/orders/{order_id}/prefill': {
+    invoice: 'INV-1001',
+    recipient_name: 'John Doe',
+    recipient_phone: '01700000000',
+    recipient_address: 'House 12, Road 5, Dhanmondi, Dhaka',
+    amount_to_collect: 1250,
+    item_quantity: 1,
+    item_weight: 0.5,
+    item_description: 'Customer order items',
+    special_instruction: 'Please call before delivery.',
+    delivery_type: 48,
+    item_type: 2
+  },
+  '/v1/pathao/orders/{order_id}/place': {
+    message: 'Order Created Successfully',
+    type: 'success',
+    code: 200,
+    data: { consignment_id: 'DL121224VS8TTJ', merchant_order_id: 'INV-1001', order_status: 'Pending', delivery_fee: 80 }
+  },
+  '/v1/pathao/orders/{consignment_id}/info': {
+    message: 'Order info',
+    type: 'success',
+    code: 200,
+    data: { consignment_id: 'DL121224VS8TTJ', merchant_order_id: 'INV-1001', order_status: 'Pending', order_status_slug: 'Pending', updated_at: new Date().toISOString(), invoice_id: null, payment_status: 'Unpaid' }
+  },
+  '/v1/pathao/price-plan': {
+    price: 80, discount: 0, promo_discount: 0, plan_id: 69, cod_enabled: 1, cod_percentage: 0.01, additional_charge: 0, final_price: 80
+  },
+  '/v1/pathao/stores': {
+    data: [
+      { store_id: 1001, store_name: 'Main Store', store_address: 'Banani, Dhaka', is_active: 1, city_id: 1, zone_id: 1, is_default_store: true },
+      { store_id: 1002, store_name: 'Chattogram Outlet', store_address: 'GEC Circle, Chattogram', is_active: 1, city_id: 2, zone_id: 3, is_default_store: false }
+    ],
+    total: 2
+  },
+  '/v1/pathao/locations': {
+    data: [
+      { city_id: 1, city_name: 'Dhaka', zones: [
+        { zone_id: 1, zone_name: 'Banani', areas: [{ area_id: 11, area_name: 'Road 11' }, { area_id: 12, area_name: 'Kamal Ataturk Avenue' }] },
+        { zone_id: 2, zone_name: 'Dhanmondi', areas: [{ area_id: 21, area_name: 'Road 27' }] }
+      ] },
+      { city_id: 2, city_name: 'Chattogram', zones: [
+        { zone_id: 3, zone_name: 'Agrabad', areas: [{ area_id: 31, area_name: 'CDA Avenue' }] }
+      ] }
+    ]
+  },
   '/v1/page/page_1/conversations': {
     conversations: [
       { id: 'conv_1', conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', updated_time: new Date().toISOString(), profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
@@ -272,11 +324,11 @@ const apiFetch = async (endpoint, options = {}) => {
     }
     
     // Exact match, supported dynamic route, or partial match for dynamic IDs
-    const steadfastOrderAction = endpoint.match(/^\/v1\/steadfast\/orders\/[^/]+\/(prefill|place)$/)?.[1];
-    const steadfastOrderMock = steadfastOrderAction
-      ? mockData[`/v1/steadfast/orders/{order_id}/${steadfastOrderAction}`]
+    const courierOrderMatch = endpoint.match(/^\/v1\/(steadfast|pathao)\/orders\/[^/]+\/(prefill|place|info)$/);
+    const courierOrderMock = courierOrderMatch
+      ? mockData[`/v1/${courierOrderMatch[1]}/orders/{${courierOrderMatch[2] === 'info' ? 'consignment_id' : 'order_id'}}/${courierOrderMatch[2]}`]
       : null;
-    const mockResponse = mockData[endpoint] || steadfastOrderMock ||
+    const mockResponse = mockData[endpoint] || courierOrderMock ||
                          Object.entries(mockData).find(([k]) => endpoint.startsWith(k))?.[1];
 
     if (mockResponse) return mockResponse;
@@ -583,6 +635,32 @@ export const apiService = {
       body: JSON.stringify(orderData),
     }
   ),
+  connectPathao: (credentials) => apiFetch('/v1/pathao/connect', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  }),
+  getPathaoOrderPrefill: (orderId) => apiFetch(
+    `/v1/pathao/orders/${encodeURIComponent(orderId)}/prefill`
+  ),
+  placePathaoOrder: (orderId, orderData) => apiFetch(
+    `/v1/pathao/orders/${encodeURIComponent(orderId)}/place`,
+    {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    }
+  ),
+  getPathaoOrderInfo: (consignmentId) => apiFetch(
+    `/v1/pathao/orders/${encodeURIComponent(consignmentId)}/info`
+  ),
+  // Price quotes don't change server data, so keep cached stores/locations.
+  calculatePathaoPrice: (priceData) => apiFetch('/v1/pathao/price-plan', {
+    method: 'POST',
+    body: JSON.stringify(priceData),
+    preserveGetCache: true,
+  }),
+  getPathaoStores: () => apiFetch('/v1/pathao/stores', { cacheTtl: 60000 }),
+  // City > zone > area hierarchy; large and rarely changes.
+  getPathaoLocations: () => apiFetch('/v1/pathao/locations', { cacheTtl: 3600000 }),
 
   // General AI Chat
   aiChat: (prompt) => apiFetch(`/v1/chat?prompt=${encodeURIComponent(prompt)}`, {

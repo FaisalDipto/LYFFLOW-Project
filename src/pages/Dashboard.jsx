@@ -1,4 +1,4 @@
-﻿import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap, Package, FileText } from 'lucide-react';
+﻿import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap, Package, FileText, Truck, Bike, PackageCheck } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -17,6 +17,8 @@ import '../styles/dashboard-theme.css';
 const AgentAvatarModal = lazy(() => import('../components/AgentAvatarModal'));
 const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
 const ProductsTab = lazy(() => import('../components/ProductsTab'));
+const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCourier'));
+const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
 // Themes, Widget Appearance and Team Members settings have no backend yet; flip to show them.
@@ -5865,6 +5867,16 @@ export default function Dashboard() {
         {(visitedTabsRef.current.has('knowledge-products') || visitedTabsRef.current.has('knowledge-documents')) && <div style={{ display: (activeTab === 'knowledge-products' || activeTab === 'knowledge-documents') ? 'contents' : 'none' }}>
           <Knowledge namespaces={namespaces} onUpdate={refreshNamespaces} activeSection={activeTab === 'knowledge-products' ? 'products' : 'documents'} />
         </div>}
+        {visitedTabsRef.current.has('courier-steadfast') && <div style={{ display: activeTab === 'courier-steadfast' ? 'contents' : 'none' }}>
+          <Suspense fallback={<AppLoadingScreen />}>
+            <SteadfastCourier pages={pages} />
+          </Suspense>
+        </div>}
+        {visitedTabsRef.current.has('courier-pathao') && <div style={{ display: activeTab === 'courier-pathao' ? 'contents' : 'none' }}>
+          <Suspense fallback={<AppLoadingScreen />}>
+            <PathaoCourier pages={pages} />
+          </Suspense>
+        </div>}
         {visitedTabsRef.current.has('agent') && <div style={{ display: activeTab === 'agent' ? 'contents' : 'none' }}>
           <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={refreshAgentWorkspace} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />
         </div>}
@@ -5904,6 +5916,15 @@ export default function Dashboard() {
       children: [
         { id: 'knowledge-products', icon: Package, label: 'Products' },
         { id: 'knowledge-documents', icon: FileText, label: 'Documents' },
+      ],
+    },
+    {
+      id: 'courier',
+      icon: Truck,
+      label: 'Courier',
+      children: [
+        { id: 'courier-steadfast', icon: PackageCheck, label: 'Steadfast' },
+        { id: 'courier-pathao', icon: Bike, label: 'Pathao' },
       ],
     }
   ];
