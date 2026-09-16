@@ -5694,7 +5694,8 @@ export default function Dashboard() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isCustomerRecordsExpanded, setIsCustomerRecordsExpanded] = useState(false);
+  // Expanded state per collapsible nav group, keyed by item id (e.g. { 'customer-records': true }).
+  const [expandedNavGroups, setExpandedNavGroups] = useState({});
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -5981,14 +5982,15 @@ export default function Dashboard() {
           {primaryNavItems.map(item => {
             const hasChildren = Array.isArray(item.children) && item.children.length > 0;
             const hasActiveChild = hasChildren && item.children.some(child => child.id === activeTab);
+            const isExpanded = Boolean(expandedNavGroups[item.id]);
 
             if (hasChildren) {
               return (
                 <div key={item.id}>
                   <button
                     type="button"
-                    onClick={() => setIsCustomerRecordsExpanded(expanded => !expanded)}
-                    aria-expanded={isCustomerRecordsExpanded}
+                    onClick={() => setExpandedNavGroups(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
+                    aria-expanded={isExpanded}
                     className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${hasActiveChild
                       ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
                       : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
@@ -5999,10 +6001,10 @@ export default function Dashboard() {
                       <item.icon size={17} strokeWidth={2.2} />
                     </span>
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    <ChevronDown size={15} className={`shrink-0 transition-transform duration-200 ${isCustomerRecordsExpanded ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={15} className={`shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                   </button>
 
-                  {isCustomerRecordsExpanded && (
+                  {isExpanded && (
                     <div className="ml-5 mt-1 space-y-1 border-l border-white/[0.1] pl-3">
                       {item.children.map(child => (
                         <button
