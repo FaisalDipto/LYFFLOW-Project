@@ -248,7 +248,7 @@ export default function CheckpointerDebugModal({ conversationId, onClose }) {
                     <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Tokens</p>
                       <p className="text-lg font-black text-indigo-600 mt-1">{fmtNum(state.total_tokens)}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">In: {fmtNum(state.input_tokens)} · Out: {fmtNum(state.output_tokens)}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">In: {fmtNum(state.input_tokens)} {'\u00B7'} Out: {fmtNum(state.output_tokens)}</p>
                     </div>
                     <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Human Handover</p>
@@ -446,7 +446,7 @@ export default function CheckpointerDebugModal({ conversationId, onClose }) {
                                       )}
                                     </div>
                                     <p className="text-[11px] text-slate-400 font-mono truncate mt-0.5">
-                                      ID: {safeStr(msg.id || `msg_${idx}`)} {msg.artifact ? `· Artifact: ${safeStr(msg.artifact)}` : ''}
+                                      ID: {safeStr(msg.id || `msg_${idx}`)} {msg.artifact ? `\u00B7 Artifact: ${safeStr(msg.artifact)}` : ''}
                                     </p>
                                   </div>
                                 </div>

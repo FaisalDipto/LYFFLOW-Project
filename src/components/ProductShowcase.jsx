@@ -69,10 +69,10 @@ const AGENTS = [
 ];
 
 const KB_ITEMS = [
-  { icon: 'picture_as_pdf', name: 'Brand Guidelines.pdf', meta: 'File · 2.4 MB',  color: '#ef4444', type: 'file' },
-  { icon: 'text_snippet',   name: 'FAQ – General',        meta: 'Text · 1.2 KB',  color: '#6366f1', type: 'text' },
-  { icon: 'description',    name: 'Product Catalog.docx', meta: 'File · 856 KB',  color: '#0ea5e9', type: 'file' },
-  { icon: 'text_snippet',   name: 'Pricing Policy',       meta: 'Text · 640 B',   color: '#6366f1', type: 'text' },
+  { icon: 'picture_as_pdf', name: 'Brand Guidelines.pdf', meta: 'File \u00B7 2.4 MB',  color: '#ef4444', type: 'file' },
+  { icon: 'text_snippet',   name: 'FAQ – General',        meta: 'Text \u00B7 1.2 KB',  color: '#6366f1', type: 'text' },
+  { icon: 'description',    name: 'Product Catalog.docx', meta: 'File \u00B7 856 KB',  color: '#0ea5e9', type: 'file' },
+  { icon: 'text_snippet',   name: 'Pricing Policy',       meta: 'Text \u00B7 640 B',   color: '#6366f1', type: 'text' },
 ];
 
 const PAGES = [

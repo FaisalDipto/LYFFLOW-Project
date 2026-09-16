@@ -1417,7 +1417,7 @@ const ConversationList = ({ pages, user }) => {
 
             <footer className="border-t border-slate-200 bg-white p-3 md:p-4 lg:px-6">
               <div className="mx-auto flex max-w-4xl items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5 pl-4 transition-all focus-within:border-emerald-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
-                {/* Attach file button Ã¢â‚¬â€ no functionality yet
+                {/* Attach file button — no functionality yet
                 <button className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors">
                   <span className="material-symbols-outlined">attach_file</span>
                 </button>
@@ -1431,7 +1431,7 @@ const ConversationList = ({ pages, user }) => {
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 />
                 <div className="flex items-center">
-                  {/* Emoji button Ã¢â‚¬â€ no functionality yet
+                  {/* Emoji button — no functionality yet
                   <button className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors">
                     <span className="material-symbols-outlined">mood</span>
                   </button>
@@ -1732,7 +1732,7 @@ const FeedbackPanel = () => {
             {submitted && (
               <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
                 <CheckCircle2 size={20} className="mt-0.5 shrink-0" />
-                <div><p className="text-sm font-extrabold">Feedback submitted</p><p className="mt-0.5 text-xs font-medium text-emerald-700">Thank youÃ¢â‚¬â€your feedback is now with our team.</p></div>
+                <div><p className="text-sm font-extrabold">Feedback submitted</p><p className="mt-0.5 text-xs font-medium text-emerald-700">Thank you—your feedback is now with our team.</p></div>
               </div>
             )}
 
@@ -2161,7 +2161,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
                 backgroundColor: t.type === 'success' ? '#10b981' : t.type === 'error' ? '#ef4444' : t.type === 'delete' ? '#f43f5e' : '#0ea5e9',
               }}>
                 <div style={{ marginRight: '12px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '50%' }}>
-                  {t.type === 'success' ? 'Ã¢Å“â€œ' : t.type === 'error' ? '!' : t.type === 'delete' ? 'Ã¢Å“â€¢' : 'Ã¢â€žÂ¹'}
+                  {t.type === 'success' ? '✓' : t.type === 'error' ? '!' : t.type === 'delete' ? '✕' : 'ℹ'}
                 </div>
                 {t.message}
               </div>
@@ -2356,7 +2356,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
                       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isFile ? 'bg-blue-50 text-blue-600' : 'bg-violet-50 text-violet-600'}`}>
                         <span className="material-symbols-outlined text-[20px]">{isFile ? 'description' : 'text_snippet'}</span>
                       </div>
-                      <div className="min-w-0"><p className="truncate text-sm font-extrabold text-slate-900">{name}</p><p className="mt-0.5 truncate text-[11px] text-slate-400 md:hidden">{extType} Ã‚Â· {displaySize}</p></div>
+                      <div className="min-w-0"><p className="truncate text-sm font-extrabold text-slate-900">{name}</p><p className="mt-0.5 truncate text-[11px] text-slate-400 md:hidden">{extType} {'\u00B7'} {displaySize}</p></div>
                     </div>
 
                     <div className="hidden text-xs font-bold text-slate-600 md:block">{extType}</div>
@@ -2553,7 +2553,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
                       <div style={{ marginTop: '16px', textAlign: 'left', background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', maxHeight: '120px', overflowY: 'auto', position: 'relative', zIndex: 10 }}>
                         {Array.from(selectedFiles).map((file, idx) => (
                           <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#334155', padding: '4px 0', borderBottom: idx < selectedFiles.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Ã¢Å“â€œ {file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
+                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>✓ {file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -2564,7 +2564,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
                               style={{ background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, marginLeft: '8px' }}
                               title="Remove File"
                             >
-                              Ã¢Å“â€¢
+                              ✕
                             </button>
                           </div>
                         ))}
@@ -2603,7 +2603,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
               backgroundColor: t.type === 'success' ? '#10b981' : t.type === 'error' ? '#ef4444' : t.type === 'delete' ? '#f43f5e' : '#0ea5e9',
             }}>
               <div style={{ marginRight: '12px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '50%' }}>
-                {t.type === 'success' ? 'Ã¢Å“â€œ' : t.type === 'error' ? '!' : t.type === 'delete' ? 'Ã¢Å“â€¢' : 'Ã¢â€žÂ¹'}
+                {t.type === 'success' ? '✓' : t.type === 'error' ? '!' : t.type === 'delete' ? '✕' : 'ℹ'}
               </div>
               {t.message}
             </div>
@@ -2682,9 +2682,9 @@ const normalizeAgentResponse = (agent = {}) => ({
   language: agent.language || agent.agent_language,
 });
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+/* ─────────────────────────────────────────
    AGENT LOG COMPONENT
-Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+───────────────────────────────────────── */
 const AgentLog = ({ agents }) => {
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [activities, setActivities] = useState([]);
@@ -2780,10 +2780,10 @@ const AgentLog = ({ agents }) => {
     error:   { bg: 'bg-red-100',     text: 'text-red-700',     dot: 'bg-red-500',     label: 'Error'   },
     pending: { bg: 'bg-amber-100',   text: 'text-amber-700',   dot: 'bg-amber-400',   label: 'Pending' },
   };
-  const getStatusCfg = (s) => statusConfig[s?.toLowerCase()] || { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400', label: s || 'Ã¢â‚¬â€' };
+  const getStatusCfg = (s) => statusConfig[s?.toLowerCase()] || { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400', label: s || '—' };
 
   const fmt = (ts) => {
-    if (!ts) return 'Ã¢â‚¬â€';
+    if (!ts) return '—';
     const d = new Date(ts);
     return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
@@ -2804,7 +2804,7 @@ const AgentLog = ({ agents }) => {
         <div>
           <span className="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-[#45464d] mb-2 block font-bold">Audit Trail</span>
           <h2 className="text-3xl font-extrabold tracking-tight text-[#000000] font-['Epilogue']">Agent Log</h2>
-          <p className="text-sm text-[#45464d] mt-2 max-w-md">Every decision your agent makes Ã¢â‚¬â€ trigger, response, handover, and timing Ã¢â‚¬â€ recorded here.</p>
+          <p className="text-sm text-[#45464d] mt-2 max-w-md">Every decision your agent makes — trigger, response, handover, and timing — recorded here.</p>
         </div>
         <div className="flex gap-2">
           <button 
@@ -2863,7 +2863,7 @@ const AgentLog = ({ agents }) => {
               >
                 {/* Activity ID */}
                 <span className="font-mono text-xs text-slate-500 font-semibold truncate" title={act.activity_id}>
-                  {act.activity_id ? (act.activity_id.length > 12 ? `${act.activity_id.slice(0, 8)}...` : act.activity_id) : 'Ã¢â‚¬â€'}
+                  {act.activity_id ? (act.activity_id.length > 12 ? `${act.activity_id.slice(0, 8)}...` : act.activity_id) : '—'}
                 </span>
                 {/* Status */}
                 <div className="flex items-center gap-2.5">
@@ -2877,7 +2877,7 @@ const AgentLog = ({ agents }) => {
                 </div>
                 {/* Response Time */}
                 <span className="text-sm font-semibold text-slate-700">
-                  {act.response_time_ms != null ? `${act.response_time_ms} ms` : 'Ã¢â‚¬â€'}
+                  {act.response_time_ms != null ? `${act.response_time_ms} ms` : '—'}
                 </span>
                 {/* Handover */}
                 <div>
@@ -2957,7 +2957,7 @@ const AgentLog = ({ agents }) => {
                       { label: 'Activity ID',    value: selectedActivity.activity_id, alwaysShow: true },
                       { label: 'Agent Name',     value: selectedActivity.agent_name },
                       { label: 'Status',         value: selectedActivity.status, alwaysShow: true },
-                      { label: 'Response Time',  value: selectedActivity.response_time_ms != null ? `${selectedActivity.response_time_ms} ms` : 'Ã¢â‚¬â€', alwaysShow: true },
+                      { label: 'Response Time',  value: selectedActivity.response_time_ms != null ? `${selectedActivity.response_time_ms} ms` : '—', alwaysShow: true },
                       { label: 'Completion Time',value: selectedActivity.agent_completion_time_ms != null ? `${selectedActivity.agent_completion_time_ms} ms` : null },
                       { label: 'Total Tokens',   value: selectedActivity.total_tokens ?? (selectedActivity.input_tokens != null ? `${selectedActivity.input_tokens} in / ${selectedActivity.output_tokens || 0} out` : null) },
                       { label: 'Tools Used',     value: Array.isArray(selectedActivity.tools_used) ? selectedActivity.tools_used.join(', ') : selectedActivity.tools_used },
@@ -2966,10 +2966,10 @@ const AgentLog = ({ agents }) => {
                       { label: 'Handover Reason',value: selectedActivity.human_handover_reason },
                       { label: 'Knowledge Used', value: Array.isArray(selectedActivity.knowledge_source) ? selectedActivity.knowledge_source.join(', ') : selectedActivity.knowledge_source },
                       { label: 'Created At',     value: fmt(selectedActivity.created_at), alwaysShow: true },
-                    ].filter(item => item.alwaysShow || (item.value != null && item.value !== '' && item.value !== 'Ã¢â‚¬â€')).map(({ label, value }) => (
+                    ].filter(item => item.alwaysShow || (item.value != null && item.value !== '' && item.value !== '—')).map(({ label, value }) => (
                       <li key={label} className="flex items-start gap-3">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-32 shrink-0 pt-0.5">{label}</span>
-                        <span className="text-xs font-semibold text-slate-800 break-all">{String(value != null ? value : 'Ã¢â‚¬â€')}</span>
+                        <span className="text-xs font-semibold text-slate-800 break-all">{String(value != null ? value : '—')}</span>
                       </li>
                     ))}
                   </ul>
@@ -2985,7 +2985,7 @@ const AgentLog = ({ agents }) => {
                       <ul className="space-y-3">
                         {[
                           { label: 'ID',           value: convInfo.conversation_id },
-                          { label: 'Name',         value: convInfo.name || 'Ã¢â‚¬â€' },
+                          { label: 'Name',         value: convInfo.name || '—' },
                           { label: 'Human Needed', value: convInfo.is_human_needed ? 'Yes' : 'No' },
                           { label: 'Updated',      value: fmt(convInfo.updated_time) },
                         ].map(({ label, value }) => (
@@ -3017,7 +3017,7 @@ const AgentLog = ({ agents }) => {
                               <span>Role: {msg.role || 'user'}</span>
                               <span>{fmt(msg.created_at)}</span>
                             </div>
-                            <p className="text-xs font-semibold text-slate-800 whitespace-pre-wrap">{msg.content || msg.message || 'Ã¢â‚¬â€'}</p>
+                            <p className="text-xs font-semibold text-slate-800 whitespace-pre-wrap">{msg.content || msg.message || '—'}</p>
                             {msg.attachments?.length > 0 && (
                               <div className="pt-2 flex flex-wrap gap-2">
                                 {msg.attachments.map((att, i) => {
@@ -3042,8 +3042,8 @@ const AgentLog = ({ agents }) => {
                       <ul className="space-y-3">
                         {[
                           { label: 'Message ID',    value: triggerMsgInfo.message_id },
-                          { label: 'Content',       value: triggerMsgInfo.message || 'Ã¢â‚¬â€' },
-                          { label: 'Role',          value: triggerMsgInfo.role || 'Ã¢â‚¬â€' },
+                          { label: 'Content',       value: triggerMsgInfo.message || '—' },
+                          { label: 'Role',          value: triggerMsgInfo.role || '—' },
                           { label: 'Has Attachment',value: triggerMsgInfo.has_attachment ? 'Yes' : 'No' },
                           { label: 'Sent At',       value: fmt(triggerMsgInfo.created_at) },
                         ].map(({ label, value }) => (
@@ -3073,7 +3073,7 @@ const AgentLog = ({ agents }) => {
                               <span>Role: {msg.role || 'assistant'}</span>
                               <span>{fmt(msg.created_at)}</span>
                             </div>
-                            <p className="text-xs font-semibold text-slate-800 whitespace-pre-wrap">{msg.content || msg.message || 'Ã¢â‚¬â€'}</p>
+                            <p className="text-xs font-semibold text-slate-800 whitespace-pre-wrap">{msg.content || msg.message || '—'}</p>
                             {msg.attachments?.length > 0 && (
                               <div className="pt-2 flex flex-wrap gap-2">
                                 {msg.attachments.map((att, i) => {
@@ -3098,8 +3098,8 @@ const AgentLog = ({ agents }) => {
                       <ul className="space-y-3">
                         {[
                           { label: 'Message ID',    value: responseMsgInfo.message_id },
-                          { label: 'Content',       value: responseMsgInfo.message || 'Ã¢â‚¬â€' },
-                          { label: 'Role',          value: responseMsgInfo.role || 'Ã¢â‚¬â€' },
+                          { label: 'Content',       value: responseMsgInfo.message || '—' },
+                          { label: 'Role',          value: responseMsgInfo.role || '—' },
                           { label: 'Is AI Message', value: responseMsgInfo.is_ai_msg ? 'Yes' : 'No' },
                           { label: 'Has Attachment',value: responseMsgInfo.has_attachment ? 'Yes' : 'No' },
                           { label: 'Sent At',       value: fmt(responseMsgInfo.created_at) },
@@ -3566,7 +3566,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             backgroundColor: t.type === 'success' ? '#10b981' : t.type === 'error' ? '#ef4444' : t.type === 'delete' ? '#ef4444' : '#0ea5e9'
           }}>
             <div style={{ marginRight: '12px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '50%' }}>
-              {t.type === 'success' ? 'Ã¢Å“â€œ' : t.type === 'error' ? '!' : t.type === 'delete' ? 'Ã¢Å“â€¢' : 'Ã¢â€žÂ¹'}
+              {t.type === 'success' ? '✓' : t.type === 'error' ? '!' : t.type === 'delete' ? '✕' : 'ℹ'}
             </div>
             {t.message}
           </div>
@@ -3739,7 +3739,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               Assign &quot;{assignPageModalAgent.name}&quot; to Page
             </h3>
           </div>
-          <button onClick={() => setAssignPageModalAgent(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: '#64748b', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Ãƒâ€”</button>
+          <button onClick={() => setAssignPageModalAgent(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: '#64748b', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
         <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px', marginTop: 0 }}>
           Select a connected page to handle customer messaging with this AI agent.
@@ -3771,7 +3771,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       </span>
                     </div>
                     <span style={{ fontSize: '11px', fontWeight: 600, color: isThisAgentAssigned ? '#059669' : (currentAssignedId ? '#d97706' : '#64748b') }}>
-                      {isThisAgentAssigned ? 'Ã¢Å“â€œ Currently assigned to this agent' : (currentAssignedId ? `Assigned to: ${otherAgent?.name || 'Another Agent'}` : 'Not assigned')}
+                      {isThisAgentAssigned ? '✓ Currently assigned to this agent' : (currentAssignedId ? `Assigned to: ${otherAgent?.name || 'Another Agent'}` : 'Not assigned')}
                     </span>
                   </div>
 
@@ -3968,7 +3968,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                   </div>
 
                   <h3 className="truncate text-base font-extrabold leading-tight text-slate-950">{agent.name}</h3>
-                  <p className="mt-1 truncate text-xs font-medium text-slate-500">{agent.role || 'General Agent'}{agent.tone ? ` Ã‚Â· ${agent.tone}` : ''}</p>
+                  <p className="mt-1 truncate text-xs font-medium text-slate-500">{agent.role || 'General Agent'}{agent.tone ? ` \u00B7 ${agent.tone}` : ''}</p>
 
                   <div className="my-4 grid grid-cols-2 gap-2">
                     <div className="rounded-xl bg-slate-50 px-3 py-2.5">
@@ -4283,7 +4283,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                 Agent Name * {(attemptedSubmit && !agentName.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
               </label>
               <span style={{ fontSize: '12px', fontWeight: 600, color: agentName.length > 30 ? '#ef4444' : '#64748b' }}>
-                {agentName.length}/30 {agentName.length > 30 && 'Ã¢â‚¬Â¢ Limit exceeded!'}
+                {agentName.length}/30 {agentName.length > 30 && '• Limit exceeded!'}
               </span>
             </div>
             <input type="text" placeholder="e.g. Sales Bot" value={agentName} onChange={(e) => setAgentName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
@@ -4294,7 +4294,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                 Business Name * {(attemptedSubmit && !businessName.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
               </label>
               <span style={{ fontSize: '12px', fontWeight: 600, color: businessName.length > 100 ? '#ef4444' : '#64748b' }}>
-                {businessName.length}/100 {businessName.length > 100 && 'Ã¢â‚¬Â¢ Limit exceeded!'}
+                {businessName.length}/100 {businessName.length > 100 && '• Limit exceeded!'}
               </span>
             </div>
             <input type="text" placeholder="Your Company Ltd" value={businessName} onChange={(e) => setBusinessName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
@@ -4373,7 +4373,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               Business Description * {(attemptedSubmit && !businessDesc.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
             </label>
             <span style={{ fontSize: '12px', fontWeight: 600, color: businessDesc.length > 500 ? '#ef4444' : '#64748b' }}>
-              {businessDesc.length}/500 {businessDesc.length > 500 && 'Ã¢â‚¬Â¢ Limit exceeded!'}
+              {businessDesc.length}/500 {businessDesc.length > 500 && '• Limit exceeded!'}
             </span>
           </div>
           <textarea placeholder="What does your business do? How should the agent ground its suggestions?" value={businessDesc} onChange={(e) => setBusinessDesc(e.target.value)} rows="3" style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
@@ -4386,7 +4386,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               {!isEditing && <p className="mt-1 text-xs font-medium text-emerald-700">Prepared from your answers. Review and edit anything you want.</p>}
             </div>
             <span style={{ fontSize: '12px', fontWeight: 600, color: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '#ef4444' : '#64748b' }}>
-              {(instructions || '').length}/{AGENT_INSTRUCTIONS_LIMIT} {(instructions || '').length > AGENT_INSTRUCTIONS_LIMIT && 'Ã¢â‚¬Â¢ Limit exceeded!'}
+              {(instructions || '').length}/{AGENT_INSTRUCTIONS_LIMIT} {(instructions || '').length > AGENT_INSTRUCTIONS_LIMIT && '• Limit exceeded!'}
             </span>
           </div>
           <textarea placeholder="e.g. Always end conversations with 'Have a great day!'" value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={isEditing ? 3 : 6} style={{ width: '100%', padding: '12px 14px', border: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6 }} />
@@ -4396,7 +4396,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Fallback Message (Optional)</label>
             <span style={{ fontSize: '12px', fontWeight: 600, color: (fallbackMessage || '').length > 250 ? '#ef4444' : '#64748b' }}>
-              {(fallbackMessage || '').length}/250 {(fallbackMessage || '').length > 250 && 'Ã¢â‚¬Â¢ Limit exceeded!'}
+              {(fallbackMessage || '').length}/250 {(fallbackMessage || '').length > 250 && '• Limit exceeded!'}
             </span>
           </div>
           <textarea placeholder="e.g. I'm not sure about that, let me connect you with someone who can help." value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} rows="2" style={{ width: '100%', padding: '12px 14px', border: (fallbackMessage || '').length > 250 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (fallbackMessage || '').length > 250 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
@@ -4421,9 +4421,9 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   );
 };
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+/* ─────────────────────────────────────────
    SETTINGS PANEL
-Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+───────────────────────────────────────── */
 const THEMES = [
   { id: 'sky', label: 'Sky Blue', primary: '#87CEEB', accent: '#0ea5e9' },
   { id: 'slate', label: 'Slate', primary: '#94a3b8', accent: '#475569' },
@@ -4442,7 +4442,7 @@ const INITIAL_TEAM = [
 const SettingsPanel = ({ user, onUpdate }) => {
   const [activeSettings, setActiveSettings] = useState('profile');
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Profile state Ã¢â€â‚¬Ã¢â€â‚¬
+  // ── Profile state ──
   const [firstName, setFirstName] = useState(user?.first_name || '');
   const [lastName, setLastName] = useState(user?.last_name || '');
   const [displayName, setDisplayName] = useState(user?.display_name || '');
@@ -4524,7 +4524,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
     }
   };
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Themes state Ã¢â€â‚¬Ã¢â€â‚¬
+  // ── Themes state ──
   const [selectedTheme, setSelectedTheme] = useState('sky');
   const [themeSaved, setThemeSaved] = useState(false);
 
@@ -4542,7 +4542,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
 
   const [widgetSaved, setWidgetSaved] = useState(false);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Team Members state Ã¢â€â‚¬Ã¢â€â‚¬
+  // ── Team Members state ──
   const [team, setTeam] = useState(INITIAL_TEAM);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('Agent');
@@ -4612,7 +4612,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
 
       <div style={{ padding: '32px', maxWidth: '600px' }}>
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ PROFILE Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* ── PROFILE ── */}
         {activeSettings === 'profile' && (
           <form onSubmit={handleProfileSave}>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Profile Information</h3>
@@ -4645,7 +4645,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
               disabled={profileSaving}
               style={{ marginTop: '16px', backgroundColor: profileSaved ? '#22c55e' : 'var(--text-primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: profileSaving ? 'not-allowed' : 'pointer', transition: 'background-color 0.25s' }}
             >
-              {profileSaving ? 'Saving...' : profileSaved ? 'Ã¢Å“â€œ Profile Updated!' : 'Save Changes'}
+              {profileSaving ? 'Saving...' : profileSaved ? '✓ Profile Updated!' : 'Save Changes'}
             </button>
           </form>
         )}
@@ -4750,7 +4750,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
           </div>
         )}
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ THEMES Ã¢â€â‚¬Ã¢â€â‚¬ no functionality yet */}
+        {/* ── THEMES ── no functionality yet */}
         {false && activeSettings === 'themes' && (
           <div>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Themes</h3>
@@ -4789,12 +4789,12 @@ const SettingsPanel = ({ user, onUpdate }) => {
               className="btn-submit"
               style={{ marginTop: '28px', backgroundColor: themeSaved ? '#22c55e' : 'var(--text-primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'background-color 0.25s' }}
             >
-              {themeSaved ? 'Ã¢Å“â€œ Theme Applied!' : 'Apply Theme'}
+              {themeSaved ? '✓ Theme Applied!' : 'Apply Theme'}
             </button>
           </div>
         )}
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ WIDGET APPEARANCE Ã¢â€â‚¬Ã¢â€â‚¬ no functionality yet */}
+        {/* ── WIDGET APPEARANCE ── no functionality yet */}
         {false && activeSettings === 'widget' && (
           <form onSubmit={handleWidgetSave}>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Widget Appearance</h3>
@@ -4852,7 +4852,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
                     type="text"
                     value={widgetGreeting}
                     onChange={e => setWidgetGreeting(e.target.value)}
-                    placeholder="Hi there Ã°Å¸â€˜â€¹ How can we help you?"
+                    placeholder="Hi there 👋 How can we help you?"
                   />
                 </div>
 
@@ -4872,7 +4872,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
                           transition: 'all 0.15s',
                         }}
                       >
-                        {pos === 'bottom-right' ? 'Ã¢â€ Ëœ Bottom Right' : 'Ã¢â€ â„¢ Bottom Left'}
+                        {pos === 'bottom-right' ? '↘ Bottom Right' : '↙ Bottom Left'}
                       </div>
                     ))}
                   </div>
@@ -4914,12 +4914,12 @@ const SettingsPanel = ({ user, onUpdate }) => {
 
                 {/* Received Bubble */}
                 <div style={{ alignSelf: 'flex-start', backgroundColor: '#ffffff', color: '#334155', padding: '10px 14px', borderRadius: '16px 16px 16px 4px', fontSize: '13px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', maxWidth: '90%' }}>
-                  {widgetGreeting || 'Hi there Ã°Å¸â€˜â€¹ How can we help you?'}
+                  {widgetGreeting || 'Hi there 👋 How can we help you?'}
                 </div>
 
                 {/* Sent Bubble */}
                 <div style={{ alignSelf: 'flex-end', background: `linear-gradient(90deg, ${widgetColor} 0%, ${widgetColor}dd 100%)`, color: '#ffffff', padding: '10px 14px', borderRadius: '16px 16px 4px 16px', fontSize: '13px', maxWidth: '90%' }}>
-                  Yes Ã°Å¸ËœÅ  Would you like pricing or a demo?
+                  Yes 😊 Would you like pricing or a demo?
                 </div>
 
                 {/* Position Indicator */}
@@ -4936,12 +4936,12 @@ const SettingsPanel = ({ user, onUpdate }) => {
               className="btn-submit"
               style={{ marginTop: '24px', backgroundColor: widgetSaved ? '#22c55e' : 'var(--text-primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'background-color 0.25s' }}
             >
-              {widgetSaved ? 'Ã¢Å“â€œ Saved!' : 'Save Changes'}
+              {widgetSaved ? '✓ Saved!' : 'Save Changes'}
             </button>
           </form>
         )}
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ TEAM MEMBERS Ã¢â€â‚¬Ã¢â€â‚¬ no functionality yet */}
+        {/* ── TEAM MEMBERS ── no functionality yet */}
         {false && activeSettings === 'team' && (
           <div>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Team Members</h3>
@@ -4992,7 +4992,7 @@ const SettingsPanel = ({ user, onUpdate }) => {
                   type="submit"
                   style={{ padding: '10px 18px', backgroundColor: inviteSent ? '#22c55e' : 'var(--text-primary)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'background-color 0.25s', whiteSpace: 'nowrap' }}
                 >
-                  {inviteSent ? 'Ã¢Å“â€œ Sent!' : 'Send Invite'}
+                  {inviteSent ? '✓ Sent!' : 'Send Invite'}
                 </button>
               </form>
             </div>
@@ -5074,7 +5074,7 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
           </div>
         </div>
         <div className="absolute inset-x-0 top-[50px] flex flex-col items-center justify-center">
-          <span className="text-2xl font-extrabold leading-none text-slate-950">{isUnlimited ? 'Ã¢Ë†Å¾' : `${roundedPercentage}%`}</span>
+          <span className="text-2xl font-extrabold leading-none text-slate-950">{isUnlimited ? '∞' : `${roundedPercentage}%`}</span>
           <span className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">{isUnlimited ? 'limit' : 'used'}</span>
         </div>
       </div>
@@ -5394,7 +5394,7 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">CVC</label>
-                  <input type="text" placeholder="Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢" readOnly className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-400 transition-colors" />
+                  <input type="text" placeholder="•••" readOnly className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-400 transition-colors" />
                 </div>
               </div>
             </div>
@@ -5442,7 +5442,7 @@ const SUPPORT_GUIDES = [
     icon: 'smart_toy',
     title: 'Create and assign an AI agent',
     summary: 'Configure an agent and connect it to the right business Page.',
-    answer: 'Go to Agents, create or select an agent, and configure its role and behavior. Assign it to a Page from Overview so it can respond using that PageÃ¢â‚¬â„¢s connected knowledge.'
+    answer: 'Go to Agents, create or select an agent, and configure its role and behavior. Assign it to a Page from Overview so it can respond using that Page’s connected knowledge.'
   },
   {
     category: 'Knowledge',
@@ -5526,7 +5526,7 @@ const SupportPanel = ({ onNavigate }) => {
               value={supportSearch}
               onChange={(event) => setSupportSearch(event.target.value)}
               onKeyDown={(event) => event.key === 'Enter' && scrollToGuides()}
-              placeholder="Try Ã¢â‚¬Å“how do I reconnect my Facebook Page?Ã¢â‚¬Â"
+              placeholder="Try “how do I reconnect my Facebook Page?”"
               aria-label="Search support guides"
               className="w-full box-border rounded-2xl border border-white/10 bg-white py-4 pl-14 pr-12 text-sm font-semibold text-slate-900 outline-none shadow-2xl placeholder:text-slate-400 focus:ring-4 focus:ring-emerald-400/20"
             />
@@ -5679,7 +5679,7 @@ const SupportPanel = ({ onNavigate }) => {
       </section>
 
       <p className="mt-6 text-center text-xs text-slate-500 font-medium">
-        CanÃ¢â‚¬â„¢t access your account? Email <a href="mailto:support@lyfflow.com?subject=Cannot%20access%20my%20LYFFLOW%20account" className="font-bold text-slate-900 underline decoration-emerald-400 decoration-2 underline-offset-4">support@lyfflow.com</a> from the address connected to your workspace.
+        Can’t access your account? Email <a href="mailto:support@lyfflow.com?subject=Cannot%20access%20my%20LYFFLOW%20account" className="font-bold text-slate-900 underline decoration-emerald-400 decoration-2 underline-offset-4">support@lyfflow.com</a> from the address connected to your workspace.
       </p>
     </div>
   );
@@ -5787,7 +5787,7 @@ export default function Dashboard() {
       setPages(parsedPages);
       setNamespaces(parsedNamespaces);
 
-      // Check subscription via API Ã¢â‚¬â€ if user has no active plan, send them
+      // Check subscription via API — if user has no active plan, send them
       // to the plan-selection screen so they can pick one before using the dashboard.
       if (!subscriptionData || !subscriptionData.is_active) {
         isRedirecting = true;
@@ -6077,7 +6077,7 @@ export default function Dashboard() {
         <div className="mt-auto border-t border-white/[0.08] px-1 py-4">
           <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-3">
             <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.65)]" /><span className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-300">Workspace online</span></div>
-            <p className="mt-2 truncate text-[11px] font-medium text-slate-500">{pages.length} pages Ã‚Â· {(user?.agents || []).length} agents</p>
+            <p className="mt-2 truncate text-[11px] font-medium text-slate-500">{pages.length} pages {'\u00B7'} {(user?.agents || []).length} agents</p>
           </div>
           <button onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
             className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === 'settings' ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}
@@ -6201,7 +6201,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Ã¢â€â‚¬Ã¢â€â‚¬ Revoked Pages Warning Modal (post-reauth) Ã¢â€â‚¬Ã¢â€â‚¬ */}
+          {/* ── Revoked Pages Warning Modal (post-reauth) ── */}
           {revokedPagesModal && (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fade-in p-4">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up border border-slate-100">
@@ -6264,7 +6264,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Ã¢â€â‚¬Ã¢â€â‚¬ Pre-Reauth Warning Modal (before going to Facebook) Ã¢â€â‚¬Ã¢â€â‚¬ */}
+          {/* ── Pre-Reauth Warning Modal (before going to Facebook) ── */}
           {preReauthModal && (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fade-in p-4">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up border border-slate-100">
@@ -6282,7 +6282,7 @@ export default function Dashboard() {
                 {/* Body */}
                 <div className="px-6 py-6">
                   <p className="text-sm text-slate-600 leading-relaxed mb-5">
-                    You're about to connect a new Facebook page. During the process, Facebook will show all your pages Ã¢â‚¬â€ <strong>make sure your currently connected pages stay checked:</strong>
+                    You're about to connect a new Facebook page. During the process, Facebook will show all your pages — <strong>make sure your currently connected pages stay checked:</strong>
                   </p>
 
                   {pages && pages.length > 0 ? (
