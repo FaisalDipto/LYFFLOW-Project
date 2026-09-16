@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import { Moon, Sun } from 'lucide-react';
 import './GetStarted.css';
 import logoImg from '../assets/logo1.png';
 import titleImg from '../assets/title.png';
@@ -9,6 +10,7 @@ import catAnimationUrl from '../../animation/catLottieJSON.json?url';
 import { apiService } from '../services/api';
 import { API_BASE } from '../config/env';
 import { useOnKeyChange } from '../hooks/useOnKeyChange';
+import { useSiteTheme } from '../hooks/useSiteTheme';
 
 const PricingCards = ({ onSelect }) => {
   return (
@@ -90,7 +92,7 @@ const PricingCards = ({ onSelect }) => {
       </div>
 
       {/* Growth Plan (Featured) */}
-      <div className="relative flex flex-col p-8 rounded-[1.5rem] bg-white border-2 border-primary shadow-2xl shadow-primary/10 transition-all duration-300 hover:-translate-y-3 hover:shadow-[0_32px_64px_-8px_rgba(15,23,42,0.25)] cursor-pointer">
+      <div className="gs-featured-plan relative flex flex-col p-8 rounded-[1.5rem] bg-white border-2 border-primary shadow-2xl shadow-primary/10 transition-all duration-300 hover:-translate-y-3 hover:shadow-[0_32px_64px_-8px_rgba(15,23,42,0.25)] cursor-pointer">
         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-on-primary px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">Most Popular</div>
         <div className="mb-8">
           <h3 className="font-headline text-2xl font-bold mb-2">Growth</h3>
@@ -192,6 +194,8 @@ const PricingCards = ({ onSelect }) => {
 export default function GetStarted() {
   const navigate = useNavigate();
   const location = useLocation();
+  // Shares the homepage's saved light/dark preference.
+  const { theme, toggleTheme } = useSiteTheme();
   
   // Steps: 'loading' | 'pricing' | 'connect'
   // The URL decides the starting step: explicit pricing (e.g. redirected from Dashboard guard),
@@ -259,13 +263,23 @@ export default function GetStarted() {
   };
 
   return (
-    <div className="get-started-container">
+    <div className="get-started-container" data-theme={theme} style={{ colorScheme: theme }}>
+      <button
+        type="button"
+        className="gs-theme-toggle"
+        onClick={toggleTheme}
+        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {theme === 'dark' ? <Sun size={18} strokeWidth={2} /> : <Moon size={18} strokeWidth={2} />}
+      </button>
+
       {/* Loading state while checking subscription */}
       {currentStep === 'loading' && (
         <div className="onboarding-modal-overlay">
           <div className="onboarding-modal-container fade-in bg-surface text-on-surface font-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
             <div className="text-center">
-              <div className="inline-block w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-6"></div>
+              <div className="gs-spinner inline-block w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-6"></div>
               <h2 className="font-headline text-2xl font-bold text-on-surface mb-2">Checking your account...</h2>
               <p className="text-on-surface-variant text-sm">Please wait while we verify your subscription.</p>
             </div>
@@ -311,8 +325,8 @@ export default function GetStarted() {
       <div className="left-panel">
         <div className="left-panel-header">
           <Link to="/" className="gs-logo-container">
-            <img src={logoImg} alt="LYFFLOW Logo" style={{ height: '40px', width: 'auto' }} />
-            <img src={titleImg} alt="LYFFLOW" style={{ height: '20px', width: 'auto', marginLeft: '8px' }} />
+            <img src={logoImg} alt="LYFFLOW Logo" className="gs-brand-img" style={{ height: '40px', width: 'auto' }} />
+            <img src={titleImg} alt="LYFFLOW" className="gs-brand-img" style={{ height: '20px', width: 'auto', marginLeft: '8px' }} />
           </Link>
         </div>
         
@@ -355,7 +369,7 @@ export default function GetStarted() {
               </button>
             </div>
 
-            <div className={`w-full border rounded-xl p-4 sm:p-5 flex flex-col gap-3 transition-colors min-w-0 box-border overflow-hidden ${showError ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-100'}`}>
+            <div className={`w-full border rounded-xl p-4 sm:p-5 flex flex-col gap-3 transition-colors min-w-0 box-border overflow-hidden gs-terms-box ${showError ? 'gs-terms-error bg-red-50 border-red-200' : 'bg-slate-50 border-slate-100'}`}>
               <div className="flex items-start gap-3 w-full min-w-0">
                 <input 
                   type="checkbox" 

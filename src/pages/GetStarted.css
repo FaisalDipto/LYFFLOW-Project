@@ -446,3 +446,135 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Light / dark theme (shares the homepage preference via useSiteTheme) --- */
+
+.get-started-container {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.gs-theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000; /* stay reachable above the onboarding overlays */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.gs-theme-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: rotate(15deg);
+}
+
+.gs-theme-toggle:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+.get-started-container[data-theme='dark'] {
+  --gs-primary: #eaecf0;
+  --gs-on-primary: #0f172a;
+  --gs-surface: rgb(var(--lf-surface));
+  background-color: rgb(var(--lf-background));
+  color: rgb(var(--lf-on-surface));
+}
+
+.get-started-container[data-theme='dark'] .gs-theme-toggle {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(15, 18, 25, 0.7);
+  color: #eaecf0;
+}
+
+.get-started-container[data-theme='dark'] .gs-theme-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Left panel: sky blue becomes a deep night-sky navy */
+.get-started-container[data-theme='dark'] .left-panel {
+  background: radial-gradient(circle at 30% 20%, #16324a 0%, #0c1726 60%, #090b0f 100%);
+}
+
+.get-started-container[data-theme='dark'] .back-link {
+  color: #7dd3fc;
+}
+
+/* Black line-art logo and wordmark */
+.get-started-container[data-theme='dark'] .gs-brand-img {
+  filter: invert(1);
+}
+
+.get-started-container[data-theme='dark'] .right-panel {
+  background-color: rgb(var(--lf-background));
+}
+
+.get-started-container[data-theme='dark'] .onboarding-modal-overlay {
+  background-color: rgba(0, 0, 0, 0.55);
+}
+
+.get-started-container[data-theme='dark'] .gs-spinner {
+  border-color: #eaecf0;
+  border-top-color: transparent;
+}
+
+/* Terms agreement box */
+.get-started-container[data-theme='dark'] .gs-terms-box {
+  background-color: rgb(var(--lf-surface-container-low));
+  border-color: rgb(var(--lf-outline-variant));
+}
+
+.get-started-container[data-theme='dark'] .gs-terms-box .text-slate-600 {
+  color: rgb(var(--lf-on-surface-variant));
+}
+
+.get-started-container[data-theme='dark'] .gs-terms-box.gs-terms-error {
+  background-color: #341c27;
+  border-color: #713247;
+}
+
+.get-started-container[data-theme='dark'] .gs-terms-box .text-red-700,
+.get-started-container[data-theme='dark'] .gs-terms-box .text-red-600 {
+  color: #fda4af;
+}
+
+.get-started-container[data-theme='dark'] .gs-terms-box input[type='checkbox'] {
+  background-color: rgb(var(--lf-surface-container-high));
+  border-color: rgb(var(--lf-outline-variant));
+}
+
+/* Pricing step: fixed light colours that don't come from the theme tokens */
+.get-started-container[data-theme='dark'] .bg-surface-container {
+  background-color: rgb(var(--lf-surface-container-high));
+}
+
+.get-started-container[data-theme='dark'] .bg-primary-fixed {
+  background-color: rgba(129, 132, 250, 0.16);
+}
+
+.get-started-container[data-theme='dark'] .text-on-primary-fixed-variant {
+  color: #c7c9fd;
+}
+
+.get-started-container[data-theme='dark'] .gs-featured-plan {
+  background-color: rgb(var(--lf-surface-container-low));
+  border-color: rgb(var(--lf-tertiary));
+  box-shadow: 0 25px 50px -12px rgba(129, 132, 250, 0.2);
+}
+
+.get-started-container[data-theme='dark'] .gs-featured-plan .text-primary {
+  color: rgb(var(--lf-tertiary));
+}
+
+.get-started-container[data-theme='dark'] .gs-featured-plan > .bg-primary {
+  background-color: rgb(var(--lf-tertiary));
+}
