@@ -5746,7 +5746,7 @@ export default function Dashboard() {
 
       const parsedUser = userData?.user ? { ...userData.user, ...userData } : (userData || null);
       const parsedPages = parseCollection(pagesData, 'pages');
-      const parsedAgents = parseCollection(agentsData, 'agents');
+      const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
       const parsedNamespaces = parseCollection(namespacesData, 'namespaces');
 
       if (parsedUser) {
@@ -5804,7 +5804,7 @@ export default function Dashboard() {
 
   const refreshAgents = useCallback(async () => {
     const agentsData = await apiService.getAgents();
-    const parsedAgents = parseCollection(agentsData, 'agents');
+    const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
     setUser(current => current ? { ...current, agents: parsedAgents } : current);
   }, []);
 
