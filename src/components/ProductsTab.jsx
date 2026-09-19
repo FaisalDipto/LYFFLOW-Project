@@ -225,8 +225,6 @@ const ProductsTab = ({ selectedNamespaceId }) => {
           availability: formData.availability !== false
         };
         
-        console.log("=== SENDING UPDATE PAYLOAD ===");
-        console.log(JSON.stringify(updateData, null, 2));
         
         await apiService.updateProduct(selectedNamespaceId, editingProductId, updateData);
         

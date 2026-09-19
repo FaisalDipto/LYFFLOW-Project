@@ -167,8 +167,7 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
     if (!agentId) return;
     setAssigning(prev => ({ ...prev, [pageId]: true }));
     try {
-      const response = await apiService.assignAgentToPage(pageId, agentId);
-      console.log('Assign Agent API Response:', response);
+      await apiService.assignAgentToPage(pageId, agentId);
       setSelectedAgents(prev => {
         const nextState = { ...prev, [pageId]: agentId };
         try {
@@ -713,7 +712,6 @@ const ConversationList = ({ pages, user }) => {
         // Handle FB Graph variations
         const convs = data?.conversations?.data || data?.conversations || data?.data || [];
         const normalized = Array.isArray(convs) ? convs : [];
-        console.log("[Convo Debug] Fetched conversations list:", normalized.map(c => ({ id: c.conversation_id || c.id, name: c.name, profile_pic_url: c.profile_pic_url, allKeys: Object.keys(c), raw: c })));
         setContacts(normalized);
         
         if (data?.pagination) {
@@ -949,11 +947,9 @@ const ConversationList = ({ pages, user }) => {
     };
     setMessages(prev => [...prev, tempMsg]);
 
-    console.log("Sending Payload to Backend:", { message: messageText });
 
     try {
-      const response = await apiService.replyToConversation(selectedPageId, convId, messageText);
-      console.log("Facebook Reply Endpoint Response:", response);
+      await apiService.replyToConversation(selectedPageId, convId, messageText);
     } catch (err) {
       console.error("Failed to send message:", err);
       // Remove optimistic message on error
@@ -966,7 +962,6 @@ const ConversationList = ({ pages, user }) => {
     const name = resolveContactName(contactObj, 'U');
     const rawPic = contactObj?.profile_pic_url || contactObj?.profile_pic || contactObj?.profile_picture_url || (typeof contactObj?.picture === 'string' ? contactObj.picture : contactObj?.picture?.data?.url) || contactObj?.avatar_url || contactObj?.avatar || contactObj?.senders?.data?.[0]?.profile_pic_url || contactObj?.senders?.data?.[0]?.profile_pic || contactObj?.participants?.data?.[0]?.profile_pic_url || contactObj?.participants?.data?.[0]?.profile_pic;
     const picUrl = (rawPic && rawPic !== 'string' && rawPic !== 'null' && rawPic !== 'undefined') ? rawPic : null;
-    console.log(`[Convo Debug] renderAvatar for "${name}": rawPic=`, rawPic, ", resolved picUrl=", picUrl, ", contactObj=", contactObj);
 
     if (picUrl) {
       return (
@@ -1876,14 +1871,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
     if (!item) return;
     setDeleteConfirmItem(null);
     const actualId = item.knowledge_usage_id || item.id || item.knowledge_id || item.knowledgeId || item.uuid;
-    const type = (item.knowledge_type === 'file' || item.file_name) ? 'file' : 'text';
 
-    console.log('--- DELETION DEBUG ---');
-    console.log('Namespace ID:', selectedNamespaceId);
-    console.log('Knowledge type evaluated as:', type);
-    console.log('Deleting ID:', actualId);
-    console.log('Endpoint called:', `/v1/knowledge/${selectedNamespaceId}/${actualId}`);
-    console.log('----------------------');
 
     try {
       await apiService.deleteKnowledge(selectedNamespaceId, actualId);
@@ -3314,6 +3302,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   };
 
   const openCommentRules = (agent) => {
+    console.log('[CommentRules] opening modal for', agent.agent_id, '— flags on the agent object:', readCommentRules(agent));
     setCommentRulesAgent(agent);
     setCommentRulesDraft(readCommentRules(agent));
   };
@@ -3330,7 +3319,10 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setSavingCommentRules(true);
     try {
       const payload = { ...commentRulesDraft };
-      await apiService.updateAgent(agent.agent_id, payload);
+      console.log('[CommentRules] PATCH /v1/agent/update/' + agent.agent_id, '— request body:', payload);
+      const updateResponse = await apiService.updateAgent(agent.agent_id, payload);
+      console.log('[CommentRules] PATCH response:', updateResponse);
+      console.log('[CommentRules] flags present in PATCH response:', readCommentRules(updateResponse || {}));
       // Merge the flags we just sent rather than the PATCH response, which does not
       // echo them back, then refetch /v1/agents for the authoritative values.
       if (onAgentEdited) onAgentEdited(agent.agent_id, payload);
@@ -3591,7 +3583,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           // If the error is about a missing subscription, try to auto-subscribe and retry once
           if (error.status === 403 && (error.message || '').toLowerCase().includes('subscription')) {
             // If the retry still fails, the error propagates to the main catch
-            console.log("Subscription missing on create, attempting silent fix...");
             await apiService.subscribe({ subscription_type: 'FREE', num_months: 120 });
             // Small delay to ensure DB propagation
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -5448,7 +5439,6 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
         subscription_type: planName.toUpperCase(),
         num_months: 1
       };
-      console.log("Subscribing with:", subRequest);
 
       await apiService.subscribe(subRequest);
       await fetchSubscription();
@@ -6049,6 +6039,8 @@ export default function Dashboard() {
       const parsedUser = userData?.user ? { ...userData.user, ...userData } : (userData || null);
       const parsedPages = parseCollection(pagesData, 'pages');
       const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
+      console.log('[CommentRules] GET /v1/agents (page load) — flags per agent:', parsedAgents.map(a => ({ agent_id: a.agent_id, ...readCommentRules(a) })));
+      console.log('[CommentRules] raw first agent from /v1/agents:', parsedAgents[0]);
       const parsedNamespaces = parseCollection(namespacesData, 'namespaces');
 
       if (parsedUser) {
@@ -6107,6 +6099,7 @@ export default function Dashboard() {
   const refreshAgents = useCallback(async () => {
     const agentsData = await apiService.getAgents();
     const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
+    console.log('[CommentRules] GET /v1/agents (refetch) — flags per agent:', parsedAgents.map(a => ({ agent_id: a.agent_id, ...readCommentRules(a) })));
     setUser(current => {
       if (!current) return current;
       // Merge over the agents we already hold: a field the list response omits keeps its
