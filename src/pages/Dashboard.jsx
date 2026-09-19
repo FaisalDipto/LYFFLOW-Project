@@ -3719,7 +3719,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                 <div key={nsId || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 16px', borderRadius: '14px', border: isThisNsConnected ? '2px solid #10b981' : '1px solid #e2e8f0', backgroundColor: isThisNsConnected ? '#ecfdf5' : '#f8fafc', transition: 'all 0.2s' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                      <span className="material-symbols-outlined shrink-0 text-[18px] text-blue-600">folder_open</span>
+                      <span className="material-symbols-outlined shrink-0 text-[16px] text-blue-600">database</span>
                       <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }} title={nsName || nsId}>
                         {nsName || 'Untitled namespace'}
                       </span>
