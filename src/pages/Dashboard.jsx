@@ -3261,11 +3261,24 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     try {
       await apiService.setAgentNamespace(agentId, namespaceId);
       addToast('Agent assigned successfully', 'success');
-      setAssignModalAgent(null);
       if (onAgentEdited) onAgentEdited(agentId, { namespace_id: namespaceId });
     } catch (e) {
       console.error(e);
       addToast('Failed to assign: ' + e.message, 'error');
+    } finally {
+      setAssigningId(null);
+    }
+  };
+
+  const handleUnassignNamespace = async (agentId) => {
+    setAssigningId(agentId);
+    try {
+      await apiService.unsetAgentNamespace(agentId);
+      addToast('Knowledge source disconnected', 'success');
+      if (onAgentEdited) onAgentEdited(agentId, { namespace_id: null });
+    } catch (e) {
+      console.error(e);
+      addToast('Failed to disconnect: ' + e.message, 'error');
     } finally {
       setAssigningId(null);
     }
@@ -3587,58 +3600,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             </div>
           </div>
         )}
-        {assignModalAgent && (
-          <div style={{
-            animation: 'slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-            padding: '16px 20px',
-            borderRadius: '8px',
-            color: '#0f172a',
-            fontWeight: 500,
-            fontSize: '14px',
-            boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: '320px',
-            pointerEvents: 'auto',
-            backgroundColor: '#fff',
-            borderLeft: '4px solid #0ea5e9'
-          }}>
-            <div style={{ marginBottom: '14px', fontWeight: 600, fontSize: '14.5px' }}>
-              Assign "{assignModalAgent.name}" to Namespace
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px', maxHeight: '200px', overflowY: 'auto' }}>
-              {namespaces?.length > 0 ? namespaces.map((ns, idx) => {
-                const nsId = ns.namespace_id || ns.namespace;
-                const nsName = ns.namespace_name || ns.name;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleAssign(assignModalAgent.agent_id, nsId)}
-                    disabled={assigningId === assignModalAgent.agent_id}
-                    style={{ textAlign: 'left', padding: '10px 14px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', cursor: assigningId === assignModalAgent.agent_id ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s' }}
-                    onMouseEnter={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#f1f5f9' }}
-                    onMouseLeave={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#f8fafc' }}
-                  >
-                    {nsName ? `${nsName} (${nsId.split('-')[0]}...)` : `Namespace: ${nsId.split('-')[0]}...${nsId.slice(-4)}`}
-                  </button>
-                );
-              }) : (
-                <div style={{ fontSize: '13px', color: '#64748b', textAlign: 'center', padding: '10px' }}>No namespaces available. Please generate one in the Knowledge Base first.</div>
-              )}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setAssignModalAgent(null)}
-                disabled={assigningId === assignModalAgent.agent_id}
-                style={{ padding: '8px 14px', borderRadius: '6px', fontSize: '13px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 600, transition: 'background-color 0.2s', cursor: assigningId === assignModalAgent.agent_id ? 'not-allowed' : 'pointer' }}
-                onMouseEnter={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#e2e8f0' }}
-                onMouseLeave={e => { if (assigningId !== assignModalAgent.agent_id) e.currentTarget.style.backgroundColor = '#f1f5f9' }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
         {creationError && (
           <div style={{
             animation: 'slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
@@ -3692,6 +3653,118 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         onSave={handleSaveAvatar}
       />
     </Suspense>,
+    document.body
+  ) : null;
+
+  const assignNamespacePortal = typeof document !== 'undefined' && assignModalAgent ? ReactDOM.createPortal(
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'rgba(0, 0, 0, 0.55)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 999999,
+      pointerEvents: 'auto'
+    }} onClick={() => setAssignModalAgent(null)}>
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '20px',
+        padding: '28px',
+        width: '90%',
+        maxWidth: '460px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: '85vh',
+        border: '1px solid #e2e8f0',
+        animation: 'fadeInUp 0.2s ease-out'
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="material-symbols-outlined text-blue-600 text-2xl">database</span>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              Connect &quot;{assignModalAgent.name}&quot; to Namespace
+            </h3>
+          </div>
+          <button onClick={() => setAssignModalAgent(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: '#64748b', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px', marginTop: 0 }}>
+          Select a knowledge namespace this AI agent should retrieve answers from.
+        </p>
+
+        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '340px', paddingRight: '4px' }}>
+          {(!namespaces || namespaces.length === 0) ? (
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', fontSize: '13px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              No namespaces available. Please generate one in the Knowledge Base first.
+            </div>
+          ) : (
+            namespaces.map((ns, idx) => {
+              const nsId = ns.namespace_id || ns.namespace;
+              const nsName = ns.namespace_name || ns.name;
+              const currentNsId = agents.find(a => a.agent_id === assignModalAgent.agent_id)?.namespace_id ?? assignModalAgent.namespace_id;
+              const isThisNsConnected = currentNsId === nsId;
+              const isBusy = assigningId === assignModalAgent.agent_id;
+
+              return (
+                <div key={nsId || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '14px', border: isThisNsConnected ? '2px solid #10b981' : '1px solid #e2e8f0', backgroundColor: isThisNsConnected ? '#ecfdf5' : '#f8fafc', transition: 'all 0.2s' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'hidden', paddingRight: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="material-symbols-outlined shrink-0 text-[18px] text-blue-600">folder_open</span>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {nsName || `Namespace ${String(nsId).split('-')[0]}`}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: isThisNsConnected ? '#059669' : '#64748b' }}>
+                      {isThisNsConnected ? '✓ Currently connected to this agent' : `ID: ${String(nsId).split('-')[0]}...${String(nsId).slice(-4)}`}
+                    </span>
+                  </div>
+
+                  <button
+                    disabled={isBusy}
+                    onClick={() => {
+                      if (isThisNsConnected) {
+                        handleUnassignNamespace(assignModalAgent.agent_id);
+                      } else {
+                        handleAssign(assignModalAgent.agent_id, nsId);
+                      }
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: isBusy ? 'not-allowed' : 'pointer',
+                      backgroundColor: isThisNsConnected ? '#fee2e2' : '#0f172a',
+                      color: isThisNsConnected ? '#ef4444' : '#fff',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap',
+                      boxShadow: isThisNsConnected ? 'none' : '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    {isBusy ? 'Wait...' : (isThisNsConnected ? 'Disconnect' : 'Connect')}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+          <button
+            onClick={() => setAssignModalAgent(null)}
+            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>,
     document.body
   ) : null;
 
@@ -4051,6 +4124,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           <AgentLog agents={agents} />
         </div>
         {overlays}
+        {assignNamespacePortal}
         {assignPagePortal}
         {avatarModalPortal}
       </div>
@@ -4406,6 +4480,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         </section>
       </div>
       {overlays}
+      {assignNamespacePortal}
       {assignPagePortal}
       {avatarModalPortal}
     </div>
