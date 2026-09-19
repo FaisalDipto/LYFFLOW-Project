@@ -3684,17 +3684,22 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         border: '1px solid #e2e8f0',
         animation: 'fadeInUp 0.2s ease-out'
       }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="material-symbols-outlined text-blue-600 text-2xl">database</span>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-              Connect &quot;{assignModalAgent.name}&quot; to Namespace
-            </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+            <span className="material-symbols-outlined shrink-0 text-blue-600 text-2xl">database</span>
+            <div style={{ minWidth: 0 }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.25 }}>
+                Connect knowledge
+              </h3>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={assignModalAgent.name}>
+                {assignModalAgent.name}
+              </p>
+            </div>
           </div>
-          <button onClick={() => setAssignModalAgent(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: '#64748b', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          <button onClick={() => setAssignModalAgent(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', flexShrink: 0, cursor: 'pointer', color: '#64748b', fontSize: '18px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
-        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px', marginTop: 0 }}>
-          Select a knowledge namespace this AI agent should retrieve answers from.
+        <p style={{ fontSize: '13px', color: '#64748b', margin: '12px 0 20px', lineHeight: 1.5 }}>
+          Select a knowledge namespace this agent should retrieve answers from.
         </p>
 
         <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '340px', paddingRight: '4px' }}>
@@ -3711,16 +3716,16 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               const isBusy = assigningId === assignModalAgent.agent_id;
 
               return (
-                <div key={nsId || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '14px', border: isThisNsConnected ? '2px solid #10b981' : '1px solid #e2e8f0', backgroundColor: isThisNsConnected ? '#ecfdf5' : '#f8fafc', transition: 'all 0.2s' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'hidden', paddingRight: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div key={nsId || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 16px', borderRadius: '14px', border: isThisNsConnected ? '2px solid #10b981' : '1px solid #e2e8f0', backgroundColor: isThisNsConnected ? '#ecfdf5' : '#f8fafc', transition: 'all 0.2s' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                       <span className="material-symbols-outlined shrink-0 text-[18px] text-blue-600">folder_open</span>
-                      <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {nsName || `Namespace ${String(nsId).split('-')[0]}`}
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }} title={nsName || nsId}>
+                        {nsName || 'Untitled namespace'}
                       </span>
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: isThisNsConnected ? '#059669' : '#64748b' }}>
-                      {isThisNsConnected ? '✓ Currently connected to this agent' : `ID: ${String(nsId).split('-')[0]}...${String(nsId).slice(-4)}`}
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: isThisNsConnected ? '#059669' : '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                      {isThisNsConnected ? '✓ Currently connected' : `ID: ${String(nsId).slice(0, 8)}…${String(nsId).slice(-4)}`}
                     </span>
                   </div>
 
@@ -3744,10 +3749,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       color: isThisNsConnected ? '#ef4444' : '#fff',
                       transition: 'all 0.2s',
                       whiteSpace: 'nowrap',
+                      flexShrink: 0,
                       boxShadow: isThisNsConnected ? 'none' : '0 2px 4px rgba(0,0,0,0.1)'
                     }}
                   >
-                    {isBusy ? 'Wait...' : (isThisNsConnected ? 'Disconnect' : 'Connect')}
+                    {isBusy ? 'Wait…' : (isThisNsConnected ? 'Disconnect' : 'Connect')}
                   </button>
                 </div>
               );
