@@ -6107,7 +6107,16 @@ export default function Dashboard() {
   const refreshAgents = useCallback(async () => {
     const agentsData = await apiService.getAgents();
     const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
-    setUser(current => current ? { ...current, agents: parsedAgents } : current);
+    setUser(current => {
+      if (!current) return current;
+      // Merge over the agents we already hold: a field the list response omits keeps its
+      // last known value instead of being dropped, while anything the server does send wins.
+      const previousById = new Map((current.agents || []).map(agent => [agent.agent_id, agent]));
+      return {
+        ...current,
+        agents: parsedAgents.map(agent => ({ ...previousById.get(agent.agent_id), ...agent })),
+      };
+    });
   }, []);
 
   const refreshNamespaces = useCallback(async () => {
