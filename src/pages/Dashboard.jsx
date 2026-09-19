@@ -3330,11 +3330,14 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setSavingCommentRules(true);
     try {
       const payload = { ...commentRulesDraft };
-      const updatedAgent = await apiService.updateAgent(agent.agent_id, payload);
-      if (onAgentEdited) onAgentEdited(agent.agent_id, normalizeAgentResponse(updatedAgent || payload));
+      await apiService.updateAgent(agent.agent_id, payload);
+      // Merge the flags we just sent rather than the PATCH response, which does not
+      // echo them back, then refetch /v1/agents for the authoritative values.
+      if (onAgentEdited) onAgentEdited(agent.agent_id, payload);
       addToast('Comment settings updated', 'success');
       setCommentRulesAgent(null);
       setCommentRulesDraft(null);
+      if (onUpdate) onUpdate();
     } catch (e) {
       console.error(e);
       addToast('Failed to update comment settings: ' + e.message, 'error');
