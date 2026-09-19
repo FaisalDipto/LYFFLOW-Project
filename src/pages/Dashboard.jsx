@@ -6039,8 +6039,15 @@ export default function Dashboard() {
       const parsedUser = userData?.user ? { ...userData.user, ...userData } : (userData || null);
       const parsedPages = parseCollection(pagesData, 'pages');
       const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
-      console.log('[CommentRules] GET /v1/agents (page load) — flags per agent:', parsedAgents.map(a => ({ agent_id: a.agent_id, ...readCommentRules(a) })));
-      console.log('[CommentRules] raw first agent from /v1/agents:', parsedAgents[0]);
+      console.log('[CommentRules] GET /v1/agents (page load) — RAW flag values per agent:',
+        parsedAgents.map(a => ({
+          agent_id: a.agent_id,
+          ...COMMENT_RULE_FIELDS.reduce((acc, f) => {
+            acc[f.key] = Object.prototype.hasOwnProperty.call(a, f.key) ? JSON.stringify(a[f.key]) : '*** KEY MISSING ***';
+            return acc;
+          }, {}),
+        })));
+      console.log('[CommentRules] all keys on first agent:', parsedAgents[0] ? Object.keys(parsedAgents[0]).join(', ') : '(no agents)');
       const parsedNamespaces = parseCollection(namespacesData, 'namespaces');
 
       if (parsedUser) {
@@ -6099,7 +6106,14 @@ export default function Dashboard() {
   const refreshAgents = useCallback(async () => {
     const agentsData = await apiService.getAgents();
     const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
-    console.log('[CommentRules] GET /v1/agents (refetch) — flags per agent:', parsedAgents.map(a => ({ agent_id: a.agent_id, ...readCommentRules(a) })));
+    console.log('[CommentRules] GET /v1/agents (post-save refetch) — RAW flag values per agent:',
+      parsedAgents.map(a => ({
+        agent_id: a.agent_id,
+        ...COMMENT_RULE_FIELDS.reduce((acc, f) => {
+          acc[f.key] = Object.prototype.hasOwnProperty.call(a, f.key) ? JSON.stringify(a[f.key]) : '*** KEY MISSING ***';
+          return acc;
+        }, {}),
+      })));
     setUser(current => {
       if (!current) return current;
       // Merge over the agents we already hold: a field the list response omits keeps its
