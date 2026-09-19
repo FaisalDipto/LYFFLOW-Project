@@ -2684,6 +2684,46 @@ const PERSONAS = [
 const DEFAULT_AGENT_FALLBACK = "I'm not sure about that, let me connect you with someone who can help.";
 const ROLE_BY_PERSONA = Object.fromEntries(PERSONAS.map(persona => [persona.id, persona.value]));
 
+/* Facebook comment + inbox automation flags exposed by /v1/agent/update/{agent_id}. */
+const COMMENT_RULE_FIELDS = [
+  {
+    key: 'is_comment_manage',
+    label: 'Manage comments',
+    description: 'Let this agent watch and act on comments left on its assigned pages.',
+    icon: 'forum',
+  },
+  {
+    key: 'is_reply_comment',
+    label: 'Reply to comments',
+    description: 'Post public replies to comments the agent can confidently answer.',
+    icon: 'chat_bubble',
+  },
+  {
+    key: 'is_bad_comment_delete',
+    label: 'Delete abusive comments',
+    description: 'Remove comments detected as spam, abuse, or harassment.',
+    icon: 'delete',
+  },
+  {
+    key: 'is_inbox_from_comment',
+    label: 'Move comments to inbox',
+    description: 'Start a private message thread from a comment when it needs a real conversation.',
+    icon: 'mail',
+  },
+  {
+    key: 'is_manage_inbox',
+    label: 'Manage inbox',
+    description: 'Let this agent handle the private message threads it opens or receives.',
+    icon: 'markunread',
+  },
+];
+
+const readCommentRules = (agent = {}) =>
+  COMMENT_RULE_FIELDS.reduce((acc, field) => {
+    acc[field.key] = agent[field.key] === true;
+    return acc;
+  }, {});
+
 const normalizeAgentResponse = (agent = {}) => ({
   ...agent,
   name: agent.name || agent.agent_name,
@@ -3170,6 +3210,9 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [assignPageModalAgent, setAssignPageModalAgent] = useState(null);
   const [assigningPageId, setAssigningPageId] = useState(null);
   const [customizingAvatarAgent, setCustomizingAvatarAgent] = useState(null);
+  const [commentRulesAgent, setCommentRulesAgent] = useState(null);
+  const [commentRulesDraft, setCommentRulesDraft] = useState(null);
+  const [savingCommentRules, setSavingCommentRules] = useState(false);
   const [, setLocalAvatarsTick] = useState(0); // bumped to re-render after avatar changes
   const [creationError, setCreationError] = useState(null);
 
@@ -3267,6 +3310,36 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       addToast('Failed to assign: ' + e.message, 'error');
     } finally {
       setAssigningId(null);
+    }
+  };
+
+  const openCommentRules = (agent) => {
+    setCommentRulesAgent(agent);
+    setCommentRulesDraft(readCommentRules(agent));
+  };
+
+  const closeCommentRules = () => {
+    if (savingCommentRules) return;
+    setCommentRulesAgent(null);
+    setCommentRulesDraft(null);
+  };
+
+  const handleSaveCommentRules = async () => {
+    if (!commentRulesAgent || !commentRulesDraft) return;
+    const agent = commentRulesAgent;
+    setSavingCommentRules(true);
+    try {
+      const payload = { ...commentRulesDraft };
+      const updatedAgent = await apiService.updateAgent(agent.agent_id, payload);
+      if (onAgentEdited) onAgentEdited(agent.agent_id, normalizeAgentResponse(updatedAgent || payload));
+      addToast('Comment settings updated', 'success');
+      setCommentRulesAgent(null);
+      setCommentRulesDraft(null);
+    } catch (e) {
+      console.error(e);
+      addToast('Failed to update comment settings: ' + e.message, 'error');
+    } finally {
+      setSavingCommentRules(false);
     }
   };
 
@@ -3656,6 +3729,137 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     document.body
   ) : null;
 
+  const commentRulesPortal = typeof document !== 'undefined' && commentRulesAgent && commentRulesDraft ? ReactDOM.createPortal(
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'rgba(0, 0, 0, 0.55)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 999999,
+      pointerEvents: 'auto'
+    }} onClick={closeCommentRules}>
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '20px',
+        padding: '28px',
+        width: '90%',
+        maxWidth: '460px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: '85vh',
+        border: '1px solid #e2e8f0',
+        animation: 'fadeInUp 0.2s ease-out'
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+            <span className="material-symbols-outlined shrink-0 text-blue-600 text-2xl">forum</span>
+            <div style={{ minWidth: 0 }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.25 }}>
+                Comment settings
+              </h3>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={commentRulesAgent.name}>
+                {commentRulesAgent.name}
+              </p>
+            </div>
+          </div>
+          <button onClick={closeCommentRules} disabled={savingCommentRules} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', flexShrink: 0, cursor: savingCommentRules ? 'not-allowed' : 'pointer', color: '#64748b', fontSize: '18px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+        <p style={{ fontSize: '13px', color: '#64748b', margin: '12px 0 20px', lineHeight: 1.5 }}>
+          Choose what this agent is allowed to do with Facebook comments on its assigned pages.
+        </p>
+
+        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '340px', paddingRight: '4px' }}>
+          {COMMENT_RULE_FIELDS.map(field => {
+            const isOn = commentRulesDraft[field.key] === true;
+            return (
+              <button
+                key={field.key}
+                type="button"
+                role="switch"
+                aria-checked={isOn}
+                disabled={savingCommentRules}
+                onClick={() => setCommentRulesDraft(prev => ({ ...prev, [field.key]: !prev[field.key] }))}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  textAlign: 'left',
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  border: isOn ? '2px solid #10b981' : '1px solid #e2e8f0',
+                  backgroundColor: isOn ? '#ecfdf5' : '#f8fafc',
+                  cursor: savingCommentRules ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <span className={`material-symbols-outlined shrink-0 text-[16px] ${isOn ? 'text-emerald-600' : 'text-slate-400'}`}>{field.icon}</span>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                      {field.label}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: '#64748b', lineHeight: 1.45 }}>
+                    {field.description}
+                  </span>
+                </div>
+
+                <span style={{
+                  width: '38px',
+                  height: '22px',
+                  flexShrink: 0,
+                  borderRadius: '999px',
+                  backgroundColor: isOn ? '#10b981' : '#cbd5e1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '3px',
+                  marginTop: '2px',
+                  transition: 'background-color 0.2s'
+                }}>
+                  <span style={{
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    backgroundColor: '#fff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    transform: isOn ? 'translateX(16px)' : 'translateX(0)',
+                    transition: 'transform 0.2s'
+                  }} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+          <button
+            onClick={closeCommentRules}
+            disabled={savingCommentRules}
+            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 700, border: 'none', cursor: savingCommentRules ? 'not-allowed' : 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveCommentRules}
+            disabled={savingCommentRules}
+            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: '#0f172a', color: '#fff', fontWeight: 700, border: 'none', cursor: savingCommentRules ? 'not-allowed' : 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+          >
+            {savingCommentRules ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
   const assignNamespacePortal = typeof document !== 'undefined' && assignModalAgent ? ReactDOM.createPortal(
     <div style={{
       position: 'fixed',
@@ -4002,6 +4206,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               });
               const isAssigned = !!agent.namespace_id;
               const isAssignedToPage = assignedPagesForThisAgent.length > 0;
+              const enabledCommentRules = COMMENT_RULE_FIELDS.filter(field => agent[field.key] === true).length;
               const isStatusGreen = isAssignedToPage || isAssigned;
               const totalDialog = agent.total_dialog || 0;
               return (
@@ -4113,8 +4318,19 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       {isAssignedToPage ? 'Manage pages' : 'Assign page'}
                     </button>
                     <button
+                      onClick={(e) => { e.stopPropagation(); openCommentRules(agent); }}
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-200"
+                      title="Configure Facebook comment handling"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">forum</span>
+                      Comments
+                      {enabledCommentRules > 0 && (
+                        <span className="rounded-full bg-emerald-100 px-1.5 text-[9px] font-black text-emerald-700">{enabledCommentRules}</span>
+                      )}
+                    </button>
+                    <button
                       onClick={() => handleEditClick(agent)}
-                      className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-2 text-[11px] font-bold text-white transition hover:bg-slate-800"
+                      className="col-span-2 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-2 text-[11px] font-bold text-white transition hover:bg-slate-800"
                     >
                       Configure <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </button>
@@ -4130,6 +4346,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           <AgentLog agents={agents} />
         </div>
         {overlays}
+        {commentRulesPortal}
         {assignNamespacePortal}
         {assignPagePortal}
         {avatarModalPortal}
@@ -4486,6 +4703,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         </section>
       </div>
       {overlays}
+      {commentRulesPortal}
       {assignNamespacePortal}
       {assignPagePortal}
       {avatarModalPortal}
