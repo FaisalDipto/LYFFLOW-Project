@@ -40,7 +40,22 @@ const SteadfastShipModal = ({ order, onClose }) => {
   useEffect(() => {
     let cancelled = false;
     apiService.getSteadfastOrderPrefill(order.id)
-      .then(response => { if (!cancelled) setForm(response?.data || response); })
+      .then(response => {
+        if (!cancelled) {
+          const raw = response?.data || response || {};
+          const rawTotal = order.total !== undefined && order.total !== null ? Number(String(order.total).trim()) : null;
+          const fallbackCod = Number.isFinite(rawTotal) && rawTotal >= 0 && rawTotal < 1e9 ? rawTotal : 0;
+          setForm({
+            ...raw,
+            recipient_name: raw.recipient_name || order.contact_name || '',
+            recipient_phone: raw.recipient_phone || order.contact_phone || '',
+            recipient_address: raw.recipient_address || order.delivery_address || '',
+            cod_amount: raw.cod_amount !== undefined && raw.cod_amount !== '' && raw.cod_amount !== null
+              ? raw.cod_amount
+              : fallbackCod,
+          });
+        }
+      })
       .catch(err => { if (!cancelled) setLoadError(err.message || 'Could not load the Steadfast order prefill.'); });
     return () => { cancelled = true; };
   }, [order.id]);

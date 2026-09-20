@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target, Truck } from 'lucide-react';
+import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Bot, Copy, Check } from 'lucide-react';
 import { apiService } from '../services/api';
 
 const LEAD_STATUSES = ['new', 'contacted', 'converted', 'cancelled'];
@@ -8,6 +8,44 @@ const ORDER_STATUSES = [
   'cancelled_approval_pending', 'unknown_approval_pending', 'delivered',
   'partial_delivered', 'cancelled', 'hold', 'in_review', 'unknown'
 ];
+
+export const parseOrderAmount = (val) => {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number') {
+    return Number.isFinite(val) ? val : null;
+  }
+  const cleanStr = String(val).trim();
+  if (!cleanStr) return null;
+  const num = Number(cleanStr);
+  return Number.isFinite(num) ? num : null;
+};
+
+export const formatOrderAmount = (val, currency = '$', fallback = '—') => {
+  const num = parseOrderAmount(val);
+  if (num === null) return fallback;
+  if (Math.abs(num) > 1e11) {
+    return `${currency}${num.toExponential(2)}`;
+  }
+  return `${currency}${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+export const renderOrderSourceBadge = (source) => {
+  if (!source) return null;
+  const isAi = String(source).toLowerCase() === 'ai';
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+        isAi
+          ? 'bg-purple-50 text-purple-700 border-purple-200'
+          : 'bg-slate-100 text-slate-700 border-slate-200'
+      }`}
+      title={`Source: ${source}`}
+    >
+      {isAi ? <Bot size={12} className="text-purple-600" /> : null}
+      {isAi ? 'AI' : source}
+    </span>
+  );
+};
 
 const normalizeRecord = (record, type) => ({
   ...record,
@@ -36,6 +74,14 @@ const CustomerRecords = ({ pages, recordType }) => {
   const [steadfastPlacement, setSteadfastPlacement] = useState(null);
   const [isSteadfastPlacing, setIsSteadfastPlacing] = useState(false);
   const [steadfastPlacementError, setSteadfastPlacementError] = useState('');
+  const [copiedKey, setCopiedKey] = useState('');
+
+  const handleCopy = (text, key) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(''), 2000);
+  };
 
   const fetchRecords = useCallback(async (cursor = null) => {
     if (!selectedPageId) return;
@@ -83,6 +129,7 @@ const CustomerRecords = ({ pages, recordType }) => {
     setSteadfastPrefillError('');
     setSteadfastPlacement(null);
     setSteadfastPlacementError('');
+    setCopiedKey('');
     setSelectedRecord(record);
     setIsDetailLoading(true);
     try {
@@ -106,6 +153,7 @@ const CustomerRecords = ({ pages, recordType }) => {
     setSteadfastPlacement(null);
     setSteadfastPlacementError('');
     setIsSteadfastPlacing(false);
+    setCopiedKey('');
   };
 
   const handleLoadSteadfastPrefill = async () => {
@@ -115,7 +163,18 @@ const CustomerRecords = ({ pages, recordType }) => {
     setSteadfastPrefillError('');
     try {
       const response = await apiService.getSteadfastOrderPrefill(selectedRecord.id);
-      setSteadfastPrefill(response?.data || response);
+      const rawPrefill = response?.data || response || {};
+      const fallbackCod = parseOrderAmount(selectedRecord.total);
+      setSteadfastPrefill({
+        ...rawPrefill,
+        recipient_name: rawPrefill.recipient_name || selectedRecord.contact_name || '',
+        recipient_phone: rawPrefill.recipient_phone || selectedRecord.contact_phone || '',
+        recipient_email: rawPrefill.recipient_email || selectedRecord.contact_email || '',
+        recipient_address: rawPrefill.recipient_address || selectedRecord.delivery_address || '',
+        cod_amount: rawPrefill.cod_amount !== undefined && rawPrefill.cod_amount !== '' && rawPrefill.cod_amount !== null
+          ? rawPrefill.cod_amount
+          : (fallbackCod !== null && fallbackCod >= 0 && fallbackCod < 1e9 ? fallbackCod : 0),
+      });
       setSteadfastPlacement(null);
       setSteadfastPlacementError('');
     } catch (error) {
@@ -282,8 +341,15 @@ const CustomerRecords = ({ pages, recordType }) => {
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Reference</th>
+                    {recordType === 'order' ? (
+                      <>
+                        <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Source</th>
+                        <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
+                      </>
+                    ) : (
+                      <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                    )}
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-12">Action</th>
@@ -306,23 +372,36 @@ const CustomerRecords = ({ pages, recordType }) => {
                         </div>
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 capitalize">
-                          {getTypeIcon(record.type)}
-                          {record.type}
-                        </div>
-                      </td>
-                      <td className="p-4">
                         <span className="text-sm text-slate-500 font-mono">
                           {record.type === 'order' ? (record.order_id || record.id) : record.id}
                         </span>
                       </td>
+                      {recordType === 'order' ? (
+                        <>
+                          <td className="p-4">
+                            {renderOrderSourceBadge(record.created_by)}
+                          </td>
+                          <td className="p-4">
+                            <span className="text-sm font-bold text-slate-800">
+                              {formatOrderAmount(record.total)}
+                            </span>
+                          </td>
+                        </>
+                      ) : (
+                        <td className="p-4">
+                          <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 capitalize">
+                            {getTypeIcon(record.type)}
+                            {record.type}
+                          </div>
+                        </td>
+                      )}
                       <td className="p-4">
                         <span className={`px-2.5 py-1 rounded-md text-xs font-bold border capitalize ${getStatusColor(record.status)}`}>
                           {record.status?.replaceAll('_', ' ')}
                         </span>
                       </td>
                       <td className="p-4 text-sm text-slate-500 font-medium">
-                        {new Date(record.created_at).toLocaleDateString()}
+                        {record.created_at ? new Date(record.created_at).toLocaleDateString() : '—'}
                       </td>
                       <td className="p-4 text-right">
                         <button className="text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-50 hover:bg-emerald-100 p-2 rounded-lg">
@@ -356,14 +435,25 @@ const CustomerRecords = ({ pages, recordType }) => {
           <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-scale-in">
             <div className="p-6 md:p-8 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
               <div>
-                <h3 className="text-xl font-black text-slate-800">{selectedRecord.contact_name || 'Customer Details'}</h3>
-                <div className="flex items-center gap-3 mt-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-xl font-black text-slate-800">{selectedRecord.contact_name || 'Customer Details'}</h3>
+                  {selectedRecord.type === 'order' && renderOrderSourceBadge(selectedRecord.created_by)}
+                </div>
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
                   <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 capitalize">
                     {getTypeIcon(selectedRecord.type)} {selectedRecord.type}
                   </div>
+                  {selectedRecord.type === 'order' && (selectedRecord.order_id || selectedRecord.customer_order_id) && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                      <span className="text-xs font-mono font-bold text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded-md">
+                        {selectedRecord.order_id || selectedRecord.customer_order_id}
+                      </span>
+                    </>
+                  )}
                   <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                   <span className="text-sm text-slate-500 flex items-center gap-1.5">
-                    <Calendar size={14} /> {new Date(selectedRecord.created_at).toLocaleString()}
+                    <Calendar size={14} /> {selectedRecord.created_at ? new Date(selectedRecord.created_at).toLocaleString() : '—'}
                   </span>
                 </div>
               </div>
@@ -407,6 +497,23 @@ const CustomerRecords = ({ pages, recordType }) => {
                 )}
               </div>
 
+              {/* Delivery Address (If order) */}
+              {selectedRecord.type === 'order' && (
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <MapPin size={14} className="text-emerald-500" />
+                    Delivery Address
+                  </h4>
+                  {selectedRecord.delivery_address ? (
+                    <p className="text-sm font-semibold text-slate-700 whitespace-pre-line leading-relaxed">
+                      {selectedRecord.delivery_address}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">No delivery address provided.</p>
+                  )}
+                </div>
+              )}
+
               {/* Order Items (If order) */}
               {selectedRecord.type === 'order' && selectedRecord.order_items && selectedRecord.order_items.length > 0 && (
                 <div className="space-y-3">
@@ -435,6 +542,89 @@ const CustomerRecords = ({ pages, recordType }) => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Order Financial Summary */}
+              {selectedRecord.type === 'order' && (selectedRecord.total !== undefined || selectedRecord.delivery_charge !== undefined || (selectedRecord.order_items && selectedRecord.order_items.length > 0)) && (
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Order Summary</h4>
+                  <div className="space-y-2 text-sm">
+                    {selectedRecord.order_items && selectedRecord.order_items.length > 0 && (
+                      <div className="flex justify-between text-slate-600">
+                        <span>Items Subtotal</span>
+                        <span className="font-semibold text-slate-700">
+                          ${selectedRecord.order_items.reduce((sum, it) => sum + (Number(it.price || 0) * (Number(it.quantity) || 1)), 0).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    {selectedRecord.delivery_charge !== undefined && selectedRecord.delivery_charge !== null && selectedRecord.delivery_charge !== '' && (
+                      <div className="flex justify-between text-slate-600">
+                        <span>Delivery Charge</span>
+                        <span className="font-semibold text-slate-700">
+                          {formatOrderAmount(selectedRecord.delivery_charge)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="border-t border-slate-200 pt-2.5 flex justify-between items-baseline">
+                      <span className="font-black text-slate-800 text-base">Total</span>
+                      <span className="font-black text-emerald-600 text-lg">
+                        {formatOrderAmount(selectedRecord.total)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Reference & Context Details */}
+              {selectedRecord.type === 'order' && (selectedRecord.conversation_id || selectedRecord.page_id || selectedRecord.updated_at) && (
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs text-slate-500 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold uppercase tracking-wider text-slate-400 text-[10px]">Reference Details</span>
+                    {selectedRecord.updated_at && (
+                      <span className="text-[11px] text-slate-400">
+                        Updated: {new Date(selectedRecord.updated_at).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono">
+                    {selectedRecord.conversation_id && (
+                      <div className="flex items-center justify-between bg-white border border-slate-200 px-3 py-1.5 rounded-lg">
+                        <span className="text-slate-400">Conversation:</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="font-semibold text-slate-700 truncate max-w-[140px]" title={selectedRecord.conversation_id}>
+                            {selectedRecord.conversation_id}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(selectedRecord.conversation_id, 'conv_id')}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
+                            title="Copy conversation ID"
+                          >
+                            {copiedKey === 'conv_id' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {selectedRecord.customer_order_id && (
+                      <div className="flex items-center justify-between bg-white border border-slate-200 px-3 py-1.5 rounded-lg">
+                        <span className="text-slate-400">Order UUID:</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="font-semibold text-slate-700 truncate max-w-[140px]" title={selectedRecord.customer_order_id}>
+                            {selectedRecord.customer_order_id}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(selectedRecord.customer_order_id, 'order_uuid')}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
+                            title="Copy Order UUID"
+                          >
+                            {copiedKey === 'order_uuid' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

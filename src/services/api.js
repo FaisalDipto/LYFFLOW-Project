@@ -297,6 +297,58 @@ const mockData = {
       page_size: 20,
       total: 2
     }
+  },
+  '/v1/pages/orders': {
+    orders: [
+      {
+        customer_order_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        order_id: 'ORD-1001',
+        status: 'new',
+        created_by: 'ai',
+        total: '1250.00',
+        contact_name: 'John Doe',
+        created_at: '2026-09-20T14:13:25.161Z'
+      },
+      {
+        customer_order_id: '7ab85f64-8888-4562-b3fc-2c963f66afa7',
+        order_id: 'ORD-1002',
+        status: 'pending',
+        created_by: 'ai',
+        total: '2400.00',
+        contact_name: 'Jane Smith',
+        created_at: '2026-09-20T12:00:00.000Z'
+      }
+    ],
+    pagination: {
+      next_cursor: '',
+      has_more: false,
+      page_size: 20,
+      total: 2
+    }
+  },
+  '/v1/pages/orders/{order_id}': {
+    customer_order_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    page_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    conversation_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    order_id: 'ORD-1001',
+    status: 'new',
+    created_by: 'ai',
+    total: '1250.00',
+    delivery_charge: '80.00',
+    delivery_address: 'House 12, Road 5, Dhanmondi, Dhaka',
+    contact_name: 'John Doe',
+    contact_phone: '01700000000',
+    contact_email: 'john@example.com',
+    order_items: [
+      {
+        name: 'Premium Leather Wallet',
+        quantity: 1,
+        price: 1170.00
+      }
+    ],
+    notes: 'Please call before delivery.',
+    created_at: '2026-09-20T14:13:25.177Z',
+    updated_at: '2026-09-20T14:13:25.177Z'
   }
 };
 
@@ -328,7 +380,15 @@ const apiFetch = async (endpoint, options = {}) => {
     const courierOrderMock = courierOrderMatch
       ? mockData[`/v1/${courierOrderMatch[1]}/orders/{${courierOrderMatch[2] === 'info' ? 'consignment_id' : 'order_id'}}/${courierOrderMatch[2]}`]
       : null;
-    const mockResponse = mockData[endpoint] || courierOrderMock ||
+    const pageOrderDetailMatch = endpoint.match(/^\/v1\/pages\/orders\/([^/?#]+)$/);
+    const pageOrderDetailMock = pageOrderDetailMatch
+      ? mockData['/v1/pages/orders/{order_id}']
+      : null;
+    const pageOrdersListMatch = endpoint.startsWith('/v1/pages/orders');
+    const pageOrdersListMock = (pageOrdersListMatch && !pageOrderDetailMatch)
+      ? mockData['/v1/pages/orders']
+      : null;
+    const mockResponse = pageOrderDetailMock || pageOrdersListMock || mockData[endpoint] || courierOrderMock ||
                          Object.entries(mockData).find(([k]) => endpoint.startsWith(k))?.[1];
 
     if (mockResponse) return mockResponse;
@@ -714,8 +774,8 @@ export const apiService = {
     const qs = q.toString() ? `?${q.toString()}` : '';
     return apiFetch(`/v1/pages/orders${qs}`);
   },
-  getCustomerOrder: (orderId) => apiFetch(`/v1/pages/orders/${orderId}`),
-  updateCustomerOrderStatus: (orderId, status) => apiFetch(`/v1/pages/orders/${orderId}/status`, {
+  getCustomerOrder: (orderId) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}`),
+  updateCustomerOrderStatus: (orderId, status) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   }),

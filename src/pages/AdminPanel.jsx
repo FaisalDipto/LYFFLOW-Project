@@ -3203,6 +3203,14 @@ function ConversationsSection() {
   );
 }
 
+const fmtOrderTotal = (val) => {
+  if (val === null || val === undefined || val === '') return '—';
+  const num = Number(String(val).trim());
+  if (!Number.isFinite(num)) return '—';
+  if (Math.abs(num) > 1e11) return `$${num.toExponential(2)}`;
+  return `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 // ── Customer Leads / Orders Section ────────────────────
 function CustomerRecordsSection({ recordType }) {
   const [records, setRecords] = useState([]);
@@ -3309,7 +3317,7 @@ function CustomerRecordsSection({ recordType }) {
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead><tr>
-                <th>Contact</th><th>Status</th><th>Page</th>{recordType === 'order' && <th>Order Reference</th>}<th>Captured At</th>
+                <th>Contact</th><th>Status</th><th>Page</th>{recordType === 'order' && <><th>Source</th><th>Order Reference</th><th>Total</th></>}<th>Captured At</th>
               </tr></thead>
               <tbody>
                 {filtered.map(r => {
@@ -3345,7 +3353,21 @@ function CustomerRecordsSection({ recordType }) {
                           Page ID: <span style={{ fontFamily: 'monospace' }}>{r.page_id?.slice(0, 8) || '—'}</span>{r.page_id ? '…' : ''}
                         </div>
                       </td>
+                      {isOrder && (
+                        <td>
+                          {r.created_by?.toLowerCase() === 'ai' ? (
+                            <span className="badge badge-purple" style={{ fontSize: 11 }}>AI</span>
+                          ) : r.created_by ? (
+                            <span className="badge badge-slate" style={{ fontSize: 11 }}>{r.created_by}</span>
+                          ) : <span className="text-muted">—</span>}
+                        </td>
+                      )}
                       {isOrder && <td><span className="badge badge-slate">{r.order_id || '—'}</span></td>}
+                      {isOrder && (
+                        <td>
+                          <span className="font-bold">{fmtOrderTotal(r.total)}</span>
+                        </td>
+                      )}
                       <td>
                         <div className="font-bold" style={{ fontSize: 12 }}>{fmtDate(r.created_at)}</div>
                         <div className="text-muted" style={{ fontSize: 11 }}>ID: {r.id?.slice(0, 8)}…</div>

@@ -136,12 +136,14 @@ const PathaoShipModal = ({ order, onClose }) => {
       if (storesResult.status === 'rejected' || locationsResult.status === 'rejected') {
         setSetupWarning('Could not load your Pathao stores or delivery locations. Make sure your Pathao account is connected.');
       }
+      const rawTotal = order.total !== undefined && order.total !== null ? Number(String(order.total).trim()) : null;
+      const fallbackAmount = Number.isFinite(rawTotal) && rawTotal >= 0 && rawTotal < 1e9 ? rawTotal : 0;
       setForm({
         store_id: defaultStore?.store_id ?? '',
-        recipient_name: prefill?.recipient_name ?? '',
-        recipient_phone: prefill?.recipient_phone ?? '',
+        recipient_name: prefill?.recipient_name || order.contact_name || '',
+        recipient_phone: prefill?.recipient_phone || order.contact_phone || '',
         recipient_secondary_phone: '',
-        recipient_address: prefill?.recipient_address ?? '',
+        recipient_address: prefill?.recipient_address || order.delivery_address || '',
         recipient_city: '',
         recipient_zone: '',
         recipient_area: '',
@@ -149,7 +151,9 @@ const PathaoShipModal = ({ order, onClose }) => {
         item_type: prefill?.item_type ?? 2,
         item_quantity: prefill?.item_quantity ?? 1,
         item_weight: prefill?.item_weight ?? 0.5,
-        amount_to_collect: prefill?.amount_to_collect ?? 0,
+        amount_to_collect: prefill?.amount_to_collect !== undefined && prefill?.amount_to_collect !== null
+          ? prefill.amount_to_collect
+          : fallbackAmount,
         merchant_order_id: prefill?.invoice ?? '',
         item_description: prefill?.item_description ?? '',
         special_instruction: prefill?.special_instruction ?? '',

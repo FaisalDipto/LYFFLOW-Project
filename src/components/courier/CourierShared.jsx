@@ -222,6 +222,19 @@ export const CourierConnectCard = ({ courierName, fields, onConnect, webhookHelp
   );
 };
 
+const parseAmount = (val) => {
+  if (val === null || val === undefined || val === '') return null;
+  const num = typeof val === 'number' ? val : Number(String(val).trim());
+  return Number.isFinite(num) ? num : null;
+};
+
+const formatAmount = (val) => {
+  const num = parseAmount(val);
+  if (num === null) return '—';
+  if (Math.abs(num) > 1e11) return `$${num.toExponential(2)}`;
+  return `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 const normalizeOrder = (order) => ({ ...order, id: order.customer_order_id || order.order_id });
 
 /** Customer orders for one page, each with a button to ship it with the courier. */
@@ -306,6 +319,8 @@ export const CourierOrderList = ({ pages, courierName, onShip }) => {
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
                   <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500">Customer</th>
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500">Source</th>
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500">Total</th>
                   <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
                   <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500">Date</th>
                   <th className="p-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">Action</th>
@@ -323,6 +338,24 @@ export const CourierOrderList = ({ pages, courierName, onShip }) => {
                           {order.contact_email && <><Mail size={12} /> {order.contact_email}</>}
                         </span>
                       </div>
+                    </td>
+                    <td className="p-4">
+                      {order.created_by?.toLowerCase() === 'ai' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-bold text-purple-700">
+                          AI
+                        </span>
+                      ) : order.created_by ? (
+                        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                          {order.created_by}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <span className="text-sm font-bold text-slate-800">
+                        {formatAmount(order.total)}
+                      </span>
                     </td>
                     <td className="p-4">
                       <span className="rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-700">
