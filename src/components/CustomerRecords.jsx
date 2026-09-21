@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Bot, Copy, Check } from 'lucide-react';
 import { apiService } from '../services/api';
 
@@ -55,7 +55,7 @@ const normalizeRecord = (record, type) => ({
   type,
 });
 
-const CustomerRecords = ({ pages, recordType }) => {
+const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   const [selectedPageId, setSelectedPageId] = useState('');
   const [records, setRecords] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -144,6 +144,17 @@ const CustomerRecords = ({ pages, recordType }) => {
       setIsDetailLoading(false);
     }
   };
+
+  // Deep link from a notification. The detail endpoint only needs the id, so the
+  // record opens without waiting for the list request to come back.
+  const handleSelectRecordRef = useRef(handleSelectRecord);
+  handleSelectRecordRef.current = handleSelectRecord;
+
+  useEffect(() => {
+    if (!focusRequest?.recordId || focusRequest.recordType !== recordType) return;
+    if (focusRequest.pageId) setSelectedPageId(focusRequest.pageId);
+    handleSelectRecordRef.current({ id: focusRequest.recordId, type: recordType });
+  }, [focusRequest, recordType]);
 
   const closeRecordModal = () => {
     setSelectedRecord(null);

@@ -6,9 +6,12 @@ import logoImg from '../assets/logo1.webp';
 import titleImg from '../assets/title.webp';
 import AppLoadingScreen from '../components/AppLoadingScreen';
 import AgentAvatar from '../components/AgentAvatar';
+import NotificationBell from '../components/NotificationBell';
+import { NotificationsProvider } from '../context/NotificationsContext';
 import { useWidget } from '../context/WidgetContext';
 import { API_BASE } from '../config/env';
 import { apiService } from '../services/api';
+import { closeNotificationStream } from '../services/notificationStream';
 import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import { useOnKeyChange } from '../hooks/useOnKeyChange';
 import './Dashboard.css';
@@ -563,7 +566,7 @@ const formatListTime = (rawTime) => {
   }
 };
 
-const ConversationList = ({ pages, user }) => {
+const ConversationList = ({ pages, user, focusRequest }) => {
   const [selectedPageId, setSelectedPageId] = useState('');
   const [humanNeededFilter, setHumanNeededFilter] = useState('all');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -686,6 +689,26 @@ const ConversationList = ({ pages, user }) => {
       setSelectedPageId(prev => prev || pages[0].page_id);
     }
   }, [pages]);
+
+  // Deep link from a notification: switch to the notification's page, then open
+  // the conversation once that page's list has loaded.
+  const pendingFocusRef = useRef(null);
+
+  useEffect(() => {
+    if (!focusRequest?.conversationId) return;
+    pendingFocusRef.current = focusRequest;
+    if (focusRequest.pageId) setSelectedPageId(focusRequest.pageId);
+    setMobileShowChat(true);
+  }, [focusRequest]);
+
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending || loading) return;
+    if (pending.pageId && pending.pageId !== selectedPageId) return;
+    const match = contacts.find(c => (c.conversation_id || c.id) === pending.conversationId);
+    if (match) setActiveContact(match);
+    pendingFocusRef.current = null;
+  }, [contacts, loading, selectedPageId]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -5986,6 +6009,9 @@ export default function Dashboard() {
   const visitedTabsRef = useRef(new Set(['overview']));
   visitedTabsRef.current.add(activeTab);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  // Set when a notification is clicked, so the destination tab can open the record it points at.
+  const [notificationFocus, setNotificationFocus] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   // Expanded state per collapsible nav group, keyed by item id (e.g. { 'customer-records': true }).
@@ -6137,6 +6163,17 @@ export default function Dashboard() {
     setUser(current => current ? { ...current, ...parsedProfile, agents: current.agents, subscription: current.subscription } : parsedProfile);
   }, []);
 
+  // Routes a clicked notification to the view that already renders its record.
+  // `nonce` re-fires the focus even when the same record is opened twice.
+  const handleNotificationNavigate = useCallback((target) => {
+    if (!target?.tab) return;
+    visitedTabsRef.current.add(target.tab);
+    setActiveTab(target.tab);
+    if (target.conversationId || target.recordId) {
+      setNotificationFocus({ ...target, nonce: Date.now() });
+    }
+  }, []);
+
   const refreshAgentWorkspace = useCallback(async () => {
     await Promise.allSettled([refreshPages(), refreshAgents()]);
   }, [refreshAgents, refreshPages]);
@@ -6171,16 +6208,16 @@ export default function Dashboard() {
         </div>
         {visitedTabsRef.current.has('customer-leads') && <div style={{ display: activeTab === 'customer-leads' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
-            <CustomerRecords pages={pages} recordType="lead" />
+            <CustomerRecords pages={pages} recordType="lead" focusRequest={notificationFocus} />
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('customer-orders') && <div style={{ display: activeTab === 'customer-orders' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
-            <CustomerRecords pages={pages} recordType="order" />
+            <CustomerRecords pages={pages} recordType="order" focusRequest={notificationFocus} />
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
-          <ConversationList pages={pages} user={user} />
+          <ConversationList pages={pages} user={user} focusRequest={notificationFocus} />
         </div>}
         {(visitedTabsRef.current.has('knowledge-products') || visitedTabsRef.current.has('knowledge-documents')) && <div style={{ display: (activeTab === 'knowledge-products' || activeTab === 'knowledge-documents') ? 'contents' : 'none' }}>
           <Knowledge namespaces={namespaces} onUpdate={refreshNamespaces} activeSection={activeTab === 'knowledge-products' ? 'products' : 'documents'} />
@@ -6287,6 +6324,7 @@ export default function Dashboard() {
   }
 
   return (
+    <NotificationsProvider onSessionExpired={() => navigate('/get-started', { replace: true })}>
     <div className={`dashboard-layout theme-${theme}`}>
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
@@ -6442,6 +6480,11 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell
+              isOpen={isNotificationsOpen}
+              onOpenChange={setIsNotificationsOpen}
+              onNavigate={handleNotificationNavigate}
+            />
             <button
               type="button"
               className="dashboard-theme-toggle"
@@ -6681,6 +6724,7 @@ export default function Dashboard() {
                   <button
                     onClick={async () => {
                       setIsLoggingOut(true);
+                      closeNotificationStream();
                       await apiService.logout().catch(() => { });
                       window.location.href = '/login';
                     }}
@@ -6696,6 +6740,7 @@ export default function Dashboard() {
         </div>
       </main>
     </div>
+    </NotificationsProvider>
   );
 }
 

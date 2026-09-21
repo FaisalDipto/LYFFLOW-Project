@@ -780,6 +780,32 @@ export const apiService = {
     body: JSON.stringify({ status }),
   }),
 
+  // Notifications
+  getNotifications: ({ category, page_id, unread_only, cursor, page_size } = {}) => {
+    const q = new URLSearchParams();
+    if (category) q.set('category', category);
+    if (page_id) q.set('page_id', page_id);
+    if (unread_only) q.set('unread_only', 'true');
+    if (cursor) q.set('cursor', cursor);
+    if (page_size) q.set('page_size', String(page_size));
+    const qs = q.toString() ? `?${q}` : '';
+    return apiFetch(`/v1/notifications${qs}`);
+  },
+
+  getUnreadNotificationCount: () => apiFetch('/v1/notifications/unread-count'),
+
+  // An empty body tells the backend to mark every unread notification.
+  markNotificationsRead: (notificationIds) => apiFetch('/v1/notifications/read', {
+    method: 'POST',
+    body: JSON.stringify(notificationIds?.length ? { notification_ids: notificationIds } : {}),
+    preserveGetCache: true,
+  }),
+
+  deleteNotification: (notificationId) => apiFetch(`/v1/notifications/${notificationId}`, {
+    method: 'DELETE',
+    preserveGetCache: true,
+  }),
+
   // Admin
   adminLogin: (credentials) => apiFetch('/v1/admin/login', { method: 'POST', body: JSON.stringify(credentials) }),
   adminMe: () => apiFetch('/v1/admin/me', { cacheTtl: 5000 }),

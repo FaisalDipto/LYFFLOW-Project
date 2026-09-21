@@ -126,6 +126,27 @@ html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#eeeef0]"],
 html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#e2e2e4]"],
 html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#f3f3f5]"]{background-color:#111f33!important}
 
+/* Notifications bell and panel — the shared dark rules only cover slate
+   utilities, so the severity tints and hover states are mapped here. */
+.dashboard-layout.theme-dark .notifications-bell{background:#111d30;border-color:#2a3a51;color:#a9b7c9}
+.dashboard-layout.theme-dark .notifications-bell:hover{background:#17263c;border-color:#3a4b63;color:#f1f5f9}
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel{box-shadow:0 24px 60px rgba(0,0,0,.45)}
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .hover\:bg-slate-50:hover{background-color:#17263b!important}
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .hover\:bg-slate-100:hover{background-color:#1d2f47!important}
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .hover\:bg-slate-200:hover{background-color:#24354c!important}
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .border-slate-50{border-color:#1b2a3f!important}
+/* Unread row */
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-emerald-50\/40{background-color:rgba(16,45,43,.55)!important}
+/* Critical row keeps its left rule, which carries the weight in both themes. */
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-rose-50\/60{background-color:rgba(60,24,36,.6)!important}
+/* Severity chips */
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-sky-50{background-color:#102a3d!important;color:#7dd3fc!important}
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-emerald-50{background-color:#102d2b!important;color:#6ee7b7!important}
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-amber-50{background-color:#33260f!important;color:#fcd34d!important}
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-rose-100{background-color:#3d1a26!important;color:#fda4af!important}
+/* Active category chip needs to read against the dark card, not vanish into it. */
+html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-slate-900{background-color:#20c997!important;color:#052019!important}
+
 /* Admin dashboard */
 .admin-layout.theme-dark{background:#07111f;color:#dce5f1;color-scheme:dark}
 .admin-layout.theme-dark .admin-main,.admin-layout.theme-dark .admin-content{background:#07111f}
