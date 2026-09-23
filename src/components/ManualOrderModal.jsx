@@ -159,7 +159,7 @@ const ManualOrderModal = ({ conversationId, contactName = '', onClose, onCreated
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
 
       <div className="relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-[#f9f9fb] shadow-[0_30px_100px_-15px_rgba(15,23,42,0.45)]">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200/60 bg-white/90 px-6 py-5 backdrop-blur-md">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200/60 bg-white px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
               <ShoppingCart size={18} strokeWidth={2.4} />
@@ -421,7 +421,7 @@ const ManualOrderModal = ({ conversationId, contactName = '', onClose, onCreated
               )}
             </div>
 
-            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200/60 bg-white/90 px-6 py-4 backdrop-blur-md">
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200/60 bg-white px-6 py-4">
               <button
                 type="button"
                 onClick={onClose}
