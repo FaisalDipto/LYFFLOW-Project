@@ -386,6 +386,13 @@ const apiFetch = async (endpoint, options = {}) => {
     const pageOrderDetailMock = pageOrderDetailMatch
       ? mockData['/v1/pages/orders/{order_id}']
       : null;
+    if (pageOrderDetailMatch && method === 'PATCH') {
+      const updated = { ...pageOrderDetailMock, ...JSON.parse(requestOptions.body || '{}') };
+      const itemsTotal = (updated.order_items || []).reduce((sum, item) => sum + item.quantity * item.price, 0);
+      updated.total = (itemsTotal + Number(updated.delivery_charge || 0)).toFixed(2);
+      updated.updated_at = new Date().toISOString();
+      return updated;
+    }
     const manualOrderCreateMatch = /^\/v1\/pages\/orders\/create\/[^/?#]+$/.test(endpoint);
     if (manualOrderCreateMatch) {
       return { ...mockData['/v1/pages/orders'].orders[0], created_by: 'manual' };
@@ -868,6 +875,11 @@ export const apiService = {
       body: JSON.stringify(orderData),
     }
   ),
+  // Partial update; only the fields sent are applied and the backend recalculates total.
+  updateCustomerOrder: (orderId, orderData) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(orderData),
+  }),
   updateCustomerOrderStatus: (orderId, status) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),

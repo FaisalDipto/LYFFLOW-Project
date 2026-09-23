@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download } from 'lucide-react';
+import { Users, Phone, Mail, Calendar, Eye, Pencil, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download, Trash2 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { formatOrderAmount, parseOrderAmount, renderOrderSourceBadge } from './customerRecordUtils';
 import DateRangeCalendar from './DateRangeCalendar';
+import EditOrderModal from './EditOrderModal';
+import RowActionsMenu from './RowActionsMenu';
 
 const LEAD_STATUSES = ['new', 'contacted', 'converted', 'cancelled'];
 const ORDER_STATUSES = [
@@ -73,6 +75,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   const [isSteadfastPlacing, setIsSteadfastPlacing] = useState(false);
   const [steadfastPlacementError, setSteadfastPlacementError] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
+  const [editingOrder, setEditingOrder] = useState(null);
 
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -295,6 +298,27 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
     } finally {
       setIsSteadfastPlacing(false);
     }
+  };
+
+  const handleOrderSaved = (updated) => {
+    if (!updated) return;
+    const next = normalizeRecord(updated, 'order');
+    const editedId = editingOrder?.id;
+    setRecords(prev => prev.map(record => (record.id === editedId || record.id === next.id ? { ...record, ...next } : record)));
+    setSelectedRecord(current => (current && (current.id === editedId || current.id === next.id) ? { ...current, ...next } : current));
+    setEditingOrder(null);
+  };
+
+  const getRowActions = (record) => {
+    const actions = [{ key: 'view', label: 'View', icon: Eye, onSelect: () => handleSelectRecord(record) }];
+    if (record.type === 'order') {
+      actions.push(
+        { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => setEditingOrder(record) },
+        // No delete endpoint yet; shown so the menu layout is final.
+        { key: 'delete', label: 'Delete', icon: Trash2, tone: 'danger', disabled: true, hint: 'Soon' },
+      );
+    }
+    return actions;
   };
 
   const handleUpdateStatus = async (recordId, newStatus) => {
@@ -614,10 +638,11 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
                       <td className="p-4 text-sm text-slate-500 font-medium">
                         {record.created_at ? new Date(record.created_at).toLocaleDateString() : '—'}
                       </td>
-                      <td className="p-4 text-right">
-                        <button className="text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-50 hover:bg-emerald-100 p-2 rounded-lg">
-                          <ChevronRight size={18} />
-                        </button>
+                      <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
+                        <RowActionsMenu
+                          actions={getRowActions(record)}
+                          label={`Actions for ${record.contact_name || record.order_id || record.id}`}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -976,15 +1001,38 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
                 </select>
                 {isUpdatingStatus && <Loader2 className="animate-spin text-slate-400" size={16} />}
               </div>
-              <button 
-                onClick={closeRecordModal}
-                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedRecord.type === 'order' && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingOrder(selectedRecord)}
+                    disabled={isDetailLoading}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-emerald-300 hover:text-emerald-700 text-slate-700 font-bold rounded-xl transition-colors text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Pencil size={15} />
+                    Edit
+                  </button>
+                )}
+                <button 
+                  onClick={closeRecordModal}
+                  className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {editingOrder && (
+        <EditOrderModal
+          key={editingOrder.id}
+          orderId={editingOrder.id}
+          order={editingOrder}
+          onClose={() => setEditingOrder(null)}
+          onSaved={handleOrderSaved}
+        />
       )}
     </div>
   );
