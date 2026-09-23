@@ -20,6 +20,7 @@ import '../styles/dashboard-theme.css';
 const AgentAvatarModal = lazy(() => import('../components/AgentAvatarModal'));
 const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
 const ProductsTab = lazy(() => import('../components/ProductsTab'));
+const ManualOrderModal = lazy(() => import('../components/ManualOrderModal'));
 const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCourier'));
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 
@@ -627,8 +628,14 @@ const ConversationList = ({ pages, user, focusRequest }) => {
   const [loadingMoreContacts, setLoadingMoreContacts] = useState(false);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
   const isLoadingOlderMsgsRef = useRef(false);
   const conversationsRequestVersionRef = useRef(0);
+
+  // Switching conversations would retarget an open form at a different customer.
+  useEffect(() => {
+    setIsManualOrderOpen(false);
+  }, [activeContact?.conversation_id, activeContact?.id]);
 
   const currentPageName = pages?.find(p => p.page_id === selectedPageId)?.name || '';
   const isHumanNeeded = humanNeededFilter === 'all'
@@ -1383,6 +1390,16 @@ const ConversationList = ({ pages, user, focusRequest }) => {
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setIsManualOrderOpen(true)}
+                  disabled={!(activeContact?.conversation_id || activeContact?.id)}
+                  className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-black text-slate-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-3"
+                  title="Create a manual order for this conversation"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add_shopping_cart</span>
+                  <span className="hidden lg:inline">New order</span>
+                </button>
+                <button
+                  type="button"
                   onClick={handleToggleAIPause}
                   className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black transition-colors md:px-3 ${
                     (activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed)
@@ -1608,6 +1625,17 @@ const ConversationList = ({ pages, user, focusRequest }) => {
                 </button>
               </div>
 
+              <div className="mb-6 flex w-full justify-center">
+                <button
+                  onClick={() => setIsManualOrderOpen(true)}
+                  disabled={!(activeContact?.conversation_id || activeContact?.id)}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-xs font-black text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+                  Create manual order
+                </button>
+              </div>
+
               <div className="space-y-8">
                 <div>
                   <h4 className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-4 border-b border-slate-100 pb-2">Information</h4>
@@ -1652,6 +1680,17 @@ const ConversationList = ({ pages, user, focusRequest }) => {
             </div>
           ) : null}
         </aside>
+      )}
+
+      {/* Manual order creation */}
+      {isManualOrderOpen && (activeContact?.conversation_id || activeContact?.id) && (
+        <Suspense fallback={null}>
+          <ManualOrderModal
+            conversationId={activeContact.conversation_id || activeContact.id}
+            contactName={resolveContactName(activeContact, '')}
+            onClose={() => setIsManualOrderOpen(false)}
+          />
+        </Suspense>
       )}
 
       {/* Image Modal */}

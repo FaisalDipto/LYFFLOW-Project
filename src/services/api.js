@@ -384,6 +384,10 @@ const apiFetch = async (endpoint, options = {}) => {
     const pageOrderDetailMock = pageOrderDetailMatch
       ? mockData['/v1/pages/orders/{order_id}']
       : null;
+    const manualOrderCreateMatch = /^\/v1\/pages\/orders\/create\/[^/?#]+$/.test(endpoint);
+    if (manualOrderCreateMatch) {
+      return { ...mockData['/v1/pages/orders'].orders[0], created_by: 'manual' };
+    }
     const pageOrdersListMatch = endpoint.startsWith('/v1/pages/orders');
     const pageOrdersListMock = (pageOrdersListMatch && !pageOrderDetailMatch)
       ? mockData['/v1/pages/orders']
@@ -775,6 +779,14 @@ export const apiService = {
     return apiFetch(`/v1/pages/orders${qs}`);
   },
   getCustomerOrder: (orderId) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}`),
+  // Manually record an order against a conversation (created_by = "manual").
+  createManualOrder: (conversationId, orderData) => apiFetch(
+    `/v1/pages/orders/create/${encodeURIComponent(conversationId)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    }
+  ),
   updateCustomerOrderStatus: (orderId, status) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
