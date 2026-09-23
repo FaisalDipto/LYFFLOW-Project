@@ -41,6 +41,20 @@ const triggerFacebookReauth = () => {
   window.location.href = `${API_BASE}/v1/auth/facebook/reauth?redirect_uri=${redirectUrl}&next=${nextPath}`;
 };
 
+// /v1/pages reports token health separately from whether the page itself is enabled:
+// `needs_reauth` (or `is_token_active: false`) means Facebook stopped accepting our
+// page token, and `token_invalid_at` is when that happened.
+const pageNeedsReauth = (page) => page?.needs_reauth === true || page?.is_token_active === false;
+
+const formatTokenInvalidAt = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString(undefined, {
+    day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+};
+
 const parseCollection = (data, primaryKey) => {
   if (Array.isArray(data)) return data;
   return data?.[primaryKey] || data?.data?.[primaryKey] || data?.data || [];
@@ -110,6 +124,10 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
     ? pages.filter(page => Boolean(selectedAgents[page.page_id])).length
     : 0;
   const workspaceName = user?.workspace_name || 'My Workspace';
+  const reauthPages = useMemo(
+    () => (Array.isArray(pages) ? pages.filter(pageNeedsReauth) : []),
+    [pages]
+  );
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -298,6 +316,32 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
         <span className="shrink-0 text-xs font-bold text-slate-600">{pageCount} total</span>
       </div>
 
+      {reauthPages.length > 0 && (
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="material-symbols-outlined shrink-0 text-[20px] text-amber-600" style={{ fontVariationSettings: "'FILL' 1" }}>link_off</span>
+            <div className="min-w-0">
+              <p className="m-0 text-sm font-black text-amber-900">
+                {reauthPages.length === 1
+                  ? '1 page needs to be reconnected'
+                  : `${reauthPages.length} pages need to be reconnected`}
+              </p>
+              <p className="mb-0 mt-0.5 text-xs font-semibold leading-5 text-amber-800">
+                Facebook stopped accepting the access token, so your agent cannot read or reply to messages on {reauthPages.map(page => page.name || 'this page').join(', ')}.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={triggerFacebookReauth}
+            className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-4 text-xs font-black text-white transition-colors hover:bg-amber-700"
+          >
+            <span className="material-symbols-outlined text-[16px]">refresh</span>
+            Reconnect
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
         {Array.isArray(pages) && pages.map((page) => {
           const selectedAgent = agents.find(agent => agent.agent_id === selectedAgents[page.page_id]);
@@ -305,11 +349,13 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
             ? String(selectedAgents[page.page_id]).replace('foreign_agent_', '')
             : null;
           const hasAssignedAgent = Boolean(selectedAgents[page.page_id]);
+          const needsReauth = pageNeedsReauth(page);
+          const invalidSince = formatTokenInvalidAt(page.token_invalid_at);
 
           return (
             <article
               key={page.page_id}
-              className={`group relative min-w-0 overflow-visible rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md ${openDropdown === page.page_id ? 'z-[1000]' : 'z-0'}`}
+              className={`group relative min-w-0 overflow-visible rounded-xl border bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${needsReauth ? 'border-amber-300 hover:border-amber-400' : 'border-slate-200 hover:border-slate-300'} ${openDropdown === page.page_id ? 'z-[1000]' : 'z-0'}`}
             >
               <div className="flex min-w-0 items-start gap-3">
                 <div className="relative h-11 w-11 shrink-0">
@@ -320,14 +366,17 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
                       <span className="material-symbols-outlined flex h-full w-full items-center justify-center text-xl text-slate-500">forum</span>
                     )}
                   </div>
-                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" title="Connected" />
+                  <span
+                    className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${needsReauth ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                    title={needsReauth ? 'Reconnection required' : 'Connected'}
+                  />
                 </div>
 
                 <div className="min-w-0 flex-1 pt-0.5">
                   <h3 className="m-0 truncate text-sm font-black text-slate-900" title={page.name}>{page.name || 'Untitled page'}</h3>
-                  <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                    <FacebookMark className="h-[13px] w-[13px] shrink-0 text-blue-700" />
-                    <span>Connected</span>
+                  <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-semibold ${needsReauth ? 'text-amber-700' : 'text-slate-600'}`}>
+                    <FacebookMark className={`h-[13px] w-[13px] shrink-0 ${needsReauth ? 'text-amber-600' : 'text-blue-700'}`} />
+                    <span>{needsReauth ? 'Reconnection required' : 'Connected'}</span>
                   </div>
                 </div>
 
@@ -337,6 +386,23 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
               <p className="mb-0 mt-3 truncate text-xs leading-5 text-slate-500" title={page.description || ''}>
                 {page.description || 'Facebook messaging page'}
               </p>
+
+              {needsReauth && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <p className="m-0 text-[11px] font-black leading-4 text-amber-900">Access token expired</p>
+                  <p className="mb-0 mt-0.5 text-[10px] font-semibold leading-4 text-amber-800">
+                    {invalidSince ? `Stopped working on ${invalidSince}.` : 'Messages are not being answered.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={triggerFacebookReauth}
+                    className="mt-2 flex h-7 w-full items-center justify-center gap-1.5 rounded-md bg-amber-600 px-3 text-[11px] font-black text-white transition-colors hover:bg-amber-700"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">refresh</span>
+                    Reconnect page
+                  </button>
+                </div>
+              )}
 
               <div className="mt-3 border-t border-slate-100 pt-3">
                 <div className="mb-1.5 flex items-center justify-between">
@@ -637,7 +703,9 @@ const ConversationList = ({ pages, user, focusRequest }) => {
     setIsManualOrderOpen(false);
   }, [activeContact?.conversation_id, activeContact?.id]);
 
-  const currentPageName = pages?.find(p => p.page_id === selectedPageId)?.name || '';
+  const selectedPage = pages?.find(p => p.page_id === selectedPageId);
+  const currentPageName = selectedPage?.name || '';
+  const currentPageNeedsReauth = pageNeedsReauth(selectedPage);
   const isHumanNeeded = humanNeededFilter === 'all'
     ? null
     : humanNeededFilter === 'human';
@@ -1194,7 +1262,7 @@ const ConversationList = ({ pages, user, focusRequest }) => {
             <div className="relative page-dropdown-container">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="relative z-0 flex h-9 max-w-[150px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
+                className={`relative z-0 flex h-9 max-w-[150px] items-center gap-2 rounded-lg border bg-white px-2.5 shadow-sm transition-colors ${currentPageNeedsReauth ? 'border-amber-300 text-amber-700 hover:border-amber-400 hover:bg-amber-50' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
                 aria-expanded={isDropdownOpen}
                 aria-haspopup="menu"
               >
@@ -1234,9 +1302,20 @@ const ConversationList = ({ pages, user, focusRequest }) => {
                         )}
                         <span className="truncate">{p.name}</span>
                       </div>
-                      {selectedPageId === p.page_id && (
-                        <span className="material-symbols-outlined text-[16px] text-emerald-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                      )}
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {pageNeedsReauth(p) && (
+                          <span
+                            className="material-symbols-outlined text-[16px] text-amber-500"
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                            title="Reconnection required"
+                          >
+                            error
+                          </span>
+                        )}
+                        {selectedPageId === p.page_id && (
+                          <span className="material-symbols-outlined text-[16px] text-emerald-500" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                        )}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -1282,6 +1361,30 @@ const ConversationList = ({ pages, user, focusRequest }) => {
               </button>
             ))}
           </div>
+
+          {currentPageNeedsReauth && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined mt-px shrink-0 text-[16px] text-amber-600" style={{ fontVariationSettings: "'FILL' 1" }}>link_off</span>
+                <div className="min-w-0">
+                  <p className="m-0 text-[11px] font-black leading-4 text-amber-900">This page needs reconnecting</p>
+                  <p className="mb-0 mt-0.5 text-[10px] font-semibold leading-4 text-amber-800">
+                    {formatTokenInvalidAt(selectedPage?.token_invalid_at)
+                      ? `Facebook rejected the access token on ${formatTokenInvalidAt(selectedPage.token_invalid_at)}. New messages and replies will not go through.`
+                      : 'Facebook rejected the access token. New messages and replies will not go through.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={triggerFacebookReauth}
+                    className="mt-2 flex h-7 items-center gap-1.5 rounded-md bg-amber-600 px-3 text-[11px] font-black text-white transition-colors hover:bg-amber-700"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">refresh</span>
+                    Reconnect
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 space-y-1 overflow-y-auto p-3">
