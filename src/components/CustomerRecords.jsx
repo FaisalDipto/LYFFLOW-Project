@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download } from 'lucide-react';
 import { apiService } from '../services/api';
 import { formatOrderAmount, parseOrderAmount, renderOrderSourceBadge } from './customerRecordUtils';
+import DateRangeCalendar from './DateRangeCalendar';
 
 const LEAD_STATUSES = ['new', 'contacted', 'converted', 'cancelled'];
 const ORDER_STATUSES = [
@@ -16,7 +17,21 @@ const ORDER_CREATORS = [
   { value: 'manual', label: 'Manual only' },
 ];
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+};
+
+const formatExportDate = (iso) => {
+  if (!iso) return '';
+  const [year, month, day] = iso.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 const saveBlob = (blob, filename) => {
   const url = URL.createObjectURL(blob);
@@ -394,7 +409,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
                 <div
                   role="dialog"
                   aria-label="Export orders to Excel"
-                  className="absolute right-0 top-[calc(100%+8px)] z-50 w-[300px] rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xl"
+                  className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[70vh] w-[320px] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xl"
                 >
                   <div className="mb-3 flex items-start justify-between gap-2">
                     <div>
@@ -456,30 +471,33 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
                       </select>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400" htmlFor="export-start">From</label>
-                        <input
-                          id="export-start"
-                          type="date"
-                          max={exportFilters.end_date || todayIso()}
-                          value={exportFilters.start_date}
-                          onChange={(e) => setExportFilters(prev => ({ ...prev, start_date: e.target.value }))}
-                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                        />
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Date range</span>
+                        {(exportFilters.start_date || exportFilters.end_date) && (
+                          <button
+                            type="button"
+                            onClick={() => setExportFilters(prev => ({ ...prev, start_date: '', end_date: '' }))}
+                            className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 transition-colors hover:text-red-600"
+                          >
+                            Clear
+                          </button>
+                        )}
                       </div>
-                      <div>
-                        <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400" htmlFor="export-end">To</label>
-                        <input
-                          id="export-end"
-                          type="date"
-                          min={exportFilters.start_date || undefined}
-                          max={todayIso()}
-                          value={exportFilters.end_date}
-                          onChange={(e) => setExportFilters(prev => ({ ...prev, end_date: e.target.value }))}
-                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                        />
-                      </div>
+
+                      <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                        <Calendar size={12} className="shrink-0 text-slate-400" />
+                        {exportFilters.start_date
+                          ? `${formatExportDate(exportFilters.start_date)} - ${exportFilters.end_date ? formatExportDate(exportFilters.end_date) : 'pick an end date'}`
+                          : 'All dates'}
+                      </p>
+
+                      <DateRangeCalendar
+                        startDate={exportFilters.start_date}
+                        endDate={exportFilters.end_date}
+                        maxDate={todayIso()}
+                        onChange={({ start_date, end_date }) => setExportFilters(prev => ({ ...prev, start_date, end_date }))}
+                      />
                     </div>
                     <p className="mb-0 text-[10px] font-semibold leading-4 text-slate-400">Dates are inclusive and read in UTC. Leave them empty to export everything.</p>
                   </div>
