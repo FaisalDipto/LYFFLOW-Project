@@ -4,6 +4,10 @@ import { apiService } from '../services/api';
 import { API_BASE } from '../config/env';
 import { Upload, Plus, Trash2, Edit3, Image as ImageIcon, FileText, Video, ExternalLink } from 'lucide-react';
 
+// Prices are stored as a "<CUR> <amount>" string, so the currency lives only on the
+// client. BDT is the default for new products and for legacy prices saved without one.
+const DEFAULT_CURRENCY = 'BDT';
+
 const FallbackImage = ({ src, alt, className }) => {
   const [error, setError] = useState(false);
   
@@ -46,7 +50,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     code: '',
     description: '',
     price: '',
-    currency: 'USD',
+    currency: DEFAULT_CURRENCY,
     category: '',
     tags: '',
     variants: '',
@@ -163,7 +167,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     
     // Parse currency and price if price contains a space (e.g., "USD 29.99")
     let parsedPrice = product.price || '';
-    let parsedCurrency = 'USD';
+    let parsedCurrency = DEFAULT_CURRENCY;
     
     if (typeof parsedPrice === 'string' && parsedPrice.includes(' ')) {
       const parts = parsedPrice.split(' ');
@@ -272,7 +276,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
       }
       
       setShowCreateModal(false);
-      setFormData({ name: '', code: '', description: '', price: '', currency: 'USD', category: '', tags: '', variants: '', availability: true });
+      setFormData({ name: '', code: '', description: '', price: '', currency: DEFAULT_CURRENCY, category: '', tags: '', variants: '', availability: true });
       setSelectedFiles([]);
       setExistingAssets([]);
       setEditingProductId(null);
@@ -451,7 +455,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
             <button 
               onClick={() => {
                 setEditingProductId(null);
-                setFormData({ name: '', code: '', description: '', price: '', currency: 'USD', category: '', tags: '', variants: '', availability: true });
+                setFormData({ name: '', code: '', description: '', price: '', currency: DEFAULT_CURRENCY, category: '', tags: '', variants: '', availability: true });
                 setSelectedFiles([]);
                 setExistingAssets([]);
                 setShowCreateModal(true);
@@ -630,10 +634,10 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                         onChange={e => setFormData({...formData, currency: e.target.value})} 
                         className="bg-slate-100 border-r border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-200 transition-colors"
                       >
+                        <option value="BDT">BDT</option>
                         <option value="USD">USD</option>
                         <option value="EUR">EUR</option>
                         <option value="GBP">GBP</option>
-                        <option value="BDT">BDT</option>
                         <option value="INR">INR</option>
                         <option value="AUD">AUD</option>
                         <option value="CAD">CAD</option>
