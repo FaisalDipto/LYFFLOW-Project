@@ -495,6 +495,73 @@ const apiFetch = async (endpoint, options = {}) => {
   }
 };
 
+/**
+ * Reads the download filename the server asked for. Content-Disposition is only
+ * readable cross-origin when the API sends Access-Control-Expose-Headers, so
+ * callers must always pass a fallback.
+ */
+const filenameFromDisposition = (disposition) => {
+  if (!disposition) return null;
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1].trim());
+    } catch {
+      return encoded[1].trim();
+    }
+  }
+  const plain = disposition.match(/filename="?([^";]+)"?/i);
+  return plain ? plain[1].trim() : null;
+};
+
+/**
+ * File downloads bypass apiFetch, which parses every response as JSON or text and
+ * would corrupt binary content. Resolves to { blob, filename }; the caller saves it.
+ */
+const apiDownload = async (endpoint, fallbackFilename) => {
+  if (MOCK_MODE) {
+    console.log(`[MOCK API] GET ${endpoint} (download)`);
+    if (MOCK_DELAY_MS > 0) await new Promise(resolve => setTimeout(resolve, MOCK_DELAY_MS));
+    // A stand-in so the download path is testable; not a real spreadsheet.
+    const rows = 'order_id,status,contact_name,total\nORD-1001,new,John Doe,1250.00\nORD-1002,pending,Jane Smith,2400.00\n';
+    return {
+      blob: new Blob([rows], { type: 'text/csv' }),
+      filename: fallbackFilename.replace(/\.xlsx$/, '-mock.csv'),
+    };
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, { credentials: 'include' });
+
+  if (!response.ok) {
+    if (response.status === 429) {
+      window.dispatchEvent(new Event('lyfflow-api-rate-limit'));
+      const error = new Error('Too many requests. Please slow down and try again later.');
+      error.status = 429;
+      throw error;
+    }
+    let errorMessage = 'An error occurred while preparing the download';
+    try {
+      const errorData = await response.json();
+      if (Array.isArray(errorData.detail)) {
+        errorMessage = errorData.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join(' | ');
+      } else {
+        errorMessage = errorData.detail || errorMessage;
+      }
+    } catch {
+      // Non-JSON error body; keep the generic message.
+    }
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    throw error;
+  }
+
+  const blob = await response.blob();
+  return {
+    blob,
+    filename: filenameFromDisposition(response.headers.get('content-disposition')) || fallbackFilename,
+  };
+};
+
 export const apiService = {
   // Returns current logged-in user details including profile_pic_url
   getUserProfile: () => apiFetch('/v1/user/profile', { cacheTtl: 5000 }),
@@ -781,6 +848,18 @@ export const apiService = {
     return apiFetch(`/v1/pages/orders${qs}`);
   },
   getCustomerOrder: (orderId) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}`),
+  // Streams matching orders back as a generated .xlsx; every filter is optional.
+  exportCustomerOrders: ({ page_id, status, created_by, start_date, end_date } = {}) => {
+    const q = new URLSearchParams();
+    if (page_id) q.set('page_id', page_id);
+    if (status) q.set('status', status);
+    if (created_by) q.set('created_by', created_by);
+    if (start_date) q.set('start_date', start_date);
+    if (end_date) q.set('end_date', end_date);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    const stamp = new Date().toISOString().slice(0, 10);
+    return apiDownload(`/v1/pages/orders/export${qs}`, `customer-orders-${stamp}.xlsx`);
+  },
   // Manually record an order against a conversation (created_by = "manual").
   createManualOrder: (conversationId, orderData) => apiFetch(
     `/v1/pages/orders/create/${encodeURIComponent(conversationId)}`,

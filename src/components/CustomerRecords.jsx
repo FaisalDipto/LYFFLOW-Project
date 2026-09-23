@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check } from 'lucide-react';
+import { Users, Phone, Mail, Calendar, ChevronRight, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download } from 'lucide-react';
 import { apiService } from '../services/api';
 import { formatOrderAmount, parseOrderAmount, renderOrderSourceBadge } from './customerRecordUtils';
 
@@ -9,6 +9,26 @@ const ORDER_STATUSES = [
   'cancelled_approval_pending', 'unknown_approval_pending', 'delivered',
   'partial_delivered', 'cancelled', 'hold', 'in_review', 'unknown'
 ];
+
+const ORDER_CREATORS = [
+  { value: '', label: 'AI and manual' },
+  { value: 'ai', label: 'AI only' },
+  { value: 'manual', label: 'Manual only' },
+];
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+const saveBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoking immediately can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+};
 
 const normalizeRecord = (record, type) => ({
   ...record,
@@ -38,6 +58,70 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   const [isSteadfastPlacing, setIsSteadfastPlacing] = useState(false);
   const [steadfastPlacementError, setSteadfastPlacementError] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
+
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const [exportDone, setExportDone] = useState('');
+  const [exportFilters, setExportFilters] = useState({ page_id: '', status: '', created_by: '', start_date: '', end_date: '' });
+  const exportPanelRef = useRef(null);
+
+  // The export panel seeds from whatever the list is currently showing, then the
+  // user can widen or narrow it with the filters the list itself does not support.
+  const openExportPanel = () => {
+    setExportFilters({
+      page_id: selectedPageId || '',
+      status: filterStatus || '',
+      created_by: '',
+      start_date: '',
+      end_date: '',
+    });
+    setExportError('');
+    setExportDone('');
+    setIsExportOpen(true);
+  };
+
+  useEffect(() => {
+    if (!isExportOpen) return undefined;
+    const handleClickOutside = (event) => {
+      if (exportPanelRef.current && !exportPanelRef.current.contains(event.target)) {
+        setIsExportOpen(false);
+      }
+    };
+    const handleEscape = (event) => { if (event.key === 'Escape') setIsExportOpen(false); };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isExportOpen]);
+
+  const handleExport = async () => {
+    if (exportFilters.start_date && exportFilters.end_date && exportFilters.start_date > exportFilters.end_date) {
+      setExportError('The start date must not be after the end date.');
+      return;
+    }
+    setExportError('');
+    setExportDone('');
+    setIsExporting(true);
+    try {
+      const { blob, filename } = await apiService.exportCustomerOrders({
+        page_id: exportFilters.page_id || undefined,
+        status: exportFilters.status || undefined,
+        created_by: exportFilters.created_by || undefined,
+        start_date: exportFilters.start_date || undefined,
+        end_date: exportFilters.end_date || undefined,
+      });
+      saveBlob(blob, filename);
+      setExportDone(filename);
+    } catch (error) {
+      console.error('Failed to export orders:', error);
+      setExportError(error?.message || 'Could not generate the export. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleCopy = (text, key) => {
     if (!text) return;
@@ -288,6 +372,141 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
               ))}
             </select>
           </div>
+
+          {recordType === 'order' && (
+            <div className="relative" ref={exportPanelRef}>
+              <button
+                type="button"
+                onClick={() => (isExportOpen ? setIsExportOpen(false) : openExportPanel())}
+                aria-expanded={isExportOpen}
+                aria-haspopup="dialog"
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold transition-colors ${
+                  isExportOpen
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-300 hover:text-emerald-700'
+                }`}
+              >
+                <Download size={16} />
+                Export
+              </button>
+
+              {isExportOpen && (
+                <div
+                  role="dialog"
+                  aria-label="Export orders to Excel"
+                  className="absolute right-0 top-[calc(100%+8px)] z-50 w-[300px] rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xl"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div>
+                      <p className="m-0 text-sm font-black text-slate-900">Export to Excel</p>
+                      <p className="mb-0 mt-0.5 text-[11px] font-semibold leading-4 text-slate-500">Downloads an .xlsx of every matching order.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsExportOpen(false)}
+                      aria-label="Close export panel"
+                      className="-mr-1 -mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400" htmlFor="export-page">Page</label>
+                      <select
+                        id="export-page"
+                        value={exportFilters.page_id}
+                        onChange={(e) => setExportFilters(prev => ({ ...prev, page_id: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                      >
+                        <option value="">All pages</option>
+                        {pages?.map(page => (
+                          <option key={page.page_id} value={page.page_id}>{page.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400" htmlFor="export-status">Status</label>
+                      <select
+                        id="export-status"
+                        value={exportFilters.status}
+                        onChange={(e) => setExportFilters(prev => ({ ...prev, status: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold capitalize text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                      >
+                        <option value="">All statuses</option>
+                        {ORDER_STATUSES.map(status => (
+                          <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400" htmlFor="export-created-by">Created by</label>
+                      <select
+                        id="export-created-by"
+                        value={exportFilters.created_by}
+                        onChange={(e) => setExportFilters(prev => ({ ...prev, created_by: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                      >
+                        {ORDER_CREATORS.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400" htmlFor="export-start">From</label>
+                        <input
+                          id="export-start"
+                          type="date"
+                          max={exportFilters.end_date || todayIso()}
+                          value={exportFilters.start_date}
+                          onChange={(e) => setExportFilters(prev => ({ ...prev, start_date: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400" htmlFor="export-end">To</label>
+                        <input
+                          id="export-end"
+                          type="date"
+                          min={exportFilters.start_date || undefined}
+                          max={todayIso()}
+                          value={exportFilters.end_date}
+                          onChange={(e) => setExportFilters(prev => ({ ...prev, end_date: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                        />
+                      </div>
+                    </div>
+                    <p className="mb-0 text-[10px] font-semibold leading-4 text-slate-400">Dates are inclusive and read in UTC. Leave them empty to export everything.</p>
+                  </div>
+
+                  {exportError && (
+                    <p className="mt-3 mb-0 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold leading-4 text-red-700">{exportError}</p>
+                  )}
+                  {exportDone && !exportError && (
+                    <p className="mt-3 mb-0 flex items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold leading-4 text-emerald-700">
+                      <Check size={13} className="mt-px shrink-0" />
+                      <span className="min-w-0 break-all">Downloaded {exportDone}</span>
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleExport}
+                    disabled={isExporting}
+                    className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-xs font-black text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    {isExporting ? 'Preparing file...' : 'Download .xlsx'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
