@@ -125,6 +125,15 @@ html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#f9f9fb]"],
 html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#eeeef0]"],
 html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#e2e2e4]"],
 html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#f3f3f5]"]{background-color:#111f33!important}
+/* Slate fills inside dialogs: text-slate-700+ is flipped to near-white above, so
+   these surfaces have to darken with it or the label sits on a light chip. */
+html[data-dashboard-theme="dark"] body>.fixed .bg-slate-100,
+html[data-dashboard-theme="dark"] body>.fixed .hover\:bg-slate-100:hover{background-color:#17263b!important}
+html[data-dashboard-theme="dark"] body>.fixed .bg-slate-200,
+html[data-dashboard-theme="dark"] body>.fixed .hover\:bg-slate-200:hover{background-color:#24354c!important}
+html[data-dashboard-theme="dark"] body>.fixed .hover\:bg-slate-50:hover{background-color:#111f33!important}
+/* Lets native select popups and scrollbars render dark inside portals. */
+html[data-dashboard-theme="dark"] body>.fixed{color-scheme:dark}
 
 /* Notifications bell and panel — the shared dark rules only cover slate
    utilities, so the severity tints and hover states are mapped here. */
