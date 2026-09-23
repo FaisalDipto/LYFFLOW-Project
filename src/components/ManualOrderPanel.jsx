@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Loader2, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
 import { apiService } from '../services/api';
 import { formatOrderAmount } from './customerRecordUtils';
@@ -36,7 +35,7 @@ const inputClass = (hasError) =>
 
 const labelClass = 'mb-1.5 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-400';
 
-const ManualOrderModal = ({ conversationId, contactName = '', onClose, onCreated }) => {
+const ManualOrderPanel = ({ conversationId, contactName = '', onClose, onCreated }) => {
   const [form, setForm] = useState({
     contact_name: contactName || '',
     contact_phone: '',
@@ -53,17 +52,18 @@ const ManualOrderModal = ({ conversationId, contactName = '', onClose, onCreated
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrder, setCreatedOrder] = useState(null);
+  const panelRef = useRef(null);
   const firstFieldRef = useRef(null);
 
   useEffect(() => {
     firstFieldRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    const onKeyDown = (e) => { if (e.key === 'Escape') onClose?.(); };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  // The panel is non-modal, so Escape only closes it when focus is inside it;
+  // pressing Escape in the chat composer must not throw away a half-filled order.
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape' && panelRef.current?.contains(e.target)) onClose?.();
+  };
 
   const itemsSubtotal = useMemo(
     () => items.reduce((sum, item) => sum + toAmount(item.quantity) * toAmount(item.price), 0),
@@ -154,17 +154,21 @@ const ManualOrderModal = ({ conversationId, contactName = '', onClose, onCreated
     }
   };
 
-  const body = (
-    <div className="fixed inset-0 z-[9995] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-
-      <div className="relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-[#f9f9fb] shadow-[0_30px_100px_-15px_rgba(15,23,42,0.45)]">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200/60 bg-white px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+  // Rendered beside the chat (no backdrop) so the agent can copy details out of the
+  // conversation while filling the form. Inline in the layout on lg+, a drawer below.
+  return (
+    <aside
+      ref={panelRef}
+      onKeyDown={handleKeyDown}
+      aria-label="Create manual order"
+      className="fixed inset-y-0 right-0 z-[9995] flex w-full max-w-[420px] flex-col overflow-hidden border-l border-slate-200 bg-[#f9f9fb] shadow-[0_30px_100px_-15px_rgba(15,23,42,0.45)] animate-fade-in-right lg:static lg:z-auto lg:w-[400px] lg:max-w-none lg:shrink-0 lg:shadow-none xl:w-[420px]"
+    >
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200/60 bg-white px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
               <ShoppingCart size={18} strokeWidth={2.4} />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="font-['Epilogue'] text-lg font-black tracking-tight text-slate-900">Create manual order</h2>
               <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">
                 Conversation <span className="font-mono">{conversationId}</span>
@@ -175,14 +179,14 @@ const ManualOrderModal = ({ conversationId, contactName = '', onClose, onCreated
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-slate-900 hover:text-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-slate-900 hover:text-white"
           >
             <X size={18} />
           </button>
         </div>
 
         {createdOrder ? (
-          <div className="flex flex-col items-center px-8 py-12 text-center">
+          <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 py-12 text-center">
             <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
               <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
             </div>
@@ -212,7 +216,7 @@ const ManualOrderModal = ({ conversationId, contactName = '', onClose, onCreated
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-6">
+            <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-5 py-5">
               <section>
                 <h3 className="mb-4 border-b border-slate-200/70 pb-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Customer</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -421,7 +425,7 @@ const ManualOrderModal = ({ conversationId, contactName = '', onClose, onCreated
               )}
             </div>
 
-            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200/60 bg-white px-6 py-4">
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200/60 bg-white px-5 py-4">
               <button
                 type="button"
                 onClick={onClose}
@@ -440,12 +444,8 @@ const ManualOrderModal = ({ conversationId, contactName = '', onClose, onCreated
             </div>
           </form>
         )}
-      </div>
-    </div>
+    </aside>
   );
-
-  if (typeof document === 'undefined') return null;
-  return createPortal(body, document.body);
 };
 
-export default ManualOrderModal;
+export default ManualOrderPanel;

@@ -20,7 +20,7 @@ import '../styles/dashboard-theme.css';
 const AgentAvatarModal = lazy(() => import('../components/AgentAvatarModal'));
 const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
 const ProductsTab = lazy(() => import('../components/ProductsTab'));
-const ManualOrderModal = lazy(() => import('../components/ManualOrderModal'));
+const ManualOrderPanel = lazy(() => import('../components/ManualOrderPanel'));
 const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCourier'));
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 
@@ -1493,9 +1493,14 @@ const ConversationList = ({ pages, user, focusRequest }) => {
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsManualOrderOpen(true)}
+                  onClick={() => setIsManualOrderOpen(open => !open)}
                   disabled={!(activeContact?.conversation_id || activeContact?.id)}
-                  className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-black text-slate-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-3"
+                  aria-pressed={isManualOrderOpen}
+                  className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 md:px-3 ${
+                    isManualOrderOpen
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'
+                  }`}
                   title="Create a manual order for this conversation"
                 >
                   <span className="material-symbols-outlined text-[16px]">add_shopping_cart</span>
@@ -1608,7 +1613,7 @@ const ConversationList = ({ pages, user, focusRequest }) => {
       </section>
 
       {/* Profile Right Sidebar - hidden on mobile */}
-        {isProfileVisible && (
+        {isProfileVisible && !isManualOrderOpen && (
           <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white animate-fade-in-right xl:flex">
             {selectedMessageActivityId ? (
               <div className="p-5 flex flex-col h-full">
@@ -1785,10 +1790,10 @@ const ConversationList = ({ pages, user, focusRequest }) => {
         </aside>
       )}
 
-      {/* Manual order creation */}
+      {/* Manual order creation - takes the profile sidebar's slot so the chat stays usable */}
       {isManualOrderOpen && (activeContact?.conversation_id || activeContact?.id) && (
         <Suspense fallback={null}>
-          <ManualOrderModal
+          <ManualOrderPanel
             conversationId={activeContact.conversation_id || activeContact.id}
             contactName={resolveContactName(activeContact, '')}
             onClose={() => setIsManualOrderOpen(false)}
