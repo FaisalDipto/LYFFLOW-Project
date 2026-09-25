@@ -78,6 +78,9 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   const [steadfastPlacementError, setSteadfastPlacementError] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [editingOrder, setEditingOrder] = useState(null);
+  const [deletingOrder, setDeletingOrder] = useState(null);
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false);
+  const [deleteOrderError, setDeleteOrderError] = useState('');
 
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -316,11 +319,40 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
     if (record.type === 'order') {
       actions.push(
         { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => setEditingOrder(record) },
-        // No delete endpoint yet; shown so the menu layout is final.
-        { key: 'delete', label: 'Delete', icon: Trash2, tone: 'danger', disabled: true, hint: 'Soon' },
+        { key: 'delete', label: 'Delete', icon: Trash2, tone: 'danger', onSelect: () => openDeleteOrder(record) },
       );
     }
     return actions;
+  };
+
+  const openDeleteOrder = (record) => {
+    setDeleteOrderError('');
+    setDeletingOrder(record);
+  };
+
+  const closeDeleteOrder = () => {
+    if (isDeletingOrder) return;
+    setDeletingOrder(null);
+    setDeleteOrderError('');
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!deletingOrder?.id) return;
+    const orderId = deletingOrder.id;
+    setIsDeletingOrder(true);
+    setDeleteOrderError('');
+    try {
+      await apiService.deleteCustomerOrder(orderId);
+      setRecords(prev => prev.filter(record => record.id !== orderId));
+      if (selectedRecord?.id === orderId) closeRecordModal();
+      if (editingOrder?.id === orderId) setEditingOrder(null);
+      setDeletingOrder(null);
+    } catch (error) {
+      console.error('Failed to delete order:', error);
+      setDeleteOrderError(error?.message || 'Could not delete the order. Please try again.');
+    } finally {
+      setIsDeletingOrder(false);
+    }
   };
 
   const handleUpdateStatus = async (recordId, newStatus) => {
@@ -1037,6 +1069,53 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
           onClose={() => setEditingOrder(null)}
           onSaved={handleOrderSaved}
         />
+      )}
+
+      {deletingOrder && (
+        <div className="absolute inset-0 z-[110] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-fade-in sm:p-6" onClick={closeDeleteOrder}>
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-order-title"
+            className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center p-8 text-center">
+              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-500 shadow-inner">
+                <Trash2 size={30} />
+              </div>
+              <h3 id="delete-order-title" className="mb-2 text-2xl font-black text-slate-800">Delete Order?</h3>
+              <p className="mb-6 text-sm font-medium text-slate-500">
+                {deletingOrder.order_id ? `Order ${deletingOrder.order_id}` : 'This order'}
+                {deletingOrder.contact_name ? ` for ${deletingOrder.contact_name}` : ''} will be removed from your orders.
+              </p>
+              {deleteOrderError && (
+                <p className="mb-6 w-full rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-left text-sm font-semibold text-red-600">
+                  {deleteOrderError}
+                </p>
+              )}
+              <div className="flex w-full gap-3">
+                <button
+                  type="button"
+                  onClick={closeDeleteOrder}
+                  disabled={isDeletingOrder}
+                  className="flex-1 rounded-xl bg-slate-100 py-3.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteOrder}
+                  disabled={isDeletingOrder}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition-all hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isDeletingOrder && <Loader2 className="animate-spin" size={16} />}
+                  {isDeletingOrder ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

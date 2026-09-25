@@ -393,6 +393,7 @@ const apiFetch = async (endpoint, options = {}) => {
       updated.updated_at = new Date().toISOString();
       return updated;
     }
+    if (pageOrderDetailMatch && method === 'DELETE') return '';
     const manualOrderCreateMatch = /^\/v1\/pages\/orders\/create\/[^/?#]+$/.test(endpoint);
     if (manualOrderCreateMatch) {
       return { ...mockData['/v1/pages/orders'].orders[0], created_by: 'manual' };
@@ -879,6 +880,10 @@ export const apiService = {
   updateCustomerOrder: (orderId, orderData) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}`, {
     method: 'PATCH',
     body: JSON.stringify(orderData),
+  }),
+  // Soft delete; responds 204 with no body.
+  deleteCustomerOrder: (orderId) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}`, {
+    method: 'DELETE',
   }),
   updateCustomerOrderStatus: (orderId, status) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}/status`, {
     method: 'PATCH',
