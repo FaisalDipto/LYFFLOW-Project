@@ -248,3 +248,8 @@ html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-sla
 .dashboard-layout.theme-dark .required-action .text-amber-900,
 .dashboard-layout.theme-dark .required-action .text-amber-800{color:#fde68a!important}
 .dashboard-layout.theme-dark .required-action .text-amber-700{color:#fbbf24!important}
+.dashboard-layout.theme-dark .page-sync-panel{border-color:#26364d!important}
+.dashboard-layout.theme-dark .page-sync-panel.is-slow{background:#33270f!important;border-color:#6b4f12!important}
+.dashboard-layout.theme-dark .page-sync-panel.is-slow .text-amber-900,
+.dashboard-layout.theme-dark .page-sync-panel.is-slow .text-amber-800{color:#fde68a!important}
+.dashboard-layout.theme-dark .page-sync-shimmer{background-image:linear-gradient(90deg,#17263b 0%,#22344d 45%,#17263b 90%)}

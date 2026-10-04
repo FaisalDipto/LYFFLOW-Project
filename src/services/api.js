@@ -26,6 +26,11 @@ export const logoutUrl = () => `${API_BASE}/v1/logout`;
 
 // Set to true to test frontend without a running backend
 const MOCK_MODE = window.location.search.includes('mock=true');
+// Lets mock scenarios simulate data that only shows up some time after page load.
+const MOCK_LOADED_AT = Date.now();
+// The dashboard strips one-shot params (e.g. ?reauth=) from the URL, so scenarios
+// that must outlive that read the query string as it was at load.
+const MOCK_LOAD_PARAMS = new URLSearchParams(window.location.search);
 const MOCK_DELAY_MS = Math.max(0, Number(new URLSearchParams(window.location.search).get('mockDelay')) || 0);
 
 const mockData = {
@@ -397,7 +402,7 @@ const invalidateGetState = () => {
 };
 
 const apiFetch = async (endpoint, options = {}) => {
-  const { cacheTtl = 0, invalidateCache = false, preserveGetCache = false, ...requestOptions } = options;
+  const { cacheTtl = 0, invalidateCache = false, preserveGetCache = false, bypassCache = false, ...requestOptions } = options;
   const method = (requestOptions.method || 'GET').toUpperCase();
 
   if (MOCK_MODE) {
@@ -429,6 +434,14 @@ const apiFetch = async (endpoint, options = {}) => {
     const mockParams = new URLSearchParams(window.location.search);
     if (mockParams.get('mockNoBusiness') === 'true' && (endpoint === '/v1/businesses' || endpoint === '/v1/business/invitations')) {
       return [];
+    }
+    // ?mockSync=delay keeps the page list empty for ~9s after load (a background
+    // Facebook sync landing); ?mockSync=never keeps it empty to reach the timeout.
+    if (endpoint === '/v1/business/pages' && method === 'GET') {
+      const mockSync = MOCK_LOAD_PARAMS.get('mockSync');
+      if (mockSync === 'never') return { pages: [] };
+      if (mockSync === 'delay' && Date.now() - MOCK_LOADED_AT < 9000) return { pages: [] };
+      return { pages: mockData['/v1/business/pages'] };
     }
     // ?mockActions=true shows required-action banners; only the owner can act on them.
     if (endpoint === '/v1/user-required-actions') {
@@ -505,9 +518,11 @@ const apiFetch = async (endpoint, options = {}) => {
   if (invalidateCache) invalidateGetState();
 
   if (method === 'GET') {
-    const cached = responseCache.get(requestKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.value;
-    if (cached) responseCache.delete(requestKey);
+    if (!bypassCache) {
+      const cached = responseCache.get(requestKey);
+      if (cached && cached.expiresAt > Date.now()) return cached.value;
+      if (cached) responseCache.delete(requestKey);
+    }
 
     const inFlight = inFlightGetRequests.get(requestKey);
     if (inFlight) return inFlight;
@@ -669,8 +684,9 @@ export const apiService = {
   // Returns current logged-in user details including profile_pic_url
   getUserProfile: () => apiFetch('/v1/user/profile', { cacheTtl: 5000 }),
 
-  // Gets the active business's connected pages
-  getPages: () => apiFetch('/v1/business/pages', { cacheTtl: 15000 }),
+  // Gets the active business's connected pages. `fresh` skips the short-lived cache,
+  // which polling needs while a Facebook page sync is still landing rows.
+  getPages: ({ fresh = false } = {}) => apiFetch('/v1/business/pages', { cacheTtl: 15000, bypassCache: fresh }),
   // Unlinks the page from the business; its history stays on the server.
   disconnectPage: (pageId) => apiFetch(`/v1/business/pages/${encodeURIComponent(pageId)}`, {
     method: 'DELETE',

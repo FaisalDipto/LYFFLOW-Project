@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -79,6 +79,17 @@ const FACEBOOK_CONNECT_ERRORS = {
 // page token, and `token_invalid_at` is when that happened.
 const pageNeedsReauth = (page) => page?.needs_reauth === true || page?.is_token_active === false;
 
+// After Facebook connect the backend syncs pages in a background job, so the list
+// fills in some seconds after the redirect. Poll until it settles or we give up.
+const PAGE_SYNC_POLL_MS = 3500;
+const PAGE_SYNC_TIMEOUT_MS = 40000;
+
+// Identity of a page list for "has anything changed / settled" comparisons.
+const pagesSignature = (pageList) => (Array.isArray(pageList) ? pageList : [])
+  .map(page => `${page.page_id}:${pageNeedsReauth(page) ? 1 : 0}`)
+  .sort()
+  .join('|');
+
 const formatTokenInvalidAt = (value) => {
   if (!value) return null;
   const date = new Date(value);
@@ -110,7 +121,62 @@ const CountUpNumber = ({ value }) => {
 };
 
 // Sub-components
-const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate }) => {
+const PageSkeletonCard = ({ index }) => (
+  <div className="page-sync-skeleton min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm" style={{ animationDelay: `${index * 120}ms` }} aria-hidden="true">
+    <div className="flex items-start gap-3">
+      <div className="page-sync-shimmer h-11 w-11 shrink-0" style={{ borderRadius: '50%' }} />
+      <div className="min-w-0 flex-1 space-y-2 pt-1">
+        <div className="page-sync-shimmer h-3 w-3/4 rounded-full" />
+        <div className="page-sync-shimmer h-2.5 w-1/3 rounded-full" />
+      </div>
+    </div>
+    <div className="page-sync-shimmer mt-4 h-2.5 w-2/3 rounded-full" />
+    <div className="mt-4 border-t border-slate-100 pt-3">
+      <div className="page-sync-shimmer h-2 w-1/4 rounded-full" />
+      <div className="page-sync-shimmer mx-auto mt-2.5 h-9 w-[88%] rounded-lg" />
+    </div>
+  </div>
+);
+
+// Shown in place of the empty page grid while the post-connect sync is running.
+const PageSyncStatus = ({ status, onRetry }) => {
+  if (status === 'slow') {
+    return (
+      <div role="status" className="page-sync-panel is-slow mb-4 flex flex-col items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-6 py-7 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
+          <Hourglass size={22} />
+        </span>
+        <div>
+          <p className="m-0 text-sm font-black text-amber-900">This is taking longer than usual</p>
+          <p className="mb-0 mt-1 max-w-md text-xs font-semibold leading-5 text-amber-800">
+            Facebook can take a minute to share large inboxes. Check again, or reconnect if no pages show up.
+          </p>
+        </div>
+        <button type="button" onClick={onRetry} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-amber-600 px-4 text-xs font-black text-white transition-colors hover:bg-amber-700">
+          <span className="material-symbols-outlined text-[16px]">refresh</span>
+          Refresh now
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div role="status" aria-live="polite" className="page-sync-panel mb-4 flex flex-col items-center gap-4 rounded-2xl border border-blue-100 bg-white px-6 py-8 text-center shadow-sm">
+      {/* Inline radii: the dashboard stylesheet squares off `rounded-full` on spans. */}
+      <span className="page-sync-icon relative flex h-16 w-16 items-center justify-center bg-[#1877F2] text-white" style={{ borderRadius: '50%' }}>
+        <span className="page-sync-ring absolute inset-0" style={{ borderRadius: '50%' }} aria-hidden="true" />
+        <span className="page-sync-spinner absolute -inset-1.5" style={{ borderRadius: '50%' }} aria-hidden="true" />
+        <FacebookMark className="relative h-7 w-7" />
+      </span>
+      <div>
+        <p className="m-0 text-base font-black text-slate-900">Syncing your Facebook pages…</p>
+        <p className="mb-0 mt-1 text-xs font-semibold text-slate-500">Fetching inboxes and conversations</p>
+      </div>
+    </div>
+  );
+};
+
+const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = 'idle', onRetrySync }) => {
   // Facebook connect is owner-only; agent assignment and page removal are admin+.
   const { business, isOwner, canManage } = useBusiness();
   const [disconnecting, setDisconnecting] = useState(null);
@@ -135,6 +201,7 @@ const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate }) => {
     ? pages.filter(page => Boolean(selectedAgents[page.page_id])).length
     : 0;
   const workspaceName = business?.name || 'My Workspace';
+  const isSyncing = syncStatus === 'syncing' || syncStatus === 'slow';
   const reauthPages = useMemo(
     () => (Array.isArray(pages) ? pages.filter(pageNeedsReauth) : []),
     [pages]
@@ -375,8 +442,10 @@ const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate }) => {
         </div>
       )}
 
+      {isSyncing && <PageSyncStatus status={syncStatus} onRetry={onRetrySync} />}
+
       <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
-        {Array.isArray(pages) && pages.map((page) => {
+        {Array.isArray(pages) && pages.map((page, pageIndex) => {
           const selectedAgent = agents.find(agent => agent.agent_id === selectedAgents[page.page_id]);
           const foreignAgentName = selectedAgents[page.page_id] && String(selectedAgents[page.page_id]).startsWith('foreign_agent_')
             ? String(selectedAgents[page.page_id]).replace('foreign_agent_', '')
@@ -388,7 +457,8 @@ const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate }) => {
           return (
             <article
               key={page.page_id}
-              className={`group relative min-w-0 overflow-visible rounded-xl border bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${needsReauth ? 'border-amber-300 hover:border-amber-400' : 'border-slate-200 hover:border-slate-300'} ${openDropdown === page.page_id ? 'z-[1000]' : 'z-0'}`}
+              style={{ animationDelay: `${Math.min(pageIndex, 8) * 60}ms` }}
+              className={`page-card-enter group relative min-w-0 overflow-visible rounded-xl border bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${needsReauth ? 'border-amber-300 hover:border-amber-400' : 'border-slate-200 hover:border-slate-300'} ${openDropdown === page.page_id ? 'z-[1000]' : 'z-0'}`}
             >
               <div className="flex min-w-0 items-start gap-3">
                 <div className="relative h-11 w-11 shrink-0">
@@ -546,7 +616,11 @@ const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate }) => {
           );
         })}
 
-        {isOwner ? (
+        {syncStatus === 'syncing' && Array.from({ length: pageCount === 0 ? 3 : 1 }, (_, index) => (
+          <PageSkeletonCard key={`skeleton-${index}`} index={index} />
+        ))}
+
+        {isSyncing ? null : isOwner ? (
         <button
           type="button"
           onClick={handleAddPage}
@@ -6153,6 +6227,9 @@ export default function Dashboard() {
   const [revokedPagesModal, setRevokedPagesModal] = useState(null); // { pages: string[] }
   // Outcome of the Facebook connect redirect: { tone: 'success' | 'error', text }
   const [connectNotice, setConnectNotice] = useState(null);
+  // Background page sync after Facebook connect: 'idle' | 'syncing' | 'slow'.
+  // `attempt` restarts the polling effect when the user asks to retry.
+  const [pageSync, setPageSync] = useState({ status: 'idle', attempt: 0 });
 
   // Pre-warning modal (shown before sending user to Facebook OAuth)
   const [preReauthModal, setPreReauthModal] = useState(false);
@@ -6261,6 +6338,84 @@ export default function Dashboard() {
     setPages(parseCollection(pagesData, 'pages'));
   }, []);
 
+  // Poll the page list while the post-connect sync runs. The sync is done once the
+  // list differs from what we first saw and then holds still for one more poll
+  // (pages can land a few at a time), or once a non-empty list has stayed the same
+  // for two polls (the sync finished before our first poll, or a reconnect added
+  // nothing new). An empty list at timeout offers a manual retry instead.
+  useEffect(() => {
+    if (pageSync.status !== 'syncing') return undefined;
+
+    let cancelled = false;
+    let timerId = null;
+    const startedAt = Date.now();
+    let firstSignature = null;
+    let previousSignature = null;
+    let unchangedPolls = 0;
+
+    const finish = (syncedPages) => {
+      setPageSync(current => ({ ...current, status: 'idle' }));
+      if (syncedPages.length > 0) {
+        setConnectNotice({
+          tone: 'success',
+          text: syncedPages.length === 1 ? 'Facebook connected. 1 page is ready.' : `Facebook connected. ${syncedPages.length} pages are ready.`,
+          autoDismiss: true,
+        });
+      }
+    };
+
+    const poll = async () => {
+      let latest = null;
+      try {
+        latest = parseCollection(await apiService.getPages({ fresh: true }), 'pages');
+      } catch (error) {
+        // A transient failure shouldn't end the sync; the next poll retries.
+        console.warn('Page sync poll failed', error);
+      }
+      if (cancelled) return;
+
+      if (latest) {
+        setPages(latest);
+        const signature = pagesSignature(latest);
+        if (firstSignature === null) firstSignature = signature;
+        const changed = signature !== firstSignature;
+        const settled = signature === previousSignature;
+        unchangedPolls = settled ? unchangedPolls + 1 : 0;
+        previousSignature = signature;
+        if (latest.length > 0 && ((changed && settled) || unchangedPolls >= 2)) {
+          finish(latest);
+          return;
+        }
+        if (Date.now() - startedAt >= PAGE_SYNC_TIMEOUT_MS) {
+          if (latest.length > 0) finish(latest);
+          else setPageSync(current => ({ ...current, status: 'slow' }));
+          return;
+        }
+      } else if (Date.now() - startedAt >= PAGE_SYNC_TIMEOUT_MS) {
+        setPageSync(current => ({ ...current, status: 'slow' }));
+        return;
+      }
+      timerId = setTimeout(poll, PAGE_SYNC_POLL_MS);
+    };
+
+    poll();
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
+  }, [pageSync.status, pageSync.attempt]);
+
+  const retryPageSync = useCallback(() => {
+    setPageSync(current => ({ status: 'syncing', attempt: current.attempt + 1 }));
+  }, []);
+
+  // Success notices clear themselves; errors stay until dismissed.
+  useEffect(() => {
+    if (!connectNotice?.autoDismiss) return undefined;
+    const timerId = setTimeout(() => setConnectNotice(null), 6000);
+    return () => clearTimeout(timerId);
+  }, [connectNotice]);
+
   const refreshAgents = useCallback(async () => {
     const agentsData = await apiService.getAgents();
     const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
@@ -6318,7 +6473,9 @@ export default function Dashboard() {
       const revokedList = pagesParam.split(',').map(p => p.trim()).filter(Boolean);
       setRevokedPagesModal({ pages: revokedList });
     } else if (reauth === 'success') {
-      setConnectNotice({ tone: 'success', text: 'Facebook connected. Your pages will appear here as they finish syncing.' });
+      // Pages arrive from a background sync; the Overview shows progress while we poll.
+      setActiveTab('overview');
+      setPageSync(current => ({ status: 'syncing', attempt: current.attempt + 1 }));
     } else if (reauth === 'failed') {
       const error = params.get('error');
       setConnectNotice({ tone: 'error', text: FACEBOOK_CONNECT_ERRORS[error] || FACEBOOK_CONNECT_ERRORS.unexpected });
@@ -6332,7 +6489,7 @@ export default function Dashboard() {
     return (
       <>
         <div style={{ display: activeTab === 'overview' ? 'contents' : 'none' }}>
-          <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={() => setPreReauthModal(true)} />
+          <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={() => setPreReauthModal(true)} syncStatus={pageSync.status} onRetrySync={retryPageSync} />
         </div>
         {visitedTabsRef.current.has('customer-leads') && <div style={{ display: activeTab === 'customer-leads' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
