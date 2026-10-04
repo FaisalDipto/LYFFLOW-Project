@@ -70,21 +70,31 @@ const mockData = {
     ]
   },
   '/v1/subscription': {
+    subscription_id: 'sub_1',
     is_active: true,
     started_at: '2026-08-01T00:00:00.000Z',
     expires_at: '2026-09-01T00:00:00.000Z',
-    conversations_remaining: 7500,
+    conversations_remaining: 3500,
     plan: {
-      plan_name: 'Enterprise',
-      price_per_month: 99,
-      max_pages: 10,
-      max_agents: 20,
-      max_conversations_per_month: 10000
+      plan_name: 'GROWTH',
+      plan_level: 2,
+      price_per_month: 49,
+      max_assign: 10,
+      max_agents: 10,
+      max_namespaces: 10,
+      max_products: 200,
+      max_business_members: 5,
+      max_conversations_per_month: 5000,
+      max_storage_bytes: 209715200
     },
     usage: {
-      pages_used: 3,
-      agents_used: 5,
-      conversations_used: 2500
+      agent_assigned: 2,
+      agent_created: 2,
+      product_created: 48,
+      namespace_created: 1,
+      member_assigned: 3,
+      conversations_used: 1500,
+      storage_used: 5242880
     }
   },
   '/v1/plans': [

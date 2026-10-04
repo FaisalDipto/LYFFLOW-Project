@@ -5632,6 +5632,7 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
             `${apiPlan.max_namespaces === -1 ? 'Unlimited' : apiPlan.max_namespaces} Namespaces`,
             `${apiPlan.max_products === -1 ? 'Unlimited' : apiPlan.max_products} Products`,
             `${apiPlan.max_agents === -1 ? 'Unlimited' : apiPlan.max_agents} Agents`,
+            `${apiPlan.max_business_members} Team ${apiPlan.max_business_members === 1 ? 'member' : 'members'}`,
             `${apiPlan.max_conversations_per_month === -1 ? 'Unlimited Conversations' : `${Number(apiPlan.max_conversations_per_month || 0).toLocaleString()} Conversations/mo`}`,
             `${apiPlan.max_storage_bytes === -1 ? 'Unlimited Storage' : (apiPlan.max_storage_bytes >= 1073741824 ? (apiPlan.max_storage_bytes / 1073741824) + ' GB Storage' : (apiPlan.max_storage_bytes / 1048576) + ' MB Storage')}`
           ]
@@ -5685,7 +5686,8 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
   if (loading) return <div className="p-8 text-center text-slate-400">Loading subscription details...</div>;
 
   const currentPlan = subData?.plan || { plan_name: 'NONE' };
-  const usage = subData?.usage || { pages_used: 0, agents_used: 0, conversations_used: 0 };
+  // Usage counters are the business owner's (UsageResponse); each pairs with a plan limit.
+  const usage = subData?.usage || {};
 
   // Format dates from API response
   const startedAt = subData?.started_at ? new Date(subData.started_at).toLocaleDateString(undefined, {
@@ -5696,7 +5698,6 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
     year: 'numeric', month: 'short', day: 'numeric'
   }) : 'N/A';
 
-  const pageLimit = currentPlan.max_pages ?? currentPlan.max_connected_pages ?? currentPlan.max_facebook_pages;
 
   return (
     <div className="dashboard-content-area space-y-8 animate-fade-in-up pb-12">
@@ -5774,10 +5775,13 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
           <p className="text-xs font-medium text-slate-400">Limits reset with your monthly billing cycle.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <UsageGauge label="Pages connected" used={usage.pages_used} max={pageLimit} color="#3b82f6" softColor="#eff6ff" icon="web" isActive={isActive} />
-          <UsageGauge label="Agents created" used={usage.agents_used} max={currentPlan.max_agents} color="#10b981" softColor="#ecfdf5" icon="smart_toy" isActive={isActive} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <UsageGauge label="Pages with an agent" used={usage.agent_assigned} max={currentPlan.max_assign} color="#3b82f6" softColor="#eff6ff" icon="web" isActive={isActive} />
+          <UsageGauge label="Agents created" used={usage.agent_created} max={currentPlan.max_agents} color="#10b981" softColor="#ecfdf5" icon="smart_toy" isActive={isActive} />
           <UsageGauge label="Monthly conversations" used={usage.conversations_used} max={currentPlan.max_conversations_per_month} color="#8b5cf6" softColor="#f5f3ff" icon="forum" isActive={isActive} />
+          <UsageGauge label="Products" used={usage.product_created} max={currentPlan.max_products} color="#f59e0b" softColor="#fffbeb" icon="storefront" isActive={isActive} />
+          <UsageGauge label="Namespaces" used={usage.namespace_created} max={currentPlan.max_namespaces} color="#0ea5e9" softColor="#f0f9ff" icon="database" isActive={isActive} />
+          <UsageGauge label="Team members" used={usage.member_assigned} max={currentPlan.max_business_members} color="#ec4899" softColor="#fdf2f8" icon="person" isActive={isActive} />
         </div>
       </div>
 
@@ -6274,7 +6278,10 @@ export default function Dashboard() {
       if (pagesResult.status === 'rejected') throw pagesResult.reason;
       if (agentsResult.status === 'rejected') console.warn('Could not fetch agents', agentsResult.reason);
       if (namespacesResult.status === 'rejected') console.warn('Could not fetch namespaces', namespacesResult.reason);
-      if (subscriptionResult.status === 'rejected') console.warn('Could not fetch subscription', subscriptionResult.reason);
+      // 404 just means the owner has no active plan; the Subscription tab offers one.
+      if (subscriptionResult.status === 'rejected' && subscriptionResult.reason?.status !== 404) {
+        console.warn('Could not fetch subscription', subscriptionResult.reason);
+      }
 
       const pagesData = pagesResult.value;
       const agentsData = agentsResult.status === 'fulfilled' ? agentsResult.value : { agents: [] };
