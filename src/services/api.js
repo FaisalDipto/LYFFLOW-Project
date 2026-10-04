@@ -31,6 +31,7 @@ const MOCK_LOADED_AT = Date.now();
 // The dashboard strips one-shot params (e.g. ?reauth=) from the URL, so scenarios
 // that must outlive that read the query string as it was at load.
 const MOCK_LOAD_PARAMS = new URLSearchParams(window.location.search);
+let mockHasPlan = MOCK_LOAD_PARAMS.get('mockNoPlan') !== 'true';
 const MOCK_DELAY_MS = Math.max(0, Number(new URLSearchParams(window.location.search).get('mockDelay')) || 0);
 
 const mockData = {
@@ -97,27 +98,12 @@ const mockData = {
       storage_used: 5242880
     }
   },
+  // Mirrors the plan catalog in the backend's app/seeds/plans.json.
   '/v1/plans': [
-    {
-      plan_name: 'FREE',
-      plan_level: 0,
-      price_per_month: 0,
-      max_namespaces: 1,
-      max_products: 25,
-      max_agents: 1,
-      max_conversations_per_month: 500,
-      max_storage_bytes: 104857600
-    },
-    {
-      plan_name: 'PRO',
-      plan_level: 2,
-      price_per_month: 99,
-      max_namespaces: 10,
-      max_products: 1000,
-      max_agents: 20,
-      max_conversations_per_month: 10000,
-      max_storage_bytes: 10737418240
-    }
+    { plan_name: 'FREE', plan_level: 0, max_agents: 20, max_assign: 20, max_namespaces: 20, max_products: 1000, max_business_members: 1, max_conversations_per_month: 10000, max_storage_bytes: 10485760, price_per_month: 0 },
+    { plan_name: 'STARTER', plan_level: 1, max_agents: 3, max_assign: 3, max_namespaces: 3, max_products: 50, max_business_members: 3, max_conversations_per_month: 1000, max_storage_bytes: 52428800, price_per_month: 19 },
+    { plan_name: 'GROWTH', plan_level: 2, max_agents: 10, max_assign: 10, max_namespaces: 10, max_products: 200, max_business_members: 5, max_conversations_per_month: 5000, max_storage_bytes: 209715200, price_per_month: 49 },
+    { plan_name: 'AGENCY', plan_level: 3, max_agents: 999999, max_assign: 999999, max_namespaces: 999999, max_products: 1000, max_business_members: 10, max_conversations_per_month: 50000, max_storage_bytes: 1073741824, price_per_month: 99 }
   ],
   '/v1/steadfast/connect': {
     webhook_url: 'https://api.lyfflow.com/v1/steadfast/webhook/mock-user',
@@ -452,6 +438,16 @@ const apiFetch = async (endpoint, options = {}) => {
       if (mockSync === 'never') return { pages: [] };
       if (mockSync === 'delay' && Date.now() - MOCK_LOADED_AT < 9000) return { pages: [] };
       return { pages: mockData['/v1/business/pages'] };
+    }
+    // ?mockNoPlan=true: the owner has no active plan (404) until they subscribe.
+    if (endpoint === '/v1/subscription/subscribe' && method === 'POST') {
+      mockHasPlan = true;
+      return { status: true, message: 'Subscribed (mock)' };
+    }
+    if (endpoint === '/v1/subscription' && !mockHasPlan) {
+      const error = new Error('No active subscription found');
+      error.status = 404;
+      throw error;
     }
     // ?mockActions=true shows required-action banners; only the owner can act on them.
     if (endpoint === '/v1/user-required-actions') {

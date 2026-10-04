@@ -104,6 +104,9 @@ const parseCollection = (data, primaryKey) => {
   return data?.[primaryKey] || data?.data?.[primaryKey] || data?.data || [];
 };
 
+// Sidebar entries the owner can't open until the business has an active plan.
+const NAV_LOCKED_CLASS = 'pointer-events-none opacity-40';
+
 const KNOWLEDGE_POLL_DELAYS = [1500, 2500, 4000];
 
 const CountUpNumber = ({ value }) => {
@@ -5515,10 +5518,13 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
   );
 };
 
+// Plans mark "no limit" as -1 or with the backend's 999999 sentinel (AGENCY).
+const isUnlimitedLimit = (value) => value === -1 || Number(value) >= 999999;
+
 const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
   const usedValue = Math.max(0, Number(used) || 0);
   const maxValue = Number(max);
-  const isUnlimited = max === -1 || max == null || !Number.isFinite(maxValue) || maxValue <= 0;
+  const isUnlimited = isUnlimitedLimit(max) || max == null || !Number.isFinite(maxValue) || maxValue <= 0;
   const targetPercentage = isUnlimited ? 100 : Math.min((usedValue / maxValue) * 100, 100);
   const reduceMotion = typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [animationProgress, setAnimationProgress] = useState(0);
@@ -5593,7 +5599,9 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
   );
 };
 
-const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
+// `requirePlan`: the owner has no active plan, so this panel is the only thing the
+// dashboard shows; plans are listed inline and `onSubscribed` unlocks the rest.
+const SubscriptionPanel = ({ isActive = false, initialData = null, requirePlan = false, onSubscribed }) => {
   const [subData, setSubData] = useState(initialData);
   const [loading, setLoading] = useState(!initialData);
   const [, setError] = useState(null);
@@ -5608,8 +5616,10 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
       setLoading(true);
       const data = await apiService.getSubscription();
       setSubData(data);
+      return data;
     } catch (err) {
       setError(err.message);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -5629,11 +5639,13 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
           price: apiPlan.price_per_month,
           color: color,
           features: [
-            `${apiPlan.max_namespaces === -1 ? 'Unlimited' : apiPlan.max_namespaces} Namespaces`,
-            `${apiPlan.max_products === -1 ? 'Unlimited' : apiPlan.max_products} Products`,
-            `${apiPlan.max_agents === -1 ? 'Unlimited' : apiPlan.max_agents} Agents`,
-            `${apiPlan.max_business_members} Team ${apiPlan.max_business_members === 1 ? 'member' : 'members'}`,
-            `${apiPlan.max_conversations_per_month === -1 ? 'Unlimited Conversations' : `${Number(apiPlan.max_conversations_per_month || 0).toLocaleString()} Conversations/mo`}`,
+            `${isUnlimitedLimit(apiPlan.max_namespaces) ? 'Unlimited' : apiPlan.max_namespaces} Namespaces`,
+            `${isUnlimitedLimit(apiPlan.max_products) ? 'Unlimited' : apiPlan.max_products} Products`,
+            `${isUnlimitedLimit(apiPlan.max_agents) ? 'Unlimited' : apiPlan.max_agents} Agents`,
+            ...(apiPlan.max_business_members != null
+              ? [`${apiPlan.max_business_members} Team ${apiPlan.max_business_members === 1 ? 'member' : 'members'}`]
+              : []),
+            `${isUnlimitedLimit(apiPlan.max_conversations_per_month) ? 'Unlimited Conversations' : `${Number(apiPlan.max_conversations_per_month || 0).toLocaleString()} Conversations/mo`}`,
             `${apiPlan.max_storage_bytes === -1 ? 'Unlimited Storage' : (apiPlan.max_storage_bytes >= 1073741824 ? (apiPlan.max_storage_bytes / 1073741824) + ' GB Storage' : (apiPlan.max_storage_bytes / 1048576) + ' MB Storage')}`
           ]
         };
@@ -5669,9 +5681,13 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
       };
 
       await apiService.subscribe(subRequest);
-      await fetchSubscription();
+      const refreshed = await fetchSubscription();
       setShowPaymentModal(false);
       setPendingPlan(null);
+      if (refreshed?.is_active && onSubscribed) {
+        onSubscribed(refreshed);
+        return;
+      }
       const container = document.querySelector('.dashboard-content-wrapper');
       if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -5683,9 +5699,161 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
 
 
 
+  const currentPlan = subData?.plan || { plan_name: 'NONE' };
+
+  // Mock payment step for paid plans, shared by the normal and plan-required views.
+  const paymentModal = (
+    showPaymentModal && pendingPlan && (
+        <div className="fixed inset-0 z-[10002] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up border border-white/20">
+            <div className="p-8 pb-4 flex items-center justify-between">
+              <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
+                <CreditCard className="text-slate-900" size={24} />
+              </div>
+              <button onClick={() => setShowPaymentModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors">
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="px-8 mb-8">
+              <h2 className="text-2xl font-black text-slate-900 mb-1">Complete Purchase</h2>
+              <p className="text-sm text-slate-500 font-medium">You are subscribing to the <span className="text-slate-900 font-bold">{pendingPlan.name}</span> plan.</p>
+
+              <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Total due today</p>
+                  <p className="text-2xl font-black text-slate-900">${pendingPlan.price}.00</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Billing cycle</p>
+                  <p className="text-sm font-bold text-slate-700">Monthly</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-8 space-y-4 mb-8">
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">Card details</label>
+                <div className="relative">
+                  <input type="text" placeholder="4242 4242 4242 4242" readOnly className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-400 transition-colors" />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-3 opacity-50" />
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-4 opacity-50" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">Expiry</label>
+                  <input type="text" placeholder="MM / YY" readOnly className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-400 transition-colors" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">CVC</label>
+                  <input type="text" placeholder="•••" readOnly className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-400 transition-colors" />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 pt-0">
+              <button
+                onClick={() => handleSubscribe(pendingPlan.name)}
+                disabled={submitting}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={18} />
+                    Confirm & Pay ${pendingPlan.price}.00
+                  </>
+                )}
+              </button>
+              <p className="text-[10px] text-center text-slate-400 mt-4 font-medium uppercase tracking-widest flex items-center justify-center gap-1.5">
+                <ShieldCheck size={12} className="text-emerald-500" />
+                Secure Mock Checkout
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+  );
+
+  const renderPlanGrid = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+    {plans.map(plan => {
+      const isCurrent = plan.name === currentPlan.plan_name;
+      const colorClass = plan.color === 'emerald' ? 'border-emerald-500 ring-4 ring-emerald-500/10' :
+        plan.color === 'blue' ? 'border-blue-500 ring-4 ring-blue-500/10' :
+          plan.color === 'purple' ? 'border-purple-500 ring-4 ring-purple-500/10' : 'border-slate-200 hover:border-slate-300';
+
+      return (
+        <div
+          key={plan.name}
+          className={`bg-slate-50 rounded-[2rem] p-8 border-2 ${isCurrent ? colorClass : 'border-slate-100'} shadow-sm flex flex-col h-full hover:shadow-xl hover:-translate-y-2 transition-all duration-300 relative overflow-hidden group cursor-default`}
+        >
+          {isCurrent && (
+            <div className="absolute top-0 right-0 bg-emerald-500 text-white px-4 py-1.5 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest animate-fade-in">
+              Current Plan
+            </div>
+          )}
+          <div className="mb-6">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-hover:text-slate-600 transition-colors">{plan.name}</h3>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-slate-900 group-hover:scale-110 origin-left transition-transform duration-300">${plan.price}</span>
+              <span className="text-slate-400 text-sm font-medium">/mo</span>
+            </div>
+          </div>
+          <div className="flex-1 space-y-4 mb-8">
+            {plan.features.map((feat, idx) => (
+              <div key={idx} className="flex items-start gap-3 text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
+                <CheckCircle2 className={`shrink-0 mt-0.5 transition-transform duration-300 group-hover:scale-125 ${isCurrent ? 'text-emerald-500' : 'text-slate-300 group-hover:text-emerald-500'}`} size={18} />
+                <span className="font-medium">{feat}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            disabled={isCurrent || submitting}
+            onClick={() => {
+              setShowPlansModal(false);
+              handleSubscribe(plan.name);
+            }}
+            className={`w-full py-4 rounded-2xl font-black text-sm transition-all duration-200 ${isCurrent
+                ? 'bg-slate-200 text-slate-400 cursor-default'
+                : 'bg-slate-900 text-white hover:bg-slate-800 hover:scale-[1.05] active:scale-95 shadow-xl shadow-slate-200'
+              }`}
+          >
+            {isCurrent ? 'Active' : submitting ? 'Processing...' : `Select ${plan.name}`}
+          </button>
+        </div>
+      );
+    })}
+  </div>
+  );
+
   if (loading) return <div className="p-8 text-center text-slate-400">Loading subscription details...</div>;
 
-  const currentPlan = subData?.plan || { plan_name: 'NONE' };
+  if (requirePlan) {
+    return (
+      <div className="dashboard-content-area animate-fade-in-up pb-12">
+        <header className="mx-auto mb-10 max-w-2xl text-center">
+          <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white"><CreditCard size={22} /></span>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">Choose a plan to continue</h1>
+          <p className="mt-2 text-slate-500">This business doesn't have an active plan. Pick one to unlock pages, agents, knowledge and the rest of your workspace.</p>
+        </header>
+        {plans.length === 0 ? (
+          <p className="text-center text-sm text-slate-400">Loading plans...</p>
+        ) : renderPlanGrid()}
+        {paymentModal}
+      </div>
+    );
+  }
+
+
   // Usage counters are the business owner's (UsageResponse); each pairs with a plan limit.
   const usage = subData?.usage || {};
 
@@ -5801,139 +5969,13 @@ const SubscriptionPanel = ({ isActive = false, initialData = null }) => {
               <p className="text-center text-slate-500 font-medium mb-12 max-w-2xl mx-auto">
                 Scale your customer interactions with intelligent AI agents that grow with your business.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                {plans.map(plan => {
-                  const isCurrent = plan.name === currentPlan.plan_name;
-                  const colorClass = plan.color === 'emerald' ? 'border-emerald-500 ring-4 ring-emerald-500/10' :
-                    plan.color === 'blue' ? 'border-blue-500 ring-4 ring-blue-500/10' :
-                      plan.color === 'purple' ? 'border-purple-500 ring-4 ring-purple-500/10' : 'border-slate-200 hover:border-slate-300';
-
-                  return (
-                    <div
-                      key={plan.name}
-                      className={`bg-slate-50 rounded-[2rem] p-8 border-2 ${isCurrent ? colorClass : 'border-slate-100'} shadow-sm flex flex-col h-full hover:shadow-xl hover:-translate-y-2 transition-all duration-300 relative overflow-hidden group cursor-default`}
-                    >
-                      {isCurrent && (
-                        <div className="absolute top-0 right-0 bg-emerald-500 text-white px-4 py-1.5 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest animate-fade-in">
-                          Current Plan
-                        </div>
-                      )}
-                      <div className="mb-6">
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-hover:text-slate-600 transition-colors">{plan.name}</h3>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-3xl font-black text-slate-900 group-hover:scale-110 origin-left transition-transform duration-300">${plan.price}</span>
-                          <span className="text-slate-400 text-sm font-medium">/mo</span>
-                        </div>
-                      </div>
-                      <div className="flex-1 space-y-4 mb-8">
-                        {plan.features.map((feat, idx) => (
-                          <div key={idx} className="flex items-start gap-3 text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
-                            <CheckCircle2 className={`shrink-0 mt-0.5 transition-transform duration-300 group-hover:scale-125 ${isCurrent ? 'text-emerald-500' : 'text-slate-300 group-hover:text-emerald-500'}`} size={18} />
-                            <span className="font-medium">{feat}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        disabled={isCurrent || submitting}
-                        onClick={() => {
-                          setShowPlansModal(false);
-                          handleSubscribe(plan.name);
-                        }}
-                        className={`w-full py-4 rounded-2xl font-black text-sm transition-all duration-200 ${isCurrent
-                            ? 'bg-slate-200 text-slate-400 cursor-default'
-                            : 'bg-slate-900 text-white hover:bg-slate-800 hover:scale-[1.05] active:scale-95 shadow-xl shadow-slate-200'
-                          }`}
-                      >
-                        {isCurrent ? 'Active' : submitting ? 'Processing...' : `Select ${plan.name}`}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+              {renderPlanGrid()}
             </div>
           </div>
         </div>
       )}
 
-      {/* Mock Payment Modal */}
-      {showPaymentModal && pendingPlan && (
-        <div className="fixed inset-0 z-[10002] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up border border-white/20">
-            <div className="p-8 pb-4 flex items-center justify-between">
-              <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
-                <CreditCard className="text-slate-900" size={24} />
-              </div>
-              <button onClick={() => setShowPaymentModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors">
-                <X size={20} className="text-slate-400" />
-              </button>
-            </div>
-
-            <div className="px-8 mb-8">
-              <h2 className="text-2xl font-black text-slate-900 mb-1">Complete Purchase</h2>
-              <p className="text-sm text-slate-500 font-medium">You are subscribing to the <span className="text-slate-900 font-bold">{pendingPlan.name}</span> plan.</p>
-
-              <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Total due today</p>
-                  <p className="text-2xl font-black text-slate-900">${pendingPlan.price}.00</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Billing cycle</p>
-                  <p className="text-sm font-bold text-slate-700">Monthly</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-8 space-y-4 mb-8">
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">Card details</label>
-                <div className="relative">
-                  <input type="text" placeholder="4242 4242 4242 4242" readOnly className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-400 transition-colors" />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-3 opacity-50" />
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-4 opacity-50" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">Expiry</label>
-                  <input type="text" placeholder="MM / YY" readOnly className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-400 transition-colors" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1">CVC</label>
-                  <input type="text" placeholder="•••" readOnly className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-slate-400 transition-colors" />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8 pt-0">
-              <button
-                onClick={() => handleSubscribe(pendingPlan.name)}
-                disabled={submitting}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={18} />
-                    Confirm & Pay ${pendingPlan.price}.00
-                  </>
-                )}
-              </button>
-              <p className="text-[10px] text-center text-slate-400 mt-4 font-medium uppercase tracking-widest flex items-center justify-center gap-1.5">
-                <ShieldCheck size={12} className="text-emerald-500" />
-                Secure Mock Checkout
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {paymentModal}
     </div>
   );
 };
@@ -6213,7 +6255,13 @@ const TutorialPanel = () => {
 
 export default function Dashboard() {
   const { theme, isDark, toggleTheme } = useDashboardTheme();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTabState] = useState('overview');
+  // Owner of a business with no active plan: everything but Subscription is locked.
+  const [planRequired, setPlanRequired] = useState(false);
+  const setActiveTab = useCallback((tab) => {
+    if (planRequired && tab !== 'subscription') return;
+    setActiveTabState(tab);
+  }, [planRequired]);
   const visitedTabsRef = useRef(new Set(['overview']));
   visitedTabsRef.current.add(activeTab);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -6278,7 +6326,12 @@ export default function Dashboard() {
       if (pagesResult.status === 'rejected') throw pagesResult.reason;
       if (agentsResult.status === 'rejected') console.warn('Could not fetch agents', agentsResult.reason);
       if (namespacesResult.status === 'rejected') console.warn('Could not fetch namespaces', namespacesResult.reason);
-      // 404 just means the owner has no active plan; the Subscription tab offers one.
+      // 404 means the owner has no active plan: lock the dashboard to plan selection.
+      // Any other failure lets them in rather than blocking on a flaky request.
+      const missingPlan = activeRole === 'owner' && (
+        (subscriptionResult.status === 'rejected' && subscriptionResult.reason?.status === 404)
+        || (subscriptionResult.status === 'fulfilled' && subscriptionResult.value && !subscriptionResult.value.is_active)
+      );
       if (subscriptionResult.status === 'rejected' && subscriptionResult.reason?.status !== 404) {
         console.warn('Could not fetch subscription', subscriptionResult.reason);
       }
@@ -6297,6 +6350,8 @@ export default function Dashboard() {
       setRole(activeRole);
       setPages(parsedPages);
       setNamespaces(parsedNamespaces);
+      setPlanRequired(missingPlan);
+      if (missingPlan) setActiveTabState('subscription');
     } catch (err) {
       console.error("Failed to fetch user data:", err);
       if (err.status === 401) {
@@ -6457,7 +6512,7 @@ export default function Dashboard() {
     if (target.conversationId || target.recordId) {
       setNotificationFocus({ ...target, nonce: Date.now() });
     }
-  }, []);
+  }, [setActiveTab]);
 
   const refreshAgentWorkspace = useCallback(async () => {
     await Promise.allSettled([refreshPages(), refreshAgents()]);
@@ -6535,7 +6590,16 @@ export default function Dashboard() {
         </div>}
         {visitedTabsRef.current.has('subscription') && <div style={{ display: activeTab === 'subscription' ? 'contents' : 'none' }}>
           {role === 'owner' ? (
-            <SubscriptionPanel isActive={activeTab === 'subscription'} initialData={user?.subscription || null} />
+            <SubscriptionPanel
+              isActive={activeTab === 'subscription'}
+              initialData={user?.subscription || null}
+              requirePlan={planRequired}
+              onSubscribed={(subscription) => {
+                setUser(current => current ? { ...current, subscription } : current);
+                setPlanRequired(false);
+                setActiveTabState('overview');
+              }}
+            />
           ) : (
             <OwnerOnlyNotice title="Billing is managed by the business owner" description="Plans, usage and payments for this business are only visible to its owner." />
           )}
@@ -6683,7 +6747,8 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => setExpandedNavGroups(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
                     aria-expanded={isExpanded}
-                    className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${hasActiveChild
+                    disabled={planRequired}
+                    className={`${planRequired ? NAV_LOCKED_CLASS : ''} group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${hasActiveChild
                       ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
                       : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                     }`}
@@ -6724,7 +6789,8 @@ export default function Dashboard() {
                 type="button"
                 key={item.id}
                 onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-                className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id
+                disabled={planRequired}
+                className={`${planRequired ? NAV_LOCKED_CLASS : ''} group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id
                   ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
                   : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                 }`}
@@ -6741,7 +6807,7 @@ export default function Dashboard() {
           <p className="mb-2 px-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Manage</p>
           <nav className="space-y-1">
             {secondaryNavItems.map(item => (
-              <button key={item.id} onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }} className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}>
+              <button key={item.id} onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }} disabled={planRequired && item.id !== 'subscription'} className={`${planRequired && item.id !== 'subscription' ? NAV_LOCKED_CLASS : ''} group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}>
                 {activeTab === item.id && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
                 <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}>
                   {item.id === 'tutorial' ? <span className="material-symbols-outlined text-[18px]">school</span> : <item.icon size={17} strokeWidth={2.2} />}
@@ -6758,7 +6824,8 @@ export default function Dashboard() {
             <p className="mt-2 truncate text-[11px] font-medium text-slate-500">{pages.length} pages {'\u00B7'} {(user?.agents || []).length} agents</p>
           </div>
           <button onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
-            className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === 'settings' ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}
+            disabled={planRequired}
+            className={`${planRequired ? NAV_LOCKED_CLASS : ''} group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === 'settings' ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}
           >
             {activeTab === 'settings' && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
             <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${activeTab === 'settings' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}><Settings size={17} strokeWidth={2.2} /></span>
@@ -6882,7 +6949,7 @@ export default function Dashboard() {
               </div>
 
               <div className="drawer-menu">
-                <button className="drawer-menu-item" onClick={() => {
+                <button className="drawer-menu-item" disabled={planRequired} style={planRequired ? { opacity: 0.4, cursor: 'not-allowed' } : undefined} onClick={() => {
                   setActiveTab('settings');
                   setIsProfileOpen(false);
                 }}>
