@@ -7,18 +7,47 @@
 
 import { API_BASE } from '../config/env';
 
+export const SESSION_EXPIRED_EVENT = 'lyfflow-session-expired';
+export const NO_ACTIVE_BUSINESS_EVENT = 'lyfflow-no-active-business';
+
+export const isNoActiveBusinessError = (error) =>
+  error?.status === 403 && /no active business/i.test(error?.message || '');
+
+// Google login is a full-page redirect: the backend handles the OAuth round trip
+// and lands the browser on /businesses (or /get-started?auth=failed).
+export const googleLoginUrl = () => `${API_BASE}/v1/auth/google/login`;
+
+// Owner-only. The backend 303s to Facebook and returns to /dashboard?reauth=...
+export const facebookConnectUrl = () => `${API_BASE}/v1/auth/facebook/connect`;
+
+// The backend clears the session cookie and 302s to the public landing page,
+// so this must be a navigation rather than a fetch.
+export const logoutUrl = () => `${API_BASE}/v1/logout`;
+
 // Set to true to test frontend without a running backend
 const MOCK_MODE = window.location.search.includes('mock=true');
 const MOCK_DELAY_MS = Math.max(0, Number(new URLSearchParams(window.location.search).get('mockDelay')) || 0);
 
 const mockData = {
-  '/v1/user/profile': { user: { id: 'mock_123', first_name: 'Demo', last_name: 'User', display_name: 'Demo User', email: 'demo@lyfflow.com', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' } },
-  '/v1/user/': { user: { id: 'mock_123', first_name: 'Demo', last_name: 'User', display_name: 'Demo User', email: 'demo@lyfflow.com' } },
-  '/v1/pages': [
+  '/v1/user/profile': { display_name: 'Demo User', email: 'demo@lyfflow.com', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
+  '/v1/businesses': [
+    { business_id: 'biz_1', name: 'Demo Store', currency: 'BDT', role: 'owner', is_owner: true },
+    { business_id: 'biz_2', name: 'Partner Shop', currency: 'USD', role: 'member', is_owner: false },
+  ],
+  '/v1/business/invitations': [
+    { member_id: 'mem_9', business_id: 'biz_3', business_name: 'Invited Boutique', role: 'admin', invite_token: '4fa1bf7a-6f3b-48aa-b541-698fba0e3032', invite_expires_at: '2026-12-01T00:00:00.000Z' },
+  ],
+  '/v1/business/members': [
+    { member_id: 'mem_1', invited_email: 'demo@lyfflow.com', role: 'owner', status: 'active', joined_at: '2026-09-01T00:00:00.000Z' },
+    { member_id: 'mem_2', invited_email: 'alice@example.com', role: 'admin', status: 'active', joined_at: '2026-09-10T00:00:00.000Z' },
+    { member_id: 'mem_3', invited_email: 'bob@example.com', role: 'member', status: 'invited', joined_at: null },
+  ],
+  '/v1/business/pages': [
     { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot', profile_pic_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null },
     // Second page is deliberately in the expired-token state so the reconnect UI is testable.
     { page_id: 'page_2', name: 'Lyfflow Support Page', category: 'Software', followers: 430, agent_name: 'SupportBot', profile_pic_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: false, needs_reauth: true, token_invalid_at: '2026-09-23T05:14:40.906Z' }
   ],
+  '/v1/user-required-actions': { actions: [] },
   '/v1/agents': [
     { agent_id: 'agent_1', name: 'SalesBot', role: 'Sales' },
     { agent_id: 'agent_2', name: 'SupportBot', role: 'Support' }
@@ -377,6 +406,63 @@ const apiFetch = async (endpoint, options = {}) => {
       await new Promise(resolve => setTimeout(resolve, MOCK_DELAY_MS));
     }
     
+    const mockRole = new URLSearchParams(window.location.search).get('mockRole') || 'owner';
+    if (endpoint === '/v1/business') {
+      return { business: { business_id: 'biz_1', name: 'Demo Store', currency: 'BDT', created_at: '2026-09-01T00:00:00.000Z' }, role: mockRole };
+    }
+    if (endpoint === '/v1/businesses' && method === 'POST') {
+      const body = JSON.parse(requestOptions.body || '{}');
+      return { business: { business_id: 'biz_new', name: body.name, currency: body.currency || 'BDT', created_at: new Date().toISOString() }, role: 'owner' };
+    }
+    const switchMatch = endpoint.match(/^\/v1\/businesses\/([^/]+)\/switch$/);
+    if (switchMatch) return { business_id: switchMatch[1], role: mockRole };
+    if (endpoint === '/v1/business/members/invite') {
+      const body = JSON.parse(requestOptions.body || '{}');
+      return { member_id: 'mem_new', invited_email: body.email, role: body.role, status: 'invited', invite_link: `${window.location.origin}/invite?token=mock-token` };
+    }
+    if (endpoint.startsWith('/v1/business/members/') && method === 'PATCH') {
+      return { ...mockData['/v1/business/members'][1], ...JSON.parse(requestOptions.body || '{}') };
+    }
+    if (endpoint === '/v1/business/members/accept') return { ...mockData['/v1/business/members'][1], status: 'active' };
+    if (method === 'DELETE' && endpoint.startsWith('/v1/business')) return '';
+    // ?mockNoBusiness=true simulates a first-time user with no memberships or invites.
+    const mockParams = new URLSearchParams(window.location.search);
+    if (mockParams.get('mockNoBusiness') === 'true' && (endpoint === '/v1/businesses' || endpoint === '/v1/business/invitations')) {
+      return [];
+    }
+    // ?mockActions=true shows required-action banners; only the owner can act on them.
+    if (endpoint === '/v1/user-required-actions') {
+      if (mockParams.get('mockActions') !== 'true') return { actions: [] };
+      const canAction = mockRole === 'owner';
+      return {
+        actions: [
+          { id: 'act_1', business_id: 'biz_1', action_type: 'facebook_reauth', title: 'Reconnect your Facebook Page', description: 'Facebook invalidated the access token for Lyfflow Support Page.', reference_id: 'page_2', data: { page_id: 'page_2' }, can_action: canAction, created_at: '2026-09-29T12:00:00Z' },
+          { id: 'act_2', business_id: 'biz_1', action_type: 'subscription_due', title: 'Your subscription payment is due', description: 'Renew the plan to keep agents replying.', reference_id: null, data: null, can_action: canAction, created_at: '2026-09-30T12:00:00Z' },
+        ],
+      };
+    }
+    if (endpoint === '/v1/knowledge/get-namespaces') {
+      return { namespaces: [{ namespace_id: 'ns_1', namespace_name: 'Demo catalog' }] };
+    }
+    if (/^\/v1\/knowledge\/ns_1$/.test(endpoint)) {
+      return [
+        { knowledge_usage_id: 'kn_1', name: 'Return policy', knowledge_type: 'text' },
+        { knowledge_usage_id: 'kn_2', name: 'size-guide.pdf', knowledge_type: 'file', file_name: 'size-guide.pdf' },
+      ];
+    }
+    if (/^\/v1\/products\/ns_1\/all-products/.test(endpoint)) {
+      return {
+        items: [
+          { product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', price: 'BDT 1170', category: 'Accessories', availability: true, is_active: true, assets: [] },
+          { product_id: 'prod_2', name: 'Canvas Tote Bag', code: 'TOT-02', price: 'BDT 850', category: 'Bags', availability: true, is_active: true, assets: [] },
+        ],
+        pagination: { has_more: false, next_cursor: null },
+      };
+    }
+    if (/^\/v1\/products\/ns_1\/import\/csv\/history/.test(endpoint)) {
+      return { batches: [], items: [], pagination: { has_more: false, next_cursor: null } };
+    }
+
     // Exact match, supported dynamic route, or partial match for dynamic IDs
     const courierOrderMatch = endpoint.match(/^\/v1\/(steadfast|pathao)\/orders\/[^/]+\/(prefill|place|info)$/);
     const courierOrderMock = courierOrderMatch
@@ -471,6 +557,15 @@ const apiFetch = async (endpoint, options = {}) => {
       }
       const error = new Error(errorMessage);
       error.status = response.status;
+      // Session-level failures are handled once by the app shell rather than per screen:
+      // 401 means the session is gone (expired, logged out, or membership revoked);
+      // this 403 means the session has no business bound and must pick one.
+      if (response.status === 401) {
+        window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+      } else if (response.status === 403 && isNoActiveBusinessError(error)) {
+        error.noActiveBusiness = true;
+        window.dispatchEvent(new Event(NO_ACTIVE_BUSINESS_EVENT));
+      }
       throw error;
     }
 
@@ -574,11 +669,58 @@ export const apiService = {
   // Returns current logged-in user details including profile_pic_url
   getUserProfile: () => apiFetch('/v1/user/profile', { cacheTtl: 5000 }),
 
-  // Explicit logout
-  logout: () => apiFetch('/v1/logout', { invalidateCache: true }),
+  // Gets the active business's connected pages
+  getPages: () => apiFetch('/v1/business/pages', { cacheTtl: 15000 }),
+  // Unlinks the page from the business; its history stays on the server.
+  disconnectPage: (pageId) => apiFetch(`/v1/business/pages/${encodeURIComponent(pageId)}`, {
+    method: 'DELETE',
+  }),
 
-  // Gets the connected Facebook Pages
-  getPages: () => apiFetch('/v1/pages', { cacheTtl: 15000 }),
+  // Businesses. The active business lives on the server-side session, so only
+  // create and switch take an id; the session cookie rotates on both.
+  getBusinesses: () => apiFetch('/v1/businesses'),
+  createBusiness: (businessData) => apiFetch('/v1/businesses', {
+    method: 'POST',
+    body: JSON.stringify(businessData),
+  }),
+  switchBusiness: (businessId) => apiFetch(`/v1/businesses/${encodeURIComponent(businessId)}/switch`, {
+    method: 'POST',
+  }),
+  getActiveBusiness: () => apiFetch('/v1/business', { cacheTtl: 15000 }),
+  updateBusiness: (businessData) => apiFetch('/v1/business', {
+    method: 'PATCH',
+    body: JSON.stringify(businessData),
+  }),
+  deleteBusiness: () => apiFetch('/v1/business', { method: 'DELETE' }),
+
+  // Business members & invites
+  getBusinessMembers: () => apiFetch('/v1/business/members'),
+  inviteBusinessMember: (email, role) => apiFetch('/v1/business/members/invite', {
+    method: 'POST',
+    body: JSON.stringify({ email, role }),
+  }),
+  updateBusinessMemberRole: (memberId, role) => apiFetch(`/v1/business/members/${encodeURIComponent(memberId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  }),
+  removeBusinessMember: (memberId) => apiFetch(`/v1/business/members/${encodeURIComponent(memberId)}`, {
+    method: 'DELETE',
+  }),
+  getMyInvitations: () => apiFetch('/v1/business/invitations'),
+  acceptInvite: (inviteToken) => apiFetch('/v1/business/members/accept', {
+    method: 'POST',
+    body: JSON.stringify({ invite_token: inviteToken }),
+  }),
+  rejectInvite: (inviteToken) => apiFetch('/v1/business/members/reject', {
+    method: 'POST',
+    body: JSON.stringify({ invite_token: inviteToken }),
+  }),
+
+  // Banners for things only a person can fix (expired FB token, unpaid plan).
+  getRequiredActions: () => apiFetch('/v1/user-required-actions', { cacheTtl: 15000 }),
+  resolveRequiredAction: (actionId) => apiFetch(`/v1/user-required-actions/${encodeURIComponent(actionId)}/resolve`, {
+    method: 'POST',
+  }),
 
   // Knowledge Base
   generateNamespace: (namespaceName = 'New Namespace') => apiFetch('/v1/knowledge/generate-namespace', { method: 'POST', body: JSON.stringify({ namespace_name: namespaceName }) }),
@@ -705,18 +847,17 @@ export const apiService = {
     method: 'DELETE',
   }),
 
-  assignAgentToPage: (pageId, agentId) => apiFetch(`/v1/page/${pageId}/assign-agent`, {
+  assignAgentToPage: (pageId, agentId) => apiFetch(`/v1/business/pages/${pageId}/assign-agent`, {
     method: 'PATCH',
     body: JSON.stringify({ agent_id: agentId }),
   }),
 
-  unassignAgentFromPage: (pageId) => apiFetch(`/v1/page/${pageId}/unassign-agent`, {
+  unassignAgentFromPage: (pageId) => apiFetch(`/v1/business/pages/${pageId}/unassign-agent`, {
     method: 'PATCH',
   }),
 
-  // Profile
-  getProfilePic: (userId) => apiFetch(`/v1/user/profile_pic/${userId}`),
-  updateUserProfile: (profileData) => apiFetch('/v1/user/profile/update', {
+  // Profile. Only display_name is editable; email comes from Google and is fixed.
+  updateUserProfile: (profileData) => apiFetch('/v1/profile/update', {
     method: 'PATCH',
     body: JSON.stringify(profileData),
   }),
@@ -757,9 +898,6 @@ export const apiService = {
     method: 'PATCH',
     body: JSON.stringify({ pause_status: pauseStatus }),
   }),
-
-  // Auth / Reauth
-  getFacebookReauthUrl: () => apiFetch('/v1/auth/facebook/reauth'),
 
   // Integrations
   connectSteadfast: (credentials) => apiFetch('/v1/steadfast/connect', {

@@ -21,7 +21,7 @@ export default function Home() {
       <ScrollProgressBar />
       <Navbar theme={theme} onToggleTheme={toggleTheme} />
       <main>
-        <Hero />
+        <Hero theme={theme} />
       </main>
       <FAQ />
       <Footer />

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronRight, KeyRound, Loader2, Mail, Phone, ShoppingCart, X } from 'lucide-react';
 import { apiService } from '../../services/api';
+import { useBusiness } from '../../context/BusinessContext';
 
 const INPUT_CLASS = 'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-50 disabled:text-slate-500';
 
@@ -89,7 +90,7 @@ export const Card = ({ title, description, icon: Icon, action, children, classNa
       </div>
       {action}
     </div>
-    <div className="p-5">{children}</div>
+    {children && <div className="p-5">{children}</div>}
   </section>
 );
 
@@ -110,6 +111,7 @@ export const DetailGrid = ({ items }) => (
  * webhook URL and auth token the merchant must paste into the courier's panel.
  */
 export const CourierConnectCard = ({ courierName, fields, onConnect, webhookHelp }) => {
+  const { isOwner } = useBusiness();
   const emptyValues = Object.fromEntries(fields.map(field => [field.name, '']));
   const [values, setValues] = useState(emptyValues);
   const [connecting, setConnecting] = useState(false);
@@ -154,6 +156,18 @@ export const CourierConnectCard = ({ courierName, fields, onConnect, webhookHelp
       setError('Could not copy automatically. Select the value and copy it manually.');
     }
   };
+
+  // Courier credentials belong to the business; only its owner may set them.
+  // Everyone else can still ship orders with the account the owner connected.
+  if (!isOwner) {
+    return (
+      <Card
+        icon={KeyRound}
+        title={`${courierName} account`}
+        description={`Only the business owner can connect or reconnect the ${courierName} account. You can still ship orders below once it's connected.`}
+      />
+    );
+  }
 
   return (
     <Card

@@ -6,7 +6,8 @@ import './App.css'
 
 const Home = lazy(() => import('./pages/Home'))
 const GetStarted = lazy(() => import('./pages/GetStarted'))
-const Login = lazy(() => import('./pages/Login'))
+const Businesses = lazy(() => import('./pages/Businesses'))
+const Invite = lazy(() => import('./pages/Invite'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Feedback = lazy(() => import('./pages/Feedback'))
 const Legal = lazy(() => import('./pages/Legal'))
@@ -117,7 +118,10 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/get-started" element={<GetStarted />} />
-          <Route path="/login" element={<Login />} />
+          {/* Google is the only login; the old email form was a placeholder. */}
+          <Route path="/login" element={<Navigate to="/get-started" replace />} />
+          <Route path="/businesses" element={<Businesses />} />
+          <Route path="/invite" element={<Invite />} />
           <Route path="/dashboard/*" element={<Dashboard />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/legal" element={<Legal />} />

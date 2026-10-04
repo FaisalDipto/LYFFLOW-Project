@@ -115,7 +115,11 @@ const resolveDeepLink = (notification) => {
       return { tab: 'knowledge-documents' };
 
     case 'page_disconnected':
+    case 'page_owned_by_another_business':
       return { tab: 'overview' };
+
+    case 'product_limit_reached':
+      return { tab: 'knowledge-products' };
 
     case 'conversation_limit_reached':
     case 'storage_limit_reached':

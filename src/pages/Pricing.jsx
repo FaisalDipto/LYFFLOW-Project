@@ -11,7 +11,16 @@ export default function Pricing() {
       await apiService.subscribe({ subscription_type: planType, num_months: 1 });
       navigate('/dashboard');
     } catch (e) {
-      alert("Failed to subscribe: " + e.message);
+      // Subscribing needs a signed-in owner with an active business.
+      if (e.status === 401) {
+        navigate('/get-started');
+      } else if (e.noActiveBusiness) {
+        navigate('/businesses');
+      } else if (e.status === 403) {
+        alert("Only the business owner can change the plan.");
+      } else {
+        alert("Failed to subscribe: " + e.message);
+      }
     }
   };
 

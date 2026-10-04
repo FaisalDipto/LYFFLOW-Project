@@ -1,4 +1,4 @@
-﻿import { Book, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, X, Zap, Package, FileText, Truck, Bike, PackageCheck } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -7,10 +7,21 @@ import titleImg from '../assets/title.webp';
 import AppLoadingScreen from '../components/AppLoadingScreen';
 import AgentAvatar from '../components/AgentAvatar';
 import NotificationBell from '../components/NotificationBell';
+import RequiredActionsBanner from '../components/RequiredActionsBanner';
+import RoleBadge from '../components/RoleBadge';
+import { BusinessDetailsSettings, BusinessMembersSettings } from '../components/BusinessSettings';
 import { NotificationsProvider } from '../context/NotificationsContext';
+import { BusinessProvider, useBusiness } from '../context/BusinessContext';
 import { useWidget } from '../context/WidgetContext';
 import { API_BASE } from '../config/env';
-import { apiService } from '../services/api';
+import {
+  apiService,
+  facebookConnectUrl,
+  isNoActiveBusinessError,
+  logoutUrl,
+  NO_ACTIVE_BUSINESS_EVENT,
+  SESSION_EXPIRED_EVENT,
+} from '../services/api';
 import { closeNotificationStream } from '../services/notificationStream';
 import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import { useOnKeyChange } from '../hooks/useOnKeyChange';
@@ -34,14 +45,36 @@ const FacebookMark = ({ className = '' }) => (
   </svg>
 );
 
-// Helper to trigger Facebook re-authorization to the API backend directly
+// Full-panel placeholder for a tab whose content the caller's role can't use.
+const OwnerOnlyNotice = ({ title, description }) => (
+  <div className="dashboard-content-area flex flex-1 items-center justify-center p-6">
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+        <ShieldCheck size={22} />
+      </span>
+      <h2 className="m-0 text-lg font-black text-slate-900">{title}</h2>
+      <p className="mb-0 mt-2 text-sm leading-6 text-slate-500">{description}</p>
+    </div>
+  </div>
+);
+
+// Owner-only. Connecting and reconnecting are the same Facebook OAuth flow; the
+// backend returns to /dashboard?reauth=success|warning|failed.
 const triggerFacebookReauth = () => {
-  const nextPath = '/dashboard';
-  const redirectUrl = encodeURIComponent(window.location.origin + nextPath);
-  window.location.href = `${API_BASE}/v1/auth/facebook/reauth?redirect_uri=${redirectUrl}&next=${nextPath}`;
+  window.location.href = facebookConnectUrl();
 };
 
-// /v1/pages reports token health separately from whether the page itself is enabled:
+// Reasons the backend appends as /dashboard?reauth=failed&error=<reason>.
+const FACEBOOK_CONNECT_ERRORS = {
+  access_denied: 'Facebook connection was cancelled or could not be verified.',
+  not_business_owner: 'Only the business owner can connect Facebook.',
+  rate_limited: 'Facebook is rate-limiting requests right now. Try again in a few minutes.',
+  facebook_api_error: 'Facebook did not respond as expected. Please try again.',
+  facebook_account_already_connected: 'That Facebook account is already connected to another business.',
+  unexpected: 'Something went wrong while connecting Facebook. Please try again.',
+};
+
+// /v1/business/pages reports token health separately from whether the page itself is enabled:
 // `needs_reauth` (or `is_token_active: false`) means Facebook stopped accepting our
 // page token, and `token_invalid_at` is when that happened.
 const pageNeedsReauth = (page) => page?.needs_reauth === true || page?.is_token_active === false;
@@ -58,31 +91,6 @@ const formatTokenInvalidAt = (value) => {
 const parseCollection = (data, primaryKey) => {
   if (Array.isArray(data)) return data;
   return data?.[primaryKey] || data?.data?.[primaryKey] || data?.data || [];
-};
-
-const fetchProfilePictureUrl = async (userId) => {
-  if (!userId) return null;
-  const response = await fetch(`${API_BASE}/v1/user/profile_pic/${userId}`, { credentials: 'include' });
-  if (!response.ok) return null;
-
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    const data = await response.json();
-    return data.url || data.profile_pic || data.profile_pic_url || data.image_url || null;
-  }
-  if (contentType.includes('image/')) {
-    const blob = await response.blob();
-    return blob.size > 0 ? URL.createObjectURL(blob) : null;
-  }
-
-  const text = await response.text();
-  if (text.startsWith('http')) return text;
-  try {
-    const parsed = JSON.parse(text);
-    return parsed.url || parsed.profile_pic || parsed.profile_pic_url || parsed.image_url || null;
-  } catch {
-    return `${API_BASE}/v1/user/profile_pic/${userId}`;
-  }
 };
 
 const KNOWLEDGE_POLL_DELAYS = [1500, 2500, 4000];
@@ -102,7 +110,10 @@ const CountUpNumber = ({ value }) => {
 };
 
 // Sub-components
-const Overview = ({ user, pages, onNavigate, onAddPage }) => {
+const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate }) => {
+  // Facebook connect is owner-only; agent assignment and page removal are admin+.
+  const { business, isOwner, canManage } = useBusiness();
+  const [disconnecting, setDisconnecting] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [dropdownPlacement, setDropdownPlacement] = useState('bottom');
   const [isPlatformModalOpen, setIsPlatformModalOpen] = useState(false);
@@ -123,7 +134,7 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
   const assignedPageCount = Array.isArray(pages)
     ? pages.filter(page => Boolean(selectedAgents[page.page_id])).length
     : 0;
-  const workspaceName = user?.workspace_name || 'My Workspace';
+  const workspaceName = business?.name || 'My Workspace';
   const reauthPages = useMemo(
     () => (Array.isArray(pages) ? pages.filter(pageNeedsReauth) : []),
     [pages]
@@ -241,6 +252,20 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
     setIsPlatformModalOpen(true);
   };
 
+  // Unlinks the page from this business; its conversations and orders are kept.
+  const handleDisconnect = async (page) => {
+    if (!window.confirm(`Disconnect ${page.name || 'this page'} from this business? Its agent will stop replying. Conversation and order history is kept.`)) return;
+    setDisconnecting(page.page_id);
+    try {
+      await apiService.disconnectPage(page.page_id);
+      if (onUpdate) await onUpdate();
+    } catch (error) {
+      alert('Failed to disconnect page: ' + error.message);
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
   const handleAgentDropdownToggle = (pageId, event) => {
     if (openDropdown === pageId) {
       setOpenDropdown(null);
@@ -296,14 +321,16 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
               <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={agents.length} /></span>
               <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">Agents</span>
             </div>
-            <button
-              type="button"
-              onClick={handleAddPage}
-              className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600 md:ml-2"
-            >
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              Connect page
-            </button>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={handleAddPage}
+                className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600 md:ml-2"
+              >
+                <span className="material-symbols-outlined text-[18px]">add</span>
+                Connect page
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -311,7 +338,9 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
       <div className="mb-3 flex items-center justify-between gap-4">
         <div>
           <h2 className="m-0 text-sm font-black text-slate-900">Connected pages</h2>
-          <p className="mb-0 mt-0.5 text-xs text-slate-500">Choose which agent handles each inbox.</p>
+          <p className="mb-0 mt-0.5 text-xs text-slate-500">
+            {canManage ? 'Choose which agent handles each inbox.' : 'The agent handling each inbox. Admins can change assignments.'}
+          </p>
         </div>
         <span className="shrink-0 text-xs font-bold text-slate-600">{pageCount} total</span>
       </div>
@@ -331,14 +360,18 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={triggerFacebookReauth}
-            className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-4 text-xs font-black text-white transition-colors hover:bg-amber-700"
-          >
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
-            Reconnect
-          </button>
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={triggerFacebookReauth}
+              className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-4 text-xs font-black text-white transition-colors hover:bg-amber-700"
+            >
+              <span className="material-symbols-outlined text-[16px]">refresh</span>
+              Reconnect
+            </button>
+          ) : (
+            <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-amber-700">Owner must reconnect</span>
+          )}
         </div>
       )}
 
@@ -381,6 +414,18 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
                 </div>
 
                 <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${hasAssignedAgent ? 'bg-emerald-500' : 'bg-amber-400'}`} title={hasAssignedAgent ? 'Agent assigned' : 'No agent assigned'} />
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => handleDisconnect(page)}
+                    disabled={disconnecting === page.page_id}
+                    aria-label={`Disconnect ${page.name || 'page'}`}
+                    title="Disconnect page"
+                    className="-mr-1 -mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[17px]">link_off</span>
+                  </button>
+                )}
               </div>
 
               <p className="mb-0 mt-3 truncate text-xs leading-5 text-slate-500" title={page.description || ''}>
@@ -393,14 +438,18 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
                   <p className="mb-0 mt-0.5 text-[10px] font-semibold leading-4 text-amber-800">
                     {invalidSince ? `Stopped working on ${invalidSince}.` : 'Messages are not being answered.'}
                   </p>
-                  <button
-                    type="button"
-                    onClick={triggerFacebookReauth}
-                    className="mt-2 flex h-7 w-full items-center justify-center gap-1.5 rounded-md bg-amber-600 px-3 text-[11px] font-black text-white transition-colors hover:bg-amber-700"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">refresh</span>
-                    Reconnect page
-                  </button>
+                  {isOwner ? (
+                    <button
+                      type="button"
+                      onClick={triggerFacebookReauth}
+                      className="mt-2 flex h-7 w-full items-center justify-center gap-1.5 rounded-md bg-amber-600 px-3 text-[11px] font-black text-white transition-colors hover:bg-amber-700"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">refresh</span>
+                      Reconnect page
+                    </button>
+                  ) : (
+                    <p className="mb-0 mt-1.5 text-[10px] font-bold text-amber-800">Ask the business owner to reconnect it.</p>
+                  )}
                 </div>
               )}
 
@@ -414,10 +463,11 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
                   <button
                     type="button"
                     onClick={(event) => handleAgentDropdownToggle(page.page_id, event)}
-                    disabled={assigning[page.page_id]}
+                    disabled={!canManage || assigning[page.page_id]}
+                    title={canManage ? undefined : 'Only admins and the owner can change the assigned agent'}
                     aria-expanded={openDropdown === page.page_id}
                     aria-haspopup="menu"
-                    className={`agent-assignment-trigger ${hasAssignedAgent ? 'is-assigned' : ''} flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border px-2.5 text-left text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${hasAssignedAgent ? 'border-emerald-100 bg-emerald-50 text-slate-800 hover:border-emerald-200' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'}`}
+                    className={`agent-assignment-trigger ${hasAssignedAgent ? 'is-assigned' : ''} flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border px-2.5 text-left text-xs font-bold transition-colors ${canManage ? 'disabled:cursor-wait disabled:opacity-60' : 'disabled:cursor-default'} ${hasAssignedAgent ? 'border-emerald-100 bg-emerald-50 text-slate-800 hover:border-emerald-200' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'}`}
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       {selectedAgent ? (
@@ -431,10 +481,10 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
                           : selectedAgent?.name || (foreignAgentName ? `${foreignAgentName} (Team)` : 'Select an agent')}
                       </span>
                     </span>
-                    <ChevronDown size={14} className={`shrink-0 transition-transform ${openDropdown === page.page_id ? 'rotate-180' : ''}`} />
+                    {canManage && <ChevronDown size={14} className={`shrink-0 transition-transform ${openDropdown === page.page_id ? 'rotate-180' : ''}`} />}
                   </button>
 
-                  {openDropdown === page.page_id && (
+                  {canManage && openDropdown === page.page_id && (
                     <div
                       className={`absolute left-0 z-[1100] w-full min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 text-left shadow-xl ${dropdownPlacement === 'top' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'}`}
                       role="menu"
@@ -496,6 +546,7 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
           );
         })}
 
+        {isOwner ? (
         <button
           type="button"
           onClick={handleAddPage}
@@ -507,6 +558,13 @@ const Overview = ({ user, pages, onNavigate, onAddPage }) => {
             <span className="mt-1 block text-[11px] font-medium text-slate-600">Facebook or Instagram</span>
           </span>
         </button>
+        ) : pageCount === 0 && (
+          <div className="flex min-h-[174px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 p-4 text-center">
+            <span className="material-symbols-outlined text-2xl text-slate-400">link</span>
+            <span className="text-sm font-black text-slate-700">No pages connected yet</span>
+            <span className="text-[11px] font-medium text-slate-500">The business owner connects Facebook pages.</span>
+          </div>
+        )}
       </div>
 
       {/* Platform Selection Modal */}
@@ -1951,6 +2009,8 @@ const FeedbackPanel = () => {
 };
 
 const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
+  // Members can read knowledge and products; creating, editing and deleting is admin+.
+  const { canManage } = useBusiness();
   const [showModal, setShowModal] = useState(false);
   const [selectedNamespaceId, setSelectedNamespaceId] = useState('');
   const [knowledgeList, setKnowledgeList] = useState([]);
@@ -2340,9 +2400,13 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
         <div className="mx-auto flex min-h-[520px] max-w-[1400px] flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-white px-6 text-center shadow-sm">
           <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-xl shadow-slate-950/15"><span className="material-symbols-outlined text-[30px]">library_books</span></div>
           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Knowledge workspace</p>
-          <h2 className="font-['Epilogue'] text-2xl font-extrabold text-slate-950">Create your first namespace</h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">Namespaces keep product data and documents organized so agents retrieve the right information.</p>
-          <button
+          <h2 className="font-['Epilogue'] text-2xl font-extrabold text-slate-950">{canManage ? 'Create your first namespace' : 'No knowledge yet'}</h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+            {canManage
+              ? 'Namespaces keep product data and documents organized so agents retrieve the right information.'
+              : 'An admin or the business owner needs to create a namespace before products and documents appear here.'}
+          </p>
+          {canManage && <button
               className="mt-6 flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-800"
               onClick={() => {
                 setNewNamespaceName('');
@@ -2351,7 +2415,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
             >
               <span className="material-symbols-outlined text-[18px]">create_new_folder</span>
               Create namespace
-            </button>
+            </button>}
         </div>
       </div>
     );
@@ -2405,16 +2469,18 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
                 </select>
                 <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">expand_more</span>
               </label>
-              <button
-                className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                onClick={() => {
-                  setNewNamespaceName('');
-                  setShowNamespaceModal(true);
-                }}
-              >
-                <span className="material-symbols-outlined text-[18px]">create_new_folder</span>
-                New namespace
-              </button>
+              {canManage && (
+                <button
+                  className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  onClick={() => {
+                    setNewNamespaceName('');
+                    setShowNamespaceModal(true);
+                  }}
+                >
+                  <span className="material-symbols-outlined text-[18px]">create_new_folder</span>
+                  New namespace
+                </button>
+              )}
             </div>
           </div>
 
@@ -2439,7 +2505,9 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <h3 className="m-0 text-base font-extrabold text-slate-900">Sources</h3>
-            <p className="m-0 mt-1 text-xs text-slate-500">Manage the text and files indexed for AI retrieval.</p>
+            <p className="m-0 mt-1 text-xs text-slate-500">
+              {canManage ? 'Manage the text and files indexed for AI retrieval.' : 'The text and files your agents use. Only admins and the owner can change them.'}
+            </p>
           </div>
           <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
             <label className="relative flex h-11 min-w-0 flex-1 items-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/60 lg:w-[360px] lg:flex-none">
@@ -2447,7 +2515,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
               <input type="text" value={knowledgeQuery} onChange={event => setKnowledgeQuery(event.target.value)} placeholder="Search sources" className="h-full min-w-0 flex-1 border-0 bg-transparent pl-10 pr-9 text-sm font-medium text-slate-800 outline-none focus:border-transparent focus:ring-0" style={{ width: 0, minWidth: 0, boxSizing: 'border-box' }} />
               {knowledgeQuery && <button type="button" onClick={() => setKnowledgeQuery('')} className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700" aria-label="Clear source search"><span className="material-symbols-outlined text-[16px]">close</span></button>}
             </label>
-          <button
+          {canManage && <button
             className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition hover:-translate-y-0.5 hover:bg-slate-800"
             onClick={() => {
               setName('');
@@ -2461,7 +2529,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
             Add source
-          </button>
+          </button>}
           </div>
         </div>
 
@@ -2484,7 +2552,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
                 <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">{knowledgeQuery ? 'Try a different search term.' : 'Add text or upload files to give your agents reliable information.'}</p>
                 {knowledgeQuery ? (
                   <button onClick={() => setKnowledgeQuery('')} className="mt-4 text-sm font-bold text-emerald-700">Clear search</button>
-                ) : (
+                ) : canManage && (
                   <button onClick={() => { setKnowledgeType('text'); setEditingItemId(null); setShowModal(true); }} className="mt-4 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white">Add your first source</button>
                 )}
               </div>
@@ -2546,22 +2614,26 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
                           >
                             <span className="material-symbols-outlined text-[18px]">visibility</span>
                           </button>
-                          <button
-                            onClick={() => handleEditClick(item)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                            title="Edit"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
+                          {canManage && (
+                            <button
+                              onClick={() => handleEditClick(item)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                              title="Edit"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+                          )}
                         </>
                       )}
-                      <button
-                        onClick={() => handleRequestDelete(item)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
-                        title="Delete"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                      </button>
+                      {canManage && (
+                        <button
+                          onClick={() => handleRequestDelete(item)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                          title="Delete"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -3337,6 +3409,8 @@ const AgentLog = ({ agents }) => {
 };
 
 const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgentEdited }) => {
+  // Every member can see agents and their activity; changing them is admin+.
+  const { canManage } = useBusiness();
   const agents = user?.agents || [];
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -3746,23 +3820,10 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           ...sharedPayload,
           agent_role: ROLE_BY_PERSONA[selectedPersona],
         };
-        try {
-          const newAgent = await apiService.createAgent(payload);
-          if (onAgentCreated) onAgentCreated(normalizeAgentResponse(newAgent));
-        } catch (error) {
-          // If the error is about a missing subscription, try to auto-subscribe and retry once
-          if (error.status === 403 && (error.message || '').toLowerCase().includes('subscription')) {
-            // If the retry still fails, the error propagates to the main catch
-            await apiService.subscribe({ subscription_type: 'FREE', num_months: 120 });
-            // Small delay to ensure DB propagation
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Retry creation after silent fix
-            const retryAgent = await apiService.createAgent(payload);
-            if (onAgentCreated) onAgentCreated(normalizeAgentResponse(retryAgent));
-          } else {
-            throw error;
-          }
-        }
+        // Quota comes from the business owner's plan (a free plan is created with the
+        // business), so a 403 here is a real limit or role error to surface, not to retry.
+        const newAgent = await apiService.createAgent(payload);
+        if (onAgentCreated) onAgentCreated(normalizeAgentResponse(newAgent));
       }
 
       setCreated(true);
@@ -4269,7 +4330,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               <div>
                 <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Agent workspace</span>
                 <h2 className="mb-2 font-['Epilogue'] text-3xl font-extrabold tracking-tight text-slate-950">AI agents</h2>
-                <p className="max-w-xl text-sm leading-6 text-slate-500">Create, connect, and monitor the agents that handle conversations across your pages.</p>
+                <p className="max-w-xl text-sm leading-6 text-slate-500">
+                  {canManage
+                    ? 'Create, connect, and monitor the agents that handle conversations across your pages.'
+                    : 'Monitor the agents that handle conversations across your pages. Admins and the owner can change them.'}
+                </p>
               </div>
               <div className="grid w-full min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:w-auto">
                 <div className="grid min-w-0 grid-cols-3 items-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 py-3">
@@ -4277,10 +4342,12 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                   <div className="min-w-0 border-x border-slate-200 px-2 text-center sm:px-4"><p className="text-lg font-extrabold leading-none text-emerald-600">{configuredAgentsCount}</p><p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">Connected</p></div>
                   <div className="min-w-0 px-3 text-center sm:px-4"><p className="text-lg font-extrabold leading-none text-blue-600">{assignedPageCount}</p><p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">Pages</p></div>
                 </div>
-                <button onClick={openCreateForm} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition-all hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0 sm:w-auto">
-                  <span className="material-symbols-outlined text-[19px]">add</span>
-                  Create agent
-                </button>
+                {canManage && (
+                  <button onClick={openCreateForm} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition-all hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0 sm:w-auto">
+                    <span className="material-symbols-outlined text-[19px]">add</span>
+                    Create agent
+                  </button>
+                )}
               </div>
             </div>
           </section>
@@ -4352,9 +4419,13 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             {agents.length === 0 ? (
               <div className="col-span-full flex min-h-[320px] flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-white px-6 text-center">
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/15"><span className="material-symbols-outlined text-[27px]">smart_toy</span></div>
-                <h4 className="text-lg font-extrabold text-slate-950">Build your first agent</h4>
-                <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">Give it a role, connect a knowledge source, then assign it to a page when you are ready.</p>
-                <button onClick={openCreateForm} className="mt-5 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Create agent</button>
+                <h4 className="text-lg font-extrabold text-slate-950">{canManage ? 'Build your first agent' : 'No agents yet'}</h4>
+                <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">
+                  {canManage
+                    ? 'Give it a role, connect a knowledge source, then assign it to a page when you are ready.'
+                    : 'Agents created by an admin or the business owner will appear here.'}
+                </p>
+                {canManage && <button onClick={openCreateForm} className="mt-5 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Create agent</button>}
               </div>
             ) : filteredAgents.length === 0 ? (
               <div className="col-span-full flex min-h-[260px] flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-white px-6 text-center">
@@ -4377,9 +4448,9 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                 <article key={agent.agent_id} className="group flex min-h-[330px] flex-col rounded-[20px] border border-slate-200/90 bg-white p-5 shadow-[0_4px_18px_rgba(15,23,42,0.035)] transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div
-                      onClick={(e) => { e.stopPropagation(); setCustomizingAvatarAgent(agent); }}
-                      title="Click to customize agent avatar"
-                      className="relative group/avatar cursor-pointer shrink-0"
+                      onClick={canManage ? (e) => { e.stopPropagation(); setCustomizingAvatarAgent(agent); } : undefined}
+                      title={canManage ? 'Click to customize agent avatar' : undefined}
+                      className={`relative group/avatar shrink-0 ${canManage ? 'cursor-pointer' : ''}`}
                     >
                       <AgentAvatar
                         agent={agent}
@@ -4387,22 +4458,26 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                         iconSize="text-[23px]"
                         className="group-hover:scale-105 transition-transform"
                       />
-                      <div className="absolute inset-0 rounded-full bg-slate-900/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity">
-                        <span className="material-symbols-outlined text-white text-[18px]">palette</span>
-                      </div>
+                      {canManage && (
+                        <div className="absolute inset-0 rounded-full bg-slate-900/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity">
+                          <span className="material-symbols-outlined text-white text-[18px]">palette</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold ${isStatusGreen ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${isStatusGreen ? 'bg-emerald-500' : 'bg-amber-400'}`} />
                         {isStatusGreen ? 'Ready' : 'Needs setup'}
                       </span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent); }}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                        title="Delete Agent"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">delete</span>
-                      </button>
+                      {canManage && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteAgent(agent); }}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                          title="Delete Agent"
+                        >
+                          <span className="material-symbols-outlined text-[17px]">delete</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -4428,8 +4503,9 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                     {isAssigned ? (
                       <button
                         onClick={() => setAssignModalAgent(agent)}
-                        className="flex w-full min-w-0 items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-left text-[11px] font-bold text-emerald-800 transition hover:bg-emerald-100"
-                        title="Change Namespace"
+                        disabled={!canManage}
+                        className="flex w-full min-w-0 items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-left text-[11px] font-bold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-default disabled:hover:bg-emerald-50"
+                        title={canManage ? 'Change Namespace' : undefined}
                       >
                         <span className="material-symbols-outlined shrink-0 text-[15px]">database</span>
                         <span className="truncate">{(() => {
@@ -4437,8 +4513,10 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                           const nsName = matchedNs?.namespace_name || matchedNs?.name;
                           return nsName || `${String(agent.namespace_id).split('-')[0]}...`;
                         })()}</span>
-                        <span className="material-symbols-outlined ml-auto shrink-0 text-[15px]">swap_horiz</span>
+                        {canManage && <span className="material-symbols-outlined ml-auto shrink-0 text-[15px]">swap_horiz</span>}
                       </button>
+                    ) : !canManage ? (
+                      <p className="m-0 rounded-lg bg-slate-50 px-2.5 py-2 text-center text-[11px] font-bold text-slate-500">No knowledge connected</p>
                     ) : (
                       <button
                         onClick={() => setAssignModalAgent(agent)}
@@ -4473,7 +4551,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                     </div>
                   </div>
 
-                  <div className="mt-auto grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
+                  {canManage && <div className="mt-auto grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
                     <button
                       onClick={(e) => { e.stopPropagation(); setAssignPageModalAgent(agent); }}
                       className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-200"
@@ -4498,7 +4576,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                     >
                       Configure <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </button>
-                  </div>
+                  </div>}
 
                 </article>
               );
@@ -4887,20 +4965,13 @@ const THEMES = [
   { id: 'amber', label: 'Amber', primary: '#fcd34d', accent: '#d97706' },
 ];
 
-const INITIAL_TEAM = [
-  { id: 1, name: 'John Smith', email: 'john.smith@company.com', role: 'Admin', avatar: 'JS', color: '#0ea5e9' },
-  { id: 2, name: 'Alice Tan', email: 'alice.tan@company.com', role: 'Agent', avatar: 'AT', color: '#8b5cf6' },
-  { id: 3, name: 'Bob Reyes', email: 'bob.reyes@company.com', role: 'Agent', avatar: 'BR', color: '#10b981' },
-];
-
-const SettingsPanel = ({ user, onUpdate }) => {
+const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
+  const { isOwner } = useBusiness();
   const [activeSettings, setActiveSettings] = useState('profile');
 
   // ── Profile state ──
-  const [firstName, setFirstName] = useState(user?.first_name || '');
-  const [lastName, setLastName] = useState(user?.last_name || '');
+  // display_name is the only editable field; email is fixed by the Google account.
   const [displayName, setDisplayName] = useState(user?.display_name || '');
-  const [email, setEmail] = useState(user?.email || '');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [steadfastApiKey, setSteadfastApiKey] = useState('');
@@ -4911,24 +4982,14 @@ const SettingsPanel = ({ user, onUpdate }) => {
   const [copiedSteadfastField, setCopiedSteadfastField] = useState('');
 
   useEffect(() => {
-    if (user) {
-      setFirstName(user.first_name || '');
-      setLastName(user.last_name || '');
-      setDisplayName(user.display_name || '');
-      setEmail(user.email || '');
-    }
+    if (user) setDisplayName(user.display_name || '');
   }, [user]);
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
     setProfileSaving(true);
     try {
-      await apiService.updateUserProfile({
-        first_name: firstName,
-        last_name: lastName,
-        display_name: displayName,
-        email: email
-      });
+      await apiService.updateUserProfile({ display_name: displayName.trim() });
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2500);
       if (onUpdate) onUpdate();
@@ -4996,11 +5057,6 @@ const SettingsPanel = ({ user, onUpdate }) => {
 
   const [widgetSaved, setWidgetSaved] = useState(false);
 
-  // ── Team Members state ──
-  const [team, setTeam] = useState(INITIAL_TEAM);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('Agent');
-  const [inviteSent, setInviteSent] = useState(false);
 
   const handleThemeSave = () => {
     setThemeId(selectedTheme);
@@ -5014,26 +5070,15 @@ const SettingsPanel = ({ user, onUpdate }) => {
     setTimeout(() => setWidgetSaved(false), 2500);
   };
 
-  const handleInvite = (e) => {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    setInviteSent(true);
-    setTimeout(() => {
-      setInviteSent(false);
-      setInviteEmail('');
-    }, 2500);
-  };
-
-  const removeTeamMember = (id) => {
-    setTeam(prev => prev.filter(m => m.id !== id));
-  };
 
   const settingsTabs = [
     { id: 'profile', icon: User, label: 'Profile' },
-    { id: 'integrations', icon: Zap, label: 'Integrations' },
+    { id: 'business', icon: Building2, label: 'Business' },
+    { id: 'team', icon: Users, label: 'Team' },
+    // Courier credentials can only be (re)connected by the owner.
+    ...(isOwner ? [{ id: 'integrations', icon: Zap, label: 'Integrations' }] : []),
     // { id: 'themes', icon: Palette, label: 'Themes' },         // no functionality yet
     // { id: 'widget', icon: Monitor, label: 'Widget Appearance' }, // no functionality yet
-    // { id: 'team', icon: Users, label: 'Team Members' },       // no functionality yet
   ];
 
   return (
@@ -5072,17 +5117,6 @@ const SettingsPanel = ({ user, onUpdate }) => {
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Profile Information</h3>
             <p style={{ color: '#64748b', fontSize: '13.5px', marginBottom: '24px' }}>Update your account details and how you appear to others.</p>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '13.5px', fontWeight: 600 }}>First Name</label>
-                <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' }} required />
-              </div>
-              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '13.5px', fontWeight: 600 }}>Last Name</label>
-                <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' }} required />
-              </div>
-            </div>
-
             <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               <label style={{ fontSize: '13.5px', fontWeight: 600 }}>Display Name</label>
               <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' }} required />
@@ -5090,8 +5124,9 @@ const SettingsPanel = ({ user, onUpdate }) => {
             </div>
 
             <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-              <label style={{ fontSize: '13.5px', fontWeight: 600 }}>Email Address</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' }} required />
+              <label htmlFor="settings-email" style={{ fontSize: '13.5px', fontWeight: 600 }}>Email Address</label>
+              <input id="settings-email" type="email" value={user?.email || ''} readOnly disabled style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }} />
+              <small style={{ color: '#94a3b8', fontSize: '12px' }}>Your sign-in email comes from your Google account and can't be changed here.</small>
             </div>
 
             <button
@@ -5104,8 +5139,14 @@ const SettingsPanel = ({ user, onUpdate }) => {
           </form>
         )}
 
+        {activeSettings === 'business' && (
+          <BusinessDetailsSettings onBusinessDeleted={onBusinessDeleted} />
+        )}
+
+        {activeSettings === 'team' && <BusinessMembersSettings />}
+
         {/* Steadfast integration */}
-        {activeSettings === 'integrations' && (
+        {isOwner && activeSettings === 'integrations' && (
           <div>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '24px' }}>
               <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -5393,64 +5434,6 @@ const SettingsPanel = ({ user, onUpdate }) => {
               {widgetSaved ? '✓ Saved!' : 'Save Changes'}
             </button>
           </form>
-        )}
-
-        {/* ── TEAM MEMBERS ── no functionality yet */}
-        {SHOW_UNFINISHED_SETTINGS && activeSettings === 'team' && (
-          <div>
-            <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Team Members</h3>
-            <p style={{ color: '#64748b', fontSize: '13.5px', marginBottom: '24px' }}>Manage who has access to your workspace.</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px' }}>
-              {team.map(member => (
-                <div key={member.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '10px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                  <div className="contact-avatar very-small" style={{ backgroundColor: member.color, color: '#fff', flexShrink: 0 }}>{member.avatar}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: '13.5px' }}>{member.name}</div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>{member.email}</div>
-                  </div>
-                  <span style={{ fontSize: '11.5px', fontWeight: 600, padding: '3px 10px', borderRadius: '999px', backgroundColor: member.role === 'Admin' ? 'rgba(14,165,233,0.1)' : 'rgba(16,185,129,0.1)', color: member.role === 'Admin' ? '#0ea5e9' : '#059669' }}>
-                    {member.role}
-                  </span>
-                  {member.role !== 'Admin' && (
-                    <button onClick={() => removeTeamMember(member.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', padding: '4px', borderRadius: '6px', transition: 'color 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#e11d48'}
-                      onMouseLeave={e => e.currentTarget.style.color = '#cbd5e1'}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div style={{ backgroundColor: '#f8fafc', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                <Mail size={15} color="#0ea5e9" /> Invite a team member
-              </div>
-              <form onSubmit={handleInvite} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <input
-                  type="email"
-                  placeholder="colleague@company.com"
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  style={{ flex: 1, minWidth: '180px', padding: '10px 13px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13.5px', fontFamily: 'inherit', outline: 'none', backgroundColor: '#fff' }}
-                />
-                <select
-                  value={inviteRole}
-                  onChange={e => setInviteRole(e.target.value)}
-                  style={{ padding: '10px 13px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13.5px', fontFamily: 'inherit', outline: 'none', backgroundColor: '#fff', cursor: 'pointer' }}
-                >
-                  <option>Agent</option>
-                  <option>Admin</option>
-                </select>
-                <button
-                  type="submit"
-                  style={{ padding: '10px 18px', backgroundColor: inviteSent ? '#22c55e' : 'var(--text-primary)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'background-color 0.25s', whiteSpace: 'nowrap' }}
-                >
-                  {inviteSent ? '✓ Sent!' : 'Send Invite'}
-                </button>
-              </form>
-            </div>
-          </div>
         )}
 
       </div>
@@ -6168,6 +6151,8 @@ export default function Dashboard() {
 
   // Revoked pages warning (shown after returning from Facebook OAuth)
   const [revokedPagesModal, setRevokedPagesModal] = useState(null); // { pages: string[] }
+  // Outcome of the Facebook connect redirect: { tone: 'success' | 'error', text }
+  const [connectNotice, setConnectNotice] = useState(null);
 
   // Pre-warning modal (shown before sending user to Facebook OAuth)
   const [preReauthModal, setPreReauthModal] = useState(false);
@@ -6176,6 +6161,9 @@ export default function Dashboard() {
   const location = useLocation();
 
   const [user, setUser] = useState(null);
+  // Active business from the session and the caller's role in it.
+  const [business, setBusiness] = useState(null);
+  const [role, setRole] = useState(null);
   const [pages, setPages] = useState([]);
   const [namespaces, setNamespaces] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -6191,12 +6179,19 @@ export default function Dashboard() {
     setLoadError(null);
 
     try {
-      const userData = await apiService.getUserProfile();
+      // Without an active business every other dashboard call 403s, so resolve it first.
+      const [userData, activeBusiness] = await Promise.all([
+        apiService.getUserProfile(),
+        apiService.getActiveBusiness(),
+      ]);
+      const activeRole = activeBusiness?.role || null;
+
       const [pagesResult, agentsResult, namespacesResult, subscriptionResult] = await Promise.allSettled([
         apiService.getPages(),
         apiService.getAgents(),
         apiService.getNamespaces(),
-        apiService.getSubscription(),
+        // Billing is owner-only; members and admins would just get a 403.
+        activeRole === 'owner' ? apiService.getSubscription() : Promise.resolve(null),
       ]);
 
       if (pagesResult.status === 'rejected') throw pagesResult.reason;
@@ -6209,57 +6204,25 @@ export default function Dashboard() {
       const namespacesData = namespacesResult.status === 'fulfilled' ? namespacesResult.value : { namespaces: [] };
       const subscriptionData = subscriptionResult.status === 'fulfilled' ? subscriptionResult.value : null;
 
-      const parsedUser = userData?.user ? { ...userData.user, ...userData } : (userData || null);
       const parsedPages = parseCollection(pagesData, 'pages');
       const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
-      console.log('[CommentRules] GET /v1/agents (page load) — RAW flag values per agent:',
-        parsedAgents.map(a => ({
-          agent_id: a.agent_id,
-          ...COMMENT_RULE_FIELDS.reduce((acc, f) => {
-            acc[f.key] = Object.prototype.hasOwnProperty.call(a, f.key) ? JSON.stringify(a[f.key]) : '*** KEY MISSING ***';
-            return acc;
-          }, {}),
-        })));
-      console.log('[CommentRules] all keys on first agent:', parsedAgents[0] ? Object.keys(parsedAgents[0]).join(', ') : '(no agents)');
       const parsedNamespaces = parseCollection(namespacesData, 'namespaces');
 
-      if (parsedUser) {
-        parsedUser.agents = parsedAgents;
-        parsedUser.subscription = subscriptionData;
-
-        if (parsedUser.profile_pic_url || parsedUser.picture || parsedUser.avatar || parsedUser.profile_pic || parsedUser.url) {
-          parsedUser.profile_pic_url = parsedUser.profile_pic_url || parsedUser.picture || parsedUser.profile_pic || parsedUser.avatar || parsedUser.url;
-        } else {
-          const uid = parsedUser.id || parsedUser.user_id || parsedUser._id || parsedUser.uuid;
-          if (uid) {
-            fetchProfilePictureUrl(uid)
-              .then(profilePicUrl => {
-                if (!profilePicUrl) return;
-                setUser(current => {
-                  const currentId = current?.id || current?.user_id || current?._id || current?.uuid;
-                  return current && currentId === uid ? { ...current, profile_pic_url: profilePicUrl } : current;
-                });
-              })
-              .catch(error => console.warn('Failed to fetch profile pic via dedicated endpoint:', error));
-          }
-        }
-      }
-      setUser(parsedUser);
+      setUser(userData ? { ...userData, agents: parsedAgents, subscription: subscriptionData } : null);
+      setBusiness(activeBusiness?.business || null);
+      setRole(activeRole);
       setPages(parsedPages);
       setNamespaces(parsedNamespaces);
-
-      // Check subscription via API — if user has no active plan, send them
-      // to the plan-selection screen so they can pick one before using the dashboard.
-      if (!subscriptionData || !subscriptionData.is_active) {
-        isRedirecting = true;
-        navigate('/get-started?step=pricing', { replace: true });
-        return;
-      }
     } catch (err) {
       console.error("Failed to fetch user data:", err);
       if (err.status === 401) {
         isRedirecting = true;
         navigate('/get-started', { replace: true });
+        return;
+      }
+      if (isNoActiveBusinessError(err)) {
+        isRedirecting = true;
+        navigate('/businesses?reason=no_business', { replace: true });
         return;
       }
 
@@ -6271,6 +6234,28 @@ export default function Dashboard() {
     }
   }, [navigate]);
 
+  const refreshBusiness = useCallback(async () => {
+    const activeBusiness = await apiService.getActiveBusiness();
+    setBusiness(activeBusiness?.business || null);
+    setRole(activeBusiness?.role || null);
+  }, []);
+
+  // A revoked member or expired session gets 401 on any call; a session that lost
+  // its business gets the "no active business" 403. Both leave the dashboard.
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      closeNotificationStream();
+      navigate('/get-started', { replace: true });
+    };
+    const handleNoActiveBusiness = () => navigate('/businesses?reason=no_business', { replace: true });
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    window.addEventListener(NO_ACTIVE_BUSINESS_EVENT, handleNoActiveBusiness);
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+      window.removeEventListener(NO_ACTIVE_BUSINESS_EVENT, handleNoActiveBusiness);
+    };
+  }, [navigate]);
+
   const refreshPages = useCallback(async () => {
     const pagesData = await apiService.getPages();
     setPages(parseCollection(pagesData, 'pages'));
@@ -6279,14 +6264,6 @@ export default function Dashboard() {
   const refreshAgents = useCallback(async () => {
     const agentsData = await apiService.getAgents();
     const parsedAgents = parseCollection(agentsData, 'agents').map(agent => normalizeAgentResponse(agent));
-    console.log('[CommentRules] GET /v1/agents (post-save refetch) — RAW flag values per agent:',
-      parsedAgents.map(a => ({
-        agent_id: a.agent_id,
-        ...COMMENT_RULE_FIELDS.reduce((acc, f) => {
-          acc[f.key] = Object.prototype.hasOwnProperty.call(a, f.key) ? JSON.stringify(a[f.key]) : '*** KEY MISSING ***';
-          return acc;
-        }, {}),
-      })));
     setUser(current => {
       if (!current) return current;
       // Merge over the agents we already hold: a field the list response omits keeps its
@@ -6306,8 +6283,7 @@ export default function Dashboard() {
 
   const refreshProfile = useCallback(async () => {
     const userData = await apiService.getUserProfile();
-    const parsedProfile = userData?.user ? { ...userData.user, ...userData } : userData;
-    setUser(current => current ? { ...current, ...parsedProfile, agents: current.agents, subscription: current.subscription } : parsedProfile);
+    setUser(current => current ? { ...current, ...userData, agents: current.agents, subscription: current.subscription } : userData);
   }, []);
 
   // Routes a clicked notification to the view that already renders its record.
@@ -6336,14 +6312,19 @@ export default function Dashboard() {
     const reason = params.get('reason');
     const pagesParam = params.get('pages');
 
-    if ((reauth === 'error' || reauth === 'warning') && reason === 'revoked_pages' && pagesParam) {
+    if (!reauth) return;
+
+    if (reauth === 'warning' && reason === 'revoked_pages' && pagesParam) {
       const revokedList = pagesParam.split(',').map(p => p.trim()).filter(Boolean);
       setRevokedPagesModal({ pages: revokedList });
-      // Clean up the URL via React Router so it doesn't re-trigger
-      navigate(location.pathname, { replace: true });
     } else if (reauth === 'success') {
-      navigate(location.pathname, { replace: true });
+      setConnectNotice({ tone: 'success', text: 'Facebook connected. Your pages will appear here as they finish syncing.' });
+    } else if (reauth === 'failed') {
+      const error = params.get('error');
+      setConnectNotice({ tone: 'error', text: FACEBOOK_CONNECT_ERRORS[error] || FACEBOOK_CONNECT_ERRORS.unexpected });
     }
+    // Clean up the URL via React Router so it doesn't re-trigger
+    navigate(location.pathname, { replace: true });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -6386,10 +6367,14 @@ export default function Dashboard() {
           <FeedbackPanel />
         </div>}
         {visitedTabsRef.current.has('settings') && <div style={{ display: activeTab === 'settings' ? 'contents' : 'none' }}>
-          <SettingsPanel user={user} onUpdate={refreshProfile} />
+          <SettingsPanel user={user} onUpdate={refreshProfile} onBusinessDeleted={() => navigate('/businesses?reason=deleted', { replace: true })} />
         </div>}
         {visitedTabsRef.current.has('subscription') && <div style={{ display: activeTab === 'subscription' ? 'contents' : 'none' }}>
-          <SubscriptionPanel isActive={activeTab === 'subscription'} initialData={user?.subscription || null} />
+          {role === 'owner' ? (
+            <SubscriptionPanel isActive={activeTab === 'subscription'} initialData={user?.subscription || null} />
+          ) : (
+            <OwnerOnlyNotice title="Billing is managed by the business owner" description="Plans, usage and payments for this business are only visible to its owner." />
+          )}
         </div>}
         {visitedTabsRef.current.has('tutorial') && <div style={{ display: activeTab === 'tutorial' ? 'contents' : 'none' }}>
           <TutorialPanel />
@@ -6431,19 +6416,22 @@ export default function Dashboard() {
     }
   ];
   const secondaryNavItems = [
-    { id: 'subscription', icon: CreditCard, label: 'Subscription' },
+    // Subscription endpoints are owner-only, so the tab is too.
+    ...(role === 'owner' ? [{ id: 'subscription', icon: CreditCard, label: 'Subscription' }] : []),
     { id: 'feedback', icon: MessageCircleWarning, label: 'Feedback' },
     { id: 'tutorial', icon: Headphones, label: 'Tutorial' }
   ];
   const allNavItems = [
     ...primaryNavItems.flatMap(item => item.children || [item]),
     ...secondaryNavItems,
+    { id: 'subscription', icon: CreditCard, label: 'Subscription' },
     { id: 'settings', icon: Settings, label: 'Settings' },
   ];
   const activeNavItem = allNavItems.find(item => item.id === activeTab) || primaryNavItems[0];
-  const workspaceName = user?.workspace_name || 'My Workspace';
-  const displayUserName = user?.display_name || (user?.first_name ? `${user.first_name} ${user?.last_name || ''}`.trim() : null) || user?.username || user?.name || user?.email || 'User';
-  const currentPlanName = user?.subscription?.plan?.plan_name || 'Workspace';
+  const workspaceName = business?.name || 'My Workspace';
+  const displayUserName = user?.display_name || user?.email || 'User';
+  const userInitial = displayUserName.charAt(0).toUpperCase();
+  const currentPlanName = user?.subscription?.plan?.plan_name || null;
 
   if (loading) {
     return <AppLoadingScreen />;
@@ -6471,6 +6459,7 @@ export default function Dashboard() {
   }
 
   return (
+    <BusinessProvider business={business} role={role} refreshBusiness={refreshBusiness}>
     <NotificationsProvider onSessionExpired={() => navigate('/get-started', { replace: true })}>
     <div className={`dashboard-layout theme-${theme}`}>
       {/* Mobile Sidebar Overlay */}
@@ -6501,6 +6490,21 @@ export default function Dashboard() {
         </div>
 
         <div className="flex-1 px-1 py-5">
+          <button
+            type="button"
+            onClick={() => navigate('/businesses')}
+            title="Switch business"
+            className="group mb-5 flex w-full items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-left transition hover:border-white/[0.16] hover:bg-white/[0.07]"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-400/10 text-sm font-black text-emerald-300">
+              {(business?.name || '?').charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-bold text-slate-100">{workspaceName}</span>
+              <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-slate-500">{role ? `${role} · switch` : 'Switch business'}</span>
+            </span>
+            <ArrowLeftRight size={14} className="shrink-0 text-slate-500 transition group-hover:text-slate-200" />
+          </button>
           <p className="mb-2 px-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Workspace</p>
           <nav className="space-y-1">
           {primaryNavItems.map(item => {
@@ -6657,14 +6661,11 @@ export default function Dashboard() {
                 {user?.profile_pic_url && (
                   <img src={user.profile_pic_url} alt="Profile" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
                 )}
-                <span className="relative z-0">
-                  {(user?.display_name || user?.first_name || user?.name || user?.username || 'U').charAt(0).toUpperCase()}
-                  {user?.last_name ? user.last_name.charAt(0).toUpperCase() : ''}
-                  </span>
+                <span className="relative z-0">{userInitial}</span>
               </div>
               <span className="hidden min-w-0 text-left sm:block">
                 <span className="block max-w-[160px] truncate text-xs font-extrabold text-slate-900">{displayUserName}</span>
-                <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-wider text-slate-600">{currentPlanName}</span>
+                <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-wider text-slate-600">{currentPlanName || role || 'Workspace'}</span>
               </span>
               <ChevronDown size={15} className={`shrink-0 text-slate-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -6672,6 +6673,21 @@ export default function Dashboard() {
         </header>
 
         <div className={`dashboard-content-wrapper ${activeTab === 'conversation' ? 'no-scroll' : ''}`}>
+          {connectNotice && (
+            <div
+              role={connectNotice.tone === 'error' ? 'alert' : 'status'}
+              className={`connect-notice is-${connectNotice.tone} mx-4 mt-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold md:mx-6 xl:mx-8 ${connectNotice.tone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}
+            >
+              <span>{connectNotice.text}</span>
+              <button type="button" onClick={() => setConnectNotice(null)} aria-label="Dismiss" className="shrink-0 opacity-70 hover:opacity-100"><X size={16} /></button>
+            </div>
+          )}
+          {activeTab !== 'conversation' && (
+            <RequiredActionsBanner
+              onReconnectFacebook={() => setPreReauthModal(true)}
+              onOpenSubscription={() => setActiveTab('subscription')}
+            />
+          )}
           {renderContent()}
 
           {/* Profile Slideout Drawer */}
@@ -6685,13 +6701,15 @@ export default function Dashboard() {
                   {user?.profile_pic_url && (
                     <img src={user.profile_pic_url} alt="Profile" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
                   )}
-                  <span className="relative z-0">
-                    {(user?.display_name || user?.first_name || user?.name || user?.username || 'U').charAt(0).toUpperCase()}
-                    {user?.last_name ? user.last_name.charAt(0).toUpperCase() : ''}
-                  </span>
+                  <span className="relative z-0">{userInitial}</span>
                 </div>
-                <h4>{user?.display_name || (user?.first_name ? `${user.first_name} ${user?.last_name || ''}`.trim() : null) || user?.username || user?.name || user?.email || 'User'}</h4>
-                <p>{user?.email || 'No email provided'}</p>
+                <h4>{displayUserName}</h4>
+                <p>{user?.email}</p>
+                {business && (
+                  <div className="mt-2 flex items-center justify-center gap-2 text-xs font-semibold text-slate-500">
+                    <Building2 size={13} /> {business.name} {role && <RoleBadge role={role} />}
+                  </div>
+                )}
                 {user?.subscription?.plan?.plan_name && (
                   <div className="mt-3 px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full text-[11px] font-black uppercase tracking-widest shadow-sm">
                     {user.subscription.plan.plan_name} Plan
@@ -6705,6 +6723,9 @@ export default function Dashboard() {
                   setIsProfileOpen(false);
                 }}>
                   <User size={18} /> Account Settings
+                </button>
+                <button className="drawer-menu-item" onClick={() => navigate('/businesses')}>
+                  <ArrowLeftRight size={18} /> Switch Business
                 </button>
                 <button className="drawer-menu-item" onClick={() => {
                   setIsLogoutModalOpen(true);
@@ -6869,11 +6890,11 @@ export default function Dashboard() {
                     Cancel
                   </button>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       setIsLoggingOut(true);
                       closeNotificationStream();
-                      await apiService.logout().catch(() => { });
-                      window.location.href = '/login';
+                      // The backend clears the session cookie and redirects to the landing page.
+                      window.location.href = logoutUrl();
                     }}
                     disabled={isLoggingOut}
                     className="flex-1 py-3 px-4 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
@@ -6888,6 +6909,7 @@ export default function Dashboard() {
       </main>
     </div>
     </NotificationsProvider>
+    </BusinessProvider>
   );
 }
 

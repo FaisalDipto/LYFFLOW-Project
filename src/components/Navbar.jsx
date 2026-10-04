@@ -174,7 +174,7 @@ export default function Navbar({ theme, onToggleTheme }) {
                 {theme === 'dark' ? <Sun size={18} strokeWidth={2} /> : <Moon size={18} strokeWidth={2} />}
               </button>
             )}
-            <Link to="/login" className="btn-signin">Sign In</Link>
+            <Link to="/get-started" className="btn-signin">Sign In</Link>
             <Link to="/get-started" className="btn-get-started">Get Started</Link>
           </div>
         </div>

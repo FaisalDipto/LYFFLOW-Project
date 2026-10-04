@@ -578,3 +578,40 @@
 .get-started-container[data-theme='dark'] .gs-featured-plan > .bg-primary {
   background-color: rgb(var(--lf-tertiary));
 }
+
+/* --- Google sign-in --- */
+.btn-connect-google {
+  background-color: #ffffff;
+  color: #1f1f1f;
+  border: 1px solid #dadce0;
+  font-size: 15px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+}
+
+.btn-connect-google:hover:not(:disabled) {
+  background-color: #f8fafd;
+  border-color: #c4c7c5;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+}
+
+.btn-connect-google:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+.get-started-container[data-theme='dark'] .btn-connect-google {
+  background-color: #131314;
+  color: #e3e3e3;
+  border-color: #8e918f;
+}
+
+.get-started-container[data-theme='dark'] .btn-connect-google:hover:not(:disabled) {
+  background-color: #1f1f20;
+}
+
+.get-started-container[data-theme='dark'] .gs-auth-error {
+  background-color: #341c27;
+  border-color: #713247;
+  color: #fda4af;
+}

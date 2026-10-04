@@ -2,6 +2,7 @@
 import { createPortal } from 'react-dom';
 import { apiService } from '../services/api';
 import { API_BASE } from '../config/env';
+import { useBusiness } from '../context/BusinessContext';
 import { Upload, Plus, Trash2, Edit3, Image as ImageIcon, FileText, Video, ExternalLink } from 'lucide-react';
 
 // Prices are stored as a "<CUR> <amount>" string, so the currency lives only on the
@@ -30,6 +31,8 @@ const FallbackImage = ({ src, alt, className }) => {
 };
 
 const ProductsTab = ({ selectedNamespaceId }) => {
+  // Members can browse products and import history; writes are admin+.
+  const { canManage } = useBusiness();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -446,13 +449,27 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                 <span className="material-symbols-outlined text-[20px]">expand_more</span>
               </div>
             </div>
-            <button 
+            {canManage ? (
+            <button
               onClick={() => setShowImportModal(true)}
               className="products-import-button flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg"
             >
               <Upload size={16} /> Import CSV
             </button>
-            <button 
+            ) : (
+            <button
+              onClick={() => {
+                setHistoryCursors([null]);
+                setHistoryIndex(0);
+                fetchHistoryBatches(null);
+                setShowHistoryModal(true);
+              }}
+              className="products-import-button flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg"
+            >
+              <FileText size={16} /> Import history
+            </button>
+            )}
+            {canManage && <button
               onClick={() => {
                 setEditingProductId(null);
                 setFormData({ name: '', code: '', description: '', price: '', currency: DEFAULT_CURRENCY, category: '', tags: '', variants: '', availability: true });
@@ -463,7 +480,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
               className="products-create-button flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm shadow-xl"
             >
               <Plus size={16} /> Create Product
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -532,12 +549,14 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                   )}
                 </div>
                 <div className="text-right pr-6 flex items-center justify-end gap-2 transition-opacity">
+                  {canManage && <>
                   <button onClick={(e) => { e.stopPropagation(); handleEditProductClick(product); }} className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-colors" title="Edit">
                     <Edit3 size={16} />
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product.product_id); }} className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors" title="Delete">
                     <Trash2 size={16} />
                   </button>
+                  </>}
                 </div>
               </div>
             ))
