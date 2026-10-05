@@ -45,7 +45,15 @@ const SOURCE_LABELS = { facebook: 'Facebook', instagram: 'Instagram' };
 
 const formatNumber = (value) => (Number(value) || 0).toLocaleString();
 
-const settledValue = (result) => (result.status === 'fulfilled' ? result.value : null);
+// Keeps the rejection reason so a failed request can say why, instead of looking empty.
+const settle = (result) => (result.status === 'fulfilled'
+  ? { value: result.value, error: null }
+  : { value: null, error: result.reason || new Error('Request failed') });
+
+const describeError = (error) => {
+  const message = error?.message || 'Request failed';
+  return error?.status ? `${message} (HTTP ${error.status})` : message;
+};
 
 const WidgetCard = ({ title, subtitle, icon: Icon, badge, className = '', children }) => (
   <section className={`flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
@@ -168,14 +176,28 @@ const ContactsCard = ({ pageCounts, loading, palette }) => {
   );
 };
 
-const UsageCard = ({ usage, loading, isOwner, palette }) => {
+const UsageCard = ({ usage, error, loading, isOwner, palette }) => {
   let body;
   if (!isOwner) {
     body = <p className="m-0 text-xs font-semibold text-slate-500">Usage and limits are visible to the business owner.</p>;
   } else if (loading) {
     body = <ChartSkeleton height={64} />;
-  } else if (!usage || !usage.limit) {
-    body = <p className="m-0 text-xs font-semibold text-slate-500">Usage is unavailable without an active plan.</p>;
+  } else if (error?.status === 404) {
+    body = <p className="m-0 text-xs font-semibold text-slate-500">No active plan, so there is no usage to show.</p>;
+  } else if (error || !usage) {
+    body = <p className="m-0 text-xs font-semibold text-red-600">Could not load usage: {describeError(error)}</p>;
+  } else if (!usage.limit) {
+    body = (
+      <>
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-xs font-bold text-slate-500">Conversations this month</span>
+          <span className="text-sm font-black tabular-nums text-slate-900">{formatNumber(usage.used)}</span>
+        </div>
+        <p className="mb-0 mt-2 text-[11px] font-semibold text-slate-500">
+          {usage.unlimited ? 'Your plan has no monthly conversation limit.' : 'Your plan does not report a monthly conversation limit.'}
+        </p>
+      </>
+    );
   } else {
     const ratio = Math.min(usage.used / usage.limit, 1);
     const tone = ratio >= 0.95 ? 'critical' : ratio >= 0.8 ? 'warning' : null;
@@ -356,7 +378,7 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true })
       loadOrdersByDay(range),
     ]);
     if (signal.cancelled) return;
-    setRanged({ loading: false, messages: settledValue(messages), ordersByDay: settledValue(ordersByDay) });
+    setRanged({ loading: false, messages: settle(messages), ordersByDay: settle(ordersByDay) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentKey, range]);
 
@@ -367,7 +389,7 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true })
       isOwner ? loadUsage() : Promise.resolve(null),
     ]);
     if (signal.cancelled) return;
-    setTotals({ loading: false, pageCounts: settledValue(pageCounts), usage: settledValue(usage) });
+    setTotals({ loading: false, pageCounts: settle(pageCounts), usage: settle(usage) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey, isOwner]);
 
@@ -386,17 +408,26 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true })
   const isLoading = ranged.loading || totals.loading;
   const rangeLabel = formatRange(range);
   const commentSeries = useMemo(() => sampleCommentSeries(range), [range]);
-  const messageSeries = ranged.messages?.series || null;
+  const messages = ranged.messages?.value || null;
+  const orders = ranged.ordersByDay?.value || null;
   const messageVsOrder = useMemo(
-    () => (ranged.messages && ranged.ordersByDay ? mergeMessagesAndOrders(ranged.messages.series, ranged.ordersByDay.counts) : null),
-    [ranged.messages, ranged.ordersByDay],
+    () => (messages && orders ? mergeMessagesAndOrders(messages.series, orders.counts) : null),
+    [messages, orders],
   );
+  const hasOrdersInRange = Boolean(orders) && [...orders.counts.values()].some(count => count > 0);
 
-  const renderChart = (data, render, loading = ranged.loading, height = 240) => {
+  // `empty` is a message for data that loaded fine but has nothing to plot.
+  const renderChart = ({ settled, loading = ranged.loading, empty = null, height = 240 }, render) => {
     if (loading) return <ChartSkeleton height={height} />;
-    if (!data) return <ChartState height={height}>Could not load this data. Try refreshing.</ChartState>;
-    return render(data);
+    if (settled?.error) return <ChartState height={height}>Could not load this data: {describeError(settled.error)}</ChartState>;
+    if (empty) return <ChartState height={height}>{empty}</ChartState>;
+    return render(settled.value);
   };
+
+  const rangePhrase = range.preset ? `the last ${range.preset} days` : rangeLabel;
+  let messagesEmpty = null;
+  if (messages?.agentCount === 0) messagesEmpty = 'Create an agent to see message analytics.';
+  else if (messages?.total === 0) messagesEmpty = `No agent activity in ${rangePhrase}.`;
 
   // The dashboard keeps hidden tabs mounted under display:none, where ResponsiveContainer
   // measures 0x0 and warns. Data and range survive here; the charts remount at full size.
@@ -427,9 +458,9 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true })
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <WidgetCard className="xl:col-span-2" title="Message analytics" subtitle={`Agent replies, failed replies and human handovers · ${rangeLabel}`} icon={MessagesSquare}>
-          {renderChart(messageSeries, data => (
+          {renderChart({ settled: ranged.messages, empty: messagesEmpty }, data => (
             <ColumnChart
-              data={data}
+              data={data.series}
               palette={palette}
               series={[
                 { key: 'replied', label: 'Replied' },
@@ -438,10 +469,15 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true })
               ]}
             />
           ))}
-          {!ranged.loading && ranged.messages?.truncated && <TruncatedNote />}
+          {!ranged.loading && messages?.failedAgents > 0 && (
+            <p className="mb-0 mt-2 text-[11px] font-semibold text-red-600">
+              Activity for {messages.failedAgents} of {messages.agentCount} agents could not be loaded.
+            </p>
+          )}
+          {!ranged.loading && messages?.truncated && <TruncatedNote />}
         </WidgetCard>
 
-        <ContactsCard pageCounts={totals.pageCounts} loading={totals.loading} palette={palette} />
+        <ContactsCard pageCounts={totals.pageCounts?.value} loading={totals.loading} palette={palette} />
 
         <WidgetCard
           className="xl:col-span-2"
@@ -453,34 +489,37 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true })
           <ColumnChart data={commentSeries} palette={palette} series={[{ key: 'comments', label: 'Comments' }]} />
         </WidgetCard>
 
-        <UsageCard usage={totals.usage} loading={totals.loading} isOwner={isOwner} palette={palette} />
+        <UsageCard usage={totals.usage?.value} error={totals.usage?.error} loading={totals.loading} isOwner={isOwner} palette={palette} />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <WidgetCard title="Contact vs order" subtitle="All-time totals per page" icon={Users}>
-          {renderChart(totals.pageCounts, data => (
-            data.length === 0
-              ? <ChartState height={240}>Connect a page to compare contacts and orders.</ChartState>
-              : (
-                <ColumnChart
-                  data={data}
-                  xKey="name"
-                  palette={palette}
-                  series={[{ key: 'contacts', label: 'Contacts' }, { key: 'orders', label: 'Orders' }]}
-                />
-              )
-          ), totals.loading)}
+          {renderChart({
+            settled: totals.pageCounts,
+            loading: totals.loading,
+            empty: totals.pageCounts?.value?.length === 0 ? 'Connect a page to compare contacts and orders.' : null,
+          }, data => (
+            <ColumnChart
+              data={data}
+              xKey="name"
+              palette={palette}
+              series={[{ key: 'contacts', label: 'Contacts' }, { key: 'orders', label: 'Orders' }]}
+            />
+          ))}
         </WidgetCard>
 
         <WidgetCard title="Message vs order" subtitle={`Per day · ${rangeLabel}`} icon={ShoppingCart}>
-          {renderChart(messageVsOrder, data => (
+          {renderChart({
+            settled: ranged.messages?.error ? ranged.messages : ranged.ordersByDay,
+            empty: messages?.total === 0 && !hasOrdersInRange ? `No messages or orders in ${rangePhrase}.` : null,
+          }, () => (
             <ColumnChart
-              data={data}
+              data={messageVsOrder}
               palette={palette}
               series={[{ key: 'messages', label: 'Messages' }, { key: 'orders', label: 'Orders' }]}
             />
           ))}
-          {!ranged.loading && (ranged.messages?.truncated || ranged.ordersByDay?.truncated) && <TruncatedNote />}
+          {!ranged.loading && (messages?.truncated || orders?.truncated) && <TruncatedNote />}
         </WidgetCard>
       </div>
     </div>

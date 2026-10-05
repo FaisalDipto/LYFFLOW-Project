@@ -60,6 +60,16 @@ export const formatRange = (range) => {
   return rangeDays(range) === 1 ? to : `${from} – ${to}`;
 };
 
+// FastAPI serialises naive datetimes without an offset; those are UTC, but
+// `new Date()` would read them as local time and shift them across days.
+const parseTimestamp = (value) => {
+  if (!value) return null;
+  const text = String(value);
+  const hasZone = /(Z|[+-]\d{2}:?\d{2})$/i.test(text);
+  const date = new Date(hasZone || !text.includes('T') ? text : `${text}Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 const dayKey = (date) => {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -83,26 +93,32 @@ const totalFrom = (response, listKey) => {
 };
 
 // Walks a newest-first cursor list back to `range.start`. `truncated` means the page
-// cap stopped the walk first, so the oldest days in the range are undercounted.
+// cap stopped the walk first, so part of the range may be undercounted.
+//
+// Only the conversations list documents its order (newest first), so this checks
+// each batch: a newest-first list stops once it passes `range.start`; any other
+// order is walked to the end, since in-range items can be on any page.
 const collectInRange = async (fetchPage, listKey, range) => {
   const items = [];
   let cursor = null;
   let truncated = false;
   for (let pageIndex = 0; pageIndex < MAX_CURSOR_PAGES; pageIndex += 1) {
     const response = await fetchPage(cursor);
-    const batch = Array.isArray(response?.[listKey]) ? response[listKey] : [];
+    const batch = (Array.isArray(response?.[listKey]) ? response[listKey] : []).filter(item => item?.created_at);
     items.push(...batch);
-    const oldest = batch[batch.length - 1]?.created_at;
     const pagination = response?.pagination;
     if (!pagination?.has_more || !pagination.next_cursor) break;
-    if (oldest && new Date(oldest) < range.start) break;
+    const first = parseTimestamp(batch[0]?.created_at);
+    const last = parseTimestamp(batch[batch.length - 1]?.created_at);
+    // Equal ends (a page of same-second items) say nothing about order; keep walking.
+    const newestFirst = first && last && first > last;
+    if (newestFirst && last < range.start) break;
     if (pageIndex === MAX_CURSOR_PAGES - 1) truncated = true;
     cursor = pagination.next_cursor;
   }
   const inRange = items.filter(item => {
-    if (!item?.created_at) return false;
-    const created = new Date(item.created_at);
-    return created >= range.start && created <= range.end;
+    const created = parseTimestamp(item.created_at);
+    return created && created >= range.start && created <= range.end;
   });
   return { items: inRange, truncated };
 };
@@ -110,22 +126,33 @@ const collectInRange = async (fetchPage, listKey, range) => {
 export async function loadMessageActivity(agents, range) {
   const buckets = buildDays(range).map(day => ({ ...day, replied: 0, unreplied: 0, tickets: 0 }));
   const byKey = new Map(buckets.map(bucket => [bucket.key, bucket]));
+  const agentList = agents || [];
 
-  const perAgent = await Promise.all((agents || []).map(agent => collectInRange(
+  const perAgent = await Promise.allSettled(agentList.map(agent => collectInRange(
     cursor => apiService.getAgentActivity(agent.agent_id, cursor, PAGE_SIZE),
     'agent_activities',
     range,
-  ).catch(() => ({ items: [], truncated: false }))));
+  )));
+  const loaded = perAgent.filter(result => result.status === 'fulfilled').map(result => result.value);
+  const failures = perAgent.filter(result => result.status === 'rejected');
+  // Every agent failing is an error to show, not an empty chart.
+  if (agentList.length > 0 && loaded.length === 0) throw failures[0].reason;
 
-  perAgent.flatMap(result => result.items).forEach(activity => {
-    const bucket = byKey.get(dayKey(activity.created_at));
+  loaded.flatMap(result => result.items).forEach(activity => {
+    const bucket = byKey.get(dayKey(parseTimestamp(activity.created_at)));
     if (!bucket) return;
     if (activity.is_human_handover) bucket.tickets += 1;
     else if (activity.status === 'failed') bucket.unreplied += 1;
     else bucket.replied += 1;
   });
 
-  return { series: buckets, truncated: perAgent.some(result => result.truncated) };
+  return {
+    series: buckets,
+    total: buckets.reduce((sum, day) => sum + day.replied + day.unreplied + day.tickets, 0),
+    agentCount: agentList.length,
+    failedAgents: failures.length,
+    truncated: loaded.some(result => result.truncated),
+  };
 }
 
 export async function loadOrdersByDay(range) {
@@ -136,7 +163,7 @@ export async function loadOrdersByDay(range) {
   );
   const counts = new Map();
   items.forEach(order => {
-    const key = dayKey(order.created_at);
+    const key = dayKey(parseTimestamp(order.created_at));
     counts.set(key, (counts.get(key) || 0) + 1);
   });
   return { counts, truncated };
@@ -162,11 +189,14 @@ export async function loadPageCounts(pages) {
   }));
 }
 
+// Plans mark "no cap" as -1 (or a very large number), as the Subscription tab does.
 export async function loadUsage() {
   const subscription = await apiService.getSubscription();
+  const limit = Number(subscription?.plan?.max_conversations_per_month);
   return {
     used: Number(subscription?.usage?.conversations_used) || 0,
-    limit: Number(subscription?.plan?.max_conversations_per_month) || 0,
+    limit: Number.isFinite(limit) && limit > 0 && limit < 999999 ? limit : null,
+    unlimited: limit === -1 || limit >= 999999,
   };
 }
 
