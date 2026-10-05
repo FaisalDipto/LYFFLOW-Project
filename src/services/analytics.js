@@ -75,6 +75,9 @@ const dayKey = (date) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+// Fixed names: newer ICU builds abbreviate September as "Sept" in en-GB.
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 // One bucket per local calendar day, oldest first.
 const buildDays = (range) => Array.from({ length: rangeDays(range) }, (_, index) => {
   const date = new Date(range.start);
@@ -82,6 +85,8 @@ const buildDays = (range) => Array.from({ length: rangeDays(range) }, (_, index)
   return {
     key: dayKey(date),
     label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    // Day-first ("4 Sep") for the Orders card's timeline, whatever the locale.
+    shortLabel: `${date.getDate()} ${SHORT_MONTHS[date.getMonth()]}`,
   };
 });
 
@@ -209,6 +214,13 @@ export function sampleCommentSeries(range) {
     return { ...day, comments: COMMENT_SHAPE[(year + month * 31 + date) % COMMENT_SHAPE.length] };
   });
 }
+
+// One point per day, zero-filled: [{ date: '4 Sep', orders: 12 }, ...].
+export const ordersSeries = (range, ordersByDay) => buildDays(range).map(day => ({
+  key: day.key,
+  date: day.shortLabel,
+  orders: ordersByDay.get(day.key) || 0,
+}));
 
 export const mergeMessagesAndOrders = (messageSeries, ordersByDay) => messageSeries.map(day => ({
   key: day.key,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Activity, CalendarDays, Check, ChevronDown, MessageCircle, MessagesSquare, RefreshCw, ShoppingCart, Users } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import DateRangeCalendar from '../DateRangeCalendar';
@@ -12,6 +12,7 @@ import {
   loadUsage,
   MAX_RANGE_DAYS,
   mergeMessagesAndOrders,
+  ordersSeries,
   presetRange,
   RANGE_PRESETS,
   rangeDays,
@@ -236,6 +237,84 @@ const UsageCard = ({ usage, error, loading, isOwner, palette }) => {
   );
 };
 
+// Amber stepped to each surface: #d97706 holds contrast on white, #f59e0b on the dark navy.
+const ORDERS_STROKE = { light: '#d97706', dark: '#f59e0b' };
+
+const OrdersCard = ({ data, loading, error, truncated, isDark, onViewOrders }) => {
+  const stroke = ORDERS_STROKE[isDark ? 'dark' : 'light'];
+  const total = (data || []).reduce((sum, day) => sum + day.orders, 0);
+  // Dark mode takes the spec's gray/white text; light mode the matching slate ink.
+  const titleClass = isDark ? 'text-gray-200' : 'text-slate-700';
+  const valueClass = isDark ? 'text-white' : 'text-slate-950';
+  const linkClass = isDark ? 'text-gray-500 hover:text-white' : 'text-slate-500 hover:text-slate-900';
+
+  let body;
+  if (loading) {
+    body = (
+      <>
+        <div className="page-sync-shimmer mt-3 h-8 w-20 rounded-lg" aria-hidden="true" />
+        <div className="mt-auto pt-4"><ChartSkeleton height={128} /></div>
+      </>
+    );
+  } else if (error) {
+    body = <p className="mb-0 mt-3 text-xs font-semibold text-red-600">Could not load orders: {describeError(error)}</p>;
+  } else {
+    body = (
+      <>
+        <p className={`mb-0 mt-3 text-3xl font-bold leading-none tabular-nums ${valueClass}`}>{formatNumber(total)}</p>
+        <div className="mt-auto h-32 pt-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={stroke} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              {/* Only the first day is labelled; the tooltip carries the rest. */}
+              <XAxis
+                dataKey="date"
+                ticks={data.length ? [data[0].date] : []}
+                interval={0}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: isDark ? '#6b7280' : '#64748b', fontSize: 11, fontWeight: 600, textAnchor: 'start' }}
+              />
+              <Tooltip content={<ChartTooltip />} cursor={{ stroke: isDark ? '#334155' : '#cbd5e1', strokeWidth: 1 }} />
+              <Area
+                dataKey="orders"
+                name="Orders"
+                type="step"
+                stroke={stroke}
+                strokeWidth={2}
+                fill="url(#colorOrders)"
+                activeDot={{ r: 4, fill: stroke, stroke: isDark ? '#0f1b2d' : '#ffffff', strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        {truncated && <TruncatedNote />}
+      </>
+    );
+  }
+
+  return (
+    <section className="flex min-h-[260px] min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <header className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {/* Inline radius: the dashboard stylesheet squares off rounded-full on spans. */}
+          <span className="h-4 w-1 bg-cyan-400" style={{ borderRadius: 9999 }} aria-hidden="true" />
+          <h2 className={`m-0 text-sm font-medium ${titleClass}`}>Orders</h2>
+        </div>
+        <button type="button" onClick={onViewOrders} className={`text-xs transition-colors ${linkClass}`}>
+          View orders
+        </button>
+      </header>
+      {body}
+    </section>
+  );
+};
+
 // DateRangeCalendar speaks local 'YYYY-MM-DD' strings.
 const toIso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const fromIso = (value) => {
@@ -357,7 +436,7 @@ const TruncatedNote = () => (
   </p>
 );
 
-export default function AnalyticsHub({ pages, agents, isDark, isActive = true }) {
+export default function AnalyticsHub({ pages, agents, isDark, isActive = true, onNavigate }) {
   const { isOwner } = useBusiness();
   const palette = CHART_THEME[isDark ? 'dark' : 'light'];
   const [range, setRange] = useState(() => presetRange(RANGE_PRESETS[0]));
@@ -415,6 +494,7 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true })
     [messages, orders],
   );
   const hasOrdersInRange = Boolean(orders) && [...orders.counts.values()].some(count => count > 0);
+  const orderTimeline = useMemo(() => (orders ? ordersSeries(range, orders.counts) : null), [orders, range]);
 
   // `empty` is a message for data that loaded fine but has nothing to plot.
   const renderChart = ({ settled, loading = ranged.loading, empty = null, height = 240 }, render) => {
@@ -492,7 +572,16 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true })
         <UsageCard usage={totals.usage?.value} error={totals.usage?.error} loading={totals.loading} isOwner={isOwner} palette={palette} />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <OrdersCard
+          data={orderTimeline}
+          loading={ranged.loading}
+          error={ranged.ordersByDay?.error}
+          truncated={orders?.truncated}
+          isDark={isDark}
+          onViewOrders={() => onNavigate?.('customer-orders')}
+        />
+
         <WidgetCard title="Contact vs order" subtitle="All-time totals per page" icon={Users}>
           {renderChart({
             settled: totals.pageCounts,
