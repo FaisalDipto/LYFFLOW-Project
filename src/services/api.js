@@ -478,6 +478,35 @@ const apiFetch = async (endpoint, options = {}) => {
         pagination: { has_more: false, next_cursor: null },
       };
     }
+    // A week of agent activity, deterministic per agent, so the analytics charts have shape.
+    const agentActivityMatch = endpoint.match(/^\/v1\/agent\/([^/]+)\/agent_activity(?:\?|$)/);
+    if (agentActivityMatch) {
+      const seed = agentActivityMatch[1].length;
+      const agent_activities = [];
+      for (let day = 0; day < 7; day += 1) {
+        const perDay = 6 + ((day * 7 + seed * 3) % 9);
+        for (let i = 0; i < perDay; i += 1) {
+          agent_activities.push({
+            activity_id: `act_${seed}_${day}_${i}`,
+            response_time_ms: 900 + i * 40,
+            status: i % 7 === 3 ? 'failed' : 'success',
+            is_human_handover: i % 9 === 5,
+            created_at: new Date(Date.now() - day * 86400000 - i * 600000).toISOString(),
+          });
+        }
+      }
+      return { agent_activities, pagination: { has_more: false, next_cursor: null, total: agent_activities.length } };
+    }
+    const conversationCountMatch = endpoint.match(/^\/v1\/page\/(page_\d+)\/conversations\?.*page_size=1(?:&|$)/);
+    if (conversationCountMatch) {
+      return { conversations: [], pagination: { has_more: true, next_cursor: null, total: conversationCountMatch[1] === 'page_1' ? 1284 : 412 } };
+    }
+    if (endpoint === '/v1/woocommerce/status') {
+      return { status: 'not_connected', store_url: null, connected_at: null };
+    }
+    if (endpoint === '/v1/woocommerce/connect' && method === 'POST') {
+      return { auth_url: `${window.location.origin}/dashboard?mock=true` };
+    }
     if (/^\/v1\/products\/ns_1\/import\/csv\/history/.test(endpoint)) {
       return { batches: [], items: [], pagination: { has_more: false, next_cursor: null } };
     }
@@ -962,6 +991,13 @@ export const apiService = {
   getPathaoStores: () => apiFetch('/v1/pathao/stores', { cacheTtl: 60000 }),
   // City > zone > area hierarchy; large and rarely changes.
   getPathaoLocations: () => apiFetch('/v1/pathao/locations', { cacheTtl: 3600000 }),
+
+  // WooCommerce: connect returns an auth_url the owner is redirected to for approval.
+  getWooCommerceStatus: () => apiFetch('/v1/woocommerce/status', { cacheTtl: 15000 }),
+  connectWooCommerce: ({ store_url, namespace_id }) => apiFetch('/v1/woocommerce/connect', {
+    method: 'POST',
+    body: JSON.stringify({ store_url, namespace_id }),
+  }),
 
   // General AI Chat
   aiChat: (prompt) => apiFetch(`/v1/chat?prompt=${encodeURIComponent(prompt)}`, {

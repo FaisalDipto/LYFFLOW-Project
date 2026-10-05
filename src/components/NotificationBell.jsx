@@ -116,7 +116,7 @@ const resolveDeepLink = (notification) => {
 
     case 'page_disconnected':
     case 'page_owned_by_another_business':
-      return { tab: 'overview' };
+      return { tab: 'channels' };
 
     case 'product_limit_reached':
       return { tab: 'knowledge-products' };

@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -34,6 +34,8 @@ const ProductsTab = lazy(() => import('../components/ProductsTab'));
 const ManualOrderPanel = lazy(() => import('../components/ManualOrderPanel'));
 const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCourier'));
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
+const AnalyticsHub = lazy(() => import('../components/dashboard/AnalyticsHub'));
+const PlatformsCatalog = lazy(() => import('../components/dashboard/PlatformsCatalog'));
 
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
 // Themes, Widget Appearance and Team Members settings have no backend yet; flip to show them.
@@ -179,7 +181,7 @@ const PageSyncStatus = ({ status, onRetry }) => {
   );
 };
 
-const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = 'idle', onRetrySync }) => {
+const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = 'idle', onRetrySync }) => {
   // Facebook connect is owner-only; agent assignment and page removal are admin+.
   const { business, isOwner, canManage } = useBusiness();
   const [disconnecting, setDisconnecting] = useState(null);
@@ -371,7 +373,7 @@ const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
       <section className="mb-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm md:px-6 md:py-5">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
-            <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Workspace overview</span>
+            <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Channels</span>
             <h1 className="m-0 truncate font-headline text-2xl font-black tracking-tight text-slate-950 md:text-3xl">{workspaceName}</h1>
             <p className="mb-0 mt-1 text-sm font-medium text-slate-500">Manage your connected pages and the agents answering for them.</p>
           </div>
@@ -447,7 +449,7 @@ const Overview = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
 
       {isSyncing && <PageSyncStatus status={syncStatus} onRetry={onRetrySync} />}
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {Array.isArray(pages) && pages.map((page, pageIndex) => {
           const selectedAgent = agents.find(agent => agent.agent_id === selectedAgents[page.page_id]);
           const foreignAgentName = selectedAgents[page.page_id] && String(selectedAgents[page.page_id]).startsWith('foreign_agent_')
@@ -6255,14 +6257,14 @@ const TutorialPanel = () => {
 
 export default function Dashboard() {
   const { theme, isDark, toggleTheme } = useDashboardTheme();
-  const [activeTab, setActiveTabState] = useState('overview');
+  const [activeTab, setActiveTabState] = useState('dashboard');
   // Owner of a business with no active plan: everything but Subscription is locked.
   const [planRequired, setPlanRequired] = useState(false);
   const setActiveTab = useCallback((tab) => {
     if (planRequired && tab !== 'subscription') return;
     setActiveTabState(tab);
   }, [planRequired]);
-  const visitedTabsRef = useRef(new Set(['overview']));
+  const visitedTabsRef = useRef(new Set(['dashboard']));
   visitedTabsRef.current.add(activeTab);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -6535,8 +6537,8 @@ export default function Dashboard() {
       const revokedList = pagesParam.split(',').map(p => p.trim()).filter(Boolean);
       setRevokedPagesModal({ pages: revokedList });
     } else if (reauth === 'success') {
-      // Pages arrive from a background sync; the Overview shows progress while we poll.
-      setActiveTab('overview');
+      // Pages arrive from a background sync; Channels shows progress while we poll.
+      setActiveTab('channels');
       setPageSync(current => ({ status: 'syncing', attempt: current.attempt + 1 }));
     } else if (reauth === 'failed') {
       const error = params.get('error');
@@ -6550,9 +6552,20 @@ export default function Dashboard() {
   const renderContent = () => {
     return (
       <>
-        <div style={{ display: activeTab === 'overview' ? 'contents' : 'none' }}>
-          <Overview user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={() => setPreReauthModal(true)} syncStatus={pageSync.status} onRetrySync={retryPageSync} />
-        </div>
+        {/* Analytics fire a burst of requests, so they wait until the business has a plan. */}
+        {visitedTabsRef.current.has('dashboard') && !planRequired && <div style={{ display: activeTab === 'dashboard' ? 'contents' : 'none' }}>
+          <Suspense fallback={<AppLoadingScreen />}>
+            <AnalyticsHub pages={pages} agents={user?.agents} isDark={isDark} />
+          </Suspense>
+        </div>}
+        {visitedTabsRef.current.has('channels') && <div style={{ display: activeTab === 'channels' ? 'contents' : 'none' }}>
+          <Channels user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={() => setPreReauthModal(true)} syncStatus={pageSync.status} onRetrySync={retryPageSync} />
+        </div>}
+        {visitedTabsRef.current.has('platforms') && <div style={{ display: activeTab === 'platforms' ? 'contents' : 'none' }}>
+          <Suspense fallback={<AppLoadingScreen />}>
+            <PlatformsCatalog pages={pages} onNavigate={setActiveTab} onConnectFacebook={() => setPreReauthModal(true)} />
+          </Suspense>
+        </div>}
         {visitedTabsRef.current.has('customer-leads') && <div style={{ display: activeTab === 'customer-leads' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
             <CustomerRecords pages={pages} recordType="lead" focusRequest={notificationFocus} />
@@ -6597,7 +6610,7 @@ export default function Dashboard() {
               onSubscribed={(subscription) => {
                 setUser(current => current ? { ...current, subscription } : current);
                 setPlanRequired(false);
-                setActiveTabState('overview');
+                setActiveTabState('dashboard');
               }}
             />
           ) : (
@@ -6612,7 +6625,9 @@ export default function Dashboard() {
   };
 
   const primaryNavItems = [
-    { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { id: 'channels', icon: Inbox, label: 'Channels' },
+    { id: 'platforms', icon: Plug, label: 'Platforms' },
     { id: 'conversation', icon: MessageSquare, label: 'Conversations' },
     {
       id: 'customer-records',
