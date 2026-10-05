@@ -335,7 +335,7 @@ const TruncatedNote = () => (
   </p>
 );
 
-export default function AnalyticsHub({ pages, agents, isDark }) {
+export default function AnalyticsHub({ pages, agents, isDark, isActive = true }) {
   const { isOwner } = useBusiness();
   const palette = CHART_THEME[isDark ? 'dark' : 'light'];
   const [range, setRange] = useState(() => presetRange(RANGE_PRESETS[0]));
@@ -397,6 +397,10 @@ export default function AnalyticsHub({ pages, agents, isDark }) {
     if (!data) return <ChartState height={height}>Could not load this data. Try refreshing.</ChartState>;
     return render(data);
   };
+
+  // The dashboard keeps hidden tabs mounted under display:none, where ResponsiveContainer
+  // measures 0x0 and warns. Data and range survive here; the charts remount at full size.
+  if (!isActive) return null;
 
   return (
     <div className="dashboard-content-area w-full flex-1 bg-surface-bright p-4 text-left md:p-6 xl:p-8">

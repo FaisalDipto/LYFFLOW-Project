@@ -6555,7 +6555,7 @@ export default function Dashboard() {
         {/* Analytics fire a burst of requests, so they wait until the business has a plan. */}
         {visitedTabsRef.current.has('dashboard') && !planRequired && <div style={{ display: activeTab === 'dashboard' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
-            <AnalyticsHub pages={pages} agents={user?.agents} isDark={isDark} />
+            <AnalyticsHub pages={pages} agents={user?.agents} isDark={isDark} isActive={activeTab === 'dashboard'} />
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('channels') && <div style={{ display: activeTab === 'channels' ? 'contents' : 'none' }}>
