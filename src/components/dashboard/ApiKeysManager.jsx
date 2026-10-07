@@ -107,7 +107,7 @@ const Dialog = ({ labelledBy, onClose, dismissible = true, children }) => {
   }, [dismissible, onClose]);
 
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm animate-fade-in" onClick={dismissible ? onClose : undefined}>
+    <div className="fixed inset-0 z-[10010] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm animate-fade-in" onClick={dismissible ? onClose : undefined}>
       <div
         role="dialog"
         aria-modal="true"
@@ -336,16 +336,13 @@ const KeyTester = () => {
   };
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5" aria-labelledby="api-key-tester-title">
-      <div className="flex items-start gap-2.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500"><ShieldCheck size={16} /></span>
-        <div className="min-w-0">
-          <h2 id="api-key-tester-title" className="m-0 text-[15px] font-semibold text-slate-900">Test a key</h2>
-          <p className="mb-0 mt-0.5 text-[12.5px] text-slate-500">Check that a key works and see what it can access.</p>
-        </div>
-      </div>
+    <section aria-labelledby="api-key-tester-title">
+      <h3 id="api-key-tester-title" className="m-0 flex items-center gap-2 text-sm font-semibold text-slate-900">
+        <ShieldCheck size={15} className="text-slate-500" /> Test a key
+      </h3>
+      <p className="mb-0 mt-0.5 text-xs text-slate-500">Check that a key works and see what it can access.</p>
 
-      <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-2 sm:flex-row">
         <label htmlFor="api-key-test-input" className="sr-only">API key</label>
         <div className="relative min-w-0 flex-1">
           <input
@@ -388,13 +385,48 @@ const KeyTester = () => {
   );
 };
 
-const SkeletonRows = () => Array.from({ length: 3 }, (_, index) => (
-  <tr key={index}>
-    <td colSpan={7} className="px-5 py-4"><div className="page-sync-shimmer h-5 w-full rounded-md" aria-hidden="true" /></td>
-  </tr>
-));
+const KeyRow = ({ apiKey, copied, onCopy, onRevoke }) => (
+  <li className={`flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-start sm:justify-between ${apiKey.is_active ? '' : 'api-key-row-revoked'}`}>
+    <div className="min-w-0">
+      <p className={`m-0 flex flex-wrap items-center gap-2 text-sm font-medium ${apiKey.is_active ? 'text-slate-900' : 'text-slate-500'}`}>
+        <span className="truncate">{apiKey.name}</span>
+        <StatusPill active={apiKey.is_active} />
+      </p>
+      <p className="mb-0 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+        <span className="inline-flex items-center gap-0.5">
+          <code className="font-mono text-[12.5px] text-slate-600">{apiKey.key_prefix}…</code>
+          <button
+            type="button"
+            onClick={() => onCopy(apiKey.key_prefix, apiKey.api_key_id)}
+            aria-label={`Copy key prefix for ${apiKey.name}`}
+            title="Copy prefix"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          >
+            {copied === apiKey.api_key_id ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+          </button>
+        </span>
+        <span>Created {formatDate(apiKey.created_at) || '—'}</span>
+        <span>Last used {formatDateTime(apiKey.last_used_at) || 'never'}</span>
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1">
+        {parseScopes(apiKey.permissions).map(scope => <ScopeBadge key={scope} scope={scope} />)}
+      </div>
+    </div>
+    {apiKey.is_active && (
+      <button
+        type="button"
+        onClick={() => onRevoke(apiKey)}
+        className="api-key-revoke h-8 shrink-0 self-start rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-red-600 transition-colors hover:border-red-200 hover:bg-red-50"
+      >
+        Revoke
+      </button>
+    )}
+  </li>
+);
 
-export default function ApiKeysPanel() {
+// API keys for the WordPress plugin (and any other script), shown inside the
+// WooCommerce connect dialog. Keys belong to the business, not to WooCommerce.
+export default function ApiKeysManager() {
   const [keys, setKeys] = useState(/** @type {ApiKeyItem[]} */ ([]));
   const [status, setStatus] = useState('loading');
   const [loadError, setLoadError] = useState('');
@@ -446,108 +478,54 @@ export default function ApiKeysPanel() {
   const activeCount = keys.filter(key => key.is_active).length;
 
   return (
-    <div className="api-keys-panel dashboard-content-area w-full flex-1 bg-surface-bright p-4 text-left md:p-6 xl:p-8">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-2xl">
-          <h1 className="dashboard-display m-0 text-3xl text-slate-950 md:text-4xl">API keys</h1>
-          <p className="mb-0 mt-2 text-sm text-slate-500">Connect plugins and scripts to your products and orders. Each key only gets the permissions you choose.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={load}
-            disabled={status === 'loading' || status === 'refreshing'}
-            aria-label="Refresh API keys"
-            title="Refresh"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
-          >
-            <RefreshCw size={15} className={status === 'refreshing' ? 'animate-spin' : ''} />
-          </button>
-          <button type="button" onClick={() => setCreating(true)} className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
-            <Plus size={16} /> Create API key
-          </button>
-        </div>
-      </div>
-
-      <section className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white" aria-labelledby="api-keys-list-title">
-        <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-          <h2 id="api-keys-list-title" className="m-0 text-[15px] font-semibold text-slate-900">Your keys</h2>
-          {status !== 'loading' && status !== 'error' && keys.length > 0 && (
-            <span className="text-[12.5px] text-slate-500">{activeCount} active of {keys.length}</span>
-          )}
-        </header>
-
-        {status === 'error' ? (
-          <div className="px-5 py-10 text-center">
-            <p className="m-0 text-sm text-red-600">Could not load API keys: {loadError}</p>
-            <button type="button" onClick={load} className="mt-3 h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">Try again</button>
-          </div>
-        ) : status !== 'loading' && keys.length === 0 ? (
-          <div className="px-5 py-12 text-center">
-            <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><KeyRound size={20} /></span>
-            <p className="m-0 text-sm font-medium text-slate-900">No API keys yet</p>
-            <p className="mx-auto mb-0 mt-1 max-w-sm text-sm text-slate-500">Create a key to connect a plugin or script to this business.</p>
-            <button type="button" onClick={() => setCreating(true)} className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3.5 text-sm font-semibold text-white hover:bg-emerald-700">
-              <Plus size={15} /> Create API key
+    <div className="api-keys-panel space-y-5 text-left">
+      <section aria-labelledby="api-keys-list-title">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h3 id="api-keys-list-title" className="m-0 text-sm font-semibold text-slate-900">
+            API keys
+            {status === 'ready' && keys.length > 0 && <span className="ml-2 font-normal text-slate-500">{activeCount} active of {keys.length}</span>}
+          </h3>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={load}
+              disabled={status === 'loading' || status === 'refreshing'}
+              aria-label="Refresh API keys"
+              title="Refresh"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
+            >
+              <RefreshCw size={14} className={status === 'refreshing' ? 'animate-spin' : ''} />
+            </button>
+            <button type="button" onClick={() => setCreating(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700">
+              <Plus size={14} /> Create key
             </button>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[880px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="api-keys-head border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
-                  <th scope="col" className="px-5 py-2.5 font-medium">Name</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Key</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Permissions</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Status</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Created</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Last used</th>
-                  <th scope="col" className="px-5 py-2.5 text-right font-medium"><span className="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {status === 'loading' ? <SkeletonRows /> : keys.map(apiKey => (
-                  <tr key={apiKey.api_key_id} className={apiKey.is_active ? '' : 'api-key-row-revoked'}>
-                    <td className={`px-5 py-3.5 font-medium ${apiKey.is_active ? 'text-slate-900' : 'text-slate-500'}`}>{apiKey.name}</td>
-                    <td className="px-3 py-3.5">
-                      <span className="inline-flex items-center gap-1">
-                        <code className="font-mono text-[13px] text-slate-600">{apiKey.key_prefix}…</code>
-                        <button
-                          type="button"
-                          onClick={() => copy(apiKey.key_prefix, apiKey.api_key_id)}
-                          aria-label={`Copy key prefix for ${apiKey.name}`}
-                          title="Copy prefix"
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                        >
-                          {copied === apiKey.api_key_id ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                        </button>
-                      </span>
-                    </td>
-                    <td className="px-3 py-3.5">
-                      <div className="flex max-w-[280px] flex-wrap gap-1">
-                        {parseScopes(apiKey.permissions).map(scope => <ScopeBadge key={scope} scope={scope} />)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3.5"><StatusPill active={apiKey.is_active} /></td>
-                    <td className="whitespace-nowrap px-3 py-3.5 text-slate-600">{formatDate(apiKey.created_at) || '—'}</td>
-                    <td className="whitespace-nowrap px-3 py-3.5 text-slate-600">{formatDateTime(apiKey.last_used_at) || 'Never'}</td>
-                    <td className="px-5 py-3.5 text-right">
-                      {apiKey.is_active && (
-                        <button
-                          type="button"
-                          onClick={() => setRevokeTarget(apiKey)}
-                          className="api-key-revoke h-8 rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-red-600 transition-colors hover:border-red-200 hover:bg-red-50"
-                        >
-                          Revoke
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          {status === 'error' ? (
+            <div className="px-4 py-6 text-center">
+              <p className="m-0 text-sm text-red-600">Could not load API keys: {loadError}</p>
+              <button type="button" onClick={load} className="mt-3 h-8 rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50">Try again</button>
+            </div>
+          ) : status === 'loading' ? (
+            <div className="space-y-3 p-4" aria-hidden="true">
+              {[0, 1].map(index => <div key={index} className="page-sync-shimmer h-12 w-full rounded-lg" />)}
+            </div>
+          ) : keys.length === 0 ? (
+            <div className="px-4 py-6 text-center">
+              <span className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500"><KeyRound size={17} /></span>
+              <p className="m-0 text-sm font-medium text-slate-900">No API keys yet</p>
+              <p className="mb-0 mt-1 text-xs text-slate-500">Create one, then paste it into the plugin's settings.</p>
+            </div>
+          ) : (
+            <ul className="m-0 list-none divide-y divide-slate-100 p-0">
+              {keys.map(apiKey => (
+                <KeyRow key={apiKey.api_key_id} apiKey={apiKey} copied={copied} onCopy={copy} onRevoke={setRevokeTarget} />
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
 
       <KeyTester />

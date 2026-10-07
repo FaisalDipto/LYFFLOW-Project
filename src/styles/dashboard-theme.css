@@ -121,6 +121,7 @@ html[data-dashboard-theme="dark"] body>.fixed .text-slate-500{color:#adadad!impo
 html[data-dashboard-theme="dark"] body>.fixed .border-slate-100,
 html[data-dashboard-theme="dark"] body>.fixed .border-slate-200,
 html[data-dashboard-theme="dark"] body>.fixed .border-slate-300{border-color:#373737!important}
+html[data-dashboard-theme="dark"] body>.fixed .divide-slate-100>*+*{border-color:#2a2a2a!important}
 html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#f9f9fb]"],
 html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#eeeef0]"],
 html[data-dashboard-theme="dark"] body>.fixed [class*="bg-[#e2e2e4]"],
@@ -239,9 +240,9 @@ html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-sla
 
 /* Business settings, required-action banners and the Facebook connect notice */
 .dashboard-layout.theme-dark .business-settings-alert.is-error,
-.dashboard-layout.theme-dark .connect-notice.is-error{background:#341c27!important;border-color:#713247!important;color:#fda4af!important}
+.dashboard-layout.theme-dark .dashboard-toast.is-error{background:#341c27!important;border-color:#713247!important;color:#fda4af!important}
 .dashboard-layout.theme-dark .business-settings-alert.is-success,
-.dashboard-layout.theme-dark .connect-notice.is-success{background:#0f2f2a!important;border-color:#28675a!important;color:#86efac!important}
+.dashboard-layout.theme-dark .dashboard-toast.is-success{background:#0f2f2a!important;border-color:#28675a!important;color:#86efac!important}
 .dashboard-layout.theme-dark .business-settings-danger{border-color:#713247!important}
 .dashboard-layout.theme-dark .business-settings-danger .text-red-700{color:#fda4af!important}
 .dashboard-layout.theme-dark .required-action{background:#33270f!important;border-color:#6b4f12!important}

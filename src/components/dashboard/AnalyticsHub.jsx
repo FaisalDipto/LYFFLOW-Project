@@ -517,23 +517,24 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
   if (!isActive) return null;
 
   return (
-    <div className="dashboard-content-area w-full flex-1 bg-surface-bright p-4 text-left md:p-6 xl:p-8">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <h1 className="dashboard-display m-0 text-3xl text-slate-950 md:text-4xl">Dashboard</h1>
-        <div className="flex items-center gap-2">
-          {/* Presets are relative to today, so re-picking one after midnight moves the window. */}
-          <RangePicker range={range} onChange={setRange} disabled={ranged.loading} />
-          <button
-            type="button"
-            onClick={() => setReloadKey(key => key + 1)}
-            disabled={isLoading}
-            aria-label="Refresh analytics"
-            title="Refresh"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
-          >
-            <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
-          </button>
-        </div>
+    // Side and bottom padding come from the shared .dashboard-content-area rules;
+    // .analytics-hub trims the top so the widgets sit close under the top bar.
+    <div className="analytics-hub dashboard-content-area w-full flex-1 bg-surface-bright text-left">
+      {/* The top bar already names the page; this heading is kept for screen readers only. */}
+      <h1 className="sr-only">Dashboard</h1>
+      <div className="mb-4 flex items-center justify-end gap-3">
+        {/* Presets are relative to today, so re-picking one after midnight moves the window. */}
+        <RangePicker range={range} onChange={setRange} disabled={ranged.loading} />
+        <button
+          type="button"
+          onClick={() => setReloadKey(key => key + 1)}
+          disabled={isLoading}
+          aria-label="Refresh analytics"
+          title="Refresh"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
+        >
+          <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { Bike, Link2, PackageCheck, Search, ShoppingBag, Store, X } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { apiService } from '../../services/api';
+import ApiKeysManager from './ApiKeysManager';
 
 const BrandPath = ({ d }) => (
   <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current" aria-hidden="true"><path d={d} /></svg>
@@ -18,14 +19,18 @@ const PlatformLogo = ({ platform }) => (
   </span>
 );
 
-const WooCommerceModal = ({ onClose }) => {
+// Connects a store through the store URL form, which hands off to WooCommerce for
+// approval. Owner-only on the backend; admins see why instead of the form.
+const StoreUrlConnect = ({ isOwner, store, onViewProducts }) => {
   const [namespaces, setNamespaces] = useState([]);
   const [storeUrl, setStoreUrl] = useState('');
   const [namespaceId, setNamespaceId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const canConnect = isOwner && !store;
 
   useEffect(() => {
+    if (!canConnect) return;
     apiService.getNamespaces()
       .then(data => {
         const list = Array.isArray(data) ? data : data?.namespaces || [];
@@ -33,7 +38,27 @@ const WooCommerceModal = ({ onClose }) => {
         if (list[0]) setNamespaceId(current => current || list[0].namespace_id);
       })
       .catch(() => setNamespaces([]));
-  }, []);
+  }, [canConnect]);
+
+  if (store) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+        <p className="m-0 text-sm font-semibold text-emerald-800">Store connected</p>
+        <p className="mb-3 mt-0.5 break-all text-xs text-emerald-700">{store.store_url || 'Your WooCommerce store'} syncs its products into your catalog.</p>
+        <button type="button" onClick={onViewProducts} className="inline-flex h-9 items-center gap-2 rounded-lg bg-violet-600 px-3.5 text-[13px] font-bold text-white transition-colors hover:bg-violet-500">
+          View products
+        </button>
+      </div>
+    );
+  }
+
+  if (!isOwner) {
+    return (
+      <p className="m-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-600">
+        Only the business owner can connect a store by its URL. You can still use the WordPress plugin with an API key.
+      </p>
+    );
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -49,69 +74,138 @@ const WooCommerceModal = ({ onClose }) => {
     }
   };
 
+  return (
+    <form onSubmit={handleSubmit}>
+      <p className="mb-4 mt-0 text-sm text-slate-500">You'll approve access on your store, then products sync into the catalog you choose.</p>
+
+      <label className="mb-1.5 block text-xs font-bold text-slate-700" htmlFor="woo-store-url">Store URL</label>
+      <input
+        id="woo-store-url"
+        type="url"
+        required
+        minLength={8}
+        maxLength={500}
+        value={storeUrl}
+        onChange={event => setStoreUrl(event.target.value)}
+        placeholder="https://myshop.com"
+        className="mb-4 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+      />
+
+      <label className="mb-1.5 block text-xs font-bold text-slate-700" htmlFor="woo-namespace">Sync products into</label>
+      <select
+        id="woo-namespace"
+        required
+        value={namespaceId}
+        onChange={event => setNamespaceId(event.target.value)}
+        className="mb-4 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+      >
+        {namespaces.length === 0 && <option value="">No knowledge catalogs yet</option>}
+        {namespaces.map(namespace => (
+          <option key={namespace.namespace_id} value={namespace.namespace_id}>{namespace.namespace_name || 'Untitled catalog'}</option>
+        ))}
+      </select>
+
+      {error && <p role="alert" className="mb-4 mt-0 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={submitting || !namespaceId}
+        className="inline-flex h-10 items-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <Link2 size={16} />
+        {submitting ? 'Redirecting…' : 'Continue to WooCommerce'}
+      </button>
+    </form>
+  );
+};
+
+const WOO_TABS = [
+  { id: 'plugin', label: 'WordPress plugin' },
+  { id: 'store', label: 'Store URL' },
+];
+
+// Two ways to connect: the Lyfflow WordPress plugin, which authenticates with an API
+// key and pushes products, or the store URL form, which has Lyfflow pull them.
+const WooCommerceModal = ({ isOwner, store, onViewProducts, onClose }) => {
+  const [tab, setTab] = useState('plugin');
+
+  useEffect(() => {
+    const handleKeyDown = (event) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <form onSubmit={handleSubmit} onClick={event => event.stopPropagation()} className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scale-in">
-        <button type="button" onClick={onClose} aria-label="Close" className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900">
-          <X size={16} />
-        </button>
-        <h2 className="m-0 text-lg font-black text-slate-900">Connect WooCommerce</h2>
-        <p className="mb-5 mt-1 text-sm text-slate-500">You'll approve access on your store, then products sync into the catalog you choose.</p>
+      {/* Stops clicks here, including ones bubbling up from the key dialogs rendered
+          inside, so the one-time key reveal can't close this dialog underneath it. */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="woo-connect-title"
+        onClick={event => event.stopPropagation()}
+        className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-2xl animate-scale-in"
+      >
+        <div className="border-b border-slate-100 px-6 pb-0 pt-6">
+          <button type="button" onClick={onClose} aria-label="Close" className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+            <X size={16} />
+          </button>
+          <h2 id="woo-connect-title" className="m-0 text-lg font-black text-slate-900">Connect WooCommerce</h2>
+          <p className="mb-4 mt-1 text-sm text-slate-500">Bring your store's products into Lyfflow so agents quote live prices and stock.</p>
+          <div role="tablist" aria-label="Connection method" className="-mb-px flex gap-5">
+            {WOO_TABS.map(option => (
+              <button
+                key={option.id}
+                type="button"
+                role="tab"
+                id={`woo-tab-${option.id}`}
+                aria-selected={tab === option.id}
+                aria-controls={`woo-panel-${option.id}`}
+                onClick={() => setTab(option.id)}
+                // The global `button { border: none }` hides borders; border-0 + border-solid
+                // bring back just the bottom edge as the underline.
+                className={`border-0 border-b-2 border-solid pb-2.5 text-sm font-semibold transition-colors ${tab === option.id ? 'border-violet-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        <label className="mb-1.5 block text-xs font-bold text-slate-700" htmlFor="woo-store-url">Store URL</label>
-        <input
-          id="woo-store-url"
-          type="url"
-          required
-          minLength={8}
-          maxLength={500}
-          value={storeUrl}
-          onChange={event => setStoreUrl(event.target.value)}
-          placeholder="https://myshop.com"
-          className="mb-4 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
-        />
-
-        <label className="mb-1.5 block text-xs font-bold text-slate-700" htmlFor="woo-namespace">Sync products into</label>
-        <select
-          id="woo-namespace"
-          required
-          value={namespaceId}
-          onChange={event => setNamespaceId(event.target.value)}
-          className="mb-4 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
-        >
-          {namespaces.length === 0 && <option value="">No knowledge catalogs yet</option>}
-          {namespaces.map(namespace => (
-            <option key={namespace.namespace_id} value={namespace.namespace_id}>{namespace.namespace_name || 'Untitled catalog'}</option>
-          ))}
-        </select>
-
-        {error && <p role="alert" className="mb-4 mt-0 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={submitting || !namespaceId}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Link2 size={16} />
-          {submitting ? 'Redirecting…' : 'Continue to WooCommerce'}
-        </button>
-      </form>
+        <div role="tabpanel" id={`woo-panel-${tab}`} aria-labelledby={`woo-tab-${tab}`} className="overflow-y-auto px-6 py-5">
+          {tab === 'plugin' ? (
+            <>
+              <ol className="mb-5 mt-0 list-decimal space-y-1.5 pl-5 text-sm text-slate-600 marker:text-slate-400">
+                <li>Install and activate the Lyfflow plugin on your WordPress site.</li>
+                <li>Create an API key below and paste it into the plugin's settings.</li>
+                <li>Pick a catalog in the plugin; your products sync from the store.</li>
+              </ol>
+              <ApiKeysManager />
+            </>
+          ) : (
+            <StoreUrlConnect isOwner={isOwner} store={store} onViewProducts={onViewProducts} />
+          )}
+        </div>
+      </div>
     </div>,
     document.body,
   );
 };
 
 export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate }) {
-  const { isOwner } = useBusiness();
+  const { isOwner, canManage } = useBusiness();
   const [query, setQuery] = useState('');
-  const [wooConnected, setWooConnected] = useState(false);
+  // The connected store ({ store_url, ... }), or null.
+  const [wooStore, setWooStore] = useState(null);
+  const wooConnected = Boolean(wooStore);
   const [isWooModalOpen, setIsWooModalOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     apiService.getWooCommerceStatus()
       .then(status => {
-        if (!cancelled) setWooConnected(Boolean(status?.connected_at) && !/disconnect|not_connected/i.test(status?.status || ''));
+        const connected = Boolean(status?.connected_at) && !/disconnect|not_connected/i.test(status?.status || '');
+        if (!cancelled) setWooStore(connected ? status : null);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -147,9 +241,10 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
       logo: <Store size={24} strokeWidth={2.2} />,
       description: 'Import your WooCommerce catalog so agents can quote live prices, stock and product details.',
       connected: wooConnected,
-      action: wooConnected ? () => onNavigate('knowledge-products') : (isOwner ? () => setIsWooModalOpen(true) : null),
-      actionLabel: wooConnected ? 'View products' : 'Connect',
-      ownerOnly: !wooConnected,
+      // Opens for admins too: API keys are admin+, only the store URL form is owner-only.
+      action: canManage ? () => setIsWooModalOpen(true) : null,
+      actionLabel: wooConnected ? 'Manage' : 'Connect',
+      adminOnly: true,
     },
     {
       id: 'shopify', title: 'Shopify', brand: '#5e8e3e',
@@ -171,7 +266,7 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
       action: () => onNavigate('courier-steadfast'),
       actionLabel: 'Connect',
     },
-  ], [hasFacebookPages, isOwner, onConnectFacebook, onNavigate, wooConnected]);
+  ], [hasFacebookPages, isOwner, canManage, onConnectFacebook, onNavigate, wooConnected]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const visible = platforms.filter(platform => (
@@ -208,7 +303,7 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visible.map(platform => {
-            const blockedForRole = platform.ownerOnly && !isOwner && !platform.connected;
+            const blockedForRole = platform.adminOnly ? !canManage : platform.ownerOnly && !isOwner && !platform.connected;
             const handleClick = platform.comingSoon ? null : platform.action;
             return (
               <article key={platform.id} className="flex min-h-[230px] flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
@@ -230,7 +325,7 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
                   type="button"
                   onClick={handleClick || undefined}
                   disabled={!handleClick || blockedForRole}
-                  title={blockedForRole ? 'Only the business owner can connect this platform' : platform.comingSoon ? 'Not available yet' : undefined}
+                  title={blockedForRole ? `Only the business ${platform.adminOnly ? 'owner or an admin' : 'owner'} can connect this platform` : platform.comingSoon ? 'Not available yet' : undefined}
                   className="mt-auto inline-flex h-10 items-center gap-2 self-start rounded-lg bg-violet-600 px-4 text-sm font-bold text-white shadow-sm shadow-violet-600/20 transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Link2 size={16} />
@@ -242,7 +337,14 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
         </div>
       )}
 
-      {isWooModalOpen && <WooCommerceModal onClose={() => setIsWooModalOpen(false)} />}
+      {isWooModalOpen && (
+        <WooCommerceModal
+          isOwner={isOwner}
+          store={wooStore}
+          onViewProducts={() => { setIsWooModalOpen(false); onNavigate('knowledge-products'); }}
+          onClose={() => setIsWooModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, KeyRound, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -13,9 +13,10 @@ import RequiredActionsBanner from '../components/RequiredActionsBanner';
 import RoleBadge from '../components/RoleBadge';
 import { BusinessDetailsSettings, BusinessMembersSettings } from '../components/BusinessSettings';
 import { NotificationsProvider } from '../context/NotificationsContext';
-import { BusinessProvider, roleAtLeast, useBusiness } from '../context/BusinessContext';
+import { BusinessProvider, useBusiness } from '../context/BusinessContext';
 import { PlanGateProvider, usePlanGate } from '../context/PlanGateContext';
 import UpgradeRequiredModal from '../components/UpgradeRequiredModal';
+import Toast from '../components/Toast';
 import { useWidget } from '../context/WidgetContext';
 import { API_BASE } from '../config/env';
 import {
@@ -40,7 +41,6 @@ const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCouri
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 const AnalyticsHub = lazy(() => import('../components/dashboard/AnalyticsHub'));
 const PlatformsCatalog = lazy(() => import('../components/dashboard/PlatformsCatalog'));
-const ApiKeysPanel = lazy(() => import('../components/dashboard/ApiKeysPanel'));
 
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
 // Themes, Widget Appearance and Team Members settings have no backend yet; flip to show them.
@@ -6472,7 +6472,6 @@ export default function Dashboard() {
         setConnectNotice({
           tone: 'success',
           text: syncedPages.length === 1 ? 'Facebook connected. 1 page is ready.' : `Facebook connected. ${syncedPages.length} pages are ready.`,
-          autoDismiss: true,
         });
       }
     };
@@ -6522,12 +6521,8 @@ export default function Dashboard() {
     setPageSync(current => ({ status: 'syncing', attempt: current.attempt + 1 }));
   }, []);
 
-  // Success notices clear themselves; errors stay until dismissed.
-  useEffect(() => {
-    if (!connectNotice?.autoDismiss) return undefined;
-    const timerId = setTimeout(() => setConnectNotice(null), 6000);
-    return () => clearTimeout(timerId);
-  }, [connectNotice]);
+  // Connect results show as a toast that clears itself (see Toast).
+  const dismissConnectNotice = useCallback(() => setConnectNotice(null), []);
 
   const refreshAgents = useCallback(async () => {
     const agentsData = await apiService.getAgents();
@@ -6668,15 +6663,6 @@ export default function Dashboard() {
             <OwnerOnlyNotice title="Billing is managed by the business owner" description="Plans, usage and payments for this business are only visible to its owner." />
           )}
         </div>}
-        {visitedTabsRef.current.has('api-keys') && <div style={{ display: activeTab === 'api-keys' ? 'contents' : 'none' }}>
-          {roleAtLeast(role, 'admin') ? (
-            <Suspense fallback={<AppLoadingScreen />}>
-              <ApiKeysPanel />
-            </Suspense>
-          ) : (
-            <OwnerOnlyNotice title="API keys are managed by admins" description="Ask an owner or admin of this business to create or revoke API keys." />
-          )}
-        </div>}
         {visitedTabsRef.current.has('tutorial') && <div style={{ display: activeTab === 'tutorial' ? 'contents' : 'none' }}>
           <TutorialPanel />
         </div>}
@@ -6721,8 +6707,6 @@ export default function Dashboard() {
   const secondaryNavItems = [
     // Subscription endpoints are owner-only, so the tab is too.
     ...(role === 'owner' ? [{ id: 'subscription', icon: CreditCard, label: 'Subscription' }] : []),
-    // Keys reach products and orders, so they follow the admin-or-owner rule for business settings.
-    ...(roleAtLeast(role, 'admin') ? [{ id: 'api-keys', icon: KeyRound, label: 'API keys' }] : []),
     { id: 'feedback', icon: MessageCircleWarning, label: 'Feedback' },
     { id: 'tutorial', icon: Headphones, label: 'Tutorial' }
   ];
@@ -6768,6 +6752,9 @@ export default function Dashboard() {
     <PlanGateProvider value={planGate}>
     <NotificationsProvider onSessionExpired={() => navigate('/get-started', { replace: true })}>
     <div className={`dashboard-layout theme-${theme}`}>
+      {connectNotice && (
+        <Toast tone={connectNotice.tone} message={connectNotice.text} onDismiss={dismissConnectNotice} />
+      )}
       {upgradeAction && (
         <UpgradeRequiredModal
           action={upgradeAction}
@@ -6992,15 +6979,6 @@ export default function Dashboard() {
         </header>
 
         <div className={`dashboard-content-wrapper ${activeTab === 'conversation' ? 'no-scroll' : ''}`}>
-          {connectNotice && (
-            <div
-              role={connectNotice.tone === 'error' ? 'alert' : 'status'}
-              className={`connect-notice is-${connectNotice.tone} mx-4 mt-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold md:mx-6 xl:mx-8 ${connectNotice.tone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}
-            >
-              <span>{connectNotice.text}</span>
-              <button type="button" onClick={() => setConnectNotice(null)} aria-label="Dismiss" className="shrink-0 opacity-70 hover:opacity-100"><X size={16} /></button>
-            </div>
-          )}
           {activeTab !== 'conversation' && (
             <RequiredActionsBanner
               onReconnectFacebook={() => setPreReauthModal(true)}

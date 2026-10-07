@@ -351,6 +351,13 @@ body.dashboard-route > .fixed .font-black {
   margin: 0 auto;
 }
 
+/* The analytics view has no page title, just the range controls, so it starts
+   closer to the top bar than other tabs. Two classes outrank every breakpoint's
+   .dashboard-content-area padding below. */
+.dashboard-content-area.analytics-hub {
+  padding-top: 12px;
+}
+
 /* ── 18.5-inch / 1366×768 comfortable layout ── */
 @media (max-width: 1440px) and (min-width: 769px) {
   .dashboard-top-navbar {
