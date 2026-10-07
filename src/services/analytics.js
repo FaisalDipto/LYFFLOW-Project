@@ -6,7 +6,7 @@
  * the list endpoints. Widgets with no backing endpoint return deterministic sample
  * data flagged `isSample` so the UI can label it.
  *
- *   Message analytics   GET /v1/agent/{agent_id}/agent_activity   (status, is_human_handover, created_at)
+ *   Message analytics   GET /v1/agent/{agent_id}/agent_activity   (status, created_at)
  *   Total contacts      GET /v1/page/{page_id}/conversations      (pagination.total per page)
  *   Usage               GET /v1/subscription                      (usage.conversations_used vs plan cap; owner-only)
  *   Contact vs order    conversations total + GET /v1/pages/orders?page_id= (pagination.total)
@@ -14,13 +14,17 @@
  *   Comment analytics   no endpoint yet -> sample
  *
  * Ranges are { start, end } local Dates covering whole days, start at 00:00 and
- * end at 23:59:59.999, bucketed one bar per day.
+ * end at 23:59:59.999. Bars are sized to the range (see barHours) so a chart
+ * always holds 24-31 of them: one day is 24 hourly bars, a month is daily bars.
  */
 import { apiService } from './api';
 
-export const RANGE_PRESETS = [7, 14, 30];
+export const RANGE_PRESETS = [1, 7, 14, 30];
 // Daily bars stop being readable past a month.
 export const MAX_RANGE_DAYS = 31;
+// Bar sizes divide a day evenly, so no bar straddles midnight.
+const BAR_HOURS = [1, 2, 3, 4, 6, 8, 12, 24];
+const MAX_BARS = 31;
 const PAGE_SIZE = 100;
 // Bounds how far each cursor walk goes so a busy workspace can't trip the rate limiter.
 const MAX_CURSOR_PAGES = 10;
@@ -51,8 +55,10 @@ export const customRange = (start, end) => ({ start: startOfDay(start), end: end
 
 export const rangeDays = ({ start, end }) => Math.round((startOfDay(end) - startOfDay(start)) / DAY_MS) + 1;
 
+export const presetLabel = (days) => (days === 1 ? 'Today' : `Last ${days} days`);
+
 export const formatRange = (range) => {
-  if (range.preset) return `Last ${range.preset} days`;
+  if (range.preset) return presetLabel(range.preset);
   const options = { month: 'short', day: 'numeric' };
   const sameYear = range.start.getFullYear() === range.end.getFullYear();
   const from = range.start.toLocaleDateString(undefined, sameYear ? options : { ...options, year: 'numeric' });
@@ -70,25 +76,62 @@ const parseTimestamp = (value) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const pad = (value) => String(value).padStart(2, '0');
+
 const dayKey = (date) => {
   const d = new Date(date);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+// The smallest bar that keeps the range within MAX_BARS: 1 day -> 1h, 2 days -> 2h,
+// 7 days -> 6h, 14 days -> 12h, a month -> 1 day.
+export const barHours = (range) => {
+  const hours = rangeDays(range) * 24;
+  return BAR_HOURS.find(size => hours / size <= MAX_BARS) || 24;
+};
+
+// Describes one bar for subtitles: "per hour", "per 6 hours", "per day".
+export const barUnit = (range) => {
+  const size = barHours(range);
+  if (size === 24) return 'per day';
+  return size === 1 ? 'per hour' : `per ${size} hours`;
+};
+
+// The bar a timestamp falls in; matches the keys buildBuckets hands out.
+const bucketKey = (date, size) => {
+  if (!date) return null;
+  const d = new Date(date);
+  return size === 24 ? dayKey(d) : `${dayKey(d)}T${pad(Math.floor(d.getHours() / size) * size)}`;
 };
 
 // Fixed names: newer ICU builds abbreviate September as "Sept" in en-GB.
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// One bucket per local calendar day, oldest first.
-const buildDays = (range) => Array.from({ length: rangeDays(range) }, (_, index) => {
-  const date = new Date(range.start);
-  date.setDate(date.getDate() + index);
-  return {
-    key: dayKey(date),
-    label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+// One bucket per bar, oldest first. `label` is the axis text, `tooltipLabel` names
+// the whole span ("4 Sep, 14:00–16:00").
+const buildBuckets = (range) => {
+  const size = barHours(range);
+  const days = rangeDays(range);
+  const buckets = [];
+  for (let index = 0; index < days; index += 1) {
+    const date = new Date(range.start);
+    date.setDate(date.getDate() + index);
     // Day-first ("4 Sep") for the Orders card's timeline, whatever the locale.
-    shortLabel: `${date.getDate()} ${SHORT_MONTHS[date.getMonth()]}`,
-  };
-});
+    const dayLabel = `${date.getDate()} ${SHORT_MONTHS[date.getMonth()]}`;
+    if (size === 24) {
+      const label = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      buckets.push({ key: dayKey(date), label, shortLabel: dayLabel, tooltipLabel: label });
+      continue;
+    }
+    for (let hour = 0; hour < 24; hour += size) {
+      const from = `${pad(hour)}:00`;
+      const label = days === 1 ? from : `${dayLabel} ${from}`;
+      const span = size === 1 ? from : `${from}–${pad((hour + size) % 24)}:00`;
+      buckets.push({ key: `${dayKey(date)}T${pad(hour)}`, label, shortLabel: days === 1 ? from : dayLabel, tooltipLabel: `${dayLabel}, ${span}` });
+    }
+  }
+  return buckets;
+};
 
 const totalFrom = (response, listKey) => {
   const total = response?.pagination?.total;
@@ -129,7 +172,8 @@ const collectInRange = async (fetchPage, listKey, range) => {
 };
 
 export async function loadMessageActivity(agents, range) {
-  const buckets = buildDays(range).map(day => ({ ...day, replied: 0, unreplied: 0, tickets: 0 }));
+  const size = barHours(range);
+  const buckets = buildBuckets(range).map(bucket => ({ ...bucket, replied: 0, unreplied: 0 }));
   const byKey = new Map(buckets.map(bucket => [bucket.key, bucket]));
   const agentList = agents || [];
 
@@ -144,31 +188,32 @@ export async function loadMessageActivity(agents, range) {
   if (agentList.length > 0 && loaded.length === 0) throw failures[0].reason;
 
   loaded.flatMap(result => result.items).forEach(activity => {
-    const bucket = byKey.get(dayKey(parseTimestamp(activity.created_at)));
+    const bucket = byKey.get(bucketKey(parseTimestamp(activity.created_at), size));
     if (!bucket) return;
-    if (activity.is_human_handover) bucket.tickets += 1;
-    else if (activity.status === 'failed') bucket.unreplied += 1;
+    if (activity.status === 'failed') bucket.unreplied += 1;
     else bucket.replied += 1;
   });
 
   return {
     series: buckets,
-    total: buckets.reduce((sum, day) => sum + day.replied + day.unreplied + day.tickets, 0),
+    total: buckets.reduce((sum, bucket) => sum + bucket.replied + bucket.unreplied, 0),
     agentCount: agentList.length,
     failedAgents: failures.length,
     truncated: loaded.some(result => result.truncated),
   };
 }
 
-export async function loadOrdersByDay(range) {
+// Order counts keyed by bar (see bucketKey), for the range's bar size.
+export async function loadOrderCounts(range) {
   const { items, truncated } = await collectInRange(
     cursor => apiService.getCustomerOrders({ cursor, page_size: PAGE_SIZE }),
     'orders',
     range,
   );
+  const size = barHours(range);
   const counts = new Map();
   items.forEach(order => {
-    const key = dayKey(parseTimestamp(order.created_at));
+    const key = bucketKey(parseTimestamp(order.created_at), size);
     counts.set(key, (counts.get(key) || 0) + 1);
   });
   return { counts, truncated };
@@ -209,22 +254,27 @@ export async function loadUsage() {
 const COMMENT_SHAPE = [42, 58, 51, 73, 66, 88, 79, 61, 70, 94, 83, 77, 90, 102];
 
 export function sampleCommentSeries(range) {
-  return buildDays(range).map(day => {
-    const [year, month, date] = day.key.split('-').map(Number);
-    return { ...day, comments: COMMENT_SHAPE[(year + month * 31 + date) % COMMENT_SHAPE.length] };
+  // Sub-day bars get a share of the day's sample, so the numbers stay plausible.
+  const share = barHours(range) / 24;
+  return buildBuckets(range).map(bucket => {
+    const [year, month, date, hour = 0] = bucket.key.split(/[-T]/).map(Number);
+    const daily = COMMENT_SHAPE[(year + month * 31 + date + hour) % COMMENT_SHAPE.length];
+    return { ...bucket, comments: Math.max(1, Math.round(daily * share)) };
   });
 }
 
-// One point per day, zero-filled: [{ date: '4 Sep', orders: 12 }, ...].
-export const ordersSeries = (range, ordersByDay) => buildDays(range).map(day => ({
-  key: day.key,
-  date: day.shortLabel,
-  orders: ordersByDay.get(day.key) || 0,
+// One point per bar, zero-filled: [{ date: '4 Sep', orders: 12 }, ...].
+export const ordersSeries = (range, orderCounts) => buildBuckets(range).map(bucket => ({
+  key: bucket.key,
+  date: bucket.shortLabel,
+  tooltipLabel: bucket.tooltipLabel,
+  orders: orderCounts.get(bucket.key) || 0,
 }));
 
-export const mergeMessagesAndOrders = (messageSeries, ordersByDay) => messageSeries.map(day => ({
-  key: day.key,
-  label: day.label,
-  messages: day.replied + day.unreplied + day.tickets,
-  orders: ordersByDay.get(day.key) || 0,
+export const mergeMessagesAndOrders = (messageSeries, orderCounts) => messageSeries.map(bucket => ({
+  key: bucket.key,
+  label: bucket.label,
+  tooltipLabel: bucket.tooltipLabel,
+  messages: bucket.replied + bucket.unreplied,
+  orders: orderCounts.get(bucket.key) || 0,
 }));

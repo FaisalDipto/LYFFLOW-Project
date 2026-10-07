@@ -7,36 +7,38 @@ import {
   customRange,
   formatRange,
   loadMessageActivity,
-  loadOrdersByDay,
+  loadOrderCounts,
   loadPageCounts,
   loadUsage,
   MAX_RANGE_DAYS,
   mergeMessagesAndOrders,
   ordersSeries,
+  barUnit,
+  presetLabel,
   presetRange,
   RANGE_PRESETS,
   rangeDays,
   sampleCommentSeries,
 } from '../../services/analytics';
 
-// Categorical slots 1-3 (blue, orange, aqua) validate as a set in both modes; the
-// dark column is the same hues stepped for the dark surface.
+// Categorical slots 1-3 (green, orange, blue) validate as a set in both modes; the
+// dark column is the same hues stepped for the black surface.
 const CHART_THEME = {
   light: {
-    series: ['#2a78d6', '#eb6834', '#1baf7a'],
+    series: ['#1baf7a', '#eb6834', '#2a78d6'],
     grid: '#e2e8f0',
     axis: '#64748b',
     cursor: 'rgba(15, 23, 42, 0.04)',
-    meterTrack: '#cde2fb',
+    meterTrack: '#c8eedd',
     warning: '#c98500',
     critical: '#e34948',
   },
   dark: {
-    series: ['#3987e5', '#d95926', '#199e70'],
-    grid: '#26364d',
-    axis: '#8b9bb0',
+    series: ['#199e70', '#d95926', '#3987e5'],
+    grid: '#2a2a2a',
+    axis: '#9b9b9b',
     cursor: 'rgba(255, 255, 255, 0.04)',
-    meterTrack: '#163a66',
+    meterTrack: '#0f3a2b',
     warning: '#c98500',
     critical: '#e66767',
   },
@@ -66,8 +68,8 @@ const WidgetCard = ({ title, subtitle, icon: Icon, badge, className = '', childr
           </span>
         )}
         <div className="min-w-0">
-          <h2 className="m-0 truncate text-sm font-black text-slate-900">{title}</h2>
-          {subtitle && <p className="mb-0 mt-0.5 text-xs font-medium text-slate-500">{subtitle}</p>}
+          <h2 className="m-0 truncate text-[15px] font-semibold text-slate-900">{title}</h2>
+          {subtitle && <p className="mb-0 mt-0.5 text-[12.5px] text-slate-500">{subtitle}</p>}
         </div>
       </div>
       {badge}
@@ -77,7 +79,7 @@ const WidgetCard = ({ title, subtitle, icon: Icon, badge, className = '', childr
 );
 
 const SampleBadge = ({ reason }) => (
-  <span title={reason} className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
+  <span title={reason} className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
     Sample data
   </span>
 );
@@ -96,12 +98,12 @@ const ChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg">
-      <p className="m-0 mb-1 font-black text-slate-900">{label}</p>
+      <p className="m-0 mb-1 font-semibold text-slate-900">{payload[0].payload?.tooltipLabel || label}</p>
       {payload.map(entry => (
-        <p key={entry.dataKey} className="m-0 flex items-center gap-2 font-semibold text-slate-500">
+        <p key={entry.dataKey} className="m-0 flex items-center gap-2 text-slate-500">
           <span className="h-2 w-2 rounded-sm" style={{ background: entry.color }} />
           <span>{entry.name}</span>
-          <span className="ml-auto pl-3 font-black tabular-nums text-slate-900">{formatNumber(entry.value)}</span>
+          <span className="ml-auto pl-3 font-semibold tabular-nums text-slate-900">{formatNumber(entry.value)}</span>
         </p>
       ))}
     </div>
@@ -109,7 +111,7 @@ const ChartTooltip = ({ active, payload, label }) => {
 };
 
 const LegendItem = ({ color, label }) => (
-  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
     <span className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
     {label}
   </span>
@@ -126,14 +128,14 @@ const SeriesLegend = ({ series, palette }) => (
 const ColumnChart = ({ data, series, palette, height = 240, showLegend = series.length > 1, xKey = 'label' }) => (
   <div style={{ height }}>
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} barGap={2} barCategoryGap="22%" margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+      <BarChart data={data} barGap={1} barCategoryGap="8%" margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} stroke={palette.grid} />
         <XAxis dataKey={xKey} tickLine={false} axisLine={{ stroke: palette.grid }} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 600 }} interval="preserveStartEnd" />
         <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 600 }} tickFormatter={formatNumber} width={48} />
         <Tooltip content={<ChartTooltip />} cursor={{ fill: palette.cursor }} />
         {showLegend && <Legend verticalAlign="top" align="right" content={<SeriesLegend series={series} palette={palette} />} />}
         {series.map(({ key, label }, index) => (
-          <Bar key={key} dataKey={key} name={label} fill={palette.series[index]} radius={[4, 4, 0, 0]} maxBarSize={24} />
+          <Bar key={key} dataKey={key} name={label} fill={palette.series[index]} radius={[4, 4, 0, 0]} maxBarSize={44} />
         ))}
       </BarChart>
     </ResponsiveContainer>
@@ -156,7 +158,7 @@ const ContactsCard = ({ pageCounts, loading, palette }) => {
         <ChartSkeleton height={96} />
       ) : (
         <>
-          <p className="m-0 text-5xl font-black leading-none tracking-tight text-slate-900 tabular-nums">{formatNumber(total)}</p>
+          <p className="dashboard-display m-0 text-5xl leading-none text-slate-900">{formatNumber(total)}</p>
           <div className="mt-5 flex h-2.5 w-full gap-[2px] overflow-hidden rounded-full bg-slate-100" role="img" aria-label={bySource.map(segment => `${segment.label} ${formatNumber(segment.value)}`).join(', ')}>
             {visibleSegments.map(segment => (
               <span key={segment.source} style={{ width: `${(segment.value / total) * 100}%`, background: segment.color }} />
@@ -164,10 +166,10 @@ const ContactsCard = ({ pageCounts, loading, palette }) => {
           </div>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
             {bySource.map(segment => (
-              <span key={segment.source} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+              <span key={segment.source} className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
                 <span className="h-2.5 w-2.5 rounded-sm" style={{ background: segment.color }} />
                 {segment.label}
-                <span className="font-black tabular-nums text-slate-900">{formatNumber(segment.value)}</span>
+                <span className="font-semibold tabular-nums text-slate-900">{formatNumber(segment.value)}</span>
               </span>
             ))}
           </div>
@@ -191,8 +193,8 @@ const UsageCard = ({ usage, error, loading, isOwner, palette }) => {
     body = (
       <>
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-xs font-bold text-slate-500">Conversations this month</span>
-          <span className="text-sm font-black tabular-nums text-slate-900">{formatNumber(usage.used)}</span>
+          <span className="text-xs font-medium text-slate-500">Conversations this month</span>
+          <span className="text-sm font-semibold tabular-nums text-slate-900">{formatNumber(usage.used)}</span>
         </div>
         <p className="mb-0 mt-2 text-[11px] font-semibold text-slate-500">
           {usage.unlimited ? 'Your plan has no monthly conversation limit.' : 'Your plan does not report a monthly conversation limit.'}
@@ -206,9 +208,9 @@ const UsageCard = ({ usage, error, loading, isOwner, palette }) => {
     body = (
       <>
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-xs font-bold text-slate-500">Conversations this month</span>
-          <span className="text-sm font-black tabular-nums text-slate-900">
-            {formatNumber(usage.used)} <span className="font-semibold text-slate-500">/ {formatNumber(usage.limit)}</span>
+          <span className="text-xs font-medium text-slate-500">Conversations this month</span>
+          <span className="text-sm font-semibold tabular-nums text-slate-900">
+            {formatNumber(usage.used)} <span className="font-normal text-slate-500">/ {formatNumber(usage.limit)}</span>
           </span>
         </div>
         <div
@@ -261,7 +263,7 @@ const OrdersCard = ({ data, loading, error, truncated, isDark, onViewOrders }) =
   } else {
     body = (
       <>
-        <p className={`mb-0 mt-3 text-3xl font-bold leading-none tabular-nums ${valueClass}`}>{formatNumber(total)}</p>
+        <p className={`dashboard-display mb-0 mt-3 text-4xl leading-none ${valueClass}`}>{formatNumber(total)}</p>
         <div className="mt-auto h-32 pt-4">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
@@ -271,7 +273,7 @@ const OrdersCard = ({ data, loading, error, truncated, isDark, onViewOrders }) =
                   <stop offset="100%" stopColor={stroke} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              {/* Only the first day is labelled; the tooltip carries the rest. */}
+              {/* Only the first bar is labelled; the tooltip carries the rest. */}
               <XAxis
                 dataKey="date"
                 ticks={data.length ? [data[0].date] : []}
@@ -280,7 +282,7 @@ const OrdersCard = ({ data, loading, error, truncated, isDark, onViewOrders }) =
                 tickLine={false}
                 tick={{ fill: isDark ? '#6b7280' : '#64748b', fontSize: 11, fontWeight: 600, textAnchor: 'start' }}
               />
-              <Tooltip content={<ChartTooltip />} cursor={{ stroke: isDark ? '#334155' : '#cbd5e1', strokeWidth: 1 }} />
+              <Tooltip content={<ChartTooltip />} cursor={{ stroke: isDark ? '#3f3f3f' : '#cbd5e1', strokeWidth: 1 }} />
               <Area
                 dataKey="orders"
                 name="Orders"
@@ -288,7 +290,7 @@ const OrdersCard = ({ data, loading, error, truncated, isDark, onViewOrders }) =
                 stroke={stroke}
                 strokeWidth={2}
                 fill="url(#colorOrders)"
-                activeDot={{ r: 4, fill: stroke, stroke: isDark ? '#0f1b2d' : '#ffffff', strokeWidth: 2 }}
+                activeDot={{ r: 4, fill: stroke, stroke: isDark ? '#141414' : '#ffffff', strokeWidth: 2 }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -304,7 +306,7 @@ const OrdersCard = ({ data, loading, error, truncated, isDark, onViewOrders }) =
         <div className="flex items-center gap-2">
           {/* Inline radius: the dashboard stylesheet squares off rounded-full on spans. */}
           <span className="h-4 w-1 bg-cyan-400" style={{ borderRadius: 9999 }} aria-hidden="true" />
-          <h2 className={`m-0 text-sm font-medium ${titleClass}`}>Orders</h2>
+          <h2 className={`m-0 text-[15px] font-semibold ${titleClass}`}>Orders</h2>
         </div>
         <button type="button" onClick={onViewOrders} className={`text-xs transition-colors ${linkClass}`}>
           View orders
@@ -370,7 +372,7 @@ const RangePicker = ({ range, onChange, disabled }) => {
         disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
       >
         <CalendarDays size={15} className="shrink-0" />
         {formatRange(range)}
@@ -384,9 +386,9 @@ const RangePicker = ({ range, onChange, disabled }) => {
               key={days}
               type="button"
               onClick={() => choose(presetRange(days))}
-              className={`flex h-9 w-full items-center justify-between rounded-lg px-3 text-xs font-bold transition-colors hover:bg-slate-50 ${range.preset === days ? 'text-emerald-700' : 'text-slate-700'}`}
+              className={`flex h-9 w-full items-center justify-between rounded-lg px-3 text-[13px] font-medium transition-colors hover:bg-slate-50 ${range.preset === days ? 'text-emerald-700' : 'text-slate-700'}`}
             >
-              Last {days} days
+              {presetLabel(days)}
               {range.preset === days && <Check size={14} />}
             </button>
           ))}
@@ -395,7 +397,7 @@ const RangePicker = ({ range, onChange, disabled }) => {
             type="button"
             onClick={() => setIsCustomOpen(current => !current)}
             aria-expanded={isCustomOpen}
-            className={`flex h-9 w-full items-center justify-between rounded-lg px-3 text-xs font-bold transition-colors hover:bg-slate-50 ${range.preset ? 'text-slate-700' : 'text-emerald-700'}`}
+            className={`flex h-9 w-full items-center justify-between rounded-lg px-3 text-[13px] font-medium transition-colors hover:bg-slate-50 ${range.preset ? 'text-slate-700' : 'text-emerald-700'}`}
           >
             Custom range
             <ChevronDown size={14} className={`transition-transform ${isCustomOpen ? 'rotate-180' : ''}`} />
@@ -418,7 +420,7 @@ const RangePicker = ({ range, onChange, disabled }) => {
                 type="button"
                 onClick={() => choose(draftRange)}
                 disabled={!draftRange || draftTooLong}
-                className="h-9 w-full rounded-lg bg-emerald-600 text-xs font-black text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-9 w-full rounded-lg bg-emerald-600 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Apply range
               </button>
@@ -439,9 +441,9 @@ const TruncatedNote = () => (
 export default function AnalyticsHub({ pages, agents, isDark, isActive = true, onNavigate }) {
   const { isOwner } = useBusiness();
   const palette = CHART_THEME[isDark ? 'dark' : 'light'];
-  const [range, setRange] = useState(() => presetRange(RANGE_PRESETS[0]));
+  const [range, setRange] = useState(() => presetRange(7));
   // Range-dependent series, refetched when the range changes.
-  const [ranged, setRanged] = useState({ loading: true, messages: null, ordersByDay: null });
+  const [ranged, setRanged] = useState({ loading: true, messages: null, orders: null });
   // All-time totals, independent of the range.
   const [totals, setTotals] = useState({ loading: true, pageCounts: null, usage: null });
   const [reloadKey, setReloadKey] = useState(0);
@@ -452,12 +454,12 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
   // Both loaders are keyed on ids so a refreshed-but-identical page or agent list doesn't refetch.
   const loadRanged = useCallback(async (signal) => {
     setRanged(current => ({ ...current, loading: true }));
-    const [messages, ordersByDay] = await Promise.allSettled([
+    const [messages, orders] = await Promise.allSettled([
       loadMessageActivity(agents, range),
-      loadOrdersByDay(range),
+      loadOrderCounts(range),
     ]);
     if (signal.cancelled) return;
-    setRanged({ loading: false, messages: settle(messages), ordersByDay: settle(ordersByDay) });
+    setRanged({ loading: false, messages: settle(messages), orders: settle(orders) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentKey, range]);
 
@@ -486,9 +488,10 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
 
   const isLoading = ranged.loading || totals.loading;
   const rangeLabel = formatRange(range);
+  const perBar = barUnit(range);
   const commentSeries = useMemo(() => sampleCommentSeries(range), [range]);
   const messages = ranged.messages?.value || null;
-  const orders = ranged.ordersByDay?.value || null;
+  const orders = ranged.orders?.value || null;
   const messageVsOrder = useMemo(
     () => (messages && orders ? mergeMessagesAndOrders(messages.series, orders.counts) : null),
     [messages, orders],
@@ -504,7 +507,7 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
     return render(settled.value);
   };
 
-  const rangePhrase = range.preset ? `the last ${range.preset} days` : rangeLabel;
+  const rangePhrase = range.preset === 1 ? 'today' : range.preset ? `the last ${range.preset} days` : rangeLabel;
   let messagesEmpty = null;
   if (messages?.agentCount === 0) messagesEmpty = 'Create an agent to see message analytics.';
   else if (messages?.total === 0) messagesEmpty = `No agent activity in ${rangePhrase}.`;
@@ -516,10 +519,7 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
   return (
     <div className="dashboard-content-area w-full flex-1 bg-surface-bright p-4 text-left md:p-6 xl:p-8">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Analytics</span>
-          <h1 className="m-0 font-headline text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Dashboard</h1>
-        </div>
+        <h1 className="dashboard-display m-0 text-3xl text-slate-950 md:text-4xl">Dashboard</h1>
         <div className="flex items-center gap-2">
           {/* Presets are relative to today, so re-picking one after midnight moves the window. */}
           <RangePicker range={range} onChange={setRange} disabled={ranged.loading} />
@@ -537,7 +537,7 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <WidgetCard className="xl:col-span-2" title="Message analytics" subtitle={`Agent replies, failed replies and human handovers · ${rangeLabel}`} icon={MessagesSquare}>
+        <WidgetCard className="xl:col-span-2" title="Message analytics" subtitle={`Agent replies and failed replies ${perBar} · ${rangeLabel}`} icon={MessagesSquare}>
           {renderChart({ settled: ranged.messages, empty: messagesEmpty }, data => (
             <ColumnChart
               data={data.series}
@@ -545,7 +545,6 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
               series={[
                 { key: 'replied', label: 'Replied' },
                 { key: 'unreplied', label: 'Unreplied' },
-                { key: 'tickets', label: 'Tickets' },
               ]}
             />
           ))}
@@ -562,7 +561,7 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
         <WidgetCard
           className="xl:col-span-2"
           title="Comment analytics"
-          subtitle={`Total comments per day · ${rangeLabel}`}
+          subtitle={`Total comments ${perBar} · ${rangeLabel}`}
           icon={MessageCircle}
           badge={<SampleBadge reason="The API does not expose comment data yet." />}
         >
@@ -576,7 +575,7 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
         <OrdersCard
           data={orderTimeline}
           loading={ranged.loading}
-          error={ranged.ordersByDay?.error}
+          error={ranged.orders?.error}
           truncated={orders?.truncated}
           isDark={isDark}
           onViewOrders={() => onNavigate?.('customer-orders')}
@@ -597,9 +596,9 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
           ))}
         </WidgetCard>
 
-        <WidgetCard title="Message vs order" subtitle={`Per day · ${rangeLabel}`} icon={ShoppingCart}>
+        <WidgetCard title="Message vs order" subtitle={`${perBar.charAt(0).toUpperCase()}${perBar.slice(1)} · ${rangeLabel}`} icon={ShoppingCart}>
           {renderChart({
-            settled: ranged.messages?.error ? ranged.messages : ranged.ordersByDay,
+            settled: ranged.messages?.error ? ranged.messages : ranged.orders,
             empty: messages?.total === 0 && !hasOrdersInRange ? `No messages or orders in ${rangePhrase}.` : null,
           }, () => (
             <ColumnChart

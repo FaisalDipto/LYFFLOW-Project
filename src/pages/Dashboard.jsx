@@ -1,6 +1,8 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, KeyRound, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import '@fontsource-variable/hanken-grotesk';
+import '@fontsource-variable/archivo/wdth.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import logoImg from '../assets/logo1.webp';
 import titleImg from '../assets/title.webp';
@@ -11,7 +13,9 @@ import RequiredActionsBanner from '../components/RequiredActionsBanner';
 import RoleBadge from '../components/RoleBadge';
 import { BusinessDetailsSettings, BusinessMembersSettings } from '../components/BusinessSettings';
 import { NotificationsProvider } from '../context/NotificationsContext';
-import { BusinessProvider, useBusiness } from '../context/BusinessContext';
+import { BusinessProvider, roleAtLeast, useBusiness } from '../context/BusinessContext';
+import { PlanGateProvider, usePlanGate } from '../context/PlanGateContext';
+import UpgradeRequiredModal from '../components/UpgradeRequiredModal';
 import { useWidget } from '../context/WidgetContext';
 import { API_BASE } from '../config/env';
 import {
@@ -36,6 +40,7 @@ const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCouri
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 const AnalyticsHub = lazy(() => import('../components/dashboard/AnalyticsHub'));
 const PlatformsCatalog = lazy(() => import('../components/dashboard/PlatformsCatalog'));
+const ApiKeysPanel = lazy(() => import('../components/dashboard/ApiKeysPanel'));
 
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
 // Themes, Widget Appearance and Team Members settings have no backend yet; flip to show them.
@@ -107,7 +112,6 @@ const parseCollection = (data, primaryKey) => {
 };
 
 // Sidebar entries the owner can't open until the business has an active plan.
-const NAV_LOCKED_CLASS = 'pointer-events-none opacity-40';
 
 const KNOWLEDGE_POLL_DELAYS = [1500, 2500, 4000];
 
@@ -184,6 +188,7 @@ const PageSyncStatus = ({ status, onRetry }) => {
 const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = 'idle', onRetrySync }) => {
   // Facebook connect is owner-only; agent assignment and page removal are admin+.
   const { business, isOwner, canManage } = useBusiness();
+  const { requireActivePlan } = usePlanGate();
   const [disconnecting, setDisconnecting] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [dropdownPlacement, setDropdownPlacement] = useState('bottom');
@@ -270,6 +275,7 @@ const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
 
   const handleAssign = async (pageId, agentId) => {
     if (!agentId) return;
+    if (!requireActivePlan('assign-agent')) return;
     setAssigning(prev => ({ ...prev, [pageId]: true }));
     try {
       await apiService.assignAgentToPage(pageId, agentId);
@@ -3490,6 +3496,7 @@ const AgentLog = ({ agents }) => {
 const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgentEdited }) => {
   // Every member can see agents and their activity; changing them is admin+.
   const { canManage } = useBusiness();
+  const { requireActivePlan } = usePlanGate();
   const agents = user?.agents || [];
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -3549,7 +3556,9 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   };
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
+  // Gated before the form opens, so nobody fills it in only to be turned away.
   const openCreateForm = () => {
+    if (!requireActivePlan('create-agent')) return;
     setIsCreating(true);
     setIsEditing(false);
     setEditingAgentId(null);
@@ -3699,6 +3708,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   };
 
   const handleAssignToPage = async (pageId, agentId) => {
+    // The page picker sits above the upgrade prompt, so close it first.
+    if (!requireActivePlan('assign-agent')) {
+      setAssignPageModalAgent(null);
+      return;
+    }
     setAssigningPageId(pageId);
     try {
       await apiService.assignAgentToPage(pageId, agentId);
@@ -4632,7 +4646,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
                   {canManage && <div className="mt-auto grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
                     <button
-                      onClick={(e) => { e.stopPropagation(); setAssignPageModalAgent(agent); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // "Manage pages" stays open without a plan so pages can still be unassigned.
+                        if (isAssignedToPage || requireActivePlan('assign-agent')) setAssignPageModalAgent(agent);
+                      }}
                       className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-200"
                     >
                       <span className="material-symbols-outlined text-[15px]">web</span>
@@ -5561,7 +5579,9 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
     <article className="flex min-w-0 flex-col items-center rounded-2xl border border-slate-200/80 bg-slate-50/60 p-5 text-center">
       <div className="mb-4 flex w-full items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 text-left">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: softColor, color }}>
+          {/* `icon` must be in the dashboard's icon subset (public/fonts/material-symbols-dashboard.woff2);
+              a missing one renders as its name, which overflow-hidden keeps inside the box. */}
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ backgroundColor: softColor, color }}>
             <span className="material-symbols-outlined text-[19px]">{icon}</span>
           </span>
           <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</p>
@@ -5601,13 +5621,15 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
   );
 };
 
-// `requirePlan`: the owner has no active plan, so this panel is the only thing the
-// dashboard shows; plans are listed inline and `onSubscribed` unlocks the rest.
-const SubscriptionPanel = ({ isActive = false, initialData = null, requirePlan = false, onSubscribed }) => {
+// `noActivePlan`: the business has no plan yet, so the plans are listed inline
+// instead of the usage overview. `onSubscribed` receives the new subscription.
+const SubscriptionPanel = ({ isActive = false, initialData = null, noActivePlan = false, onSubscribed }) => {
   const [subData, setSubData] = useState(initialData);
   const [loading, setLoading] = useState(!initialData);
   const [, setError] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  // Name of the plan whose subscribe request is in flight (plan names are unique), or null.
+  // Only that plan's button shows progress; the others are disabled until it settles.
+  const [processingPlanName, setProcessingPlanName] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -5675,8 +5697,11 @@ const SubscriptionPanel = ({ isActive = false, initialData = null, requirePlan =
       return;
     }
 
+    // A second click while a request is in flight would start a parallel subscription.
+    if (processingPlanName !== null) return;
+
     try {
-      setSubmitting(true);
+      setProcessingPlanName(planName);
       const subRequest = {
         subscription_type: planName.toUpperCase(),
         num_months: 1
@@ -5695,7 +5720,7 @@ const SubscriptionPanel = ({ isActive = false, initialData = null, requirePlan =
     } catch (err) {
       alert(`Subscription failed: ${err.message}`);
     } finally {
-      setSubmitting(false);
+      setProcessingPlanName(null);
     }
   };
 
@@ -5760,10 +5785,10 @@ const SubscriptionPanel = ({ isActive = false, initialData = null, requirePlan =
             <div className="p-8 pt-0">
               <button
                 onClick={() => handleSubscribe(pendingPlan.name)}
-                disabled={submitting}
+                disabled={processingPlanName !== null}
                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {submitting ? (
+                {processingPlanName === pendingPlan.name ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                     Processing...
@@ -5789,6 +5814,8 @@ const SubscriptionPanel = ({ isActive = false, initialData = null, requirePlan =
   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
     {plans.map(plan => {
       const isCurrent = plan.name === currentPlan.plan_name;
+      const isProcessing = processingPlanName === plan.name;
+      const isLocked = processingPlanName !== null && !isProcessing;
       const colorClass = plan.color === 'emerald' ? 'border-emerald-500 ring-4 ring-emerald-500/10' :
         plan.color === 'blue' ? 'border-blue-500 ring-4 ring-blue-500/10' :
           plan.color === 'purple' ? 'border-purple-500 ring-4 ring-purple-500/10' : 'border-slate-200 hover:border-slate-300';
@@ -5819,17 +5846,27 @@ const SubscriptionPanel = ({ isActive = false, initialData = null, requirePlan =
             ))}
           </div>
           <button
-            disabled={isCurrent || submitting}
+            disabled={isCurrent || processingPlanName !== null}
+            aria-busy={isProcessing}
             onClick={() => {
               setShowPlansModal(false);
               handleSubscribe(plan.name);
             }}
-            className={`w-full py-4 rounded-2xl font-black text-sm transition-all duration-200 ${isCurrent
+            className={`w-full py-4 rounded-2xl font-black text-sm transition-all duration-200 flex items-center justify-center gap-2 ${isCurrent
                 ? 'bg-slate-200 text-slate-400 cursor-default'
-                : 'bg-slate-900 text-white hover:bg-slate-800 hover:scale-[1.05] active:scale-95 shadow-xl shadow-slate-200'
+                : isProcessing
+                  ? 'bg-slate-900 text-white cursor-wait shadow-xl shadow-slate-200'
+                  : isLocked
+                    ? 'bg-slate-900 text-white opacity-50 cursor-not-allowed'
+                    : 'bg-slate-900 text-white hover:bg-slate-800 hover:scale-[1.05] active:scale-95 shadow-xl shadow-slate-200'
               }`}
           >
-            {isCurrent ? 'Active' : submitting ? 'Processing...' : `Select ${plan.name}`}
+            {isCurrent ? 'Active' : isProcessing ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" aria-hidden="true" />
+                Processing...
+              </>
+            ) : `Select ${plan.name}`}
           </button>
         </div>
       );
@@ -5839,13 +5876,13 @@ const SubscriptionPanel = ({ isActive = false, initialData = null, requirePlan =
 
   if (loading) return <div className="p-8 text-center text-slate-400">Loading subscription details...</div>;
 
-  if (requirePlan) {
+  if (noActivePlan) {
     return (
       <div className="dashboard-content-area animate-fade-in-up pb-12">
         <header className="mx-auto mb-10 max-w-2xl text-center">
           <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white"><CreditCard size={22} /></span>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">Choose a plan to continue</h1>
-          <p className="mt-2 text-slate-500">This business doesn't have an active plan. Pick one to unlock pages, agents, knowledge and the rest of your workspace.</p>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">Choose a plan</h1>
+          <p className="mt-2 text-slate-500">This business doesn't have an active plan yet. You can explore the workspace freely; a plan is needed to create agents, assign them to pages and invite your team.</p>
         </header>
         {plans.length === 0 ? (
           <p className="text-center text-sm text-slate-400">Loading plans...</p>
@@ -5949,7 +5986,7 @@ const SubscriptionPanel = ({ isActive = false, initialData = null, requirePlan =
           <UsageGauge label="Pages with an agent" used={usage.agent_assigned} max={currentPlan.max_assign} color="#3b82f6" softColor="#eff6ff" icon="web" isActive={isActive} />
           <UsageGauge label="Agents created" used={usage.agent_created} max={currentPlan.max_agents} color="#10b981" softColor="#ecfdf5" icon="smart_toy" isActive={isActive} />
           <UsageGauge label="Monthly conversations" used={usage.conversations_used} max={currentPlan.max_conversations_per_month} color="#8b5cf6" softColor="#f5f3ff" icon="forum" isActive={isActive} />
-          <UsageGauge label="Products" used={usage.product_created} max={currentPlan.max_products} color="#f59e0b" softColor="#fffbeb" icon="storefront" isActive={isActive} />
+          <UsageGauge label="Products" used={usage.product_created} max={currentPlan.max_products} color="#f59e0b" softColor="#fffbeb" icon="inventory_2" isActive={isActive} />
           <UsageGauge label="Namespaces" used={usage.namespace_created} max={currentPlan.max_namespaces} color="#0ea5e9" softColor="#f0f9ff" icon="database" isActive={isActive} />
           <UsageGauge label="Team members" used={usage.member_assigned} max={currentPlan.max_business_members} color="#ec4899" softColor="#fdf2f8" icon="person" isActive={isActive} />
         </div>
@@ -6258,12 +6295,23 @@ const TutorialPanel = () => {
 export default function Dashboard() {
   const { theme, isDark, toggleTheme } = useDashboardTheme();
   const [activeTab, setActiveTabState] = useState('dashboard');
-  // Owner of a business with no active plan: everything but Subscription is locked.
-  const [planRequired, setPlanRequired] = useState(false);
-  const setActiveTab = useCallback((tab) => {
-    if (planRequired && tab !== 'subscription') return;
-    setActiveTabState(tab);
-  }, [planRequired]);
+  const setActiveTab = setActiveTabState;
+  // true / false when the plan is known (owners), null when it isn't (see PlanGateContext).
+  const [hasActivePlan, setHasActivePlan] = useState(null);
+  // The gated action the upgrade prompt is explaining, or null when it's closed.
+  const [upgradeAction, setUpgradeAction] = useState(null);
+  // Where to return once a plan is chosen from the upgrade prompt.
+  const upgradeReturnTabRef = useRef(null);
+  const requireActivePlan = useCallback((action) => {
+    if (hasActivePlan !== false) return true;
+    setUpgradeAction(action);
+    return false;
+  }, [hasActivePlan]);
+  const planGate = useMemo(() => ({ hasActivePlan, requireActivePlan }), [hasActivePlan, requireActivePlan]);
+  // Leaving Subscription without buying drops the pending return trip.
+  useEffect(() => {
+    if (activeTab !== 'subscription') upgradeReturnTabRef.current = null;
+  }, [activeTab]);
   const visitedTabsRef = useRef(new Set(['dashboard']));
   visitedTabsRef.current.add(activeTab);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -6328,8 +6376,9 @@ export default function Dashboard() {
       if (pagesResult.status === 'rejected') throw pagesResult.reason;
       if (agentsResult.status === 'rejected') console.warn('Could not fetch agents', agentsResult.reason);
       if (namespacesResult.status === 'rejected') console.warn('Could not fetch namespaces', namespacesResult.reason);
-      // 404 means the owner has no active plan: lock the dashboard to plan selection.
-      // Any other failure lets them in rather than blocking on a flaky request.
+      // 404 (or an inactive subscription) means the owner has no plan; quota-using
+      // actions are gated, the rest of the workspace stays open. Any other failure
+      // leaves the plan unknown rather than gating on a flaky request.
       const missingPlan = activeRole === 'owner' && (
         (subscriptionResult.status === 'rejected' && subscriptionResult.reason?.status === 404)
         || (subscriptionResult.status === 'fulfilled' && subscriptionResult.value && !subscriptionResult.value.is_active)
@@ -6352,8 +6401,8 @@ export default function Dashboard() {
       setRole(activeRole);
       setPages(parsedPages);
       setNamespaces(parsedNamespaces);
-      setPlanRequired(missingPlan);
-      if (missingPlan) setActiveTabState('subscription');
+      const planKnown = activeRole === 'owner' && (subscriptionResult.status === 'fulfilled' || subscriptionResult.reason?.status === 404);
+      setHasActivePlan(planKnown ? !missingPlan : null);
     } catch (err) {
       console.error("Failed to fetch user data:", err);
       if (err.status === 401) {
@@ -6553,7 +6602,7 @@ export default function Dashboard() {
     return (
       <>
         {/* Analytics fire a burst of requests, so they wait until the business has a plan. */}
-        {visitedTabsRef.current.has('dashboard') && !planRequired && <div style={{ display: activeTab === 'dashboard' ? 'contents' : 'none' }}>
+        {visitedTabsRef.current.has('dashboard') && <div style={{ display: activeTab === 'dashboard' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
             <AnalyticsHub pages={pages} agents={user?.agents} isDark={isDark} isActive={activeTab === 'dashboard'} onNavigate={setActiveTab} />
           </Suspense>
@@ -6606,15 +6655,26 @@ export default function Dashboard() {
             <SubscriptionPanel
               isActive={activeTab === 'subscription'}
               initialData={user?.subscription || null}
-              requirePlan={planRequired}
+              noActivePlan={hasActivePlan === false}
               onSubscribed={(subscription) => {
                 setUser(current => current ? { ...current, subscription } : current);
-                setPlanRequired(false);
-                setActiveTabState('dashboard');
+                setHasActivePlan(true);
+                // Back to whatever the upgrade prompt interrupted, if anything.
+                if (upgradeReturnTabRef.current) setActiveTab(upgradeReturnTabRef.current);
+                upgradeReturnTabRef.current = null;
               }}
             />
           ) : (
             <OwnerOnlyNotice title="Billing is managed by the business owner" description="Plans, usage and payments for this business are only visible to its owner." />
+          )}
+        </div>}
+        {visitedTabsRef.current.has('api-keys') && <div style={{ display: activeTab === 'api-keys' ? 'contents' : 'none' }}>
+          {roleAtLeast(role, 'admin') ? (
+            <Suspense fallback={<AppLoadingScreen />}>
+              <ApiKeysPanel />
+            </Suspense>
+          ) : (
+            <OwnerOnlyNotice title="API keys are managed by admins" description="Ask an owner or admin of this business to create or revoke API keys." />
           )}
         </div>}
         {visitedTabsRef.current.has('tutorial') && <div style={{ display: activeTab === 'tutorial' ? 'contents' : 'none' }}>
@@ -6661,6 +6721,8 @@ export default function Dashboard() {
   const secondaryNavItems = [
     // Subscription endpoints are owner-only, so the tab is too.
     ...(role === 'owner' ? [{ id: 'subscription', icon: CreditCard, label: 'Subscription' }] : []),
+    // Keys reach products and orders, so they follow the admin-or-owner rule for business settings.
+    ...(roleAtLeast(role, 'admin') ? [{ id: 'api-keys', icon: KeyRound, label: 'API keys' }] : []),
     { id: 'feedback', icon: MessageCircleWarning, label: 'Feedback' },
     { id: 'tutorial', icon: Headphones, label: 'Tutorial' }
   ];
@@ -6703,8 +6765,22 @@ export default function Dashboard() {
 
   return (
     <BusinessProvider business={business} role={role} refreshBusiness={refreshBusiness}>
+    <PlanGateProvider value={planGate}>
     <NotificationsProvider onSessionExpired={() => navigate('/get-started', { replace: true })}>
     <div className={`dashboard-layout theme-${theme}`}>
+      {upgradeAction && (
+        <UpgradeRequiredModal
+          action={upgradeAction}
+          isOwner={role === 'owner'}
+          onClose={() => setUpgradeAction(null)}
+          onViewPlans={() => {
+            upgradeReturnTabRef.current = activeTab;
+            setUpgradeAction(null);
+            setIsSidebarOpen(false);
+            setActiveTab('subscription');
+          }}
+        />
+      )}
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div
@@ -6762,8 +6838,7 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => setExpandedNavGroups(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
                     aria-expanded={isExpanded}
-                    disabled={planRequired}
-                    className={`${planRequired ? NAV_LOCKED_CLASS : ''} group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${hasActiveChild
+                    className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${hasActiveChild
                       ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
                       : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                     }`}
@@ -6804,8 +6879,7 @@ export default function Dashboard() {
                 type="button"
                 key={item.id}
                 onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-                disabled={planRequired}
-                className={`${planRequired ? NAV_LOCKED_CLASS : ''} group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id
+                className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id
                   ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
                   : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                 }`}
@@ -6822,7 +6896,7 @@ export default function Dashboard() {
           <p className="mb-2 px-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Manage</p>
           <nav className="space-y-1">
             {secondaryNavItems.map(item => (
-              <button key={item.id} onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }} disabled={planRequired && item.id !== 'subscription'} className={`${planRequired && item.id !== 'subscription' ? NAV_LOCKED_CLASS : ''} group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}>
+              <button key={item.id} onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }} className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}>
                 {activeTab === item.id && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
                 <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}>
                   {item.id === 'tutorial' ? <span className="material-symbols-outlined text-[18px]">school</span> : <item.icon size={17} strokeWidth={2.2} />}
@@ -6839,8 +6913,7 @@ export default function Dashboard() {
             <p className="mt-2 truncate text-[11px] font-medium text-slate-500">{pages.length} pages {'\u00B7'} {(user?.agents || []).length} agents</p>
           </div>
           <button onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
-            disabled={planRequired}
-            className={`${planRequired ? NAV_LOCKED_CLASS : ''} group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === 'settings' ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}
+            className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === 'settings' ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}
           >
             {activeTab === 'settings' && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
             <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${activeTab === 'settings' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}><Settings size={17} strokeWidth={2.2} /></span>
@@ -6964,7 +7037,7 @@ export default function Dashboard() {
               </div>
 
               <div className="drawer-menu">
-                <button className="drawer-menu-item" disabled={planRequired} style={planRequired ? { opacity: 0.4, cursor: 'not-allowed' } : undefined} onClick={() => {
+                <button className="drawer-menu-item" onClick={() => {
                   setActiveTab('settings');
                   setIsProfileOpen(false);
                 }}>
@@ -7155,6 +7228,7 @@ export default function Dashboard() {
       </main>
     </div>
     </NotificationsProvider>
+    </PlanGateProvider>
     </BusinessProvider>
   );
 }

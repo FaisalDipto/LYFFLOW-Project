@@ -16,16 +16,47 @@ body.dashboard-route .material-symbols-outlined {
   width: 100vw;
   background-color: #f8fafc; /* Very light cool gray background for main app */
   overflow: hidden;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--dashboard-font-ui);
   font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hanken Grotesk carries the interface; Archivo, the homepage's display face, is
+   kept for headings and the large figures so the app reads as the same brand. */
+:root {
+  --dashboard-font-ui: 'Hanken Grotesk Variable', 'Inter', system-ui, sans-serif;
+  --dashboard-font-display: 'Archivo Variable', 'Epilogue', system-ui, sans-serif;
+}
+
+/* Dialogs portal to <body>, outside the layout. */
+body.dashboard-route {
+  font-family: var(--dashboard-font-ui);
 }
 
 .dashboard-layout button,
 .dashboard-layout input,
 .dashboard-layout textarea,
 .dashboard-layout select {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--dashboard-font-ui);
+}
+
+/* At UI sizes Hanken's 900 reads blunt; 750 keeps the emphasis without the weight. */
+.dashboard-layout .font-black,
+body.dashboard-route > .fixed .font-black {
+  font-weight: 750;
+}
+
+.dashboard-layout .dashboard-display {
+  font-family: var(--dashboard-font-display) !important;
+  font-stretch: 112%;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-layout .recharts-text {
+  font-variant-numeric: tabular-nums;
 }
 
 .dashboard-layout h1,
@@ -36,21 +67,19 @@ body.dashboard-route .material-symbols-outlined {
 .dashboard-layout h6,
 .dashboard-layout .font-headline,
 .dashboard-layout [class*="font-['Epilogue']"] {
-  font-family: 'Epilogue', system-ui, sans-serif !important;
-  letter-spacing: -0.025em;
+  font-family: var(--dashboard-font-display) !important;
+  letter-spacing: -0.02em;
 }
 
 .dashboard-layout [class*="font-['Inter']"] {
-  font-family: 'Inter', system-ui, sans-serif !important;
+  font-family: var(--dashboard-font-ui) !important;
 }
 
 .dashboard-shell-sidebar {
-  background:
-    radial-gradient(circle at 20% 0%, rgba(16, 185, 129, 0.12), transparent 28%),
-    linear-gradient(180deg, #0b1424 0%, #0a1220 100%);
+  background: #0a0a0a;
   color: #ffffff;
-  border-right: 1px solid rgba(148, 163, 184, 0.12);
-  box-shadow: 12px 0 40px rgba(2, 6, 23, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.08);
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
   overflow-x: hidden;

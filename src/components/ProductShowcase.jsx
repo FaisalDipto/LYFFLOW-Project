@@ -384,7 +384,7 @@ export default function ProductShowcase() {
               >
                 <div
                   className="tab-icon-wrap"
-                  style={{ background: activeIdx === i ? `${f.color}22` : '#1a2336' }}
+                  style={{ background: activeIdx === i ? `${f.color}22` : '#222222' }}
                 >
                   <span
                     className="material-symbols-outlined"

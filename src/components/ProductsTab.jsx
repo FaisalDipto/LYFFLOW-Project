@@ -66,7 +66,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
   const [csvFile, setCsvFile] = useState(null);
 
   // Filter State
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'active', 'inactive'
+  const [availabilityFilter, setAvailabilityFilter] = useState('all'); // 'all' | 'available' | 'unavailable'
   const [sourceFilter, setSourceFilter] = useState('all'); // 'all', 'csv', 'manual'
 
   // History Modal State
@@ -102,11 +102,9 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     if (!selectedNamespaceId) return;
     setLoading(true);
     try {
-      let isActiveParam = null;
-      if (activeFilter === 'active') isActiveParam = true;
-      if (activeFilter === 'inactive') isActiveParam = false;
-      
-      const data = await apiService.getProducts(selectedNamespaceId, cursor, PAGE_SIZE, isActiveParam, sourceFilter);
+      // 'all' sends no availability parameter, so both kinds come back.
+      const availability = availabilityFilter === 'all' ? null : availabilityFilter === 'available';
+      const data = await apiService.getProducts(selectedNamespaceId, cursor, PAGE_SIZE, availability, sourceFilter);
       setProducts(data.items || []);
       setHasMore(data.pagination?.has_more || false);
       setNextCursor(data.pagination?.next_cursor || null);
@@ -154,7 +152,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     setCurrentIndex(0);
     fetchProducts(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedNamespaceId, activeFilter, sourceFilter]);
+  }, [selectedNamespaceId, availabilityFilter, sourceFilter]);
 
   useEffect(() => {
     if (showHistoryModal) {
@@ -421,14 +419,15 @@ const ProductsTab = ({ selectedNamespaceId }) => {
           <div className="flex gap-3">
             <div className="relative">
               <select 
-                value={activeFilter} 
-                onChange={(e) => setActiveFilter(e.target.value)}
+                value={availabilityFilter} 
+                onChange={(e) => setAvailabilityFilter(e.target.value)}
+                aria-label="Filter by availability"
                 style={{ backgroundImage: 'none' }}
                 className="products-filter-select appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
               >
-                <option value="all" className="text-slate-800 font-semibold">All Status</option>
-                <option value="active" className="text-slate-800 font-semibold">Active</option>
-                <option value="inactive" className="text-slate-800 font-semibold">Inactive</option>
+                <option value="all" className="text-slate-800 font-semibold">All products</option>
+                <option value="available" className="text-slate-800 font-semibold">Available (In Stock)</option>
+                <option value="unavailable" className="text-slate-800 font-semibold">Unavailable (Out of Stock)</option>
               </select>
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/70">
                 <span className="material-symbols-outlined text-[20px]">expand_more</span>

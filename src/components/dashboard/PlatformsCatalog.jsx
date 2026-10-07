@@ -4,13 +4,6 @@ import { Bike, Link2, PackageCheck, Search, ShoppingBag, Store, X } from 'lucide
 import { useBusiness } from '../../context/BusinessContext';
 import { apiService } from '../../services/api';
 
-const FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'channels', label: 'Channels' },
-  { id: 'ecommerce', label: 'E-Commerce' },
-  { id: 'marketing', label: 'Marketing' },
-];
-
 const BrandPath = ({ d }) => (
   <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current" aria-hidden="true"><path d={d} /></svg>
 );
@@ -110,7 +103,6 @@ const WooCommerceModal = ({ onClose }) => {
 
 export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate }) {
   const { isOwner } = useBusiness();
-  const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [wooConnected, setWooConnected] = useState(false);
   const [isWooModalOpen, setIsWooModalOpen] = useState(false);
@@ -130,7 +122,7 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
   // `action` is null for integrations the backend doesn't support yet.
   const platforms = useMemo(() => [
     {
-      id: 'facebook', category: 'channels', title: 'Facebook Messenger', brand: '#1877F2',
+      id: 'facebook', title: 'Facebook Messenger', brand: '#1877F2',
       logo: <BrandPath d={FACEBOOK_PATH} />,
       description: 'Let your AI agent answer Messenger conversations, capture leads and take orders on your Facebook pages.',
       connected: hasFacebookPages,
@@ -139,19 +131,19 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
       ownerOnly: !hasFacebookPages,
     },
     {
-      id: 'instagram', category: 'channels', title: 'Instagram Direct', brand: 'linear-gradient(135deg,#f58529,#dd2a7b 55%,#8134af)',
+      id: 'instagram', title: 'Instagram Direct', brand: 'linear-gradient(135deg,#f58529,#dd2a7b 55%,#8134af)',
       logo: <BrandPath d={INSTAGRAM_PATH} />,
       description: 'Reply to Instagram DMs and story mentions with the same agents and knowledge you use on Messenger.',
       comingSoon: true,
     },
     {
-      id: 'whatsapp', category: 'channels', title: 'WhatsApp Business', brand: '#25D366',
+      id: 'whatsapp', title: 'WhatsApp Business', brand: '#25D366',
       logo: <BrandPath d={WHATSAPP_PATH} />,
       description: 'Connect a WhatsApp Business account so customers can chat, ask about products and order over WhatsApp.',
       comingSoon: true,
     },
     {
-      id: 'woocommerce', category: 'ecommerce', title: 'WooCommerce', brand: '#7f54b3',
+      id: 'woocommerce', title: 'WooCommerce', brand: '#7f54b3',
       logo: <Store size={24} strokeWidth={2.2} />,
       description: 'Import your WooCommerce catalog so agents can quote live prices, stock and product details.',
       connected: wooConnected,
@@ -160,20 +152,20 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
       ownerOnly: !wooConnected,
     },
     {
-      id: 'shopify', category: 'ecommerce', title: 'Shopify', brand: '#5e8e3e',
+      id: 'shopify', title: 'Shopify', brand: '#5e8e3e',
       logo: <ShoppingBag size={24} strokeWidth={2.2} />,
       description: 'Sync Shopify products and orders so your agent always sells from an up-to-date catalog.',
       comingSoon: true,
     },
     {
-      id: 'pathao', category: 'ecommerce', title: 'Pathao Courier', brand: '#e8202a',
+      id: 'pathao', title: 'Pathao Courier', brand: '#e8202a',
       logo: <Bike size={24} strokeWidth={2.2} />,
       description: 'Book Pathao deliveries straight from captured orders, with price estimates and consignment tracking.',
       action: () => onNavigate('courier-pathao'),
       actionLabel: 'Connect',
     },
     {
-      id: 'steadfast', category: 'ecommerce', title: 'Steadfast Courier', brand: '#00a651',
+      id: 'steadfast', title: 'Steadfast Courier', brand: '#00a651',
       logo: <PackageCheck size={24} strokeWidth={2.2} />,
       description: 'Send orders to Steadfast in one click and get delivery status updates back automatically.',
       action: () => onNavigate('courier-steadfast'),
@@ -183,8 +175,7 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
 
   const normalizedQuery = query.trim().toLowerCase();
   const visible = platforms.filter(platform => (
-    (filter === 'all' || platform.category === filter)
-    && (!normalizedQuery || `${platform.title} ${platform.description}`.toLowerCase().includes(normalizedQuery))
+    !normalizedQuery || `${platform.title} ${platform.description}`.toLowerCase().includes(normalizedQuery)
   ));
 
   return (
@@ -195,23 +186,7 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
         <p className="mb-0 mt-1 text-sm font-medium text-slate-500">Connect messaging channels, stores and couriers to your workspace.</p>
       </div>
 
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filter integrations">
-          {FILTERS.map(option => (
-            <button
-              key={option.id}
-              type="button"
-              role="tab"
-              aria-selected={filter === option.id}
-              onClick={() => setFilter(option.id)}
-              className={`h-9 rounded-full border px-4 text-xs font-bold transition-colors ${filter === option.id
-                ? 'border-violet-600 bg-violet-600 text-white'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      <div className="mb-5 flex sm:justify-end">
         <label className="relative block w-full sm:w-72">
           <span className="sr-only">Search integrations</span>
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -227,12 +202,8 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
 
       {visible.length === 0 ? (
         <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 p-6 text-center">
-          <span className="text-sm font-black text-slate-700">
-            {filter === 'marketing' && !normalizedQuery ? 'Marketing integrations are on the way' : 'No integrations match your search'}
-          </span>
-          <span className="text-xs font-medium text-slate-500">
-            {filter === 'marketing' && !normalizedQuery ? 'Ad and campaign tools will appear here once they are available.' : 'Try a different name or filter.'}
-          </span>
+          <span className="text-sm font-black text-slate-700">No integrations match your search</span>
+          <span className="text-xs font-medium text-slate-500">Try a different name.</span>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

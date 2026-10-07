@@ -3,6 +3,7 @@ import { Copy, Mail, Trash2, UserPlus } from 'lucide-react';
 import RoleBadge from './RoleBadge';
 import { apiService } from '../services/api';
 import { useBusiness } from '../context/BusinessContext';
+import { usePlanGate } from '../context/PlanGateContext';
 
 const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-50';
 const primaryButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60';
@@ -172,6 +173,7 @@ export const BusinessDetailsSettings = ({ onBusinessDeleted }) => {
 /** Member list for everyone; invite/remove for admin+; role changes for the owner. */
 export const BusinessMembersSettings = () => {
   const { canManage, isOwner } = useBusiness();
+  const { requireActivePlan } = usePlanGate();
   const [members, setMembers] = useState([]);
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [message, setMessage] = useState(null);
@@ -201,6 +203,7 @@ export const BusinessMembersSettings = () => {
     event.preventDefault();
     const email = inviteEmail.trim();
     if (!email) return;
+    if (!requireActivePlan('invite-member')) return;
     setInviting(true);
     setMessage(null);
     setInviteLink('');
@@ -212,8 +215,9 @@ export const BusinessMembersSettings = () => {
       if (invite?.invite_link) setInviteLink(invite.invite_link);
       await loadMembers();
     } catch (err) {
+      // 402 covers both "no active plan" and "member limit reached".
       const text = err.status === 402
-        ? 'Your plan has reached its member limit. The owner can upgrade the plan to invite more people.'
+        ? "Your plan doesn't allow more team members, or there is no active plan. The owner can choose or upgrade a plan to invite more people."
         : err.status === 409
           ? 'That email already has an open invitation.'
           : err.message || 'Could not send the invitation.';
@@ -303,7 +307,7 @@ export const BusinessMembersSettings = () => {
             const isOwnerRow = member.role === 'owner';
             const busy = busyMemberId === member.member_id;
             return (
-              <li key={member.member_id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3">
+              <li key={member.member_id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-700">
                   {(member.invited_email || '?').charAt(0).toUpperCase()}
                 </span>
@@ -313,32 +317,36 @@ export const BusinessMembersSettings = () => {
                     {member.status === 'invited' ? 'Invitation pending' : 'Active'}
                   </p>
                 </div>
-                {isOwner && !isOwnerRow ? (
-                  <select
-                    aria-label={`Role for ${member.invited_email}`}
-                    value={member.role}
-                    disabled={busy}
-                    onChange={(e) => handleRoleChange(member, e.target.value)}
-                    className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="member">Member</option>
-                  </select>
-                ) : (
-                  <RoleBadge role={member.role} />
-                )}
-                {canManage && !isOwnerRow && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(member)}
-                    disabled={busy}
-                    aria-label={`Remove ${member.invited_email}`}
-                    title={member.status === 'invited' ? 'Cancel invitation' : 'Remove member'}
-                    className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                )}
+                <div className="ml-auto flex shrink-0 items-center gap-3">
+                  {isOwner && !isOwnerRow ? (
+                    // The forms plugin draws the chevron inside the right padding, so pr-9
+                    // keeps the label clear of it; a smaller px-* would let them overlap.
+                    <select
+                      aria-label={`Role for ${member.invited_email}`}
+                      value={member.role}
+                      disabled={busy}
+                      onChange={(e) => handleRoleChange(member, e.target.value)}
+                      className="h-9 min-w-[7.5rem] cursor-pointer rounded-lg border border-slate-200 bg-white py-0 pl-3 pr-9 text-[13px] font-semibold text-slate-700 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="member">Member</option>
+                    </select>
+                  ) : (
+                    <RoleBadge role={member.role} />
+                  )}
+                  {canManage && !isOwnerRow && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(member)}
+                      disabled={busy}
+                      aria-label={`Remove ${member.invited_email}`}
+                      title={member.status === 'invited' ? 'Cancel invitation' : 'Remove member'}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-slate-400 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </li>
             );
           })}
@@ -369,7 +377,7 @@ export const BusinessMembersSettings = () => {
               onChange={(e) => setInviteRole(e.target.value)}
               disabled={inviting}
               aria-label="Role"
-              className="h-[42px] rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700"
+              className="h-[42px] cursor-pointer rounded-lg border border-slate-200 bg-white py-0 pl-3 pr-9 text-sm font-semibold text-slate-700"
             >
               <option value="member">Member</option>
               <option value="admin">Admin</option>

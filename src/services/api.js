@@ -34,6 +34,75 @@ const MOCK_LOAD_PARAMS = new URLSearchParams(window.location.search);
 let mockHasPlan = MOCK_LOAD_PARAMS.get('mockNoPlan') !== 'true';
 const MOCK_DELAY_MS = Math.max(0, Number(new URLSearchParams(window.location.search).get('mockDelay')) || 0);
 
+// A month of orders, newest first, spread through each day so the dashboard's order
+// charts have shape at every bar size. Two in three belong to the first page.
+const MOCK_ORDER_NAMES = [
+  'Nusrat Jahan', 'Tanvir Ahmed', 'Farzana Akter', 'Rakib Hasan', 'Sadia Islam', 'Mahmud Karim',
+  'Tasnim Rahman', 'Arif Hossain', 'Mithila Chowdhury', 'Imran Kabir', 'Sumaiya Begum', 'Shakil Uddin',
+];
+const MOCK_ORDER_STATUSES = ['delivered', 'delivered', 'delivered', 'pending', 'new', 'in_review', 'hold', 'cancelled'];
+const MOCK_ORDERS = (() => {
+  const orders = [];
+  for (let day = 0; day < 31; day += 1) {
+    const perDay = 3 + ((day * 5 + 2) % 8);
+    for (let i = 0; i < perDay; i += 1) {
+      const n = orders.length;
+      orders.push({
+        customer_order_id: `00000000-0000-4000-8000-${String(n + 1).padStart(12, '0')}`,
+        order_id: `ORD-${1001 + n}`,
+        page_id: n % 3 === 2 ? 'page_2' : 'page_1',
+        // Today's orders haven't shipped yet.
+        status: day === 0 ? (i % 2 ? 'pending' : 'new') : MOCK_ORDER_STATUSES[(n * 7 + day) % MOCK_ORDER_STATUSES.length],
+        created_by: n % 4 === 3 ? 'manual' : 'ai',
+        total: (450 + ((n * 389) % 3600)).toFixed(2),
+        contact_name: MOCK_ORDER_NAMES[(n * 5 + day) % MOCK_ORDER_NAMES.length],
+        created_at: new Date(MOCK_LOADED_AT - day * 86400000 - Math.floor((i * 86400000) / perDay) - ((n * 13) % 40) * 60000).toISOString(),
+      });
+    }
+  }
+  return orders;
+})();
+
+// Filters and pages the mock orders the way the endpoint does: page_id and status
+// filters, then an opaque cursor (here, the offset of the next page).
+const mockOrdersPage = (endpoint) => {
+  const params = new URLSearchParams(endpoint.split('?')[1] || '');
+  const pageSize = Number(params.get('page_size')) || 20;
+  const offset = Number(params.get('cursor')) || 0;
+  const matching = MOCK_ORDERS.filter(order =>
+    (!params.get('page_id') || order.page_id === params.get('page_id')) &&
+    (!params.get('status') || order.status === params.get('status')));
+  const hasMore = offset + pageSize < matching.length;
+  return {
+    orders: matching.slice(offset, offset + pageSize),
+    pagination: { next_cursor: hasMore ? String(offset + pageSize) : '', has_more: hasMore, page_size: pageSize, total: matching.length },
+  };
+};
+
+// API keys for mock mode. Full keys are remembered so the key tester can validate
+// keys created in this session; the two seeded keys have no plaintext to test.
+const MOCK_API_KEY_SECRETS = new Map();
+let mockApiKeys = [
+  {
+    api_key_id: '6f1c2b7e-3d4a-4f5b-9c8d-1a2b3c4d5e6f',
+    name: 'WooCommerce plugin',
+    key_prefix: 'lf_live_8Kq2',
+    permissions: 'products:read,products:write,orders:read,namespaces:read',
+    is_active: true,
+    last_used_at: new Date(MOCK_LOADED_AT - 2 * 3600000).toISOString(),
+    created_at: '2026-09-12T09:30:00.000Z',
+  },
+  {
+    api_key_id: '9a8b7c6d-5e4f-4a3b-8c2d-0f1e2d3c4b5a',
+    name: 'Inventory sync script',
+    key_prefix: 'lf_live_Zt7m',
+    permissions: 'products:read',
+    is_active: false,
+    last_used_at: '2026-09-28T17:05:00.000Z',
+    created_at: '2026-08-30T11:00:00.000Z',
+  },
+];
+
 const mockData = {
   '/v1/user/profile': { display_name: 'Demo User', email: 'demo@lyfflow.com', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
   '/v1/businesses': [
@@ -331,31 +400,12 @@ const mockData = {
     }
   },
   '/v1/pages/orders': {
-    orders: [
-      {
-        customer_order_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        order_id: 'ORD-1001',
-        status: 'new',
-        created_by: 'ai',
-        total: '1250.00',
-        contact_name: 'John Doe',
-        created_at: '2026-09-20T14:13:25.161Z'
-      },
-      {
-        customer_order_id: '7ab85f64-8888-4562-b3fc-2c963f66afa7',
-        order_id: 'ORD-1002',
-        status: 'pending',
-        created_by: 'ai',
-        total: '2400.00',
-        contact_name: 'Jane Smith',
-        created_at: '2026-09-20T12:00:00.000Z'
-      }
-    ],
+    orders: MOCK_ORDERS,
     pagination: {
       next_cursor: '',
       has_more: false,
       page_size: 20,
-      total: 2
+      total: MOCK_ORDERS.length
     }
   },
   '/v1/pages/orders/{order_id}': {
@@ -470,28 +520,32 @@ const apiFetch = async (endpoint, options = {}) => {
       ];
     }
     if (/^\/v1\/products\/ns_1\/all-products/.test(endpoint)) {
+      const availabilityParam = new URLSearchParams(endpoint.split('?')[1] || '').get('availability');
+      const items = [
+        { product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', price: 'BDT 1170', category: 'Accessories', availability: true, assets: [] },
+        { product_id: 'prod_2', name: 'Canvas Tote Bag', code: 'TOT-02', price: 'BDT 850', category: 'Bags', availability: true, assets: [] },
+        { product_id: 'prod_3', name: 'Linen Summer Shirt', code: 'SHI-03', price: 'BDT 1450', category: 'Clothing', availability: false, assets: [] },
+      ];
       return {
-        items: [
-          { product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', price: 'BDT 1170', category: 'Accessories', availability: true, is_active: true, assets: [] },
-          { product_id: 'prod_2', name: 'Canvas Tote Bag', code: 'TOT-02', price: 'BDT 850', category: 'Bags', availability: true, is_active: true, assets: [] },
-        ],
+        items: availabilityParam === null ? items : items.filter(item => String(item.availability) === availabilityParam),
         pagination: { has_more: false, next_cursor: null },
       };
     }
-    // A week of agent activity, deterministic per agent, so the analytics charts have shape.
+    // A month of agent activity spread through each day, deterministic per agent, so
+    // the analytics charts have shape at every bar size (hourly up to daily).
     const agentActivityMatch = endpoint.match(/^\/v1\/agent\/([^/]+)\/agent_activity(?:\?|$)/);
     if (agentActivityMatch) {
       const seed = agentActivityMatch[1].length;
       const agent_activities = [];
-      for (let day = 0; day < 7; day += 1) {
-        const perDay = 6 + ((day * 7 + seed * 3) % 9);
+      for (let day = 0; day < 31; day += 1) {
+        const perDay = 18 + ((day * 7 + seed * 3) % 23);
         for (let i = 0; i < perDay; i += 1) {
           agent_activities.push({
             activity_id: `act_${seed}_${day}_${i}`,
             response_time_ms: 900 + i * 40,
             status: i % 7 === 3 ? 'failed' : 'success',
             is_human_handover: i % 9 === 5,
-            created_at: new Date(Date.now() - day * 86400000 - i * 600000).toISOString(),
+            created_at: new Date(Date.now() - day * 86400000 - Math.floor((i * 86400000) / perDay) - ((i * 37 + seed * 11) % 50) * 60000).toISOString(),
           });
         }
       }
@@ -509,6 +563,21 @@ const apiFetch = async (endpoint, options = {}) => {
     }
     if (/^\/v1\/products\/ns_1\/import\/csv\/history/.test(endpoint)) {
       return { batches: [], items: [], pagination: { has_more: false, next_cursor: null } };
+    }
+
+    if (endpoint === '/v1/api-keys' && method === 'GET') return { items: mockApiKeys };
+    if (endpoint === '/v1/api-keys/create' && method === 'POST') {
+      const body = JSON.parse(requestOptions.body || '{}');
+      const secret = `lf_live_${Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('')}`;
+      const created = { api_key_id: crypto.randomUUID(), name: body.name, key: secret, key_prefix: secret.slice(0, 12), created_at: new Date().toISOString() };
+      MOCK_API_KEY_SECRETS.set(secret, created.api_key_id);
+      mockApiKeys = [{ api_key_id: created.api_key_id, name: created.name, key_prefix: created.key_prefix, permissions: body.permissions, is_active: true, last_used_at: null, created_at: created.created_at }, ...mockApiKeys];
+      return created;
+    }
+    const apiKeyRevokeMatch = endpoint.match(/^\/v1\/api-keys\/([^/?#]+)$/);
+    if (apiKeyRevokeMatch && method === 'DELETE') {
+      mockApiKeys = mockApiKeys.map(item => (item.api_key_id === apiKeyRevokeMatch[1] ? { ...item, is_active: false } : item));
+      return '';
     }
 
     // Exact match, supported dynamic route, or partial match for dynamic IDs
@@ -534,7 +603,7 @@ const apiFetch = async (endpoint, options = {}) => {
     }
     const pageOrdersListMatch = endpoint.startsWith('/v1/pages/orders');
     const pageOrdersListMock = (pageOrdersListMatch && !pageOrderDetailMatch)
-      ? mockData['/v1/pages/orders']
+      ? mockOrdersPage(endpoint)
       : null;
     const mockResponse = pageOrderDetailMock || pageOrdersListMock || mockData[endpoint] || courierOrderMock ||
                          Object.entries(mockData).find(([k]) => endpoint.startsWith(k))?.[1];
@@ -715,6 +784,44 @@ const apiDownload = async (endpoint, fallbackFilename) => {
   };
 };
 
+/**
+ * Checks a key against GET /v1/api-keys/validate, which authenticates with the key
+ * itself (X-API-Key) rather than the session. This bypasses apiFetch on purpose:
+ * a wrong key answers 401, and apiFetch would read that as an expired session and
+ * sign the user out. The session cookie is left off so only the key is judged.
+ * Resolves to the validation payload; rejects with `status` set on failure.
+ */
+const validateApiKey = async (key) => {
+  if (MOCK_MODE) {
+    if (MOCK_DELAY_MS > 0) await new Promise(resolve => setTimeout(resolve, MOCK_DELAY_MS));
+    const item = mockApiKeys.find(entry => entry.api_key_id === MOCK_API_KEY_SECRETS.get(key));
+    if (!item || !item.is_active) {
+      const error = new Error('Invalid API key');
+      error.status = 401;
+      throw error;
+    }
+    return { valid: true, api_key_id: item.api_key_id, name: item.name, permissions: item.permissions.split(','), created_at: item.created_at };
+  }
+
+  const response = await fetch(`${API_BASE}/v1/api-keys/validate`, {
+    credentials: 'omit',
+    headers: { 'X-API-Key': key },
+  });
+  if (!response.ok) {
+    let message = 'Could not validate this key';
+    try {
+      const data = await response.json();
+      if (typeof data?.detail === 'string') message = data.detail;
+    } catch {
+      // Non-JSON error body; keep the generic message.
+    }
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+};
+
 export const apiService = {
   // Returns current logged-in user details including profile_pic_url
   getUserProfile: () => apiFetch('/v1/user/profile', { cacheTtl: 5000 }),
@@ -800,7 +907,33 @@ export const apiService = {
     method: 'DELETE',
   }),
 
-  // Products
+  // Products. `availability` (in stock / out of stock) replaced the old `is_active` flag.
+  /**
+   * @typedef {Object} ProductListItem
+   * @property {string} product_id
+   * @property {string} name
+   * @property {string} [code]
+   * @property {string} [price]        e.g. "BDT 1170"
+   * @property {string} [category]
+   * @property {boolean} availability  true = in stock, false = out of stock
+   * @property {Array<Object>} [assets]
+   *
+   * @typedef {ProductListItem & { description?: string, tags?: string[], variants?: string }} ProductDetailResponse
+   *
+   * @typedef {Object} CreateProductPayload  Sent as multipart form data.
+   * @property {string} name
+   * @property {string} [code]
+   * @property {string} [description]
+   * @property {string} [price]
+   * @property {string} [category]
+   * @property {string[]} [tags]
+   * @property {string} [variants]
+   * @property {boolean} [availability]  Defaults to true on the server.
+   *
+   * @typedef {Partial<CreateProductPayload>} UpdateProductPayload  Sent as JSON.
+   */
+
+  /** @param {string} namespaceId @param {CreateProductPayload} productData */
   createProduct: (namespaceId, productData) => {
     const formData = new FormData();
     Object.keys(productData).forEach(key => {
@@ -816,10 +949,12 @@ export const apiService = {
       body: formData,
     });
   },
-  getProducts: (namespaceId, cursor = null, pageSize = 20, isActive = null, importSource = null) => {
+  // `availability`: true lists in-stock products, false out-of-stock ones, null (or
+  // undefined) leaves the parameter off and lists both.
+  getProducts: (namespaceId, cursor = null, pageSize = 20, availability = null, importSource = null) => {
     let url = `/v1/products/${namespaceId}/all-products?page_size=${pageSize}`;
     if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
-    if (isActive !== null) url += `&is_active=${isActive}`;
+    if (typeof availability === 'boolean') url += `&availability=${availability}`;
     if (importSource && importSource !== 'all') url += `&import_source=${importSource}`;
     return apiFetch(url);
   },
@@ -1015,6 +1150,16 @@ export const apiService = {
     method: 'POST',
     body: JSON.stringify(feedbackData),
   }),
+
+  // API keys for programmatic access (plugins, scripts). The full key is only ever
+  // returned by createApiKey; the list carries a prefix.
+  fetchApiKeys: () => apiFetch('/v1/api-keys'),
+  createApiKey: ({ name, permissions }) => apiFetch('/v1/api-keys/create', {
+    method: 'POST',
+    body: JSON.stringify({ name, permissions }),
+  }),
+  revokeApiKey: (apiKeyId) => apiFetch(`/v1/api-keys/${encodeURIComponent(apiKeyId)}`, { method: 'DELETE' }),
+  validateApiKey: (key) => validateApiKey(key),
 
   // Subscriptions
   getPlans: () => apiFetch('/v1/plans', { cacheTtl: 300000 }),
