@@ -785,10 +785,13 @@ const apiDownload = async (endpoint, fallbackFilename) => {
 };
 
 /**
- * Checks a key against GET /v1/api-keys/validate, which authenticates with the key
- * itself (X-API-Key) rather than the session. This bypasses apiFetch on purpose:
- * a wrong key answers 401, and apiFetch would read that as an expired session and
- * sign the user out. The session cookie is left off so only the key is judged.
+ * Checks a key against GET /v1/api-keys/validate?api_key=…, which runs in the signed-in
+ * session ("for the active business") and takes the key as a query parameter.
+ *
+ * This bypasses apiFetch on purpose: a rejected key can answer 401, and apiFetch reads
+ * any 401 as an expired session and signs the user out. Here a 401 only means the
+ * session is gone when the backend says "Not authenticated"; that error carries
+ * `sessionExpired` so the caller can say so instead of blaming the key.
  * Resolves to the validation payload; rejects with `status` set on failure.
  */
 const validateApiKey = async (key) => {
@@ -803,9 +806,8 @@ const validateApiKey = async (key) => {
     return { valid: true, api_key_id: item.api_key_id, name: item.name, permissions: item.permissions.split(','), created_at: item.created_at };
   }
 
-  const response = await fetch(`${API_BASE}/v1/api-keys/validate`, {
-    credentials: 'omit',
-    headers: { 'X-API-Key': key },
+  const response = await fetch(`${API_BASE}/v1/api-keys/validate?${new URLSearchParams({ api_key: key })}`, {
+    credentials: 'include',
   });
   if (!response.ok) {
     let message = 'Could not validate this key';
@@ -817,6 +819,7 @@ const validateApiKey = async (key) => {
     }
     const error = new Error(message);
     error.status = response.status;
+    error.sessionExpired = response.status === 401 && /not authenticated/i.test(message);
     throw error;
   }
   return response.json();

@@ -321,17 +321,21 @@ const KeyTester = () => {
     event.preventDefault();
     const trimmed = key.trim();
     if (!trimmed) return;
+    // Clears the previous result before the new check.
     setState({ status: 'checking', result: null, error: '' });
+    const invalid = { status: 'invalid', result: null, error: 'This key is not valid. It may be mistyped or revoked.' };
     try {
       const result = await apiService.validateApiKey(trimmed);
-      setState({ status: 'valid', result, error: '' });
+      // Only an explicit `valid: true` counts; any other 200 body is treated as a rejection.
+      setState(result?.valid === true ? { status: 'valid', result, error: '' } : invalid);
     } catch (err) {
-      const rejected = err.status === 401 || err.status === 403;
-      setState({
-        status: rejected ? 'invalid' : 'error',
-        result: null,
-        error: rejected ? 'This key is not valid. It may be mistyped or revoked.' : `Could not check the key: ${err.message}`,
-      });
+      if (err.sessionExpired) {
+        setState({ status: 'error', result: null, error: 'Your session has expired. Refresh the page and sign in again to check keys.' });
+      } else if ([401, 403, 404, 422].includes(err.status)) {
+        setState(invalid);
+      } else {
+        setState({ status: 'error', result: null, error: `Could not check the key: ${err.message}` });
+      }
     }
   };
 
@@ -369,7 +373,7 @@ const KeyTester = () => {
         {state.status === 'valid' && state.result && (
           <div className="api-key-test-result is-valid mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3.5 py-3">
             <p className="m-0 flex items-center gap-2 text-sm font-medium text-emerald-800">
-              <Check size={15} /> Valid key: {state.result.name}
+              <Check size={15} /> Key is valid: {state.result.name}
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {(state.result.permissions || []).map(scope => <ScopeBadge key={scope} scope={scope} />)}
