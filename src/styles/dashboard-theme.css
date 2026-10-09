@@ -277,3 +277,4 @@ html[data-dashboard-theme="dark"] .woo-order-sync a{background-color:transparent
 /* Product form: duplicate-code error (the dark input rule would otherwise hide the red border). */
 html[data-dashboard-theme="dark"] input.product-code-invalid{border-color:#f87171!important}
 html[data-dashboard-theme="dark"] .product-code-error{color:#fca5a5!important}
+.dashboard-layout.theme-dark .agent-filters-active{background-color:#ececec!important;border-color:#ececec!important;color:#0a0a0a!important}

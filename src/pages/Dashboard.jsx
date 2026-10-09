@@ -132,9 +132,12 @@ const CountUpNumber = ({ value }) => {
 };
 
 // Counts and the main action for a page whose title lives in the top bar
-// (Channels, Agents), right-aligned above the content.
-const PageStatsBar = ({ label, stats, children }) => (
-  <div className="page-stats-bar mb-6 flex flex-wrap items-center justify-end gap-4">
+// (Channels, Agents), right-aligned above the content. `start` (e.g. search and
+// filters) fills the left, making the row a single toolbar.
+const PageStatsBar = ({ label, stats, start = null, children }) => (
+  <div className={`page-stats-bar mb-6 flex flex-wrap items-center gap-4 ${start ? 'justify-between' : 'justify-end'}`}>
+    {start && <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{start}</div>}
+    <div className="flex flex-wrap items-center justify-end gap-4">
     <dl aria-label={label} className="page-stats m-0 flex items-center rounded-xl border border-slate-200 bg-white px-1 py-1.5 shadow-sm">
       {stats.map(({ label: statLabel, value, valueClass = 'text-slate-950' }, index) => (
         <div key={statLabel} className={`flex flex-row-reverse items-baseline gap-1.5 px-3.5 ${index ? 'border-l border-slate-200' : ''}`}>
@@ -144,6 +147,7 @@ const PageStatsBar = ({ label, stats, children }) => (
       ))}
     </dl>
     {children}
+    </div>
   </div>
 );
 
@@ -4443,6 +4447,38 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               { label: 'Connected', value: configuredAgentsCount, valueClass: 'text-emerald-600' },
               { label: 'Pages', value: assignedPageCount, valueClass: 'text-blue-600' },
             ]}
+            start={(
+              <>
+                <label className="relative flex h-10 min-w-[200px] max-w-md flex-1 items-center overflow-hidden rounded-lg border border-slate-200 bg-white transition focus-within:border-emerald-300 focus-within:ring-4 focus-within:ring-emerald-100/60">
+                  <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[19px] text-slate-400">search</span>
+                  <input
+                    type="text"
+                    value={agentQuery}
+                    onChange={(event) => setAgentQuery(event.target.value)}
+                    placeholder="Search by agent, role, business, or tone"
+                    aria-label="Search agents"
+                    className="h-full min-w-0 flex-1 border-0 bg-transparent pl-10 pr-9 text-sm font-medium text-slate-800 outline-none focus:border-transparent focus:ring-0"
+                    style={{ width: 0, minWidth: 0, boxSizing: 'border-box' }}
+                  />
+                  {hasActiveAgentSearch && (
+                    <button type="button" onClick={() => setAgentQuery('')} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Clear agent search">
+                      <span className="material-symbols-outlined text-[17px]">close</span>
+                    </button>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-solid px-3.5 text-sm font-bold transition ${isFilterOpen || activeFiltersCount > 0 ? 'agent-filters-active border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+                  aria-expanded={isFilterOpen}
+                  aria-controls="agent-filters"
+                >
+                  <span className="material-symbols-outlined text-[19px]">tune</span>
+                  Filters
+                  {activeFiltersCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-400 px-1.5 text-[10px] font-black text-slate-950">{activeFiltersCount}</span>}
+                </button>
+              </>
+            )}
           >
             {canManage && (
               <button type="button" onClick={openCreateForm} className="page-stats-action inline-flex h-10 items-center gap-2 rounded-lg border border-slate-950 bg-slate-950 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600">
@@ -4452,64 +4488,33 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             )}
           </PageStatsBar>
 
-          <section className="mb-5 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
-            <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <label
-                className="relative flex h-11 min-w-0 items-center overflow-hidden rounded-xl border border-transparent bg-slate-50 transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/60"
-                style={{ width: '1200px', maxWidth: '100%', flex: '0 1 1200px' }}
-              >
-                <span className="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[20px] text-slate-400">search</span>
-                <input
-                  type="text"
-                  value={agentQuery}
-                  onChange={(event) => setAgentQuery(event.target.value)}
-                  placeholder="Search by agent, role, business, or tone"
-                  className="h-full min-w-0 flex-1 border-0 bg-transparent pl-11 pr-10 text-sm font-medium text-slate-800 outline-none focus:border-transparent focus:ring-0"
-                  style={{ width: 0, minWidth: 0, boxSizing: 'border-box' }}
-                />
-                {hasActiveAgentSearch && (
-                  <button type="button" onClick={() => setAgentQuery('')} className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200 hover:text-slate-700" aria-label="Clear agent search">
-                    <span className="material-symbols-outlined text-[17px]">close</span>
-                  </button>
-                )}
-              </label>
-              <button
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`relative z-10 flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition ${isFilterOpen || activeFiltersCount > 0 ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
-                style={{ width: '112px', flex: '0 0 112px' }}
-                aria-expanded={isFilterOpen}
-              >
-                <span className="material-symbols-outlined text-[19px]">tune</span>
-                Filters
-                {activeFiltersCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-400 px-1.5 text-[10px] font-black text-slate-950">{activeFiltersCount}</span>}
-              </button>
-            </div>
-            <div className={`grid overflow-hidden transition-all duration-300 ${isFilterOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-              <div className="min-h-0">
-                <div className="mt-3 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3">
-                  <div className="flex min-w-[150px] flex-1 flex-col gap-1.5">
-                    <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</label>
-                    <select value={filters.status} onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))} className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-emerald-300">
-                      <option value="All">All statuses</option><option value="Active">Connected</option><option value="IDLE">Needs setup</option>
-                    </select>
-                  </div>
-                  <div className="flex min-w-[150px] flex-1 flex-col gap-1.5">
-                    <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Role</label>
-                    <select value={filters.role} onChange={e => setFilters(prev => ({ ...prev, role: e.target.value }))} className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-emerald-300">
-                      <option value="All">All roles</option><option value="Sales Agent">Sales Agent</option><option value="Support Agent">Support Agent</option><option value="Q&A Agent">Q&A Agent</option><option value="General Agent">General Agent</option>
-                    </select>
-                  </div>
-                  <div className="flex min-w-[150px] flex-1 flex-col gap-1.5">
-                    <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Personality</label>
-                    <select value={filters.tone} onChange={e => setFilters(prev => ({ ...prev, tone: e.target.value }))} className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-emerald-300">
-                      <option value="All">All tones</option>{TONES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  {activeFiltersCount > 0 && <button onClick={clearFilters} className="h-10 rounded-xl px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">Clear filters</button>}
+          {/* Filter options open under the toolbar; inert while closed so the hidden
+              selects drop out of the tab order and the accessibility tree. */}
+          <div id="agent-filters" className={`grid overflow-hidden transition-all duration-300 ${isFilterOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`} inert={!isFilterOpen}>
+            <div className="min-h-0">
+              <div className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex min-w-[150px] flex-1 flex-col gap-1.5">
+                  <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</label>
+                  <select value={filters.status} onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))} className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-emerald-300">
+                    <option value="All">All statuses</option><option value="Active">Connected</option><option value="IDLE">Needs setup</option>
+                  </select>
                 </div>
+                <div className="flex min-w-[150px] flex-1 flex-col gap-1.5">
+                  <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Role</label>
+                  <select value={filters.role} onChange={e => setFilters(prev => ({ ...prev, role: e.target.value }))} className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-emerald-300">
+                    <option value="All">All roles</option><option value="Sales Agent">Sales Agent</option><option value="Support Agent">Support Agent</option><option value="Q&A Agent">Q&A Agent</option><option value="General Agent">General Agent</option>
+                  </select>
+                </div>
+                <div className="flex min-w-[150px] flex-1 flex-col gap-1.5">
+                  <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Personality</label>
+                  <select value={filters.tone} onChange={e => setFilters(prev => ({ ...prev, tone: e.target.value }))} className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-emerald-300">
+                    <option value="All">All tones</option>{TONES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                {activeFiltersCount > 0 && <button onClick={clearFilters} className="h-10 rounded-xl px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">Clear filters</button>}
               </div>
             </div>
-          </section>
+          </div>
 
           <div className="mb-3 flex items-center justify-between gap-3 px-1">
             <div><h3 className="text-sm font-extrabold text-slate-900">Your agents</h3><p className="text-xs text-slate-500">{filteredAgents.length} {filteredAgents.length === 1 ? 'agent' : 'agents'} shown</p></div>
