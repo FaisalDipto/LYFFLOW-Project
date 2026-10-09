@@ -614,6 +614,21 @@ const apiFetch = async (endpoint, options = {}) => {
     if (conversationCountMatch) {
       return { conversations: [], pagination: { has_more: true, next_cursor: null, total: conversationCountMatch[1] === 'page_1' ? 1284 : 412 } };
     }
+    // A long thread for conv_1, newest first and paged like the real endpoint, so
+    // scrolling and "load older messages" can be exercised in mock mode.
+    if (endpoint.startsWith('/v1/page/page_1/conversation/conv_1')) {
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      const size = Number(params.get('page_size')) || 20;
+      const offset = Number(params.get('cursor')) || 0;
+      const thread = Array.from({ length: 60 }, (_, index) => ({
+        id: `m1_${index}`,
+        message: index % 2 ? `Agent reply #${60 - index}: here are the details you asked about.` : `Customer message #${60 - index}: could you tell me more about this item?`,
+        role: index % 2 ? 'agent' : 'user',
+        created_at: new Date(MOCK_LOADED_AT - index * 5 * 60000).toISOString(),
+      }));
+      const hasMore = offset + size < thread.length;
+      return { messages: thread.slice(offset, offset + size), pagination: { has_more: hasMore, next_cursor: hasMore ? String(offset + size) : null } };
+    }
     if (endpoint === '/v1/woocommerce/status') return mockWooStatus;
     if (endpoint === '/v1/woocommerce/disconnect' && method === 'DELETE') {
       mockWooStatus = MOCK_WOO_STATUSES.none;

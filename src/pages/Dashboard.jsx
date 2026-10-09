@@ -841,6 +841,12 @@ const ConversationList = ({ pages, user, focusRequest }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
   const isLoadingOlderMsgsRef = useRef(false);
+  // Whether the reader is at (or near) the newest message. Only then does a change to
+  // the thread pull the view down; someone reading older messages is left in place.
+  const stickToBottomRef = useRef(true);
+  // Bumped when lazily fetched message info arrives, to re-render without replacing
+  // `messages` (which would count as a thread change).
+  const [, setMessageInfoVersion] = useState(0);
   const conversationsRequestVersionRef = useRef(0);
 
   // Switching conversations would retarget an open form at a different customer.
@@ -889,18 +895,19 @@ const ConversationList = ({ pages, user, focusRequest }) => {
   };
 
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      if (isLoadingOlderMsgsRef.current) {
-        isLoadingOlderMsgsRef.current = false;
-      } else {
-        // Use a short timeout to ensure DOM has fully calculated heights
-        setTimeout(() => {
-          if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-          }
-        }, 50);
-      }
+    if (!messagesContainerRef.current) return;
+    // Older messages were prepended; handleLoadMoreMessages keeps the reader's place.
+    if (isLoadingOlderMsgsRef.current) {
+      isLoadingOlderMsgsRef.current = false;
+      return;
     }
+    if (!stickToBottomRef.current) return;
+    // Use a short timeout to ensure DOM has fully calculated heights
+    setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }, 50);
   }, [messages]);
 
   useEffect(() => {
@@ -1003,6 +1010,7 @@ const ConversationList = ({ pages, user, focusRequest }) => {
   useEffect(() => {
     if (!selectedPageId || !activeContact) return;
     setLoadingMsgs(true);
+    stickToBottomRef.current = true; // a newly opened thread starts at the newest message
     setMessages([]); // Clear previous messages
     const convId = activeContact.id || activeContact.conversation_id || activeContact.id;
     apiService.getConversationDetails(selectedPageId, convId)
@@ -1088,7 +1096,8 @@ const ConversationList = ({ pages, user, focusRequest }) => {
   };
 
   const handleScrollMessages = (e) => {
-    const { scrollTop } = e.target;
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    stickToBottomRef.current = scrollHeight - scrollTop - clientHeight < 80;
     if (scrollTop < 50 && messagesPagination?.has_more && !loadingMoreMessages) {
       handleLoadMoreMessages();
     }
@@ -1180,6 +1189,7 @@ const ConversationList = ({ pages, user, focusRequest }) => {
     const convId = activeContact.conversation_id || activeContact.id;
 
     isLoadingOlderMsgsRef.current = false; // ensure we scroll down on send
+    stickToBottomRef.current = true;
 
     // Optimistically add message
     const tempMsg = {
@@ -1258,8 +1268,8 @@ const ConversationList = ({ pages, user, focusRequest }) => {
             msg._hasAttachment = info.has_attachment;
             msg._isAiMsg = info.is_ai_msg;
             msg._agentActivityId = info.agent_activity_id;
-            // Force a re-render by nudging messages state
-            setMessages(prev => [...prev]);
+            // Re-render to show it; leaving `messages` alone so the view doesn't jump.
+            setMessageInfoVersion(version => version + 1);
           })
         .catch(() => { msg._infoFetched = true; });
     }
