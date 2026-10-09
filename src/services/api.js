@@ -79,6 +79,42 @@ const mockOrdersPage = (endpoint) => {
   };
 };
 
+// WooCommerce in mock mode. ?mockWoo=connected | error | pending (plugin not yet
+// connected) | none (default). Disconnecting switches to none until reload.
+const MOCK_WOO_STATUSES = {
+  connected: {
+    status: 'connected', store_url: 'https://demostore.example', namespace_id: 'ns_1',
+    last_synced_at: '2026-10-10T08:15:00Z', last_sync_error: null, connected_at: '2026-10-08T15:32:00Z',
+    plugin_connected: true, plugin_version: '1.0.0', wc_version: '9.3.2', wp_version: '6.6.2', plugin_connected_at: '2026-10-08T15:32:00Z',
+  },
+  error: {
+    status: 'auth_failed', store_url: 'https://demostore.example', namespace_id: 'ns_1',
+    last_synced_at: '2026-10-09T21:02:00Z', last_sync_error: 'The store rejected the API key (401). It may have been revoked in Lyfflow.',
+    connected_at: '2026-10-08T15:32:00Z', plugin_connected: true, plugin_version: '1.0.0', wc_version: '9.3.2', wp_version: '6.6.2', plugin_connected_at: '2026-10-08T15:32:00Z',
+  },
+  pending: {
+    status: 'connected', store_url: 'https://demostore.example', namespace_id: null,
+    last_synced_at: null, last_sync_error: null, connected_at: '2026-10-08T15:32:00Z', plugin_connected: false,
+  },
+  none: { status: 'not_connected', store_url: null, connected_at: null, plugin_connected: false },
+};
+let mockWooStatus = MOCK_WOO_STATUSES[MOCK_LOAD_PARAMS.get('mockWoo')] || MOCK_WOO_STATUSES.none;
+// Orders pushed during this mock session: customer_order_id -> wc_order_id.
+const mockWooPushed = new Map();
+
+// Deterministic sync state per mock order while a store is connected: every third
+// order synced, the next failed, the rest local only.
+const mockWooSync = (order) => {
+  const n = Math.max(0, MOCK_ORDERS.indexOf(order));
+  if (!mockWooStatus.store_url) return { wc_order_id: null, wc_synced_at: null, wc_sync_error: null, wc_sync_attempts: 0 };
+  if (mockWooPushed.has(order.customer_order_id)) {
+    return { wc_order_id: mockWooPushed.get(order.customer_order_id), wc_synced_at: new Date().toISOString(), wc_sync_error: null, wc_sync_attempts: 1 };
+  }
+  if (n % 3 === 0) return { wc_order_id: 4000 + n, wc_synced_at: order.created_at, wc_sync_error: null, wc_sync_attempts: 1 };
+  if (n % 3 === 1) return { wc_order_id: null, wc_synced_at: null, wc_sync_error: 'WooCommerce rejected the order: SKU WAL-01 is out of stock.', wc_sync_attempts: 3 };
+  return { wc_order_id: null, wc_synced_at: null, wc_sync_error: null, wc_sync_attempts: 0 };
+};
+
 // API keys for mock mode. Full keys are remembered so the key tester can validate
 // keys created in this session; the two seeded keys have no plaintext to test.
 const MOCK_API_KEY_SECRETS = new Map();
@@ -578,11 +614,28 @@ const apiFetch = async (endpoint, options = {}) => {
     if (conversationCountMatch) {
       return { conversations: [], pagination: { has_more: true, next_cursor: null, total: conversationCountMatch[1] === 'page_1' ? 1284 : 412 } };
     }
-    if (endpoint === '/v1/woocommerce/status') {
-      return { status: 'not_connected', store_url: null, connected_at: null };
+    if (endpoint === '/v1/woocommerce/status') return mockWooStatus;
+    if (endpoint === '/v1/woocommerce/disconnect' && method === 'DELETE') {
+      mockWooStatus = MOCK_WOO_STATUSES.none;
+      return { message: 'WooCommerce store disconnected successfully.' };
     }
-    if (endpoint === '/v1/woocommerce/connect' && method === 'POST') {
-      return { auth_url: `${window.location.origin}/dashboard?mock=true` };
+    const wooPushMatch = endpoint.match(/^\/v1\/woocommerce\/orders\/([^/]+)\/push$/);
+    if (wooPushMatch && method === 'POST') {
+      const order = MOCK_ORDERS.find(item => item.customer_order_id === wooPushMatch[1]);
+      const fail = (message) => { const error = new Error(message); error.status = 400; throw error; };
+      if (!mockWooStatus.store_url) fail('No WooCommerce store is connected.');
+      if (!order) fail('Order not found.');
+      if (mockWooSync(order).wc_order_id) fail('This order is already synced to WooCommerce.');
+      const wcOrderId = 5000 + MOCK_ORDERS.indexOf(order);
+      mockWooPushed.set(order.customer_order_id, wcOrderId);
+      return { success: true, message: 'Order push initiated successfully.', wc_order_id: wcOrderId, job_id: null };
+    }
+    if (endpoint === '/v1/woocommerce/orders/bulk-push' && method === 'POST') {
+      if (!mockWooStatus.store_url) { const error = new Error('No WooCommerce store is connected.'); error.status = 400; throw error; }
+      const ids = JSON.parse(requestOptions.body || '{}').order_ids;
+      const pending = MOCK_ORDERS.filter(order => (!ids || ids.includes(order.customer_order_id)) && !mockWooSync(order).wc_order_id);
+      pending.forEach(order => mockWooPushed.set(order.customer_order_id, 5000 + MOCK_ORDERS.indexOf(order)));
+      return { queued_count: pending.length, message: `Successfully queued ${pending.length} order(s) for WooCommerce push.` };
     }
     if (/^\/v1\/products\/ns_1\/import\/csv\/history/.test(endpoint)) {
       return { batches: [], items: [], pagination: { has_more: false, next_cursor: null } };
@@ -609,8 +662,11 @@ const apiFetch = async (endpoint, options = {}) => {
       ? mockData[`/v1/${courierOrderMatch[1]}/orders/{${courierOrderMatch[2] === 'info' ? 'consignment_id' : 'order_id'}}/${courierOrderMatch[2]}`]
       : null;
     const pageOrderDetailMatch = endpoint.match(/^\/v1\/pages\/orders\/([^/?#]+)$/);
+    const pageOrderListItem = pageOrderDetailMatch && MOCK_ORDERS.find(order => order.customer_order_id === pageOrderDetailMatch[1]);
     const pageOrderDetailMock = pageOrderDetailMatch
-      ? mockData['/v1/pages/orders/{order_id}']
+      ? (pageOrderListItem
+        ? { ...mockData['/v1/pages/orders/{order_id}'], ...pageOrderListItem, ...mockWooSync(pageOrderListItem) }
+        : mockData['/v1/pages/orders/{order_id}'])
       : null;
     if (pageOrderDetailMatch && method === 'PATCH') {
       const updated = { ...pageOrderDetailMock, ...JSON.parse(requestOptions.body || '{}') };
@@ -1180,11 +1236,37 @@ export const apiService = {
   // City > zone > area hierarchy; large and rarely changes.
   getPathaoLocations: () => apiFetch('/v1/pathao/locations', { cacheTtl: 3600000 }),
 
-  // WooCommerce: connect returns an auth_url the owner is redirected to for approval.
-  getWooCommerceStatus: () => apiFetch('/v1/woocommerce/status', { cacheTtl: 15000 }),
-  connectWooCommerce: ({ store_url, namespace_id }) => apiFetch('/v1/woocommerce/connect', {
+  // WooCommerce runs through the Lyfflow WordPress plugin: the merchant creates an API
+  // key here and pastes it into the plugin, which connects the store itself. There is
+  // no store-URL connect from the dashboard any more.
+  /**
+   * @typedef {Object} WooCommerceStatusResponse
+   * @property {string} status                 "connected", "auth_failed", "disabled", "not_connected", …
+   * @property {string|null} [store_url]
+   * @property {string|null} [namespace_id]
+   * @property {string|null} [last_synced_at]
+   * @property {string|null} [last_sync_error]
+   * @property {string|null} [connected_at]
+   * @property {boolean} plugin_connected       true once the plugin handshake succeeded
+   * @property {string|null} [plugin_version]
+   * @property {string|null} [wc_version]
+   * @property {string|null} [wp_version]
+   * @property {string|null} [plugin_connected_at]
+   *
+   * @typedef {{ success: boolean, message: string, wc_order_id?: number|null, job_id?: string|null }} OrderPushResponse
+   * @typedef {{ queued_count: number, message: string }} OrderBulkPushResponse
+   */
+  /** @param {{ fresh?: boolean }} [options] fresh skips the 15s cache (after "Check again"). */
+  getWooCommerceStatus: ({ fresh = false } = {}) => apiFetch('/v1/woocommerce/status', fresh ? { bypassCache: true } : { cacheTtl: 15000 }),
+  // Owner only.
+  disconnectWooCommerce: () => apiFetch('/v1/woocommerce/disconnect', { method: 'DELETE' }),
+  // Retries (or first-time pushes) one order. Orders are pushed automatically when
+  // created, so this is for failures and manual nudges. 30 requests a minute.
+  pushWooOrder: (orderId) => apiFetch(`/v1/woocommerce/orders/${encodeURIComponent(orderId)}/push`, { method: 'POST' }),
+  // Owner only; null/omitted ids pushes every unsynced order. 5 requests a minute.
+  bulkPushWooOrders: (orderIds = null) => apiFetch('/v1/woocommerce/orders/bulk-push', {
     method: 'POST',
-    body: JSON.stringify({ store_url, namespace_id }),
+    body: JSON.stringify({ order_ids: orderIds }),
   }),
 
   // General AI Chat

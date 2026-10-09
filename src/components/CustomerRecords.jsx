@@ -5,6 +5,9 @@ import { formatOrderAmount, parseOrderAmount, renderOrderSourceBadge } from './c
 import DateRangeCalendar from './DateRangeCalendar';
 import EditOrderModal from './EditOrderModal';
 import RowActionsMenu from './RowActionsMenu';
+import { WooBulkPushButton, WooOrderSyncPanel } from './WooOrderSync';
+import { useBusiness } from '../context/BusinessContext';
+import { wooConnectionState } from '../utils/woocommerce';
 
 const LEAD_STATUSES = ['new', 'contacted', 'converted', 'cancelled'];
 const ORDER_STATUSES = [
@@ -68,6 +71,19 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   const [filterStatus, setFilterStatus] = useState('');
   
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const { isOwner } = useBusiness();
+  // WooCommerce store status, for order sync badges and pushes (orders only).
+  const [wooStatus, setWooStatus] = useState(null);
+  const wooState = wooConnectionState(wooStatus);
+
+  useEffect(() => {
+    if (recordType !== 'order') return undefined;
+    let cancelled = false;
+    apiService.getWooCommerceStatus()
+      .then(status => { if (!cancelled) setWooStatus(status); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [recordType]);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [steadfastPrefill, setSteadfastPrefill] = useState(null);
@@ -193,6 +209,19 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
+
+  const refreshSelectedOrder = async () => {
+    const current = selectedRecord;
+    if (!current || current.type !== 'order') return;
+    try {
+      const response = await apiService.getCustomerOrder(current.id);
+      const data = response?.data || response;
+      const detail = data?.order || data;
+      setSelectedRecord(open => (open?.id === current.id ? normalizeRecord(detail, 'order') : open));
+    } catch (error) {
+      console.error('Failed to refresh the order after a WooCommerce push:', error);
+    }
+  };
 
   const handleSelectRecord = async (record) => {
     setSteadfastPrefill(null);
@@ -447,6 +476,10 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
               ))}
             </select>
           </div>
+
+          {recordType === 'order' && isOwner && wooState === 'connected' && (
+            <WooBulkPushButton onPushed={refreshSelectedOrder} />
+          )}
 
           {recordType === 'order' && (
             <div className="relative" ref={exportPanelRef}>
@@ -899,6 +932,16 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* WooCommerce sync: shown once a store is on record, or if the order has sync history. */}
+              {selectedRecord.type === 'order' && (wooState !== 'none' || selectedRecord.wc_order_id != null || selectedRecord.wc_sync_error) && (
+                <WooOrderSyncPanel
+                  order={selectedRecord}
+                  storeUrl={wooStatus?.store_url}
+                  canPush={wooState === 'connected'}
+                  onPushed={refreshSelectedOrder}
+                />
               )}
 
               {/* Steadfast Courier Prefill */}

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Bike, Link2, PackageCheck, Search, ShoppingBag, Store, X } from 'lucide-react';
+import { AlertTriangle, Bike, CheckCircle2, Clock, Link2, PackageCheck, RefreshCw, Search, ShoppingBag, Store, X } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { apiService } from '../../services/api';
 import ApiKeysManager from './ApiKeysManager';
+import { wooConnectionState } from '../../utils/woocommerce';
 
 const BrandPath = ({ d }) => (
   <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current" aria-hidden="true"><path d={d} /></svg>
@@ -19,121 +20,148 @@ const PlatformLogo = ({ platform }) => (
   </span>
 );
 
-// Connects a store through the store URL form, which hands off to WooCommerce for
-// approval. Owner-only on the backend; admins see why instead of the form.
-const StoreUrlConnect = ({ isOwner, store, onViewProducts }) => {
-  const [namespaces, setNamespaces] = useState([]);
-  const [storeUrl, setStoreUrl] = useState('');
-  const [namespaceId, setNamespaceId] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+const formatWhen = (value) => {
+  if (!value) return null;
+  const text = String(value);
+  // Naive timestamps from the API are UTC.
+  const date = new Date(/(Z|[+-]\d{2}:?\d{2})$/i.test(text) || !text.includes('T') ? text : `${text}Z`);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
+const STATE_STYLES = {
+  connected: { label: 'Connected', badge: 'border-emerald-200 bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500', icon: CheckCircle2, iconClass: 'text-emerald-600' },
+  pending: { label: 'Waiting for the plugin', badge: 'border-amber-200 bg-amber-50 text-amber-800', dot: 'bg-amber-500', icon: Clock, iconClass: 'text-amber-600' },
+  error: { label: 'Connection issue', badge: 'border-red-200 bg-red-50 text-red-700', dot: 'bg-red-500', icon: AlertTriangle, iconClass: 'text-red-600' },
+  none: { label: 'Not connected', badge: 'border-slate-200 bg-slate-50 text-slate-600', dot: 'bg-slate-400', icon: Store, iconClass: 'text-slate-400' },
+};
+
+// Where the store stands, from GET /v1/woocommerce/status, with a manual re-check:
+// the plugin connects from WordPress, so the status can change while this is open.
+const WooStatusPanel = ({ status, state, checking, onRefresh, isOwner, onDisconnect }) => {
+  const style = STATE_STYLES[state];
+  const Icon = style.icon;
+  const [confirming, setConfirming] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState('');
-  const canConnect = isOwner && !store;
+  const details = [
+    ['Store', status?.store_url],
+    ['Plugin', status?.plugin_version && `v${status.plugin_version}`],
+    ['WooCommerce', status?.wc_version && `v${status.wc_version}`],
+    ['WordPress', status?.wp_version && `v${status.wp_version}`],
+    ['Connected', formatWhen(status?.plugin_connected_at || status?.connected_at)],
+    ['Last sync', formatWhen(status?.last_synced_at)],
+  ].filter(([, value]) => value);
 
-  useEffect(() => {
-    if (!canConnect) return;
-    apiService.getNamespaces()
-      .then(data => {
-        const list = Array.isArray(data) ? data : data?.namespaces || [];
-        setNamespaces(list);
-        if (list[0]) setNamespaceId(current => current || list[0].namespace_id);
-      })
-      .catch(() => setNamespaces([]));
-  }, [canConnect]);
-
-  if (store) {
-    return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
-        <p className="m-0 text-sm font-semibold text-emerald-800">Store connected</p>
-        <p className="mb-3 mt-0.5 break-all text-xs text-emerald-700">{store.store_url || 'Your WooCommerce store'} syncs its products into your catalog.</p>
-        <button type="button" onClick={onViewProducts} className="inline-flex h-9 items-center gap-2 rounded-lg bg-violet-600 px-3.5 text-[13px] font-bold text-white transition-colors hover:bg-violet-500">
-          View products
-        </button>
-      </div>
-    );
-  }
-
-  if (!isOwner) {
-    return (
-      <p className="m-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-600">
-        Only the business owner can connect a store by its URL. You can still use the WordPress plugin with an API key.
-      </p>
-    );
-  }
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setSubmitting(true);
+  const disconnect = async () => {
+    setDisconnecting(true);
     setError('');
     try {
-      const { auth_url: authUrl } = await apiService.connectWooCommerce({ store_url: storeUrl.trim(), namespace_id: namespaceId });
-      if (!authUrl) throw new Error('WooCommerce did not return an approval link.');
-      window.location.href = authUrl;
-    } catch (submitError) {
-      setError(submitError.message || 'Could not start the WooCommerce connection.');
-      setSubmitting(false);
+      await onDisconnect();
+      setConfirming(false);
+    } catch (err) {
+      setError(err.message || 'Could not disconnect the store.');
+    } finally {
+      setDisconnecting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <p className="mb-4 mt-0 text-sm text-slate-500">You'll approve access on your store, then products sync into the catalog you choose.</p>
+    <section aria-labelledby="woo-status-title" className="woo-status-panel rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <Icon size={20} className={`mt-0.5 shrink-0 ${style.iconClass}`} aria-hidden="true" />
+          <div className="min-w-0">
+            <h3 id="woo-status-title" className="m-0 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
+              Store status
+              <span className={`woo-state-badge is-${state} inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${style.badge}`}>
+                <span className={`h-1.5 w-1.5 ${style.dot}`} style={{ borderRadius: 9999 }} aria-hidden="true" />
+                {style.label}
+              </span>
+            </h3>
+            <p className="mb-0 mt-1 text-xs leading-5 text-slate-500">
+              {state === 'connected' && 'Products sync from your store, and new orders are pushed to it automatically.'}
+              {state === 'pending' && 'A store is on record, but the plugin hasn\'t connected yet. Paste your API key into the plugin and click Connect there.'}
+              {state === 'error' && 'The store connection is failing, so products and orders aren\'t syncing.'}
+              {state === 'none' && 'Follow the two steps below. The plugin detects your store\'s address on its own.'}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={checking}
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+        >
+          <RefreshCw size={13} className={checking ? 'animate-spin' : ''} /> Check again
+        </button>
+      </div>
 
-      <label className="mb-1.5 block text-xs font-bold text-slate-700" htmlFor="woo-store-url">Store URL</label>
-      <input
-        id="woo-store-url"
-        type="url"
-        required
-        minLength={8}
-        maxLength={500}
-        value={storeUrl}
-        onChange={event => setStoreUrl(event.target.value)}
-        placeholder="https://myshop.com"
-        className="mb-4 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
-      />
+      {state === 'error' && status?.last_sync_error && (
+        <p className="mb-0 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
+          {status.last_sync_error}
+          <span className="mt-1 block text-red-600/80">If the key was revoked or replaced, create a new one below and paste it into the plugin.</span>
+        </p>
+      )}
 
-      <label className="mb-1.5 block text-xs font-bold text-slate-700" htmlFor="woo-namespace">Sync products into</label>
-      <select
-        id="woo-namespace"
-        required
-        value={namespaceId}
-        onChange={event => setNamespaceId(event.target.value)}
-        className="mb-4 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
-      >
-        {namespaces.length === 0 && <option value="">No knowledge catalogs yet</option>}
-        {namespaces.map(namespace => (
-          <option key={namespace.namespace_id} value={namespace.namespace_id}>{namespace.namespace_name || 'Untitled catalog'}</option>
-        ))}
-      </select>
+      {details.length > 0 && (
+        <dl className="mb-0 mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
+          {details.map(([label, value]) => (
+            <div key={label} className="flex min-w-0 gap-2">
+              <dt className="shrink-0 text-slate-500">{label}</dt>
+              <dd className="m-0 min-w-0 truncate font-medium text-slate-800" title={value}>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
-      {error && <p role="alert" className="mb-4 mt-0 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={submitting || !namespaceId}
-        className="inline-flex h-10 items-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <Link2 size={16} />
-        {submitting ? 'Redirecting…' : 'Continue to WooCommerce'}
-      </button>
-    </form>
+      {isOwner && state !== 'none' && (
+        <div className="mt-3 border-t border-slate-200 pt-3">
+          {confirming ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-600">Disconnect the store? Products and orders stop syncing until the plugin connects again.</span>
+              <button type="button" onClick={() => setConfirming(false)} disabled={disconnecting} className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button type="button" onClick={disconnect} disabled={disconnecting} className="h-8 rounded-lg bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60">
+                {disconnecting ? 'Disconnecting…' : 'Disconnect store'}
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setConfirming(true)} className="rounded-md text-xs font-medium text-red-600 hover:underline">Disconnect store</button>
+          )}
+          {error && <p role="alert" className="mb-0 mt-2 text-xs text-red-600">{error}</p>}
+        </div>
+      )}
+    </section>
   );
 };
 
-const WOO_TABS = [
-  { id: 'plugin', label: 'WordPress plugin' },
-  { id: 'store', label: 'Store URL' },
-];
-
-// Two ways to connect: the Lyfflow WordPress plugin, which authenticates with an API
-// key and pushes products, or the store URL form, which has Lyfflow pull them.
-const WooCommerceModal = ({ isOwner, store, onViewProducts, onClose }) => {
-  const [tab, setTab] = useState('plugin');
+// WooCommerce connects through the Lyfflow WordPress plugin only: create an API key
+// here, paste it into the plugin, and the plugin connects the store (it detects the
+// store URL itself).
+const WooCommerceModal = ({ isOwner, status, onStatusChange, onClose }) => {
+  const [checking, setChecking] = useState(false);
+  const state = wooConnectionState(status);
 
   useEffect(() => {
     const handleKeyDown = (event) => { if (event.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  const refresh = async () => {
+    setChecking(true);
+    try {
+      onStatusChange(await apiService.getWooCommerceStatus({ fresh: true }));
+    } catch {
+      // Keep showing the last known status.
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const disconnect = async () => {
+    await apiService.disconnectWooCommerce();
+    onStatusChange(await apiService.getWooCommerceStatus({ fresh: true }).catch(() => ({ status: 'not_connected', plugin_connected: false })));
+  };
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-fade-in" onClick={onClose}>
@@ -146,45 +174,29 @@ const WooCommerceModal = ({ isOwner, store, onViewProducts, onClose }) => {
         onClick={event => event.stopPropagation()}
         className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-2xl animate-scale-in"
       >
-        <div className="border-b border-slate-100 px-6 pb-0 pt-6">
+        <div className="border-b border-slate-100 px-6 pb-4 pt-6">
           <button type="button" onClick={onClose} aria-label="Close" className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900">
             <X size={16} />
           </button>
-          <h2 id="woo-connect-title" className="m-0 text-lg font-black text-slate-900">Connect WooCommerce</h2>
-          <p className="mb-4 mt-1 text-sm text-slate-500">Bring your store's products into Lyfflow so agents quote live prices and stock.</p>
-          <div role="tablist" aria-label="Connection method" className="-mb-px flex gap-5">
-            {WOO_TABS.map(option => (
-              <button
-                key={option.id}
-                type="button"
-                role="tab"
-                id={`woo-tab-${option.id}`}
-                aria-selected={tab === option.id}
-                aria-controls={`woo-panel-${option.id}`}
-                onClick={() => setTab(option.id)}
-                // The global `button { border: none }` hides borders; border-0 + border-solid
-                // bring back just the bottom edge as the underline.
-                className={`border-0 border-b-2 border-solid pb-2.5 text-sm font-semibold transition-colors ${tab === option.id ? 'border-violet-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <h2 id="woo-connect-title" className="m-0 text-lg font-black text-slate-900">{state === 'none' ? 'Connect WooCommerce' : 'WooCommerce'}</h2>
+          <p className="mb-0 mt-1 text-sm text-slate-500">Sync your store's products into Lyfflow and send orders back to it, through the Lyfflow WordPress plugin.</p>
         </div>
 
-        <div role="tabpanel" id={`woo-panel-${tab}`} aria-labelledby={`woo-tab-${tab}`} className="overflow-y-auto px-6 py-5">
-          {tab === 'plugin' ? (
-            <>
-              <ol className="mb-5 mt-0 list-decimal space-y-1.5 pl-5 text-sm text-slate-600 marker:text-slate-400">
-                <li>Install and activate the Lyfflow plugin on your WordPress site.</li>
-                <li>Create an API key below and paste it into the plugin's settings.</li>
-                <li>Pick a catalog in the plugin; your products sync from the store.</li>
-              </ol>
-              <ApiKeysManager />
-            </>
-          ) : (
-            <StoreUrlConnect isOwner={isOwner} store={store} onViewProducts={onViewProducts} />
-          )}
+        <div className="space-y-5 overflow-y-auto px-6 py-5">
+          <WooStatusPanel status={status} state={state} checking={checking} onRefresh={refresh} isOwner={isOwner} onDisconnect={disconnect} />
+
+          <ol className="m-0 list-none space-y-3 p-0">
+            <li className="flex gap-3">
+              <span className="woo-step flex h-6 w-6 shrink-0 items-center justify-center bg-violet-600 text-xs font-bold text-white" style={{ borderRadius: 9999 }}>1</span>
+              <p className="m-0 text-sm text-slate-700"><span className="font-semibold text-slate-900">Create an API key</span> below and copy it. You'll only see the full key once.</p>
+            </li>
+            <li className="flex gap-3">
+              <span className="woo-step flex h-6 w-6 shrink-0 items-center justify-center bg-violet-600 text-xs font-bold text-white" style={{ borderRadius: 9999 }}>2</span>
+              <p className="m-0 text-sm text-slate-700"><span className="font-semibold text-slate-900">In WordPress,</span> open the Lyfflow plugin's settings, paste the key and click Connect. Then use Check again above.</p>
+            </li>
+          </ol>
+
+          <ApiKeysManager />
         </div>
       </div>
     </div>,
@@ -195,18 +207,16 @@ const WooCommerceModal = ({ isOwner, store, onViewProducts, onClose }) => {
 export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate }) {
   const { isOwner, canManage } = useBusiness();
   const [query, setQuery] = useState('');
-  // The connected store ({ store_url, ... }), or null.
-  const [wooStore, setWooStore] = useState(null);
-  const wooConnected = Boolean(wooStore);
+  // GET /v1/woocommerce/status, or null until it loads (or if it fails).
+  const [wooStatus, setWooStatus] = useState(null);
+  const wooState = wooConnectionState(wooStatus);
+  const wooConnected = wooState === 'connected';
   const [isWooModalOpen, setIsWooModalOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     apiService.getWooCommerceStatus()
-      .then(status => {
-        const connected = Boolean(status?.connected_at) && !/disconnect|not_connected/i.test(status?.status || '');
-        if (!cancelled) setWooStore(connected ? status : null);
-      })
+      .then(status => { if (!cancelled) setWooStatus(status); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -241,9 +251,10 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
       logo: <Store size={24} strokeWidth={2.2} />,
       description: 'Import your WooCommerce catalog so agents can quote live prices, stock and product details.',
       connected: wooConnected,
-      // Opens for admins too: API keys are admin+, only the store URL form is owner-only.
+      issue: wooState === 'error' ? 'Needs attention' : wooState === 'pending' ? 'Finish setup' : null,
+      // Admin+: creating the plugin's API key is admin+; disconnecting is owner-only inside.
       action: canManage ? () => setIsWooModalOpen(true) : null,
-      actionLabel: wooConnected ? 'Manage' : 'Connect',
+      actionLabel: wooState === 'none' ? 'Connect' : 'Manage',
       adminOnly: true,
     },
     {
@@ -266,7 +277,7 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
       action: () => onNavigate('courier-steadfast'),
       actionLabel: 'Connect',
     },
-  ], [hasFacebookPages, isOwner, canManage, onConnectFacebook, onNavigate, wooConnected]);
+  ], [hasFacebookPages, isOwner, canManage, onConnectFacebook, onNavigate, wooConnected, wooState]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const visible = platforms.filter(platform => (
@@ -315,6 +326,12 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
                       Connected
                     </span>
                   )}
+                  {platform.issue && (
+                    <span className="platform-issue-badge inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-800">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                      {platform.issue}
+                    </span>
+                  )}
                   {platform.comingSoon && (
                     <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500">Coming soon</span>
                   )}
@@ -340,8 +357,8 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
       {isWooModalOpen && (
         <WooCommerceModal
           isOwner={isOwner}
-          store={wooStore}
-          onViewProducts={() => { setIsWooModalOpen(false); onNavigate('knowledge-products'); }}
+          status={wooStatus}
+          onStatusChange={setWooStatus}
           onClose={() => setIsWooModalOpen(false)}
         />
       )}

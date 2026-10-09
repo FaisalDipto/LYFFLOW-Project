@@ -331,7 +331,7 @@ const KeyTester = () => {
     } catch (err) {
       if (err.sessionExpired) {
         setState({ status: 'error', result: null, error: 'Your session has expired. Refresh the page and sign in again to check keys.' });
-      } else if ([401, 403, 404, 422].includes(err.status)) {
+      } else if ([400, 401, 403, 404, 422].includes(err.status)) {
         setState(invalid);
       } else {
         setState({ status: 'error', result: null, error: `Could not check the key: ${err.message}` });
