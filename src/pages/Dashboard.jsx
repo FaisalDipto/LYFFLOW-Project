@@ -17,6 +17,8 @@ import { BusinessProvider, useBusiness } from '../context/BusinessContext';
 import { PlanGateProvider, usePlanGate } from '../context/PlanGateContext';
 import UpgradeRequiredModal from '../components/UpgradeRequiredModal';
 import Toast from '../components/Toast';
+import TimezoneSelect from '../components/TimezoneSelect';
+import { browserTimezone } from '../utils/timezones';
 import { useWidget } from '../context/WidgetContext';
 import { API_BASE } from '../config/env';
 import {
@@ -3495,7 +3497,9 @@ const AgentLog = ({ agents }) => {
 
 const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgentEdited }) => {
   // Every member can see agents and their activity; changing them is admin+.
-  const { canManage } = useBusiness();
+  const { business, canManage } = useBusiness();
+  // New agents start in the business's timezone, else the browser's.
+  const defaultAgentTimezone = business?.timezone || browserTimezone();
   const { requireActivePlan } = usePlanGate();
   const agents = user?.agents || [];
   const [isCreating, setIsCreating] = useState(false);
@@ -3510,7 +3514,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [businessDesc, setBusinessDesc] = useState('');
   const [instructions, setInstructions] = useState('');
   const [fallbackMessage, setFallbackMessage] = useState(DEFAULT_AGENT_FALLBACK);
-  const [agentTimezone, setAgentTimezone] = useState('');
+  const [agentTimezone, setAgentTimezone] = useState(defaultAgentTimezone);
   const [creationStep, setCreationStep] = useState(1);
   const [preQuestions, setPreQuestions] = useState([]);
   const [preQuestionAnswers, setPreQuestionAnswers] = useState({});
@@ -3572,7 +3576,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setSelectedPersona(null);
     setTone('Professional');
     setLanguage('Mimic User Language');
-    setAgentTimezone('');
+    setAgentTimezone(defaultAgentTimezone);
     setCreationStep(1);
     setPreQuestions([]);
     setPreQuestionAnswers({});
@@ -3861,7 +3865,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setSelectedPersona(REVERSE_ROLE_MAP[agent.role || agent.agent_role] || 'general');
     setTone(agent.tone || agent.agent_tone || 'Professional');
     setLanguage(agent.language || agent.agent_language || 'Mimic User Language');
-    setAgentTimezone(agent.agent_timezone || '');
+    setAgentTimezone(agent.agent_timezone || 'UTC');
     setCreationStep(3);
     setPreQuestions([]);
     setPreQuestionAnswers({});
@@ -3902,7 +3906,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         business_description: businessDesc.trim(),
         instructions: instructions.trim() || null,
         fallback_message: fallbackMessage.trim() || null,
-        agent_timezone: agentTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+        agent_timezone: agentTimezone || defaultAgentTimezone
       };
 
       if (isEditing) {
@@ -3928,7 +3932,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         setBusinessDesc('');
         setInstructions('');
         setFallbackMessage(DEFAULT_AGENT_FALLBACK);
-        setAgentTimezone('');
+        setAgentTimezone(defaultAgentTimezone);
         setCreationStep(1);
         setPreQuestions([]);
         setPreQuestionAnswers({});
@@ -4966,31 +4970,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           </div>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Timezone *</label>
-            <select value={agentTimezone} onChange={e => setAgentTimezone(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }}>
-              <option value="">Browser Default ({Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"})</option>
-              <option value="UTC">UTC</option>
-              <option value="America/New_York">America/New_York</option>
-              <option value="America/Los_Angeles">America/Los_Angeles</option>
-              <option value="America/Chicago">America/Chicago</option>
-              <option value="America/Denver">America/Denver</option>
-              <option value="America/Phoenix">America/Phoenix</option>
-              <option value="America/Anchorage">America/Anchorage</option>
-              <option value="America/Honolulu">America/Honolulu</option>
-              <option value="Europe/London">Europe/London</option>
-              <option value="Europe/Paris">Europe/Paris</option>
-              <option value="Europe/Berlin">Europe/Berlin</option>
-              <option value="Europe/Moscow">Europe/Moscow</option>
-              <option value="Asia/Dhaka">Asia/Dhaka</option>
-              <option value="Asia/Kolkata">Asia/Kolkata</option>
-              <option value="Asia/Tokyo">Asia/Tokyo</option>
-              <option value="Asia/Dubai">Asia/Dubai</option>
-              <option value="Asia/Singapore">Asia/Singapore</option>
-              <option value="Asia/Hong_Kong">Asia/Hong_Kong</option>
-              <option value="Asia/Jakarta">Asia/Jakarta</option>
-              <option value="Australia/Sydney">Australia/Sydney</option>
-              <option value="Australia/Melbourne">Australia/Melbourne</option>
-              <option value="Pacific/Auckland">Pacific/Auckland</option>
-            </select>
+            <TimezoneSelect value={agentTimezone} onChange={setAgentTimezone} aria-label="Agent timezone" style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
         </div>
 

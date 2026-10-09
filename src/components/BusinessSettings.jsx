@@ -4,8 +4,11 @@ import RoleBadge from './RoleBadge';
 import { apiService } from '../services/api';
 import { useBusiness } from '../context/BusinessContext';
 import { usePlanGate } from '../context/PlanGateContext';
+import TimezoneSelect from './TimezoneSelect';
+import { describeBusinessError, optionalText, PHONE_HINT, PHONE_PATTERN } from '../utils/businessProfile';
 
 const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-50';
+const labelClass = 'mb-2 block text-[13.5px] font-semibold text-slate-800';
 const primaryButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60';
 
 const Alert = ({ tone = 'error', children }) => (
@@ -24,39 +27,68 @@ const SectionHeading = ({ title, description }) => (
   </div>
 );
 
-/** Business name/currency (admin+) and deletion (owner only). */
+// The editable profile, as the form holds it (blank strings, not nulls).
+const profileFromBusiness = (business) => ({
+  name: business?.name || '',
+  currency: business?.currency || 'BDT',
+  phone_number: business?.phone_number || '',
+  email: business?.email || '',
+  website: business?.website || '',
+  country: business?.country || '',
+  timezone: business?.timezone || 'UTC',
+});
+
+const sameProfile = (a, b) => Object.keys(a).every(key => a[key].trim() === b[key].trim());
+
+/** Business profile (admin+) and deletion (owner only). */
 export const BusinessDetailsSettings = ({ onBusinessDeleted }) => {
   const { business, canManage, isOwner, refreshBusiness } = useBusiness();
-  const [name, setName] = useState(business?.name || '');
-  const [currency, setCurrency] = useState(business?.currency || 'BDT');
+  const saved = profileFromBusiness(business);
+  const [form, setForm] = useState(saved);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null); // { tone, text }
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
 
+  // Reload the form when the saved business changes (after a save, or a switch).
+  const savedKey = JSON.stringify(saved);
   useEffect(() => {
-    setName(business?.name || '');
-    setCurrency(business?.currency || 'BDT');
-  }, [business?.name, business?.currency]);
+    setForm(JSON.parse(savedKey));
+  }, [savedKey]);
 
-  const isDirty = name.trim() !== (business?.name || '') || currency !== (business?.currency || 'BDT');
+  const isDirty = !sameProfile(form, saved);
+  const update = (field) => (event) => setForm(current => ({ ...current, [field]: event.target.value }));
 
   const handleSave = async (event) => {
     event.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) {
+    const name = form.name.trim();
+    const phone = form.phone_number.trim();
+    if (!name) {
       setMessage({ tone: 'error', text: 'The business name cannot be empty.' });
+      return;
+    }
+    if (!phone) {
+      setMessage({ tone: 'error', text: 'The business needs a phone number.' });
       return;
     }
     setSaving(true);
     setMessage(null);
     try {
-      await apiService.updateBusiness({ name: trimmed, currency });
+      // Blank optional fields are sent as null, which clears them.
+      await apiService.updateBusiness({
+        name,
+        currency: form.currency,
+        phone_number: phone,
+        email: optionalText(form.email),
+        website: optionalText(form.website),
+        country: optionalText(form.country),
+        timezone: form.timezone || 'UTC',
+      });
       await refreshBusiness();
       setMessage({ tone: 'success', text: 'Business details saved.' });
     } catch (err) {
-      setMessage({ tone: 'error', text: err.message || 'Could not save the business details.' });
+      setMessage({ tone: 'error', text: describeBusinessError(err, 'Could not save the business details.') });
     } finally {
       setSaving(false);
     }
@@ -80,34 +112,65 @@ export const BusinessDetailsSettings = ({ onBusinessDeleted }) => {
         <SectionHeading
           title="Business details"
           description={canManage
-            ? 'The name your team sees and the currency used for orders.'
+            ? 'How customers and your team reach the business, and the currency and timezone it runs on.'
             : 'Only the owner and admins can change these details.'}
         />
 
         {message && <Alert tone={message.tone}>{message.text}</Alert>}
 
-        <label htmlFor="settings-business-name" className="mb-2 block text-[13.5px] font-semibold text-slate-800">Business name</label>
-        <input
-          id="settings-business-name"
-          type="text"
-          value={name}
-          maxLength={100}
-          onChange={(e) => setName(e.target.value)}
-          disabled={!canManage || saving}
-          className={`${inputClass} mb-4`}
-        />
+        <fieldset disabled={!canManage || saving} className="m-0 mb-6 grid min-w-0 grid-cols-1 gap-4 border-0 p-0 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label htmlFor="settings-business-name" className={labelClass}>Business name</label>
+            <input id="settings-business-name" type="text" required value={form.name} maxLength={100} onChange={update('name')} className={inputClass} />
+          </div>
 
-        <label htmlFor="settings-business-currency" className="mb-2 block text-[13.5px] font-semibold text-slate-800">Currency</label>
-        <select
-          id="settings-business-currency"
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value)}
-          disabled={!canManage || saving}
-          className={`${inputClass} mb-6`}
-        >
-          <option value="BDT">BDT — Bangladeshi Taka</option>
-          <option value="USD">USD — US Dollar</option>
-        </select>
+          <div>
+            <label htmlFor="settings-business-phone" className={labelClass}>Contact phone</label>
+            <input
+              id="settings-business-phone"
+              type="tel"
+              required
+              inputMode="tel"
+              autoComplete="tel"
+              minLength={6}
+              maxLength={50}
+              pattern={PHONE_PATTERN}
+              title={PHONE_HINT}
+              value={form.phone_number}
+              onChange={update('phone_number')}
+              placeholder="+8801712345678"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="settings-business-email" className={labelClass}>Official email <span className="font-normal text-slate-400">(optional)</span></label>
+            <input id="settings-business-email" type="email" autoComplete="email" value={form.email} onChange={update('email')} placeholder="hello@example.com" className={inputClass} />
+          </div>
+
+          <div>
+            <label htmlFor="settings-business-website" className={labelClass}>Website <span className="font-normal text-slate-400">(optional)</span></label>
+            <input id="settings-business-website" type="url" maxLength={255} autoComplete="url" value={form.website} onChange={update('website')} placeholder="https://example.com" className={inputClass} />
+          </div>
+
+          <div>
+            <label htmlFor="settings-business-country" className={labelClass}>Country <span className="font-normal text-slate-400">(optional)</span></label>
+            <input id="settings-business-country" type="text" maxLength={100} autoComplete="country-name" value={form.country} onChange={update('country')} placeholder="e.g. Bangladesh" className={inputClass} />
+          </div>
+
+          <div>
+            <label htmlFor="settings-business-timezone" className={labelClass}>Operating timezone</label>
+            <TimezoneSelect id="settings-business-timezone" value={form.timezone} onChange={timezone => setForm(current => ({ ...current, timezone }))} className={inputClass} />
+          </div>
+
+          <div>
+            <label htmlFor="settings-business-currency" className={labelClass}>Currency</label>
+            <select id="settings-business-currency" value={form.currency} onChange={update('currency')} className={inputClass}>
+              <option value="BDT">BDT — Bangladeshi Taka</option>
+              <option value="USD">USD — US Dollar</option>
+            </select>
+          </div>
+        </fieldset>
 
         {canManage && (
           <button type="submit" disabled={saving || !isDirty} className={primaryButtonClass}>

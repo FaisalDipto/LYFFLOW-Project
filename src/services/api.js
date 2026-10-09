@@ -103,11 +103,24 @@ let mockApiKeys = [
   },
 ];
 
+// The active business in mock mode; PATCH /v1/business edits it until reload.
+let mockBusiness = {
+  business_id: 'biz_1',
+  name: 'Demo Store',
+  currency: 'BDT',
+  phone_number: '+8801712345678',
+  country: 'Bangladesh',
+  timezone: 'Asia/Dhaka',
+  website: 'https://demostore.example',
+  email: 'hello@demostore.example',
+  created_at: '2026-09-01T00:00:00.000Z',
+};
+
 const mockData = {
   '/v1/user/profile': { display_name: 'Demo User', email: 'demo@lyfflow.com', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
   '/v1/businesses': [
-    { business_id: 'biz_1', name: 'Demo Store', currency: 'BDT', role: 'owner', is_owner: true },
-    { business_id: 'biz_2', name: 'Partner Shop', currency: 'USD', role: 'member', is_owner: false },
+    { business_id: 'biz_1', name: 'Demo Store', currency: 'BDT', role: 'owner', is_owner: true, phone_number: '+8801712345678', country: 'Bangladesh', timezone: 'Asia/Dhaka' },
+    { business_id: 'biz_2', name: 'Partner Shop', currency: 'USD', role: 'member', is_owner: false, phone_number: '+12025550143', country: 'United States', timezone: 'America/New_York' },
   ],
   '/v1/business/invitations': [
     { member_id: 'mem_9', business_id: 'biz_3', business_name: 'Invited Boutique', role: 'admin', invite_token: '4fa1bf7a-6f3b-48aa-b541-698fba0e3032', invite_expires_at: '2026-12-01T00:00:00.000Z' },
@@ -458,12 +471,22 @@ const apiFetch = async (endpoint, options = {}) => {
     }
     
     const mockRole = new URLSearchParams(window.location.search).get('mockRole') || 'owner';
-    if (endpoint === '/v1/business') {
-      return { business: { business_id: 'biz_1', name: 'Demo Store', currency: 'BDT', created_at: '2026-09-01T00:00:00.000Z' }, role: mockRole };
+    if (endpoint === '/v1/business' && method === 'PATCH') {
+      mockBusiness = { ...mockBusiness, ...JSON.parse(requestOptions.body || '{}') };
+      return mockBusiness;
+    }
+    if (endpoint === '/v1/business' && method === 'GET') {
+      return { business: mockBusiness, role: mockRole };
     }
     if (endpoint === '/v1/businesses' && method === 'POST') {
       const body = JSON.parse(requestOptions.body || '{}');
-      return { business: { business_id: 'biz_new', name: body.name, currency: body.currency || 'BDT', created_at: new Date().toISOString() }, role: 'owner' };
+      // Mirrors the backend's 422 for the now-required phone number.
+      if (!body.phone_number || String(body.phone_number).trim().length < 6) {
+        const error = new Error('body.phone_number: Value error, Enter a valid phone number');
+        error.status = 422;
+        throw error;
+      }
+      return { business: { business_id: 'biz_new', currency: 'BDT', timezone: 'UTC', country: null, website: null, email: null, ...body, created_at: new Date().toISOString() }, role: 'owner' };
     }
     const switchMatch = endpoint.match(/^\/v1\/businesses\/([^/]+)\/switch$/);
     if (switchMatch) return { business_id: switchMatch[1], role: mockRole };
@@ -478,7 +501,7 @@ const apiFetch = async (endpoint, options = {}) => {
     if (method === 'DELETE' && endpoint.startsWith('/v1/business')) return '';
     // ?mockNoBusiness=true simulates a first-time user with no memberships or invites.
     const mockParams = new URLSearchParams(window.location.search);
-    if (mockParams.get('mockNoBusiness') === 'true' && (endpoint === '/v1/businesses' || endpoint === '/v1/business/invitations')) {
+    if (MOCK_LOAD_PARAMS.get('mockNoBusiness') === 'true' && (endpoint === '/v1/businesses' || endpoint === '/v1/business/invitations')) {
       return [];
     }
     // ?mockSync=delay keeps the page list empty for ~9s after load (a background
@@ -839,7 +862,33 @@ export const apiService = {
 
   // Businesses. The active business lives on the server-side session, so only
   // create and switch take an id; the session cookie rotates on both.
+  /**
+   * @typedef {'BDT' | 'USD'} Currency
+   *
+   * @typedef {Object} BusinessCreateRequest
+   * @property {string} name                 1-100 characters.
+   * @property {string} phone_number         Required, 6-50 characters; stored as E.164.
+   * @property {Currency} [currency]         Defaults to "BDT".
+   * @property {string|null} [country]       Up to 100 characters.
+   * @property {string|null} [timezone]      IANA name, e.g. "Asia/Dhaka"; defaults to "UTC".
+   * @property {string|null} [website]       Up to 255 characters.
+   * @property {string|null} [email]
+   *
+   * @typedef {Partial<BusinessCreateRequest>} BusinessUpdateRequest  null clears an optional field.
+   *
+   * @typedef {Object} BusinessResponse
+   * @property {string} business_id
+   * @property {string} name
+   * @property {Currency} currency
+   * @property {string} phone_number
+   * @property {string|null} country
+   * @property {string|null} timezone
+   * @property {string|null} website
+   * @property {string|null} email
+   * @property {string} created_at
+   */
   getBusinesses: () => apiFetch('/v1/businesses'),
+  /** @param {BusinessCreateRequest} businessData */
   createBusiness: (businessData) => apiFetch('/v1/businesses', {
     method: 'POST',
     body: JSON.stringify(businessData),
@@ -848,6 +897,7 @@ export const apiService = {
     method: 'POST',
   }),
   getActiveBusiness: () => apiFetch('/v1/business', { cacheTtl: 15000 }),
+  /** @param {BusinessUpdateRequest} businessData */
   updateBusiness: (businessData) => apiFetch('/v1/business', {
     method: 'PATCH',
     body: JSON.stringify(businessData),

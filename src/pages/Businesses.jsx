@@ -8,6 +8,9 @@ import { takePendingInvite } from '../services/pendingInvite';
 import { closeNotificationStream } from '../services/notificationStream';
 import RoleBadge from '../components/RoleBadge';
 import { useSiteTheme } from '../hooks/useSiteTheme';
+import TimezoneSelect from '../components/TimezoneSelect';
+import { browserTimezone } from '../utils/timezones';
+import { describeBusinessError, optionalText, PHONE_HINT, PHONE_PATTERN } from '../utils/businessProfile';
 
 const CURRENCIES = [
   { value: 'BDT', label: 'BDT — Bangladeshi Taka' },
@@ -21,28 +24,55 @@ const formatExpiry = (value) => {
     : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+const fieldClass = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/15 dark:bg-white/5 dark:text-white';
+const selectClass = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/15 dark:bg-slate-900 dark:text-white';
+const labelClass = 'mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300';
+const optionalTag = <span className="font-medium text-slate-400 dark:text-slate-500">(optional)</span>;
+
 const CreateBusinessForm = ({ onCreated, onCancel }) => {
-  const [name, setName] = useState('');
-  const [currency, setCurrency] = useState('BDT');
+  const [form, setForm] = useState(() => ({
+    name: '',
+    phone_number: '',
+    currency: 'BDT',
+    // Pre-filled from the browser; the backend would otherwise default to UTC.
+    timezone: browserTimezone(),
+    country: '',
+    website: '',
+    email: '',
+  }));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const update = (field) => (event) => setForm(current => ({ ...current, [field]: event.target.value }));
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) {
+    const name = form.name.trim();
+    const phone = form.phone_number.trim();
+    if (!name) {
       setError('Enter a name for your business.');
+      return;
+    }
+    if (!phone) {
+      setError('Enter a phone number for your business.');
       return;
     }
     setSubmitting(true);
     setError('');
     try {
-      await apiService.createBusiness({ name: trimmed, currency });
+      await apiService.createBusiness({
+        name,
+        currency: form.currency,
+        phone_number: phone,
+        timezone: form.timezone || 'UTC',
+        country: optionalText(form.country),
+        website: optionalText(form.website),
+        email: optionalText(form.email),
+      });
       onCreated();
     } catch (err) {
       setError(err.status === 409
         ? 'You already own a business. Each account can own one business; you can still join others by invitation.'
-        : err.message || 'Could not create the business.');
+        : describeBusinessError(err, 'Could not create the business.'));
       setSubmitting(false);
     }
   };
@@ -61,38 +91,69 @@ const CreateBusinessForm = ({ onCreated, onCancel }) => {
         )}
       </div>
 
-      <label htmlFor="business-name" className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">Business name</label>
-      <input
-        id="business-name"
-        type="text"
-        value={name}
-        maxLength={100}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="e.g. Dhaka Leather Co."
-        disabled={submitting}
-        autoFocus
-        className="mb-4 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/15 dark:bg-white/5 dark:text-white"
-      />
+      <fieldset disabled={submitting} className="m-0 grid min-w-0 grid-cols-1 gap-4 border-0 p-0 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label htmlFor="business-name" className={labelClass}>Business name</label>
+          <input id="business-name" type="text" required value={form.name} maxLength={100} onChange={update('name')} placeholder="e.g. Dhaka Leather Co." autoFocus className={fieldClass} />
+        </div>
 
-      <label htmlFor="business-currency" className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">Currency</label>
-      <select
-        id="business-currency"
-        value={currency}
-        onChange={(e) => setCurrency(e.target.value)}
-        disabled={submitting}
-        className="mb-5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/15 dark:bg-slate-900 dark:text-white"
-      >
-        {CURRENCIES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
+        <div>
+          <label htmlFor="business-phone" className={labelClass}>Phone number</label>
+          <input
+            id="business-phone"
+            type="tel"
+            required
+            inputMode="tel"
+            autoComplete="tel"
+            minLength={6}
+            maxLength={50}
+            pattern={PHONE_PATTERN}
+            title={PHONE_HINT}
+            value={form.phone_number}
+            onChange={update('phone_number')}
+            placeholder="+8801712345678"
+            aria-describedby="business-phone-hint"
+            className={fieldClass}
+          />
+          <p id="business-phone-hint" className="mb-0 mt-1 text-[11px] text-slate-500 dark:text-slate-400">Customers and couriers may use this to reach you.</p>
+        </div>
+
+        <div>
+          <label htmlFor="business-currency" className={labelClass}>Currency</label>
+          <select id="business-currency" value={form.currency} onChange={update('currency')} className={selectClass}>
+            {CURRENCIES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="business-timezone" className={labelClass}>Timezone</label>
+          <TimezoneSelect id="business-timezone" value={form.timezone} onChange={timezone => setForm(current => ({ ...current, timezone }))} className={selectClass} />
+        </div>
+
+        <div>
+          <label htmlFor="business-country" className={labelClass}>Country {optionalTag}</label>
+          <input id="business-country" type="text" maxLength={100} autoComplete="country-name" value={form.country} onChange={update('country')} placeholder="e.g. Bangladesh" className={fieldClass} />
+        </div>
+
+        <div>
+          <label htmlFor="business-website" className={labelClass}>Website {optionalTag}</label>
+          <input id="business-website" type="url" maxLength={255} autoComplete="url" value={form.website} onChange={update('website')} placeholder="https://example.com" className={fieldClass} />
+        </div>
+
+        <div>
+          <label htmlFor="business-email" className={labelClass}>Email {optionalTag}</label>
+          <input id="business-email" type="email" autoComplete="email" value={form.email} onChange={update('email')} placeholder="hello@example.com" className={fieldClass} />
+        </div>
+      </fieldset>
 
       {error && (
-        <p role="alert" className="mb-4 mt-0 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm font-semibold text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">{error}</p>
+        <p role="alert" className="mb-0 mt-5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm font-semibold text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">{error}</p>
       )}
 
       <button
         type="submit"
         disabled={submitting}
-        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-wait disabled:opacity-70 dark:bg-white dark:text-slate-950 dark:hover:bg-emerald-400"
+        className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-wait disabled:opacity-70 dark:bg-white dark:text-slate-950 dark:hover:bg-emerald-400"
       >
         {submitting ? 'Creating...' : 'Create business'}
         {!submitting && <ArrowRight size={16} />}
