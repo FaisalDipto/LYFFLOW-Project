@@ -629,6 +629,16 @@ const apiFetch = async (endpoint, options = {}) => {
       const hasMore = offset + size < thread.length;
       return { messages: thread.slice(offset, offset + size), pagination: { has_more: hasMore, next_cursor: hasMore ? String(offset + size) : null } };
     }
+    // Product codes are unique per namespace; the mock catalog already uses these.
+    if (/^\/v1\/products\/[^/]+\/create$/.test(endpoint) && method === 'POST') {
+      const code = String(requestOptions.body?.get?.('code') || '').trim();
+      if (['WAL-01', 'TOT-02', 'SHI-03'].includes(code.toUpperCase())) {
+        const error = new Error(`Product with code '${code}' already exists in this namespace.`);
+        error.status = 409;
+        throw error;
+      }
+      return { product_id: `prod_${Date.now()}`, code };
+    }
     if (endpoint === '/v1/woocommerce/status') return mockWooStatus;
     if (endpoint === '/v1/woocommerce/disconnect' && method === 'DELETE') {
       mockWooStatus = MOCK_WOO_STATUSES.none;

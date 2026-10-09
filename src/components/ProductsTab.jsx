@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiService } from '../services/api';
 import { API_BASE } from '../config/env';
@@ -36,6 +36,10 @@ const ProductsTab = ({ selectedNamespaceId }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Shown under the Product Code field when the API answers 409 (code already used
+  // in this namespace). Cleared when the code changes or the form reopens.
+  const [codeError, setCodeError] = useState('');
+  const codeInputRef = useRef(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
@@ -191,6 +195,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
     });
     setSelectedFiles([]);
     setExistingAssets(product.primary_assets || product.assets || []);
+    setCodeError('');
     setShowCreateModal(true);
 
     try {
@@ -216,6 +221,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
       addToast('Please select a namespace first', 'error');
       return;
     }
+    setCodeError('');
 
     try {
       if (editingProductId) {
@@ -283,6 +289,16 @@ const ProductsTab = ({ selectedNamespaceId }) => {
       setEditingProductId(null);
       fetchProducts(history[currentIndex]);
     } catch (err) {
+      // 409: the code is already used by another product in this namespace. Say so on
+      // the field and keep the form open, rather than a generic failure toast.
+      if (err.status === 409) {
+        const code = formData.code.trim();
+        setCodeError(code
+          ? `Product code "${code}" is already used in this catalog. Enter a different code.`
+          : 'This product code is already used in this catalog. Enter a different code.');
+        codeInputRef.current?.focus();
+        return;
+      }
       addToast(`Failed to ${editingProductId ? 'update' : 'create'} product: ` + err.message, 'error');
     }
   };
@@ -474,6 +490,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                 setFormData({ name: '', code: '', description: '', price: '', currency: DEFAULT_CURRENCY, category: '', tags: '', variants: '', availability: true });
                 setSelectedFiles([]);
                 setExistingAssets([]);
+                setCodeError('');
                 setShowCreateModal(true);
               }}
               className="products-create-button flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm shadow-xl"
@@ -638,8 +655,22 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                     <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Premium T-Shirt" />
                   </div>
                   <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
-                    <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product Code *</label>
-                    <input type="text" required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. SKU-12345" />
+                    <label htmlFor="product-code" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product Code *</label>
+                    <input
+                      id="product-code"
+                      ref={codeInputRef}
+                      type="text"
+                      required
+                      value={formData.code}
+                      onChange={e => { setFormData({...formData, code: e.target.value}); if (codeError) setCodeError(''); }}
+                      aria-invalid={codeError ? 'true' : undefined}
+                      aria-describedby={codeError ? 'product-code-error' : undefined}
+                      className={`w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 transition-all ${codeError ? 'product-code-invalid border-red-400 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500'}`}
+                      placeholder="E.g. SKU-12345"
+                    />
+                    {codeError && (
+                      <p id="product-code-error" role="alert" className="product-code-error m-0 text-xs font-semibold text-red-600">{codeError}</p>
+                    )}
                   </div>
                 </div>
 
