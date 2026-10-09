@@ -518,8 +518,8 @@ export default function AnalyticsHub({ pages, agents, isDark, isActive = true, o
 
   return (
     // Side and bottom padding come from the shared .dashboard-content-area rules;
-    // .analytics-hub trims the top so the widgets sit close under the top bar.
-    <div className="analytics-hub dashboard-content-area w-full flex-1 bg-surface-bright text-left">
+    // .dashboard-compact-top trims the top so the widgets sit close under the top bar.
+    <div className="dashboard-compact-top dashboard-content-area w-full flex-1 bg-surface-bright text-left">
       {/* The top bar already names the page; this heading is kept for screen readers only. */}
       <h1 className="sr-only">Dashboard</h1>
       <div className="mb-4 flex items-center justify-end gap-3">

@@ -275,3 +275,7 @@ html[data-dashboard-theme="dark"] .woo-order-sync.is-local{background-color:#161
 html[data-dashboard-theme="dark"] :is(.woo-status-panel,.woo-order-sync,.woo-state-badge) :is(.text-red-600,.text-red-700){color:#fca5a5!important}
 html[data-dashboard-theme="dark"] :is(.woo-order-sync,.woo-state-badge) :is(.text-emerald-600,.text-emerald-700),html[data-dashboard-theme="dark"] .woo-state-badge.is-connected{color:#6ee7b7!important}
 html[data-dashboard-theme="dark"] .woo-order-sync a{background-color:transparent!important}
+
+/* Channels / Agents header action: the dark fill disappears on the black canvas, so it inverts. */
+.dashboard-layout.theme-dark .page-stats-action{background-color:#ececec!important;border-color:#ececec!important;color:#0a0a0a!important}
+.dashboard-layout.theme-dark .page-stats-action:hover{background-color:#34d399!important;border-color:#34d399!important}

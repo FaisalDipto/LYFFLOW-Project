@@ -351,10 +351,10 @@ body.dashboard-route > .fixed .font-black {
   margin: 0 auto;
 }
 
-/* The analytics view has no page title, just the range controls, so it starts
-   closer to the top bar than other tabs. Two classes outrank every breakpoint's
+/* Views without a page title (the top bar names them) start close under the top
+   bar: Dashboard, Channels, Platforms. Two classes outrank every breakpoint's
    .dashboard-content-area padding below. */
-.dashboard-content-area.analytics-hub {
+.dashboard-content-area.dashboard-compact-top {
   padding-top: 12px;
 }
 

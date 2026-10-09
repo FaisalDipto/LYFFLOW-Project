@@ -285,14 +285,10 @@ export default function PlatformsCatalog({ pages, onConnectFacebook, onNavigate 
   ));
 
   return (
-    <div className="dashboard-content-area w-full flex-1 bg-surface-bright p-4 text-left md:p-6 xl:p-8">
-      <div className="mb-5">
-        <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Integrations</span>
-        <h1 className="m-0 font-headline text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Platforms</h1>
-        <p className="mb-0 mt-1 text-sm font-medium text-slate-500">Connect messaging channels, stores and couriers to your workspace.</p>
-      </div>
-
-      <div className="mb-5 flex sm:justify-end">
+    <div className="dashboard-compact-top dashboard-content-area w-full flex-1 bg-surface-bright text-left">
+      {/* The top bar already names the page; this heading is kept for screen readers only. */}
+      <h1 className="sr-only">Platforms</h1>
+      <div className="mb-4 flex sm:justify-end">
         <label className="relative block w-full sm:w-72">
           <span className="sr-only">Search integrations</span>
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

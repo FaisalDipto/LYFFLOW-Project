@@ -131,6 +131,22 @@ const CountUpNumber = ({ value }) => {
   );
 };
 
+// Counts and the main action for a page whose title lives in the top bar
+// (Channels, Agents), right-aligned above the content.
+const PageStatsBar = ({ label, stats, children }) => (
+  <div className="page-stats-bar mb-6 flex flex-wrap items-center justify-end gap-4">
+    <dl aria-label={label} className="page-stats m-0 flex items-center rounded-xl border border-slate-200 bg-white px-1 py-1.5 shadow-sm">
+      {stats.map(({ label: statLabel, value, valueClass = 'text-slate-950' }, index) => (
+        <div key={statLabel} className={`flex flex-row-reverse items-baseline gap-1.5 px-3.5 ${index ? 'border-l border-slate-200' : ''}`}>
+          <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{statLabel}</dt>
+          <dd className={`m-0 text-lg font-black leading-none tabular-nums ${valueClass}`}>{value}</dd>
+        </div>
+      ))}
+    </dl>
+    {children}
+  </div>
+);
+
 // Sub-components
 const PageSkeletonCard = ({ index }) => (
   <div className="page-sync-skeleton min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm" style={{ animationDelay: `${index * 120}ms` }} aria-hidden="true">
@@ -189,7 +205,7 @@ const PageSyncStatus = ({ status, onRetry }) => {
 
 const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = 'idle', onRetrySync }) => {
   // Facebook connect is owner-only; agent assignment and page removal are admin+.
-  const { business, isOwner, canManage } = useBusiness();
+  const { isOwner, canManage } = useBusiness();
   const { requireActivePlan } = usePlanGate();
   const [disconnecting, setDisconnecting] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -212,7 +228,6 @@ const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
   const assignedPageCount = Array.isArray(pages)
     ? pages.filter(page => Boolean(selectedAgents[page.page_id])).length
     : 0;
-  const workspaceName = business?.name || 'My Workspace';
   const isSyncing = syncStatus === 'syncing' || syncStatus === 'slow';
   const reauthPages = useMemo(
     () => (Array.isArray(pages) ? pages.filter(pageNeedsReauth) : []),
@@ -377,43 +392,28 @@ const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
   };
 
   return (
-    <div className="dashboard-content-area flex-1 p-4 md:p-6 xl:p-8 w-full text-left bg-surface-bright">
-      <section className="mb-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm md:px-6 md:py-5">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div className="min-w-0">
-            <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Channels</span>
-            <h1 className="m-0 truncate font-headline text-2xl font-black tracking-tight text-slate-950 md:text-3xl">{workspaceName}</h1>
-            <p className="mb-0 mt-1 text-sm font-medium text-slate-500">Manage your connected pages and the agents answering for them.</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 md:gap-x-7">
-            <div>
-              <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={pageCount} /></span>
-              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">Pages</span>
-            </div>
-            <div className="h-8 w-px bg-slate-200" aria-hidden="true" />
-            <div>
-              <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={assignedPageCount} /></span>
-              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">Assigned</span>
-            </div>
-            <div className="h-8 w-px bg-slate-200" aria-hidden="true" />
-            <div>
-              <span className="block text-xl font-black leading-none text-slate-950"><CountUpNumber value={agents.length} /></span>
-              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">Agents</span>
-            </div>
-            {isOwner && (
-              <button
-                type="button"
-                onClick={handleAddPage}
-                className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600 md:ml-2"
-              >
-                <span className="material-symbols-outlined text-[18px]">add</span>
-                Connect page
-              </button>
-            )}
-          </div>
-        </div>
-      </section>
+    <div className="dashboard-compact-top dashboard-content-area flex-1 w-full text-left bg-surface-bright">
+      {/* The top bar already names the page; this heading is kept for screen readers only. */}
+      <h1 className="sr-only">Channels</h1>
+      <PageStatsBar
+        label="Channel summary"
+        stats={[
+          { label: 'Pages', value: <CountUpNumber value={pageCount} /> },
+          { label: 'Assigned', value: <CountUpNumber value={assignedPageCount} /> },
+          { label: 'Agents', value: <CountUpNumber value={agents.length} /> },
+        ]}
+      >
+        {isOwner && (
+          <button
+            type="button"
+            onClick={handleAddPage}
+            className="page-stats-action inline-flex h-10 items-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            Connect page
+          </button>
+        )}
+      </PageStatsBar>
 
       <div className="mb-3 flex items-center justify-between gap-4">
         <div>
@@ -4420,34 +4420,27 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
   if (!isCreating && !isEditing) {
     return (
-      <div className="min-w-0 flex-1 w-full p-4 md:p-6 xl:p-8 min-h-screen bg-[#f7f9fb] animate-fade-in-up">
+      // Not a .dashboard-content-area, so its own classes mirror that padding (16px,
+      // 28px from tablet, 40px above 1440px) with the 12px top of the title-less views.
+      <div className="min-w-0 flex-1 w-full px-4 pb-4 pt-3 md:px-7 md:pb-6 min-[1441px]:px-10 xl:pb-8 min-h-screen bg-[#f7f9fb] animate-fade-in-up">
         <div className="max-w-[1400px] mx-auto">
-          <section className="mb-6 rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.05)] md:p-7">
-            <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Agent workspace</span>
-                <h2 className="mb-2 font-['Epilogue'] text-3xl font-extrabold tracking-tight text-slate-950">AI agents</h2>
-                <p className="max-w-xl text-sm leading-6 text-slate-500">
-                  {canManage
-                    ? 'Create, connect, and monitor the agents that handle conversations across your pages.'
-                    : 'Monitor the agents that handle conversations across your pages. Admins and the owner can change them.'}
-                </p>
-              </div>
-              <div className="grid w-full min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:w-auto">
-                <div className="grid min-w-0 grid-cols-3 items-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 py-3">
-                  <div className="min-w-0 px-3 text-center sm:px-4"><p className="text-lg font-extrabold leading-none text-slate-950">{agents.length}</p><p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">Agents</p></div>
-                  <div className="min-w-0 border-x border-slate-200 px-2 text-center sm:px-4"><p className="text-lg font-extrabold leading-none text-emerald-600">{configuredAgentsCount}</p><p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">Connected</p></div>
-                  <div className="min-w-0 px-3 text-center sm:px-4"><p className="text-lg font-extrabold leading-none text-blue-600">{assignedPageCount}</p><p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">Pages</p></div>
-                </div>
-                {canManage && (
-                  <button onClick={openCreateForm} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition-all hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0 sm:w-auto">
-                    <span className="material-symbols-outlined text-[19px]">add</span>
-                    Create agent
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
+          {/* The top bar already names the page; this heading is kept for screen readers only. */}
+          <h1 className="sr-only">AI agents</h1>
+          <PageStatsBar
+            label="Agent summary"
+            stats={[
+              { label: 'Agents', value: agents.length },
+              { label: 'Connected', value: configuredAgentsCount, valueClass: 'text-emerald-600' },
+              { label: 'Pages', value: assignedPageCount, valueClass: 'text-blue-600' },
+            ]}
+          >
+            {canManage && (
+              <button type="button" onClick={openCreateForm} className="page-stats-action inline-flex h-10 items-center gap-2 rounded-lg border border-slate-950 bg-slate-950 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600">
+                <span className="material-symbols-outlined text-[18px]">add</span>
+                Create agent
+              </button>
+            )}
+          </PageStatsBar>
 
           <section className="mb-5 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
