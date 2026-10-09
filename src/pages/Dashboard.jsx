@@ -1,5 +1,5 @@
 ﻿import { ArrowLeftRight, Book, Hourglass, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
 import '@fontsource-variable/archivo/wdth.css';
@@ -845,6 +845,9 @@ const ConversationList = ({ pages, user, focusRequest }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
   const isLoadingOlderMsgsRef = useRef(false);
+  // Scroll position captured just before older messages are prepended, so the view
+  // can be held on whatever the reader is looking at (see the layout effect below).
+  const prependAnchorRef = useRef(null);
   // Whether the reader is at (or near) the newest message. Only then does a change to
   // the thread pull the view down; someone reading older messages is left in place.
   const stickToBottomRef = useRef(true);
@@ -898,9 +901,20 @@ const ConversationList = ({ pages, user, focusRequest }) => {
     return resolvedName;
   };
 
+  // Older messages grow the thread above the reader. Shift by exactly the height they
+  // added, measured when they arrive (not when the request started: the reader may
+  // have scrolled since), before the browser paints so nothing visibly jumps.
+  useLayoutEffect(() => {
+    const anchor = prependAnchorRef.current;
+    const container = messagesContainerRef.current;
+    if (!anchor || !container) return;
+    prependAnchorRef.current = null;
+    container.scrollTop = anchor.top + (container.scrollHeight - anchor.height);
+  }, [messages]);
+
   useEffect(() => {
     if (!messagesContainerRef.current) return;
-    // Older messages were prepended; handleLoadMoreMessages keeps the reader's place.
+    // Older messages were prepended; the layout effect above keeps the reader's place.
     if (isLoadingOlderMsgsRef.current) {
       isLoadingOlderMsgsRef.current = false;
       return;
@@ -1112,15 +1126,15 @@ const ConversationList = ({ pages, user, focusRequest }) => {
     setLoadingMoreMessages(true);
     isLoadingOlderMsgsRef.current = true;
     const convId = activeContact.id || activeContact.conversation_id || activeContact.id;
-    
-    const container = messagesContainerRef.current;
-    const oldScrollHeight = container ? container.scrollHeight : 0;
 
     apiService.getConversationDetails(selectedPageId, convId, messagesPagination.next_cursor)
       .then(data => {
         const msgs = data?.messages?.data || data?.messages || data?.data || [];
         const newMsgs = Array.isArray(msgs) ? msgs.reverse() : [];
-        
+
+        // Where the reader is right now, for the layout effect to hold them there.
+        const container = messagesContainerRef.current;
+        prependAnchorRef.current = container ? { top: container.scrollTop, height: container.scrollHeight } : null;
         setMessages(prev => {
            const all = [...newMsgs, ...prev];
            const unique = [];
@@ -1140,13 +1154,6 @@ const ConversationList = ({ pages, user, focusRequest }) => {
         } else {
           setMessagesPagination(null);
         }
-        
-        setTimeout(() => {
-          if (container) {
-            const newScrollHeight = container.scrollHeight;
-            container.scrollTop = newScrollHeight - oldScrollHeight;
-          }
-        }, 0);
       })
       .catch(err => console.error("Failed to fetch more messages", err))
       .finally(() => setLoadingMoreMessages(false));
