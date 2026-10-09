@@ -2535,56 +2535,56 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
       .includes(query);
   });
 
+  // Catalog picker and "New namespace": the left of Products' toolbar row, or a row
+  // of their own above Documents.
+  const namespaceControls = (
+    <>
+      <label
+        className="relative flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-slate-200 bg-white transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/60"
+        style={{ width: '280px', maxWidth: '100%', flex: '0 1 280px' }}
+      >
+        <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">database</span>
+        <select
+          aria-label="Catalog"
+          value={selectedNamespaceId}
+          onChange={e => setSelectedNamespaceId(e.target.value)}
+          className="h-full min-w-0 flex-1 appearance-none border-0 bg-transparent pl-10 pr-9 text-sm font-bold text-slate-700 outline-none focus:border-transparent focus:ring-0"
+          style={{ width: 0, minWidth: 0, boxSizing: 'border-box', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
+        >
+          {namespaces.map((ns, idx) => {
+            const nsId = ns.namespace_id || ns.namespace;
+            const nsName = ns.namespace_name || ns.name;
+            return <option key={idx} value={nsId}>{nsName}</option>;
+          })}
+        </select>
+        <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">expand_more</span>
+      </label>
+      {canManage && (
+        <button
+          className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-solid border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          onClick={() => {
+            setNewNamespaceName('');
+            setShowNamespaceModal(true);
+          }}
+        >
+          <span className="material-symbols-outlined text-[18px]">create_new_folder</span>
+          New namespace
+        </button>
+      )}
+    </>
+  );
+
   return (
-    <div className="knowledge-page min-w-0 flex-1 w-full bg-[#f7f9fb] p-4 md:p-6 xl:p-8 overflow-y-auto animate-fade-in-up">
+    // Not a .dashboard-content-area, so its own classes mirror that padding (16px,
+    // 28px from tablet, 40px above 1440px) with the 12px top of the title-less views.
+    <div className="knowledge-page min-w-0 flex-1 w-full bg-[#f7f9fb] px-4 pb-4 pt-3 md:px-7 md:pb-6 min-[1441px]:px-10 xl:pb-8 overflow-y-auto animate-fade-in-up">
+      {/* The top bar already names the page; this heading is kept for screen readers only.
+          It sits outside the space-y stack so it doesn't push the first row down. */}
+      <h1 className="sr-only">{activeSection === 'documents' ? 'Documents' : 'Products'}</h1>
       <div className="max-w-[1400px] mx-auto space-y-6">
-        <section className="knowledge-hero overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
-          <div className="flex flex-col gap-6 p-5 md:p-7 xl:flex-row xl:items-start xl:justify-between">
-            <div className="min-w-0">
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Knowledge workspace</p>
-              <h1 className="mb-2 font-['Epilogue'] text-3xl font-extrabold tracking-tight text-slate-950">Knowledge base</h1>
-              <p className="max-w-2xl text-sm leading-6 text-slate-500">Organize the product data and documents your agents use to answer customers accurately.</p>
-            </div>
-
-            <div className="flex w-full min-w-0 flex-wrap gap-2 xl:w-auto">
-              <label
-                className="relative flex h-11 min-w-0 items-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/60"
-                style={{ width: '280px', maxWidth: '100%', flex: '0 1 280px' }}
-              >
-                <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">database</span>
-                <select
-                  value={selectedNamespaceId}
-                  onChange={e => setSelectedNamespaceId(e.target.value)}
-                  className="h-full min-w-0 flex-1 appearance-none border-0 bg-transparent pl-10 pr-9 text-sm font-bold text-slate-700 outline-none focus:border-transparent focus:ring-0"
-                  style={{ width: 0, minWidth: 0, boxSizing: 'border-box', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
-                >
-                  {namespaces.map((ns, idx) => {
-                    const nsId = ns.namespace_id || ns.namespace;
-                    const nsName = ns.namespace_name || ns.name;
-                    return <option key={idx} value={nsId}>{nsName}</option>;
-                  })}
-                </select>
-                <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">expand_more</span>
-              </label>
-              {canManage && (
-                <button
-                  className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  onClick={() => {
-                    setNewNamespaceName('');
-                    setShowNamespaceModal(true);
-                  }}
-                >
-                  <span className="material-symbols-outlined text-[18px]">create_new_folder</span>
-                  New namespace
-                </button>
-              )}
-            </div>
-          </div>
-
-        </section>
-
         {activeSection === 'documents' ? (
           <>
+            <div className="flex flex-wrap items-center gap-2">{namespaceControls}</div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {[
                 { label: 'Total sources', value: knowledgeList.length, icon: 'library_books', color: 'text-slate-950', iconStyle: 'bg-slate-950 text-white' },
@@ -2746,7 +2746,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
           </>
         ) : (
           <Suspense fallback={<div className="min-h-[220px] rounded-2xl bg-white" aria-label="Loading products" />}>
-            <ProductsTab selectedNamespaceId={selectedNamespaceId} namespaces={namespaces} />
+            <ProductsTab selectedNamespaceId={selectedNamespaceId} namespaces={namespaces} toolbarStart={namespaceControls} />
           </Suspense>
         )}
       </div>

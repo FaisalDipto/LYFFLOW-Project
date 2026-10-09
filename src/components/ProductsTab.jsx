@@ -30,7 +30,9 @@ const FallbackImage = ({ src, alt, className }) => {
   );
 };
 
-const ProductsTab = ({ selectedNamespaceId }) => {
+// `toolbarStart`: controls the parent puts at the left of the toolbar row (the
+// catalog picker on the Knowledge page); the product controls sit on the right.
+const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
   // Members can browse products and import history; writes are admin+.
   const { canManage } = useBusiness();
   const [products, setProducts] = useState([]);
@@ -416,75 +418,62 @@ const ProductsTab = ({ selectedNamespaceId }) => {
 
   return (
     <>
-      <div className="products-tab max-w-[1080px] mx-auto w-full">
-        <div className="products-inventory-shell animate-fade-in-up mt-6 p-8 rounded-[40px] bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-2xl shadow-emerald-500/20 relative overflow-hidden">
-          <div className="products-inventory-glow absolute -top-32 -right-32 w-96 h-96 bg-yellow-300 opacity-20 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="products-inventory-glow absolute -bottom-32 -left-32 w-96 h-96 bg-emerald-300 opacity-30 rounded-full blur-3xl pointer-events-none"></div>
-
-        <div className="relative z-10">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md text-white flex items-center justify-center shadow-inner border border-white/30">
-              <span className="material-symbols-outlined text-[24px]">inventory_2</span>
-            </div>
-            <div>
-              <h2 className="text-3xl font-black text-white tracking-tight drop-shadow-md">Products Inventory</h2>
-              <p className="text-white/80 font-medium text-sm mt-1">Manage your storefront items</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
+      <div className="products-tab w-full">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          {toolbarStart && <div className="flex min-w-0 flex-wrap items-center gap-2">{toolbarStart}</div>}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <div className="relative">
-              <select 
-                value={availabilityFilter} 
+              <select
+                value={availabilityFilter}
                 onChange={(e) => setAvailabilityFilter(e.target.value)}
                 aria-label="Filter by availability"
                 style={{ backgroundImage: 'none' }}
-                className="products-filter-select appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
+                className="products-filter-select h-10 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 cursor-pointer appearance-none pl-3 pr-9 outline-none"
               >
-                <option value="all" className="text-slate-800 font-semibold">All products</option>
-                <option value="available" className="text-slate-800 font-semibold">Available (In Stock)</option>
-                <option value="unavailable" className="text-slate-800 font-semibold">Unavailable (Out of Stock)</option>
+                <option value="all">All products</option>
+                <option value="available">Available (In Stock)</option>
+                <option value="unavailable">Unavailable (Out of Stock)</option>
               </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/70">
-                <span className="material-symbols-outlined text-[20px]">expand_more</span>
-              </div>
+              <span className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">expand_more</span>
             </div>
             <div className="relative">
-              <select 
-                value={sourceFilter} 
+              <select
+                value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
+                aria-label="Filter by source"
                 style={{ backgroundImage: 'none' }}
-                className="products-filter-select appearance-none pl-4 pr-10 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg outline-none cursor-pointer"
+                className="products-filter-select h-10 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 cursor-pointer appearance-none pl-3 pr-9 outline-none"
               >
-                <option value="all" className="text-slate-800 font-semibold">All Sources</option>
-                <option value="manual" className="text-slate-800 font-semibold">Manual</option>
-                <option value="csv" className="text-slate-800 font-semibold">CSV Import</option>
+                <option value="all">All Sources</option>
+                <option value="manual">Manual</option>
+                <option value="csv">CSV Import</option>
               </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/70">
-                <span className="material-symbols-outlined text-[20px]">expand_more</span>
-              </div>
+              <span className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">expand_more</span>
             </div>
             {canManage ? (
             <button
+              type="button"
               onClick={() => setShowImportModal(true)}
-              className="products-import-button flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg"
+              className="products-import-button h-10 rounded-lg border border-solid border-slate-200 bg-white text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 inline-flex items-center gap-2 px-3.5"
             >
               <Upload size={16} /> Import CSV
             </button>
             ) : (
             <button
+              type="button"
               onClick={() => {
                 setHistoryCursors([null]);
                 setHistoryIndex(0);
                 fetchHistoryBatches(null);
                 setShowHistoryModal(true);
               }}
-              className="products-import-button flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all font-bold text-sm border border-white/20 shadow-lg"
+              className="products-import-button h-10 rounded-lg border border-solid border-slate-200 bg-white text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 inline-flex items-center gap-2 px-3.5"
             >
               <FileText size={16} /> Import history
             </button>
             )}
             {canManage && <button
+              type="button"
               onClick={() => {
                 setEditingProductId(null);
                 setFormData({ name: '', code: '', description: '', price: '', currency: DEFAULT_CURRENCY, category: '', tags: '', variants: '', availability: true });
@@ -493,7 +482,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
                 setCodeError('');
                 setShowCreateModal(true);
               }}
-              className="products-create-button flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm shadow-xl"
+              className="page-stats-action inline-flex h-10 items-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600"
             >
               <Plus size={16} /> Create Product
             </button>}
@@ -501,7 +490,7 @@ const ProductsTab = ({ selectedNamespaceId }) => {
         </div>
 
         {/* Data Table */}
-        <div className="products-table bg-white/95 backdrop-blur-2xl rounded-3xl border border-white/50 overflow-hidden shadow-2xl">
+        <div className="products-table animate-fade-in-up overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto w-full no-scrollbar">
             <div className="min-w-[900px] w-full">
               <div className="products-table-header grid grid-cols-[3fr_2fr_2fr_2fr_2fr_2fr_100px] gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm">
@@ -620,8 +609,6 @@ const ProductsTab = ({ selectedNamespaceId }) => {
           </div>
         </div>
       </div>
-    </div>
-</div>
 
       {/* Portals for Modals and Toasts */}
       {createPortal(
