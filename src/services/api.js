@@ -115,7 +115,51 @@ const mockWooSync = (order) => {
   return { wc_order_id: null, wc_synced_at: null, wc_sync_error: null, wc_sync_attempts: 0 };
 };
 
-// API keys for mock mode. Full keys are remembered so the key tester can validate
+// Product catalog for mock mode (namespace ns_1). Create, update, delete and the
+// variant endpoints edit it until reload.
+const mockVariant = (productId, n, sku, title, optionValues, regular, sale, qty, status = 'in_stock') => ({
+  variant_id: `var_${productId}_${n}`, product_id: productId, sku, title, barcode: null, option_values: optionValues,
+  regular_price: regular, sale_price: sale, cost_price: null, track_inventory: qty !== null, stock_quantity: qty, stock_status: status,
+  weight: null, image_asset_id: null, position: n, is_active: true, created_at: '2026-10-01T10:00:00Z', updated_at: '2026-10-01T10:00:00Z',
+});
+let mockProducts = [
+  {
+    product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', product_type: 'simple', category: 'Accessories', tags: ['leather', 'gift'],
+    description: 'Full-grain leather bifold with six card slots.', regular_price: '1170.00', sale_price: '990.00', currency: 'BDT',
+    stock_status: 'in_stock', stock_quantity: 42, availability: true, options: [], variants: [], assets: [], primary_assets: [],
+  },
+  {
+    product_id: 'prod_2', name: 'Canvas Tote Bag', code: 'TOT-02', product_type: 'simple', category: 'Bags', tags: ['canvas'],
+    description: 'Heavy cotton canvas tote with an inner pocket.', regular_price: '850.00', sale_price: null, currency: 'BDT',
+    stock_status: 'in_stock', stock_quantity: 18, availability: true, options: [], variants: [], assets: [], primary_assets: [],
+  },
+  {
+    product_id: 'prod_3', name: 'Linen Summer Shirt', code: 'SHI-03', product_type: 'variable', category: 'Clothing', tags: ['linen', 'summer'],
+    description: 'Breathable linen shirt in two colours.', regular_price: '1450.00', sale_price: null, currency: 'BDT',
+    stock_status: 'out_of_stock', stock_quantity: 0, availability: false,
+    options: [{ name: 'Color', values: ['White', 'Sky Blue'] }, { name: 'Size', values: ['M', 'L'] }],
+    variants: [
+      mockVariant('prod_3', 0, 'SHI-03-WHITE-M', 'White / M', { Color: 'White', Size: 'M' }, '1450.00', null, 0, 'out_of_stock'),
+      mockVariant('prod_3', 1, 'SHI-03-WHITE-L', 'White / L', { Color: 'White', Size: 'L' }, '1450.00', null, 0, 'out_of_stock'),
+      mockVariant('prod_3', 2, 'SHI-03-SKY-BLUE-M', 'Sky Blue / M', { Color: 'Sky Blue', Size: 'M' }, '1450.00', '1290.00', 0, 'on_backorder'),
+    ],
+    assets: [], primary_assets: [],
+  },
+];
+const MOCK_LIST_FIELDS = ['product_id', 'name', 'code', 'product_type', 'regular_price', 'sale_price', 'currency', 'stock_status', 'stock_quantity', 'availability', 'primary_assets'];
+const mockProductListItem = (product) => Object.fromEntries(MOCK_LIST_FIELDS.map(field => [field, product[field]]));
+const mockMoney = (value) => (value === null || value === undefined || value === '' ? null : Number(value).toFixed(2));
+
+// Agents for mock mode; create and update edit this list until reload. SupportBot has
+// the Messenger pause sign turned off (null) so both states are visible.
+let mockAgents = [
+  { agent_id: 'agent_1', name: 'SalesBot', agent_name: 'SalesBot', role: 'Sales', agent_role: 'Sales', agent_tone: 'Friendly', agent_language: 'Mimic User Language', business_name: 'Demo Store', business_description: 'Leather goods and accessories, delivered across Bangladesh.', agent_timezone: 'Asia/Dhaka', human_handover_sign: '#pause' },
+  { agent_id: 'agent_2', name: 'SupportBot', agent_name: 'SupportBot', role: 'Support', agent_role: 'Support', agent_tone: 'Professional', agent_language: 'English', business_name: 'Demo Store', business_description: 'Order help, returns and delivery questions for Demo Store.', agent_timezone: 'Asia/Dhaka', human_handover_sign: null },
+];
+
+const MOCK_NAMESPACES = [{ namespace_id: 'ns_1', namespace_name: 'Demo catalog' }];
+
+// API keys for mock mode.Full keys are remembered so the key tester can validate
 // keys created in this session; the two seeded keys have no plaintext to test.
 const MOCK_API_KEY_SECRETS = new Map();
 let mockApiKeys = [
@@ -172,11 +216,7 @@ const mockData = {
     { page_id: 'page_2', name: 'Lyfflow Support Page', category: 'Software', followers: 430, agent_name: 'SupportBot', profile_pic_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: false, needs_reauth: true, token_invalid_at: '2026-09-23T05:14:40.906Z' }
   ],
   '/v1/user-required-actions': { actions: [] },
-  '/v1/agents': [
-    { agent_id: 'agent_1', name: 'SalesBot', role: 'Sales' },
-    { agent_id: 'agent_2', name: 'SupportBot', role: 'Support' }
-  ],
-  '/v1/agent/on-boarding/pre-questions': [
+'/v1/agent/on-boarding/pre-questions': [
     { question_id: 'qualify_leads', question_text: 'Should this agent qualify customers before recommending the next step?', display_order: 1 },
     { question_id: 'collect_details', question_text: 'Should this agent collect contact details when a customer is interested?', display_order: 2 },
     { question_id: 'human_handover', question_text: 'Should this agent offer a human handover when it cannot resolve a request?', display_order: 3 }
@@ -473,6 +513,7 @@ const mockData = {
     order_items: [
       {
         name: 'Premium Leather Wallet',
+        code: 'WAL-01',
         quantity: 1,
         price: 1170.00
       }
@@ -570,7 +611,7 @@ const apiFetch = async (endpoint, options = {}) => {
       };
     }
     if (endpoint === '/v1/knowledge/get-namespaces') {
-      return { namespaces: [{ namespace_id: 'ns_1', namespace_name: 'Demo catalog' }] };
+      return { namespaces: MOCK_NAMESPACES };
     }
     if (/^\/v1\/knowledge\/ns_1$/.test(endpoint)) {
       return [
@@ -580,15 +621,49 @@ const apiFetch = async (endpoint, options = {}) => {
     }
     if (/^\/v1\/products\/ns_1\/all-products/.test(endpoint)) {
       const availabilityParam = new URLSearchParams(endpoint.split('?')[1] || '').get('availability');
-      const items = [
-        { product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', price: 'BDT 1170', category: 'Accessories', availability: true, assets: [] },
-        { product_id: 'prod_2', name: 'Canvas Tote Bag', code: 'TOT-02', price: 'BDT 850', category: 'Bags', availability: true, assets: [] },
-        { product_id: 'prod_3', name: 'Linen Summer Shirt', code: 'SHI-03', price: 'BDT 1450', category: 'Clothing', availability: false, assets: [] },
-      ];
+      const items = mockProducts.map(mockProductListItem);
       return {
         items: availabilityParam === null ? items : items.filter(item => String(item.availability) === availabilityParam),
         pagination: { has_more: false, next_cursor: null },
       };
+    }
+    const productDetailMatch = endpoint.match(/^\/v1\/products\/[^/]+\/detail\/([^/?]+)$/);
+    if (productDetailMatch) {
+      const product = mockProducts.find(item => item.product_id === productDetailMatch[1]);
+      if (product) return product;
+    }
+    const productUpdateMatch = endpoint.match(/^\/v1\/products\/[^/]+\/update\/([^/?]+)$/);
+    if (productUpdateMatch && method === 'PATCH') {
+      const changes = JSON.parse(requestOptions.body || '{}');
+      ['regular_price', 'sale_price'].forEach(field => { if (field in changes) changes[field] = mockMoney(changes[field]); });
+      mockProducts = mockProducts.map(item => (item.product_id === productUpdateMatch[1] ? { ...item, ...changes } : item));
+      return mockProducts.find(item => item.product_id === productUpdateMatch[1]);
+    }
+    const productDeleteMatch = endpoint.match(/^\/v1\/products\/[^/]+\/delete\/([^/?]+)$/);
+    if (productDeleteMatch && method === 'DELETE') {
+      mockProducts = mockProducts.filter(item => item.product_id !== productDeleteMatch[1]);
+      return '';
+    }
+    const variantMatch = endpoint.match(/^\/v1\/products\/[^/]+\/([^/]+)\/variants(?:\/([^/?]+))?$/);
+    if (variantMatch) {
+      const [, productId, variantId] = variantMatch;
+      const product = mockProducts.find(item => item.product_id === productId);
+      if (!product) { const error = new Error('Product not found'); error.status = 404; throw error; }
+      const save = (variants) => { mockProducts = mockProducts.map(item => (item.product_id === productId ? { ...item, variants } : item)); };
+      if (method === 'GET') return product.variants;
+      if (method === 'POST') {
+        const body = JSON.parse(requestOptions.body || '{}');
+        const created = { ...mockVariant(productId, product.variants.length, body.sku, body.title, body.option_values || {}, mockMoney(body.regular_price), mockMoney(body.sale_price), body.stock_quantity ?? null, body.stock_status || 'in_stock'), variant_id: `var_${Date.now()}` };
+        save([...product.variants, created]);
+        return created;
+      }
+      if (method === 'PATCH') {
+        const changes = JSON.parse(requestOptions.body || '{}');
+        ['regular_price', 'sale_price'].forEach(field => { if (field in changes) changes[field] = mockMoney(changes[field]); });
+        save(product.variants.map(variant => (variant.variant_id === variantId ? { ...variant, ...changes } : variant)));
+        return product.variants.find(variant => variant.variant_id === variantId);
+      }
+      if (method === 'DELETE') { save(product.variants.filter(variant => variant.variant_id !== variantId)); return ''; }
     }
     // A month of agent activity spread through each day, deterministic per agent, so
     // the analytics charts have shape at every bar size (hourly up to daily).
@@ -637,7 +712,42 @@ const apiFetch = async (endpoint, options = {}) => {
         error.status = 409;
         throw error;
       }
-      return { product_id: `prod_${Date.now()}`, code };
+      const form = requestOptions.body;
+      const productId = `prod_${Date.now()}`;
+      const options = JSON.parse(form.get('options') || '[]');
+      const variants = JSON.parse(form.get('variants') || '[]').map((variant, index) => ({
+        ...mockVariant(productId, index, variant.sku, variant.title, variant.option_values || {}, mockMoney(variant.regular_price), mockMoney(variant.sale_price), variant.stock_quantity ?? null, variant.stock_status || 'in_stock'),
+      }));
+      const created = {
+        product_id: productId, name: form.get('name'), code, product_type: form.get('product_type') || 'simple', category: form.get('category') || null,
+        tags: String(form.get('tags') || '').split(',').map(tag => tag.trim()).filter(Boolean), description: form.get('description'),
+        regular_price: mockMoney(form.get('regular_price')), sale_price: mockMoney(form.get('sale_price')), currency: 'BDT',
+        stock_status: 'in_stock', stock_quantity: null, availability: form.get('availability') !== 'false', options, variants, assets: [], primary_assets: [],
+      };
+      mockProducts = [created, ...mockProducts];
+      return created;
+    }
+    if (endpoint === '/v1/agents' && method === 'GET') return mockAgents;
+    if (endpoint === '/v1/agent/create' && method === 'POST') {
+      const body = JSON.parse(requestOptions.body || '{}');
+      const now = new Date().toISOString();
+      const created = {
+        agent_id: `agent_${Date.now()}`, ...body, name: body.agent_name, role: body.agent_role,
+        // Omitted means the backend default; null (or '') turns it off.
+        human_handover_sign: body.human_handover_sign === undefined ? '#pause' : (body.human_handover_sign || null),
+        namespace_id: null, total_dialog: 0, handover_count: 0, created_at: now, updated_at: now,
+      };
+      mockAgents = [...mockAgents, created];
+      return created;
+    }
+    const agentUpdateMatch = endpoint.match(/^\/v1\/agent\/update\/([^/?#]+)$/);
+    if (agentUpdateMatch && method === 'PATCH') {
+      const body = JSON.parse(requestOptions.body || '{}');
+      if ('human_handover_sign' in body) body.human_handover_sign = body.human_handover_sign || null;
+      const existing = mockAgents.find(agent => agent.agent_id === agentUpdateMatch[1]) || { agent_id: agentUpdateMatch[1] };
+      const updated = { ...existing, ...body, name: body.agent_name || existing.name, updated_at: new Date().toISOString() };
+      mockAgents = mockAgents.map(agent => (agent.agent_id === updated.agent_id ? updated : agent));
+      return updated;
     }
     if (endpoint === '/v1/woocommerce/status') return mockWooStatus;
     if (endpoint === '/v1/woocommerce/disconnect' && method === 'DELETE') {
@@ -703,7 +813,12 @@ const apiFetch = async (endpoint, options = {}) => {
     if (pageOrderDetailMatch && method === 'DELETE') return '';
     const manualOrderCreateMatch = /^\/v1\/pages\/orders\/create\/[^/?#]+$/.test(endpoint);
     if (manualOrderCreateMatch) {
-      return { ...mockData['/v1/pages/orders'].orders[0], created_by: 'manual' };
+      const body = JSON.parse(requestOptions.body || '{}');
+      const itemsTotal = (body.order_items || []).reduce((sum, item) => sum + item.quantity * item.price, 0);
+      return {
+        ...mockData['/v1/pages/orders'].orders[0], ...body, created_by: 'manual',
+        total: body.total ?? (itemsTotal + Number(body.delivery_charge || 0)).toFixed(2),
+      };
     }
     const pageOrdersListMatch = endpoint.startsWith('/v1/pages/orders');
     const pageOrdersListMock = (pageOrdersListMatch && !pageOrderDetailMatch)
@@ -848,6 +963,12 @@ const apiDownload = async (endpoint, fallbackFilename) => {
   if (MOCK_MODE) {
     console.log(`[MOCK API] GET ${endpoint} (download)`);
     if (MOCK_DELAY_MS > 0) await new Promise(resolve => setTimeout(resolve, MOCK_DELAY_MS));
+    if (endpoint === '/v1/woocommerce/plugin/download') {
+      // An empty but valid zip (just the end-of-central-directory record).
+      const emptyZip = new Uint8Array(22);
+      emptyZip.set([0x50, 0x4b, 0x05, 0x06]);
+      return { blob: new Blob([emptyZip], { type: 'application/zip' }), filename: fallbackFilename.replace(/\.zip$/, '-mock.zip') };
+    }
     // A stand-in so the download path is testable; not a real spreadsheet.
     const rows = 'order_id,status,contact_name,total\nORD-1001,new,John Doe,1250.00\nORD-1002,pending,Jane Smith,2400.00\n';
     return {
@@ -929,8 +1050,97 @@ const validateApiKey = async (key) => {
   return response.json();
 };
 
+/**
+ * GET /v1/woocommerce/namespaces?api_key=… — the business and namespaces a key belongs
+ * to. The WordPress plugin calls it to offer a catalog to sync into; the dashboard
+ * uses it to show which catalogs a pasted key will offer.
+ *
+ * It authenticates with the key alone, so like validateApiKey it skips apiFetch: a
+ * rejected key answers 401, which must not sign the user out. Rejects with `status`.
+ * @param {string} key
+ * @returns {Promise<{ business_id: string, namespaces: { namespace_id: string, namespace_name: string }[] }>}
+ */
+const getWooNamespacesForKey = async (key) => {
+  if (MOCK_MODE) {
+    if (MOCK_DELAY_MS > 0) await new Promise(resolve => setTimeout(resolve, MOCK_DELAY_MS));
+    const item = mockApiKeys.find(entry => entry.api_key_id === MOCK_API_KEY_SECRETS.get(key));
+    if (!item || !item.is_active) {
+      const error = new Error('Invalid or inactive API key');
+      error.status = 401;
+      throw error;
+    }
+    return { business_id: 'biz_1', namespaces: MOCK_NAMESPACES };
+  }
+
+  const response = await fetch(`${API_BASE}/v1/woocommerce/namespaces?${new URLSearchParams({ api_key: key })}`);
+  if (!response.ok) {
+    let message = 'Could not load the catalogs for this key';
+    try {
+      const data = await response.json();
+      if (typeof data?.detail === 'string') message = data.detail;
+    } catch {
+      // Non-JSON error body; keep the generic message.
+    }
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+};
+
+/**
+ * POST /v1/woocommerce/plugin/connect — the WordPress plugin's handshake. The plugin
+ * sends its home_url(), versions and the catalog the merchant picked, authenticated
+ * with the API key in the X-API-Key header (no session). The dashboard never calls
+ * this in normal use; it's here to simulate the plugin when testing.
+ *
+ * Skips apiFetch for the same reason as the namespaces lookup. Rejects with `status`.
+ * @param {string} key
+ * @param {PluginConnectRequest} body
+ * @returns {Promise<PluginConnectResponse>}
+ */
+const connectWooPlugin = async (key, body) => {
+  if (MOCK_MODE) {
+    if (MOCK_DELAY_MS > 0) await new Promise(resolve => setTimeout(resolve, MOCK_DELAY_MS));
+    const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };
+    const item = mockApiKeys.find(entry => entry.api_key_id === MOCK_API_KEY_SECRETS.get(key));
+    if (!key) fail(401, 'API key is missing');
+    if (!item || !item.is_active) fail(401, 'Invalid API key');
+    if (!body?.store_url || String(body.store_url).length < 8) fail(422, 'store_url: String should have at least 8 characters');
+    if (!MOCK_NAMESPACES.some(ns => ns.namespace_id === body.namespace_id)) fail(404, 'Namespace not found');
+    const now = new Date().toISOString();
+    mockWooStatus = {
+      status: 'connected', store_url: body.store_url, namespace_id: body.namespace_id,
+      last_synced_at: null, last_sync_error: null, connected_at: mockWooStatus.connected_at || now,
+      plugin_connected: true, plugin_version: body.plugin_version || null, wc_version: body.wc_version || null,
+      wp_version: body.wp_version || null, plugin_connected_at: now,
+    };
+    return { success: true, message: 'WordPress plugin connected successfully.', business_id: 'biz_1', namespace_id: body.namespace_id };
+  }
+
+  const response = await fetch(`${API_BASE}/v1/woocommerce/plugin/connect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    let message = 'Could not connect the plugin';
+    try {
+      const data = await response.json();
+      if (typeof data?.detail === 'string') message = data.detail;
+      else if (Array.isArray(data?.detail)) message = data.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join(' | ');
+    } catch {
+      // Non-JSON error body; keep the generic message.
+    }
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+};
+
 export const apiService = {
-  // Returns current logged-in user details including profile_pic_url
+  // Returns current logged-in user detailsincluding profile_pic_url
   getUserProfile: () => apiFetch('/v1/user/profile', { cacheTtl: 5000 }),
 
   // Gets the active business's connected pages. `fresh` skips the short-lived cache,
@@ -1041,42 +1251,69 @@ export const apiService = {
     method: 'DELETE',
   }),
 
-  // Products. `availability` (in stock / out of stock) replaced the old `is_active` flag.
+  // Products. Prices are regular_price / sale_price (decimal strings on reads), and
+  // variable products carry `options` plus SKU-level `variants`, which are edited
+  // through their own endpoints after the product exists.
   /**
+   * @typedef {'simple'|'variable'|'bundle'|'grouped'} ProductType
+   * @typedef {'in_stock'|'out_of_stock'|'on_backorder'} StockStatus
+   * @typedef {{ name: string, values: string[] }} ProductOption
+   *
+   * @typedef {Object} ProductVariantResponse
+   * @property {string} variant_id
+   * @property {string} product_id
+   * @property {string} sku
+   * @property {string} title                     e.g. "Red / M"
+   * @property {Record<string, string>} option_values  e.g. { Color: 'Red', Size: 'M' }
+   * @property {string|number} regular_price
+   * @property {string|number|null} sale_price
+   * @property {boolean} track_inventory
+   * @property {number|null} [stock_quantity]
+   * @property {StockStatus} stock_status
+   * @property {number} position
+   * @property {boolean} is_active
+   *
    * @typedef {Object} ProductListItem
    * @property {string} product_id
    * @property {string} name
    * @property {string} [code]
-   * @property {string} [price]        e.g. "BDT 1170"
-   * @property {string} [category]
-   * @property {boolean} availability  true = in stock, false = out of stock
-   * @property {Array<Object>} [assets]
+   * @property {ProductType} product_type
+   * @property {string} regular_price             decimal string, e.g. "1170.00"
+   * @property {string|null} sale_price
+   * @property {string} currency                  e.g. "BDT"
+   * @property {StockStatus} stock_status
+   * @property {number|null} [stock_quantity]
+   * @property {boolean} availability             true = available, false = unavailable
+   * @property {Array<Object>} primary_assets
    *
-   * @typedef {ProductListItem & { description?: string, tags?: string[], variants?: string }} ProductDetailResponse
+   * @typedef {ProductListItem & { description: string, category?: string|null, tags?: string[],
+   *   options: ProductOption[], variants: ProductVariantResponse[], assets: Array<Object> }} ProductDetailResponse
    *
    * @typedef {Object} CreateProductPayload  Sent as multipart form data.
    * @property {string} name
-   * @property {string} [code]
-   * @property {string} [description]
-   * @property {string} [price]
+   * @property {string} code
+   * @property {string} description
+   * @property {string|number} regular_price      required
+   * @property {string|number} [sale_price]
+   * @property {ProductType} [product_type]       defaults to "simple"
    * @property {string} [category]
-   * @property {string[]} [tags]
-   * @property {string} [variants]
-   * @property {boolean} [availability]  Defaults to true on the server.
+   * @property {string} [tags]                    comma separated
+   * @property {string} [options]                 JSON of ProductOption[]
+   * @property {string} [variants]                JSON of variant create requests
+   * @property {boolean} [availability]
    *
-   * @typedef {Partial<CreateProductPayload>} UpdateProductPayload  Sent as JSON.
+   * @typedef {Object} UpdateProductPayload  Sent as JSON; no variants (use the variant endpoints).
    */
 
   /** @param {string} namespaceId @param {CreateProductPayload} productData */
   createProduct: (namespaceId, productData) => {
     const formData = new FormData();
     Object.keys(productData).forEach(key => {
-      if (Array.isArray(productData[key])) {
-        // Append array items individually (e.g. tags)
-        productData[key].forEach(val => formData.append(key, val));
-      } else {
-        formData.append(key, productData[key]);
-      }
+      const value = productData[key];
+      // Optional fields are left out rather than sent as "null"/"undefined".
+      if (value === null || value === undefined) return;
+      if (Array.isArray(value)) value.forEach(item => formData.append(key, item));
+      else formData.append(key, value);
     });
     return apiFetch(`/v1/products/${namespaceId}/create`, {
       method: 'POST',
@@ -1096,6 +1333,19 @@ export const apiService = {
   updateProduct: (namespaceId, productId, updateData) => apiFetch(`/v1/products/${namespaceId}/update/${productId}`, {
     method: 'PATCH',
     body: JSON.stringify(updateData),
+  }),
+  // Variants of a variable product.
+  getProductVariants: (namespaceId, productId) => apiFetch(`/v1/products/${namespaceId}/${productId}/variants`),
+  createProductVariant: (namespaceId, productId, variant) => apiFetch(`/v1/products/${namespaceId}/${productId}/variants`, {
+    method: 'POST',
+    body: JSON.stringify(variant),
+  }),
+  updateProductVariant: (namespaceId, productId, variantId, changes) => apiFetch(`/v1/products/${namespaceId}/${productId}/variants/${variantId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(changes),
+  }),
+  deleteProductVariant: (namespaceId, productId, variantId) => apiFetch(`/v1/products/${namespaceId}/${productId}/variants/${variantId}`, {
+    method: 'DELETE',
   }),
   deleteProduct: (namespaceId, productId) => apiFetch(`/v1/products/${namespaceId}/delete/${productId}`, {
     method: 'DELETE',
@@ -1138,6 +1388,9 @@ export const apiService = {
   },
   getAgentActivityDetail: (agentId, activityId) => apiFetch(`/v1/agent/${agentId}/agent_activity/${activityId}/detail`),
 
+  // human_handover_sign (string up to 10 characters, or null): sending it in a Messenger
+  // conversation pauses or resumes the agent there. Defaults to "#pause" when omitted
+  // on create; null turns it off. Agents from GET /v1/agents carry it too.
   createAgent: (agentData) => apiFetch('/v1/agent/create', {
     method: 'POST',
     body: JSON.stringify(agentData),
@@ -1153,6 +1406,7 @@ export const apiService = {
     preserveGetCache: true,
   }),
 
+  // Partial update. human_handover_sign: a new sign, or null to turn it off.
   updateAgent: (agentId, agentData) => apiFetch(`/v1/agent/update/${agentId}`, {
     method: 'PATCH',
     body: JSON.stringify(agentData),
@@ -1262,8 +1516,11 @@ export const apiService = {
   getPathaoLocations: () => apiFetch('/v1/pathao/locations', { cacheTtl: 3600000 }),
 
   // WooCommerce runs through the Lyfflow WordPress plugin: the merchant creates an API
-  // key here and pastes it into the plugin, which connects the store itself. There is
-  // no store-URL connect from the dashboard any more.
+  // key here and pastes it into the plugin. The plugin lists the key's namespaces
+  // (GET /v1/woocommerce/namespaces), the merchant picks the catalog to sync into, and
+  // the plugin connects with POST /v1/woocommerce/plugin/connect { store_url,
+  // namespace_id }. That call and DELETE /v1/woocommerce/plugin/disconnect use the API
+  // key and are made by the plugin only; the dashboard disconnects with the session.
   /**
    * @typedef {Object} WooCommerceStatusResponse
    * @property {string} status                 "connected", "auth_failed", "disabled", "not_connected", …
@@ -1278,6 +1535,23 @@ export const apiService = {
    * @property {string|null} [wp_version]
    * @property {string|null} [plugin_connected_at]
    *
+   * @typedef {Object} WooCommerceNamespaceListResponse   GET /v1/woocommerce/namespaces
+   * @property {string} business_id
+   * @property {{ namespace_id: string, namespace_name: string }[]} namespaces
+   *
+   * @typedef {Object} PluginConnectRequest   POST /v1/woocommerce/plugin/connect
+   * @property {string} store_url              The store's home_url(), 8-500 characters.
+   * @property {string} namespace_id           Catalog the store's products sync into.
+   * @property {string|null} [plugin_version]
+   * @property {string|null} [wc_version]
+   * @property {string|null} [wp_version]
+   *
+   * @typedef {Object} PluginConnectResponse
+   * @property {boolean} success
+   * @property {string} message
+   * @property {string} business_id
+   * @property {string} namespace_id
+   *
    * @typedef {{ success: boolean, message: string, wc_order_id?: number|null, job_id?: string|null }} OrderPushResponse
    * @typedef {{ queued_count: number, message: string }} OrderBulkPushResponse
    */
@@ -1285,6 +1559,13 @@ export const apiService = {
   getWooCommerceStatus: ({ fresh = false } = {}) => apiFetch('/v1/woocommerce/status', fresh ? { bypassCache: true } : { cacheTtl: 15000 }),
   // Owner only.
   disconnectWooCommerce: () => apiFetch('/v1/woocommerce/disconnect', { method: 'DELETE' }),
+  // The catalogs the plugin will offer for this key (see getWooNamespacesForKey).
+  getWooNamespacesForKey: (key) => getWooNamespacesForKey(key),
+  // The plugin's own handshake, for simulating it in tests (see connectWooPlugin).
+  connectWooPlugin: (key, body) => connectWooPlugin(key, body),
+  // The plugin zip for manual install. Needs the session (401 without it), so it goes
+  // through apiDownload rather than a plain link. Resolves to { blob, filename }.
+  downloadWooPlugin: () => apiDownload('/v1/woocommerce/plugin/download', 'lyfflow-woocommerce.zip'),
   // Retries (or first-time pushes) one order. Orders are pushed automatically when
   // created, so this is for failures and manual nudges. 30 requests a minute.
   pushWooOrder: (orderId) => apiFetch(`/v1/woocommerce/orders/${encodeURIComponent(orderId)}/push`, { method: 'POST' }),
@@ -1369,8 +1650,17 @@ export const apiService = {
     const stamp = new Date().toISOString().slice(0, 10);
     return apiDownload(`/v1/pages/orders/export${qs}`, `customer-orders-${stamp}.xlsx`);
   },
+  /**
+   * @typedef {Object} OrderItem
+   * @property {string} name          1-200 characters.
+   * @property {number} quantity      Whole number, at least 1.
+   * @property {number} price         Unit price, 0 or more.
+   * @property {string|null} code     Product code / SKU. Listed as required but
+   *                                  nullable, so send null rather than omitting it.
+   */
   // Manually record an order against a conversation (created_by = "manual").
-  createManualOrder: (conversationId, orderData) => apiFetch(
+  // orderData.order_items: OrderItem[].
+  createManualOrder:(conversationId, orderData) => apiFetch(
     `/v1/pages/orders/create/${encodeURIComponent(conversationId)}`,
     {
       method: 'POST',
@@ -1378,6 +1668,7 @@ export const apiService = {
     }
   ),
   // Partial update; only the fields sent are applied and the backend recalculates total.
+  // order_items (OrderItem[]) replaces the whole list.
   updateCustomerOrder: (orderId, orderData) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}`, {
     method: 'PATCH',
     body: JSON.stringify(orderData),

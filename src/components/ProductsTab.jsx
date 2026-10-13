@@ -4,10 +4,57 @@ import { apiService } from '../services/api';
 import { API_BASE } from '../config/env';
 import { useBusiness } from '../context/BusinessContext';
 import { Upload, Plus, Trash2, Edit3, Image as ImageIcon, FileText, Video, ExternalLink } from 'lucide-react';
+import ProductPrice from './products/ProductPrice';
+import VariantEditor from './products/VariantEditor';
+import {
+  PRODUCT_TYPES, STOCK_STATUSES, isOnSale, newRowKey, normalizeStockStatus, parseOptionValues, stockLabel, toAmount, variantTitle,
+} from '../utils/productPricing';
 
-// Prices are stored as a "<CUR> <amount>" string, so the currency lives only on the
-// client. BDT is the default for new products and for legacy prices saved without one.
+// Products are priced in the business currency; the API no longer takes one per product.
 const DEFAULT_CURRENCY = 'BDT';
+
+// Form state. Prices and quantities stay strings while typing; options keep the
+// comma list as typed (valuesText). See VariantEditor for the row shapes.
+const emptyProductForm = () => ({
+  name: '', code: '', description: '', category: '', tags: '',
+  regular_price: '', sale_price: '', product_type: 'simple',
+  stock_status: 'in_stock', stock_quantity: '', availability: true,
+  options: [], variants: [],
+});
+
+const amountText = (value) => (toAmount(value) === null ? '' : String(toAmount(value)));
+const quantityText = (value) => (value === null || value === undefined ? '' : String(value));
+
+// A saved variant as an editable form row.
+const variantToRow = (variant) => ({
+  key: variant.variant_id || newRowKey(),
+  variant_id: variant.variant_id,
+  sku: variant.sku || '',
+  title: variant.title || '',
+  option_values: variant.option_values || {},
+  regular_price: amountText(variant.regular_price),
+  sale_price: amountText(variant.sale_price),
+  stock_quantity: quantityText(variant.stock_quantity),
+  stock_status: normalizeStockStatus(variant.stock_status),
+});
+
+// A form row as the API's variant body (create, or the fields compared for an update).
+const rowToVariant = (row, options, index) => {
+  const quantity = row.stock_quantity === '' ? null : Number.parseInt(row.stock_quantity, 10);
+  return {
+    sku: row.sku.trim(),
+    title: (row.title.trim() || variantTitle(row.option_values, options) || row.sku.trim()),
+    option_values: row.option_values || {},
+    regular_price: toAmount(row.regular_price) ?? 0,
+    sale_price: toAmount(row.sale_price),
+    stock_quantity: Number.isFinite(quantity) ? quantity : null,
+    track_inventory: Number.isFinite(quantity),
+    stock_status: row.stock_status,
+    position: index,
+  };
+};
+
+const VARIANT_COMPARED_FIELDS = ['sku', 'title', 'regular_price', 'sale_price', 'stock_quantity', 'track_inventory', 'stock_status', 'position'];
 
 const FallbackImage = ({ src, alt, className }) => {
   const [error, setError] = useState(false);
@@ -34,7 +81,11 @@ const FallbackImage = ({ src, alt, className }) => {
 // catalog picker on the Knowledge page); the product controls sit on the right.
 const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
   // Members can browse products and import history; writes are admin+.
-  const { canManage } = useBusiness();
+  const { canManage, business } = useBusiness();
+  const currency = business?.currency || DEFAULT_CURRENCY;
+  // Variants as loaded for the product being edited, to work out what changed on save.
+  const originalVariantsRef = useRef([]);
+  const [priceError, setPriceError] = useState('');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -54,17 +105,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
   const [editingProductId, setEditingProductId] = useState(null);
   
   // Create Product Form State
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    description: '',
-    price: '',
-    currency: DEFAULT_CURRENCY,
-    category: '',
-    tags: '',
-    variants: '',
-    availability: true
-  });
+  const [formData, setFormData] = useState(emptyProductForm);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [existingAssets, setExistingAssets] = useState([]);
 
@@ -171,43 +212,43 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
 
   const handleEditProductClick = async (product) => {
     setEditingProductId(product.product_id);
-    
-    // Parse currency and price if price contains a space (e.g., "USD 29.99")
-    let parsedPrice = product.price || '';
-    let parsedCurrency = DEFAULT_CURRENCY;
-    
-    if (typeof parsedPrice === 'string' && parsedPrice.includes(' ')) {
-      const parts = parsedPrice.split(' ');
-      if (parts.length >= 2 && /^[A-Z]{3}$/.test(parts[0])) {
-        parsedCurrency = parts[0];
-        parsedPrice = parts.slice(1).join(' ');
-      }
-    }
-
+    originalVariantsRef.current = [];
+    // List fields first so the form opens at once; the detail fills in the rest.
     setFormData({
+      ...emptyProductForm(),
       name: product.name || '',
       code: product.code || '',
-      description: product.description || '',
-      price: parsedPrice,
-      currency: parsedCurrency,
-      category: product.category || '',
-      tags: Array.isArray(product.tags) ? product.tags.join(', ') : (product.tags || ''),
-      variants: product.variants || product.variant || '',
-      availability: product.availability !== false
+      regular_price: amountText(product.regular_price),
+      sale_price: amountText(product.sale_price),
+      product_type: product.product_type === 'variable' ? 'variable' : 'simple',
+      stock_status: normalizeStockStatus(product.stock_status),
+      stock_quantity: quantityText(product.stock_quantity),
+      availability: product.availability !== false,
     });
     setSelectedFiles([]);
     setExistingAssets(product.primary_assets || product.assets || []);
     setCodeError('');
+    setPriceError('');
     setShowCreateModal(true);
 
     try {
       const detail = await apiService.getProductDetail(selectedNamespaceId, product.product_id);
+      const variants = Array.isArray(detail.variants) ? detail.variants : [];
+      originalVariantsRef.current = variants;
       setFormData(prev => ({
         ...prev,
         description: detail.description || prev.description,
         category: detail.category || prev.category,
         tags: Array.isArray(detail.tags) ? detail.tags.join(', ') : (detail.tags || prev.tags),
-        variants: detail.variants || prev.variants
+        product_type: detail.product_type === 'variable' || variants.length > 0 ? 'variable' : prev.product_type,
+        regular_price: amountText(detail.regular_price ?? prev.regular_price),
+        sale_price: amountText(detail.sale_price),
+        stock_status: normalizeStockStatus(detail.stock_status ?? prev.stock_status),
+        stock_quantity: quantityText(detail.stock_quantity ?? prev.stock_quantity),
+        options: (Array.isArray(detail.options) ? detail.options : []).map(option => ({
+          key: newRowKey(), name: option.name || '', valuesText: (option.values || []).join(', '),
+        })),
+        variants: variants.map(variantToRow),
       }));
       if (detail.assets || detail.primary_assets) {
         setExistingAssets(detail.assets || detail.primary_assets);
@@ -217,6 +258,35 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
     }
   };
 
+  // Brings the product's variants in line with the form: new rows are created,
+  // changed ones patched, removed ones deleted. Returns the error messages.
+  const syncVariants = async (productId, rows, options) => {
+    const errors = [];
+    const originals = originalVariantsRef.current;
+    const keptIds = new Set(rows.map(row => row.variant_id).filter(Boolean));
+    for (const original of originals) {
+      if (keptIds.has(original.variant_id)) continue;
+      try { await apiService.deleteProductVariant(selectedNamespaceId, productId, original.variant_id); }
+      catch (err) { errors.push(`${original.sku}: ${err.message}`); }
+    }
+    for (const [index, row] of rows.entries()) {
+      const body = rowToVariant(row, options, index);
+      try {
+        if (!row.variant_id) {
+          await apiService.createProductVariant(selectedNamespaceId, productId, body);
+          continue;
+        }
+        const before = rowToVariant(variantToRow(originals.find(item => item.variant_id === row.variant_id) || {}), options, index);
+        const changes = Object.fromEntries(VARIANT_COMPARED_FIELDS.filter(field => body[field] !== before[field]).map(field => [field, body[field]]));
+        if (JSON.stringify(body.option_values) !== JSON.stringify(before.option_values)) changes.option_values = body.option_values;
+        if (Object.keys(changes).length > 0) await apiService.updateProductVariant(selectedNamespaceId, productId, row.variant_id, changes);
+      } catch (err) {
+        errors.push(`${body.sku || `Variant ${index + 1}`}: ${err.message}`);
+      }
+    }
+    return errors;
+  };
+
   const handleSubmitProduct = async (e) => {
     e.preventDefault();
     if (!selectedNamespaceId) {
@@ -224,28 +294,53 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       return;
     }
     setCodeError('');
+    setPriceError('');
+
+    const regularPrice = toAmount(formData.regular_price);
+    const salePrice = toAmount(formData.sale_price);
+    if (salePrice !== null && regularPrice !== null && salePrice >= regularPrice) {
+      setPriceError('The sale price must be lower than the regular price.');
+      return;
+    }
+    const isVariable = formData.product_type === 'variable';
+    const options = isVariable
+      ? formData.options.map(option => ({ name: option.name.trim(), values: parseOptionValues(option.valuesText) })).filter(option => option.name && option.values.length)
+      : [];
+    const variantRows = isVariable ? formData.variants : [];
+    if (isVariable && variantRows.length === 0) {
+      addToast('Add at least one variant, or make this a simple product.', 'error');
+      return;
+    }
+    const tags = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const stockQuantity = formData.stock_quantity === '' ? null : Number.parseInt(formData.stock_quantity, 10);
+    // Simple products carry their own stock; a variable product's stock is per variant.
+    const stockFields = isVariable ? {} : { stock_status: formData.stock_status, stock_quantity: Number.isFinite(stockQuantity) ? stockQuantity : null };
 
     try {
+      let variantErrors = [];
       if (editingProductId) {
         const updateData = {
           name: formData.name,
           code: formData.code,
           description: formData.description,
-          price: `${formData.currency} ${formData.price}`.trim(),
-          category: formData.category || "",
-          tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-          variants: formData.variants || "",
-          availability: formData.availability !== false
+          category: formData.category || null,
+          tags,
+          product_type: formData.product_type,
+          regular_price: regularPrice ?? 0,
+          sale_price: salePrice,
+          options,
+          availability: formData.availability !== false,
+          ...stockFields,
         };
-        
-        
+
         await apiService.updateProduct(selectedNamespaceId, editingProductId, updateData);
-        
+        if (isVariable) variantErrors = await syncVariants(editingProductId, variantRows, options);
+
         // Optimistic UI Update to make it instantly appear on the table
-        setProducts(prevProducts => prevProducts.map(p => 
+        setProducts(prevProducts => prevProducts.map(p =>
           p.product_id === editingProductId ? { ...p, ...updateData } : p
         ));
-        
+
         if (selectedFiles && selectedFiles.length > 0) {
           const fileData = new FormData();
           for (let i = 0; i < selectedFiles.length; i++) {
@@ -253,26 +348,35 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
           }
           await apiService.addProductAssets(selectedNamespaceId, editingProductId, fileData);
         }
-        
+
         addToast('Product updated successfully!', 'success');
       } else {
+        // Multipart: tags as a comma list, options and variants as JSON.
         const createData = {
           name: formData.name,
           code: formData.code,
           description: formData.description,
-          price: `${formData.currency} ${formData.price}`.trim(),
-          category: formData.category || "",
-          tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-          variants: formData.variants || "",
-          availability: formData.availability !== false
+          regular_price: String(regularPrice ?? 0),
+          sale_price: salePrice === null ? null : String(salePrice),
+          product_type: formData.product_type,
+          category: formData.category || null,
+          tags: tags.join(', ') || null,
+          options: options.length ? JSON.stringify(options) : null,
+          variants: isVariable ? JSON.stringify(variantRows.map((row, index) => rowToVariant(row, options, index))) : null,
+          availability: formData.availability !== false,
         };
 
         const newProduct = await apiService.createProduct(selectedNamespaceId, createData);
         const newProductId = newProduct.product_id || newProduct.id;
-        
+
+        // Create can't take stock fields; set them straight after when they're not the defaults.
+        if (newProductId && !isVariable && (stockFields.stock_quantity !== null || stockFields.stock_status !== 'in_stock')) {
+          await apiService.updateProduct(selectedNamespaceId, newProductId, stockFields);
+        }
+
         // Optimistic UI Update for creation
-        setProducts(prevProducts => [{ ...createData, product_id: newProductId || Date.now().toString() }, ...prevProducts]);
-        
+        setProducts(prevProducts => [{ ...createData, sale_price: salePrice, ...stockFields, product_id: newProductId || Date.now().toString() }, ...prevProducts]);
+
         if (selectedFiles && selectedFiles.length > 0 && newProductId) {
           const fileData = new FormData();
           for (let i = 0; i < selectedFiles.length; i++) {
@@ -280,12 +384,15 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
           }
           await apiService.addProductAssets(selectedNamespaceId, newProductId, fileData);
         }
-        
+
         addToast('Product created successfully!', 'success');
       }
-      
+      if (variantErrors.length > 0) {
+        addToast(`Product saved, but ${variantErrors.length} variant change${variantErrors.length === 1 ? '' : 's'} failed: ${variantErrors[0]}`, 'error');
+      }
+
       setShowCreateModal(false);
-      setFormData({ name: '', code: '', description: '', price: '', currency: DEFAULT_CURRENCY, category: '', tags: '', variants: '', availability: true });
+      setFormData(emptyProductForm());
       setSelectedFiles([]);
       setExistingAssets([]);
       setEditingProductId(null);
@@ -476,10 +583,12 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
               type="button"
               onClick={() => {
                 setEditingProductId(null);
-                setFormData({ name: '', code: '', description: '', price: '', currency: DEFAULT_CURRENCY, category: '', tags: '', variants: '', availability: true });
+                setFormData(emptyProductForm());
                 setSelectedFiles([]);
                 setExistingAssets([]);
                 setCodeError('');
+                setPriceError('');
+                originalVariantsRef.current = [];
                 setShowCreateModal(true);
               }}
               className="page-stats-action inline-flex h-10 items-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600"
@@ -492,12 +601,13 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
         {/* Data Table */}
         <div className="products-table animate-fade-in-up overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto w-full no-scrollbar">
-            <div className="min-w-[900px] w-full">
-              <div className="products-table-header grid grid-cols-[3fr_2fr_2fr_2fr_2fr_2fr_100px] gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm">
+            <div className="min-w-[1040px] w-full">
+              <div className="products-table-header grid grid-cols-[2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px] gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm">
                 <div className="pl-6 flex items-center">Product Name</div>
                 <div className="flex items-center">Code</div>
-                <div className="flex items-center">Variant</div>
+                <div className="flex items-center">Type</div>
                 <div className="flex items-center">Price</div>
+                <div className="flex items-center">Stock</div>
                 <div className="flex items-center">Status</div>
                 <div className="flex items-center">Assets</div>
                 <div className="text-right pr-6 flex items-center justify-end">Actions</div>
@@ -518,7 +628,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
             </div>
           ) : (
             products.map((product) => (
-              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className="products-table-row grid grid-cols-[3fr_2fr_2fr_2fr_2fr_2fr_100px] gap-4 p-5 items-center hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer">
+              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className="products-table-row grid grid-cols-[2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px] gap-4 p-5items-center hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer">
                 <div className="pl-6 font-bold text-sm text-slate-800 truncate pr-4 group-hover:text-emerald-700 transition-colors">
                   {product.name}
                 </div>
@@ -526,14 +636,18 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                   {product.code || 'N/A'}
                 </div>
                 <div className="text-sm text-slate-500 truncate pr-2 font-medium">
-                  {product.variants || product.variant || '-'}
+                  {product.product_type === 'variable' ? 'Variable' : product.product_type ? product.product_type.charAt(0).toUpperCase() + product.product_type.slice(1) : 'Simple'}
                 </div>
-                <div className="font-semibold text-slate-700">
-                  {product.price ? product.price.toString().replace(/\$/g, '').trim() : '-'}
+                <div>
+                  <ProductPrice regularPrice={product.regular_price} salePrice={product.sale_price} currency={product.currency || currency} size="sm" />
+                </div>
+                <div className="text-sm font-medium text-slate-600">
+                  <span className={normalizeStockStatus(product.stock_status) === 'out_of_stock' ? 'text-red-600' : normalizeStockStatus(product.stock_status) === 'on_backorder' ? 'text-amber-600' : ''}>{stockLabel(product.stock_status)}</span>
+                  {product.stock_quantity !== null && product.stock_quantity !== undefined && <span className="text-slate-400"> · {product.stock_quantity}</span>}
                 </div>
                 <div className="flex items-center">
                   <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm ${product.availability ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
-                    {product.availability ? 'Available' : 'Out of Stock'}
+                    {product.availability ? 'Available' : 'Unavailable'}
                   </span>
                 </div>
                 <div className="flex gap-1.5 items-center">
@@ -626,7 +740,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowCreateModal(false)}></div>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+          <div className={`bg-white rounded-3xl shadow-2xl w-full ${formData.product_type === 'variable' ? 'max-w-3xl' : 'max-w-2xl'} relative z-10 overflow-hidden flex flex-col max-h-[90vh] transition-[max-width] duration-200`}>
             <div className="flex justify-between items-center p-6 border-b border-slate-100">
               <h3 className="text-2xl font-black font-['Epilogue'] tracking-tight text-slate-900">{editingProductId ? 'Edit Product' : 'Create New Product'}</h3>
               <button onClick={() => setShowCreateModal(false)} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors">
@@ -663,24 +777,30 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
 
                 <div className="flex flex-col sm:flex-row w-full">
                   <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
-                    <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Price *</label>
+                    <label htmlFor="product-regular-price" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Regular price *</label>
                     <div className="flex items-stretch w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 transition-all">
-                      <select 
-                        value={formData.currency} 
-                        onChange={e => setFormData({...formData, currency: e.target.value})} 
-                        className="bg-slate-100 border-r border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-200 transition-colors"
-                      >
-                        <option value="BDT">BDT</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="INR">INR</option>
-                        <option value="AUD">AUD</option>
-                        <option value="CAD">CAD</option>
-                        <option value="JPY">JPY</option>
-                      </select>
-                      <input type="number" step="0.01" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-slate-700 outline-none" placeholder="E.g. 29.99" />
+                      <span className="flex items-center bg-slate-100 border-r border-slate-200 px-3 text-sm font-bold text-slate-600">{currency}</span>
+                      <input id="product-regular-price" type="number" min="0" step="0.01" required value={formData.regular_price} onChange={e => { setFormData({...formData, regular_price: e.target.value}); if (priceError) setPriceError(''); }} className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-slate-700 outline-none" placeholder="E.g. 1200" />
                     </div>
+                  </div>
+                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
+                    <label htmlFor="product-sale-price" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Sale price</label>
+                    <div className={`flex items-stretch w-full bg-slate-50 border rounded-xl overflow-hidden focus-within:ring-2 transition-all ${priceError ? 'product-code-invalid border-red-400 focus-within:ring-red-500' : 'border-slate-200 focus-within:ring-emerald-500'}`}>
+                      <span className="flex items-center bg-slate-100 border-r border-slate-200 px-3 text-sm font-bold text-slate-600">{currency}</span>
+                      <input id="product-sale-price" type="number" min="0" step="0.01" value={formData.sale_price} onChange={e => { setFormData({...formData, sale_price: e.target.value}); if (priceError) setPriceError(''); }} aria-invalid={priceError ? 'true' : undefined} aria-describedby={priceError ? 'product-price-error' : 'product-sale-hint'} className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-slate-700 outline-none" placeholder="Optional" />
+                    </div>
+                    {priceError
+                      ? <p id="product-price-error" role="alert" className="product-code-error m-0 text-xs font-semibold text-red-600">{priceError}</p>
+                      : <p id="product-sale-hint" className="m-0 text-[11px] text-slate-500">{isOnSale(formData.regular_price, formData.sale_price) ? 'Shown as the selling price, with the regular price struck through.' : 'Leave empty when the product isn\'t on sale.'}</p>}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row w-full">
+                  <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
+                    <label htmlFor="product-type" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product type</label>
+                    <select id="product-type" value={formData.product_type} onChange={e => setFormData({...formData, product_type: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                      {PRODUCT_TYPES.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
+                    </select>
                   </div>
                   <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
                     <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Category</label>
@@ -693,19 +813,38 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                   <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500 transition-all resize-none" placeholder="Detailed product description..."></textarea>
                 </div>
 
-                <div className="flex flex-col sm:flex-row w-full">
-                  <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
-                    <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Variants</label>
-                    <input type="text" value={formData.variants} onChange={e => setFormData({...formData, variants: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Red, XL" />
-                  </div>
-                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
-                    <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Tags (comma separated)</label>
-                    <input type="text" value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="cotton, summer, blue" />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Tags (comma separated)</label>
+                  <input type="text" value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="cotton, summer, blue" />
                 </div>
 
+                {formData.product_type === 'variable' ? (
+                  <VariantEditor
+                    options={formData.options}
+                    variants={formData.variants}
+                    onOptionsChange={options => setFormData(prev => ({ ...prev, options }))}
+                    onVariantsChange={variants => setFormData(prev => ({ ...prev, variants }))}
+                    productCode={formData.code}
+                    defaultPrice={formData.regular_price}
+                    currency={currency}
+                  />
+                ) : (
+                  <div className="flex flex-col sm:flex-row w-full">
+                    <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
+                      <label htmlFor="product-stock-status" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Stock status</label>
+                      <select id="product-stock-status" value={formData.stock_status} onChange={e => setFormData({...formData, stock_status: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                        {STOCK_STATUSES.map(status => <option key={status.value} value={status.value}>{status.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
+                      <label htmlFor="product-stock-quantity" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Stock quantity</label>
+                      <input id="product-stock-quantity" type="number" min="0" step="1" value={formData.stock_quantity} onChange={e => setFormData({...formData, stock_quantity: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="Leave empty if not tracked" />
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between pt-2">
-                  <label className="text-sm font-bold text-slate-700">In Stock / Available</label>
+                  <label className="text-sm font-bold text-slate-700">Available to customers</label>
                   <div 
                     className={`w-12 h-6 rounded-full cursor-pointer relative transition-colors ${formData.availability ? 'bg-emerald-500' : 'bg-slate-300'}`}
                     onClick={() => setFormData({...formData, availability: !formData.availability})}
@@ -1017,7 +1156,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-2 bg-[#eeeef0] py-1 px-3 rounded-md border border-slate-200/60">
                           <span className={`w-2 h-2 rounded-full border ${selectedProductDetail.availability ? 'bg-[#1a1c1d] border-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-600 border-red-800'}`}></span>
-                          <span className="font-mono text-[11px] font-bold text-slate-700 uppercase tracking-widest">{selectedProductDetail.availability ? 'In Stock' : 'Out of Stock'}</span>
+                          <span className="font-mono text-[11px] font-bold text-slate-700 uppercase tracking-widest">{selectedProductDetail.availability ? 'Available' : 'Unavailable'} · {stockLabel(selectedProductDetail.stock_status)}{selectedProductDetail.stock_quantity !== null && selectedProductDetail.stock_quantity !== undefined ? ` (${selectedProductDetail.stock_quantity})` : ''}</span>
                         </div>
                         <div className="flex space-x-2">
                           <span className="px-2.5 py-1 bg-[#e2e2e4] border border-slate-300/50 font-mono text-[10px] font-bold text-slate-900 uppercase tracking-widest rounded-md">
@@ -1032,7 +1171,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                       <div className="flex items-baseline justify-between mb-6 bg-[#f3f3f5] p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
                         <div>
                           <div className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1">PRICE</div>
-                          <span className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">{selectedProductDetail.price ? selectedProductDetail.price.toString().replace(/\$/g, '').trim() : '0.00'}</span>
+                          <ProductPrice regularPrice={selectedProductDetail.regular_price} salePrice={selectedProductDetail.sale_price} currency={selectedProductDetail.currency || currency} size="lg" />
                         </div>
                         <div className="text-right">
                           <div className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1">SKU / REF</div>
@@ -1060,17 +1199,46 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                             <span className="px-2.5 py-1 bg-white border border-slate-200/80 font-mono text-[10px] font-bold text-slate-800 uppercase tracking-widest rounded-md shadow-2xs">CATEGORY: {selectedProductDetail.category}</span>
                           )}
                           <span className="px-2.5 py-1 bg-white border border-slate-200/80 font-mono text-[10px] font-bold text-slate-800 uppercase tracking-widest rounded-md shadow-2xs">SOURCE: {selectedProductDetail.import_source || 'MANUAL'}</span>
-                          {selectedProductDetail.variants && (
-                            <span className="px-2.5 py-1 bg-white border border-slate-200/80 font-mono text-[10px] font-bold text-slate-800 uppercase tracking-widest rounded-md shadow-2xs">VARIANTS: {selectedProductDetail.variants}</span>
-                          )}
+                          {(selectedProductDetail.options || []).map(option => (
+                            <span key={option.name} className="px-2.5 py-1 bg-white border border-slate-200/80 font-mono text-[10px] font-bold text-slate-800 uppercase tracking-widest rounded-md shadow-2xs">{option.name}: {(option.values || []).join(', ')}</span>
+                          ))}
                           {selectedProductDetail.tags && selectedProductDetail.tags.map((tag, idx) => (
                             <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200/80 font-mono text-[10px] font-bold text-slate-800 uppercase tracking-widest rounded-md shadow-2xs">#{tag}</span>
                           ))}
-                          {(!selectedProductDetail.tags || selectedProductDetail.tags.length === 0) && !selectedProductDetail.variants && (
+                          {(!selectedProductDetail.tags || selectedProductDetail.tags.length === 0) && !(selectedProductDetail.options || []).length && (
                             <span className="px-2.5 py-1 bg-white/60 border border-slate-200 font-mono text-[10px] font-semibold text-slate-400 uppercase tracking-widest rounded-md">STANDARD SPEC</span>
                           )}
                         </div>
                       </div>
+
+                      {/* Variants of a variable product */}
+                      {(selectedProductDetail.variants || []).length > 0 && (
+                        <div className="product-variants-panel p-5 bg-[#f3f3f5] border border-slate-200/80 rounded-2xl">
+                          <div className="mb-3 font-mono text-[11px] font-bold text-slate-900 uppercase tracking-widest">VARIANTS ({selectedProductDetail.variants.length})</div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-left text-xs">
+                              <thead>
+                                <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                  <th scope="col" className="pb-2 pr-3">Variant</th>
+                                  <th scope="col" className="pb-2 pr-3">SKU</th>
+                                  <th scope="col" className="pb-2 pr-3">Price</th>
+                                  <th scope="col" className="pb-2">Stock</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200/70">
+                                {selectedProductDetail.variants.map(variant => (
+                                  <tr key={variant.variant_id || variant.sku}>
+                                    <td className="py-2 pr-3 font-semibold text-slate-800">{variant.title || variantTitle(variant.option_values, selectedProductDetail.options) || '—'}</td>
+                                    <td className="py-2 pr-3 font-mono text-slate-600">{variant.sku}</td>
+                                    <td className="py-2 pr-3"><ProductPrice regularPrice={variant.regular_price} salePrice={variant.sale_price} currency={selectedProductDetail.currency || currency} size="sm" /></td>
+                                    <td className="py-2 text-slate-600">{stockLabel(variant.stock_status)}{variant.stock_quantity !== null && variant.stock_quantity !== undefined ? ` · ${variant.stock_quantity}` : ''}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Details & Fit / Composition & Care Editorial Specs */}
                       {/* <div className="space-y-3">

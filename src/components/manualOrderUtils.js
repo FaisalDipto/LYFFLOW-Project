@@ -12,9 +12,12 @@ export const LIMITS = {
   contact_phone: 50,
   contact_email: 254,
   delivery_address: 200,
+  item_name: 200,
+  item_code: 100,
 };
 
-export const EMPTY_ITEM = { name: '', quantity: '1', price: '' };
+// `code` is the product code / SKU, optional (sent as null when blank).
+export const EMPTY_ITEM = { name: '', code: '', quantity: '1', price: '' };
 
 export const EMPTY_ORDER_FORM = {
   contact_name: '',
@@ -45,6 +48,7 @@ export const orderToFormState = (order = {}) => ({
   items: Array.isArray(order.order_items) && order.order_items.length > 0
     ? order.order_items.map(item => ({
         name: item.name || '',
+        code: item.code || '',
         quantity: String(item.quantity ?? 1),
         price: item.price === null || item.price === undefined ? '' : String(item.price),
       }))
@@ -63,8 +67,10 @@ export const normalizeOrderValues = (form, items) => ({
   delivery_charge: toAmount(form.delivery_charge).toFixed(2),
   order_items: items
     .filter(item => item.name.trim())
+    // OrderItem lists `code` as required but nullable, so it's always sent.
     .map(item => ({
       name: item.name.trim(),
+      code: (item.code || '').trim() || null,
       quantity: Number(item.quantity),
       price: Number(item.price),
     })),

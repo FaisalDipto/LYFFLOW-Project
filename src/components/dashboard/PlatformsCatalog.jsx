@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { AlertTriangle, Bike, CheckCircle2, Clock, Link2, PackageCheck, RefreshCw, Search, ShoppingBag, Store, X } from 'lucide-react';
+import { AlertTriangle, Bike, CheckCircle2, Clock, Download, Link2, Loader2, PackageCheck, RefreshCw, Search, ShoppingBag, Store, X } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { apiService } from '../../services/api';
 import ApiKeysManager from './ApiKeysManager';
 import { wooConnectionState } from '../../utils/woocommerce';
+import { saveBlob } from '../../utils/download';
 
 const BrandPath = ({ d }) => (
   <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current" aria-hidden="true"><path d={d} /></svg>
@@ -37,7 +38,7 @@ const STATE_STYLES = {
 
 // Where the store stands, from GET /v1/woocommerce/status, with a manual re-check:
 // the plugin connects from WordPress, so the status can change while this is open.
-const WooStatusPanel = ({ status, state, checking, onRefresh, isOwner, onDisconnect }) => {
+const WooStatusPanel = ({ status, state, checking, onRefresh, isOwner, onDisconnect, catalogName }) => {
   const style = STATE_STYLES[state];
   const Icon = style.icon;
   const [confirming, setConfirming] = useState(false);
@@ -45,7 +46,8 @@ const WooStatusPanel = ({ status, state, checking, onRefresh, isOwner, onDisconn
   const [error, setError] = useState('');
   const details = [
     ['Store', status?.store_url],
-    ['Plugin', status?.plugin_version && `v${status.plugin_version}`],
+    ['Catalog', catalogName],
+['Plugin', status?.plugin_version && `v${status.plugin_version}`],
     ['WooCommerce', status?.wc_version && `v${status.wc_version}`],
     ['WordPress', status?.wp_version && `v${status.wp_version}`],
     ['Connected', formatWhen(status?.plugin_connected_at || status?.connected_at)],
@@ -80,9 +82,9 @@ const WooStatusPanel = ({ status, state, checking, onRefresh, isOwner, onDisconn
             </h3>
             <p className="mb-0 mt-1 text-xs leading-5 text-slate-500">
               {state === 'connected' && 'Products sync from your store, and new orders are pushed to it automatically.'}
-              {state === 'pending' && 'A store is on record, but the plugin hasn\'t connected yet. Paste your API key into the plugin and click Connect there.'}
+              {state === 'pending' && 'A store is on record, but the plugin hasn\'t connected yet. Paste your API key into the plugin, choose a catalog and click Connect there.'}
               {state === 'error' && 'The store connection is failing, so products and orders aren\'t syncing.'}
-              {state === 'none' && 'Follow the two steps below. The plugin detects your store\'s address on its own.'}
+              {state === 'none' && 'Follow the three steps below. The plugin detects your store\'s address on its own.'}
             </p>
           </div>
         </div>
@@ -134,12 +136,67 @@ const WooStatusPanel = ({ status, state, checking, onRefresh, isOwner, onDisconn
   );
 };
 
+const WooStep = ({ n, children }) => (
+  <li className="flex gap-3">
+    <span className="woo-step flex h-6 w-6 shrink-0 items-center justify-center bg-violet-600 text-xs font-bold text-white" style={{ borderRadius: 9999 }}>{n}</span>
+    <div className="min-w-0 flex-1 text-sm text-slate-700">{children}</div>
+  </li>
+);
+
+// Downloads the plugin zip. The route needs the session, so this fetches it and saves
+// the blob instead of linking to it.
+const DownloadPluginButton = () => {
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState('');
+
+  const download = async () => {
+    setDownloading(true);
+    setError('');
+    try {
+      const { blob, filename } = await apiService.downloadWooPlugin();
+      saveBlob(blob, filename);
+    } catch (err) {
+      setError(err.message || 'Could not download the plugin. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={download}
+        disabled={downloading}
+        className="woo-download-plugin inline-flex h-9 items-center gap-2 rounded-lg bg-violet-600 px-3.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:cursor-wait disabled:opacity-70"
+      >
+        {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+        {downloading ? 'Downloading…' : 'Download plugin'}
+      </button>
+      {error && <p role="alert" className="mb-0 mt-2 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+};
+
 // WooCommerce connects through the Lyfflow WordPress plugin only: create an API key
-// here, paste it into the plugin, and the plugin connects the store (it detects the
-// store URL itself).
+// here and paste it into the plugin, which lists the key's catalogs (namespaces), lets
+// the merchant pick one and connects the store (it detects the store URL itself).
 const WooCommerceModal = ({ isOwner, status, onStatusChange, onClose }) => {
   const [checking, setChecking] = useState(false);
   const state = wooConnectionState(status);
+  // Names the catalog the plugin syncs into; falls back to the raw id if it isn't listed.
+  const [namespaces, setNamespaces] = useState([]);
+  const namespaceId = status?.namespace_id;
+  const catalogName = namespaceId ? (namespaces.find(item => item.namespace_id === namespaceId)?.namespace_name || namespaceId) : null;
+
+  useEffect(() => {
+    if (!namespaceId) return undefined;
+    let cancelled = false;
+    apiService.getNamespaces()
+      .then(data => { if (!cancelled) setNamespaces(Array.isArray(data?.namespaces) ? data.namespaces : []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [namespaceId]);
 
   useEffect(() => {
     const handleKeyDown = (event) => { if (event.key === 'Escape') onClose(); };
@@ -183,17 +240,19 @@ const WooCommerceModal = ({ isOwner, status, onStatusChange, onClose }) => {
         </div>
 
         <div className="space-y-5 overflow-y-auto px-6 py-5">
-          <WooStatusPanel status={status} state={state} checking={checking} onRefresh={refresh} isOwner={isOwner} onDisconnect={disconnect} />
+          <WooStatusPanel status={status} state={state} checking={checking} onRefresh={refresh} isOwner={isOwner} onDisconnect={disconnect} catalogName={catalogName} />
 
           <ol className="m-0 list-none space-y-3 p-0">
-            <li className="flex gap-3">
-              <span className="woo-step flex h-6 w-6 shrink-0 items-center justify-center bg-violet-600 text-xs font-bold text-white" style={{ borderRadius: 9999 }}>1</span>
-              <p className="m-0 text-sm text-slate-700"><span className="font-semibold text-slate-900">Create an API key</span> below and copy it. You'll only see the full key once.</p>
-            </li>
-            <li className="flex gap-3">
-              <span className="woo-step flex h-6 w-6 shrink-0 items-center justify-center bg-violet-600 text-xs font-bold text-white" style={{ borderRadius: 9999 }}>2</span>
-              <p className="m-0 text-sm text-slate-700"><span className="font-semibold text-slate-900">In WordPress,</span> open the Lyfflow plugin's settings, paste the key and click Connect. Then use Check again above.</p>
-            </li>
+            <WooStep n={1}>
+              <p className="m-0"><span className="font-semibold text-slate-900">Install the Lyfflow plugin.</span> Download it, then in WordPress go to Plugins → Add New → Upload Plugin, choose the zip and activate it.</p>
+              <DownloadPluginButton />
+            </WooStep>
+            <WooStep n={2}>
+              <p className="m-0"><span className="font-semibold text-slate-900">Create an API key</span> below and copy it. You'll only see the full key once.</p>
+            </WooStep>
+            <WooStep n={3}>
+              <p className="m-0"><span className="font-semibold text-slate-900">In WordPress,</span> open the Lyfflow plugin's settings and paste the key. Choose the catalog to sync products into, click Connect, then use Check again above.</p>
+            </WooStep>
           </ol>
 
           <ApiKeysManager />

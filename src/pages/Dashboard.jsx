@@ -3020,6 +3020,10 @@ const PERSONAS = [
 ];
 
 const DEFAULT_AGENT_FALLBACK = "I'm not sure about that, let me connect you with someone who can help.";
+// Sent in a Messenger conversation, this pauses or resumes the agent there. The
+// backend default; an empty field is saved as null, which turns the sign off.
+const DEFAULT_HANDOVER_SIGN = '#pause';
+const HANDOVER_SIGN_LIMIT = 10;
 const ROLE_BY_PERSONA = Object.fromEntries(PERSONAS.map(persona => [persona.id, persona.value]));
 
 /* Facebook comment + inbox automation flags exposed by /v1/agent/update/{agent_id}. */
@@ -3536,6 +3540,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [instructions, setInstructions] = useState('');
   const [fallbackMessage, setFallbackMessage] = useState(DEFAULT_AGENT_FALLBACK);
   const [agentTimezone, setAgentTimezone] = useState(defaultAgentTimezone);
+  const [handoverSign, setHandoverSign] = useState(DEFAULT_HANDOVER_SIGN);
   const [creationStep, setCreationStep] = useState(1);
   const [preQuestions, setPreQuestions] = useState([]);
   const [preQuestionAnswers, setPreQuestionAnswers] = useState({});
@@ -3887,6 +3892,8 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setTone(agent.tone || agent.agent_tone || 'Professional');
     setLanguage(agent.language || agent.agent_language || 'Mimic User Language');
     setAgentTimezone(agent.agent_timezone || 'UTC');
+    // Missing (older responses) means the backend default; null means it's turned off.
+    setHandoverSign(agent.human_handover_sign === undefined ? DEFAULT_HANDOVER_SIGN : (agent.human_handover_sign || ''));
     setCreationStep(3);
     setPreQuestions([]);
     setPreQuestionAnswers({});
@@ -3927,7 +3934,8 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         business_description: businessDesc.trim(),
         instructions: instructions.trim() || null,
         fallback_message: fallbackMessage.trim() || null,
-        agent_timezone: agentTimezone || defaultAgentTimezone
+        agent_timezone: agentTimezone || defaultAgentTimezone,
+        human_handover_sign: handoverSign.trim() || null,
       };
 
       if (isEditing) {
@@ -3954,6 +3962,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         setInstructions('');
         setFallbackMessage(DEFAULT_AGENT_FALLBACK);
         setAgentTimezone(defaultAgentTimezone);
+        setHandoverSign(DEFAULT_HANDOVER_SIGN);
         setCreationStep(1);
         setPreQuestions([]);
         setPreQuestionAnswers({});
@@ -5022,6 +5031,30 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             </span>
           </div>
           <textarea placeholder="e.g. I'm not sure about that, let me connect you with someone who can help." value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} rows="2" style={{ width: '100%', padding: '12px 14px', border: (fallbackMessage || '').length > 250 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (fallbackMessage || '').length > 250 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+        </div>
+
+        <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label htmlFor="agent-handover-sign" style={{ fontSize: '14px', fontWeight: 600 }}>Handover / Pause Sign</label>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>{handoverSign.length}/{HANDOVER_SIGN_LIMIT}</span>
+          </div>
+          <input
+            id="agent-handover-sign"
+            type="text"
+            value={handoverSign}
+            onChange={(e) => setHandoverSign(e.target.value)}
+            maxLength={HANDOVER_SIGN_LIMIT}
+            placeholder={DEFAULT_HANDOVER_SIGN}
+            autoComplete="off"
+            spellCheck={false}
+            aria-describedby="agent-handover-sign-help"
+            style={{ width: '100%', maxWidth: '220px', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '14px', boxSizing: 'border-box' }}
+          />
+          <p id="agent-handover-sign-help" className="m-0 text-xs font-medium text-slate-500">
+            {handoverSign.trim()
+              ? <>Send <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">{handoverSign.trim()}</code> in Messenger to toggle pause/resume for the AI agent in that conversation. Leave empty to turn this off.</>
+              : 'Off. Enter a sign (e.g. #pause) to toggle pause/resume for the AI agent from Messenger.'}
+          </p>
         </div>
 
         {(() => {

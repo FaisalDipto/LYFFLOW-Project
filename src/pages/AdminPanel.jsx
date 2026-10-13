@@ -7,6 +7,7 @@ import titleImg from '../assets/title.png';
 import CheckpointerDebugModal from '../components/CheckpointerDebugModal';
 import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import { useOnKeyChange } from '../hooks/useOnKeyChange';
+import { formatAmount, isOnSale } from '../utils/productPricing';
 import './AdminPanel.css';
 import '../styles/dashboard-theme.css';
 
@@ -2612,7 +2613,7 @@ function ProductsSection() {
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead><tr>
-                <th>Product</th><th>Code & Price</th><th>Category</th><th>Availability</th><th>Active</th><th>Assets</th><th>Owner</th><th>Created At</th>
+                <th>Product</th><th>Code & Price</th><th>Category</th><th>Availability</th><th>Assets</th><th>Owner</th><th>Created At</th>
               </tr></thead>
               <tbody>
                 {filtered.map(p => (
@@ -2630,18 +2631,18 @@ function ProductsSection() {
                     </td>
                     <td>
                       <div className="font-bold" style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.code || '—'}</div>
-                      <div style={{ color: '#10b981', fontWeight: 600, fontSize: 12 }}>{p.price ? `$${p.price}` : '—'}</div>
+                      {/* regular_price / sale_price replaced the old price string. */}
+                      <div style={{ color: '#10b981', fontWeight: 600, fontSize: 12 }}>
+                        {isOnSale(p.regular_price, p.sale_price) ? (
+                          <>{formatAmount(p.sale_price)} <span style={{ color: '#94a3b8', fontWeight: 500, textDecoration: 'line-through' }}>{formatAmount(p.regular_price)}</span></>
+                        ) : formatAmount(p.regular_price)}
+                      </div>
                     </td>
                     <td><span className="badge badge-slate">{p.category || 'General'}</span></td>
                     <td>
                       <span className={`badge ${p.availability ? 'badge-green' : 'badge-red'}`}>
                         <span className="material-symbols-outlined" style={{ fontSize: 11 }}>{p.availability ? 'check_circle' : 'cancel'}</span>
-                        {p.availability ? 'In Stock' : 'Unavailable'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`badge ${p.is_active ? 'badge-green' : 'badge-slate'}`}>
-                        {p.is_active ? 'Active' : 'Inactive'}
+                        {p.availability ? 'Available' : 'Unavailable'}
                       </span>
                     </td>
                     <td><span className="font-bold">{fmt(p.asset_count ?? 0)}</span></td>

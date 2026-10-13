@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { AlertTriangle, Check, Copy, Eye, EyeOff, KeyRound, Loader2, Plus, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, Check, Copy, Eye, EyeOff, FolderOpen, KeyRound, Loader2, Plus, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { apiService } from '../../services/api';
 
 /**
@@ -311,24 +311,68 @@ const RevokeKeyDialog = ({ apiKey, onClose, onRevoke }) => {
   );
 };
 
-// Checks a key against the validate endpoint. The key stays in this input only.
+// The catalogs the WordPress plugin will offer for a key, from
+// GET /v1/woocommerce/namespaces. null while loading; { error } if the lookup failed.
+const KeyCatalogs = ({ catalogs }) => {
+  if (catalogs === null) {
+    return <p className="mb-0 mt-2 flex items-center gap-1.5 text-xs text-slate-500"><Loader2 size={12} className="animate-spin" /> Loading catalogs…</p>;
+  }
+  if (catalogs.error) {
+    return <p className="mb-0 mt-2 text-xs text-slate-500">Couldn't load the catalogs this key offers: {catalogs.error}</p>;
+  }
+  if (catalogs.length === 0) {
+    return (
+      <p className="mb-0 mt-2 flex items-start gap-1.5 text-xs text-amber-800">
+        <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+        This business has no catalogs yet, so the plugin has nowhere to sync products. Create one in Products first.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-2">
+      <p className="m-0 text-xs text-slate-600">In the plugin you can sync into {catalogs.length === 1 ? 'this catalog' : 'any of these catalogs'}:</p>
+      <ul className="m-0 mt-1.5 flex list-none flex-wrap gap-1.5 p-0">
+        {catalogs.map(catalog => (
+          <li key={catalog.namespace_id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-700">
+            <FolderOpen size={12} className="text-slate-400" /> {catalog.namespace_name}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+// Checks a key against the validate endpoint, then lists the catalogs the plugin will
+// offer for it. The key stays in this input only.
 const KeyTester = () => {
   const [key, setKey] = useState('');
   const [visible, setVisible] = useState(false);
   const [state, setState] = useState({ status: 'idle', result: null, error: '' });
+  const [catalogs, setCatalogs] = useState(null);
+  // Ignores results for a key that has since been edited or re-checked.
+  const checkIdRef = useRef(0);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     const trimmed = key.trim();
     if (!trimmed) return;
     // Clears the previous result before the new check.
+    const checkId = ++checkIdRef.current;
     setState({ status: 'checking', result: null, error: '' });
+    setCatalogs(null);
     const invalid = { status: 'invalid', result: null, error: 'This key is not valid. It may be mistyped or revoked.' };
     try {
       const result = await apiService.validateApiKey(trimmed);
+      if (checkId !== checkIdRef.current) return;
       // Only an explicit `valid: true` counts; any other 200 body is treated as a rejection.
       setState(result?.valid === true ? { status: 'valid', result, error: '' } : invalid);
+      if (result?.valid === true) {
+        apiService.getWooNamespacesForKey(trimmed)
+          .then(data => { if (checkId === checkIdRef.current) setCatalogs(Array.isArray(data?.namespaces) ? data.namespaces : []); })
+          .catch(err => { if (checkId === checkIdRef.current) setCatalogs({ error: err.message || 'unknown error' }); });
+      }
     } catch (err) {
+      if (checkId !== checkIdRef.current) return;
       if (err.sessionExpired) {
         setState({ status: 'error', result: null, error: 'Your session has expired. Refresh the page and sign in again to check keys.' });
       } else if ([400, 401, 403, 404, 422].includes(err.status)) {
@@ -344,7 +388,7 @@ const KeyTester = () => {
       <h3 id="api-key-tester-title" className="m-0 flex items-center gap-2 text-sm font-semibold text-slate-900">
         <ShieldCheck size={15} className="text-slate-500" /> Test a key
       </h3>
-      <p className="mb-0 mt-0.5 text-xs text-slate-500">Check that a key works and see what it can access.</p>
+      <p className="mb-0 mt-0.5 text-xs text-slate-500">Check that a key works, what it can access, and which catalogs the plugin will offer.</p>
 
       <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-2 sm:flex-row">
         <label htmlFor="api-key-test-input" className="sr-only">API key</label>
@@ -353,7 +397,7 @@ const KeyTester = () => {
             id="api-key-test-input"
             type={visible ? 'text' : 'password'}
             value={key}
-            onChange={event => { setKey(event.target.value); if (state.status !== 'checking') setState({ status: 'idle', result: null, error: '' }); }}
+            onChange={event => { setKey(event.target.value); if (state.status !== 'checking') { checkIdRef.current += 1; setState({ status: 'idle', result: null, error: '' }); } }}
             placeholder="Paste an API key"
             autoComplete="off"
             spellCheck={false}
@@ -379,6 +423,7 @@ const KeyTester = () => {
               {(state.result.permissions || []).map(scope => <ScopeBadge key={scope} scope={scope} />)}
             </div>
             {formatDate(state.result.created_at) && <p className="mb-0 mt-2 text-xs text-slate-500">Created {formatDate(state.result.created_at)}</p>}
+            <KeyCatalogs catalogs={catalogs} />
           </div>
         )}
         {(state.status === 'invalid' || state.status === 'error') && (

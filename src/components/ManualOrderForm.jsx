@@ -75,7 +75,7 @@ const ManualOrderForm = ({
     if (form.delivery_charge !== '' && !(Number(form.delivery_charge) >= 0)) next.delivery_charge = 'Enter 0 or more.';
 
     // Rows are optional overall, but any row the user started must be complete.
-    const filledItems = items.filter(item => item.name.trim() || item.price !== '' || item.quantity !== '1');
+    const filledItems = items.filter(item => item.name.trim() || (item.code || '').trim() || item.price !== '' || item.quantity !== '1');
     const badItem = filledItems.find(item => {
       const qty = Number(item.quantity);
       const price = Number(item.price);
@@ -178,12 +178,13 @@ const ManualOrderForm = ({
             </button>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-[minmax(0,1fr)_72px_100px_36px] items-center gap-2">
+              <div key={index} className="grid grid-cols-[minmax(0,1fr)_72px_100px_36px] items-center gap-x-2 gap-y-1.5">
                 <input
                   value={item.name}
                   onChange={(e) => setItemField(index, 'name', e.target.value)}
+                  maxLength={LIMITS.item_name}
                   placeholder={`Item ${index + 1} name`}
                   aria-label={`Item ${index + 1} name`}
                   className={inputClass(false)}
@@ -217,6 +218,15 @@ const ManualOrderForm = ({
                 >
                   <Trash2 size={15} />
                 </button>
+                <input
+                  value={item.code || ''}
+                  onChange={(e) => setItemField(index, 'code', e.target.value)}
+                  maxLength={LIMITS.item_code}
+                  placeholder="Product code / SKU (optional)"
+                  aria-label={`Item ${index + 1} product code`}
+                  spellCheck={false}
+                  className="col-span-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs font-medium text-slate-700 outline-none transition-colors placeholder:font-sans placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 focus:ring-offset-1"
+                />
               </div>
             ))}
           </div>

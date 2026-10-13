@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Users, Phone, Mail, Calendar, Eye, Pencil, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download, Trash2 } from 'lucide-react';
 import { apiService } from '../services/api';
+import { saveBlob } from '../utils/download';
 import { formatOrderAmount, parseOrderAmount, renderOrderSourceBadge } from './customerRecordUtils';
 import DateRangeCalendar from './DateRangeCalendar';
 import EditOrderModal from './EditOrderModal';
@@ -36,18 +37,6 @@ const formatExportDate = (iso) => {
   return Number.isNaN(date.getTime())
     ? iso
     : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-};
-
-const saveBlob = (blob, filename) => {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  // Revoking immediately can cancel the download in some browsers.
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
 
 const normalizeRecord = (record, type) => ({
@@ -837,6 +826,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
                           <tr key={idx}>
                             <td className="px-4 py-3 font-medium text-slate-800">
                               {item.name}
+                              {item.code && <div className="mt-0.5 font-mono text-xs font-normal text-slate-500">{item.code}</div>}
                               {item.note && <div className="text-xs text-slate-500 font-normal mt-0.5">{item.note}</div>}
                             </td>
                             <td className="px-4 py-3 text-center text-slate-600">{item.quantity}</td>
