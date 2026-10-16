@@ -136,17 +136,17 @@ const mockVariant = (productId, n, sku, title, optionValues, regular, sale, qty,
 });
 let mockProducts = [
   {
-    product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', product_type: 'simple', category: 'Accessories', tags: ['leather', 'gift'],
+    product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', product_type: 'simple', brand: 'Hidebound', category: 'Accessories',tags: ['leather', 'gift'],
     description: 'Full-grain leather bifold with six card slots.', regular_price: '1170.00', sale_price: '990.00', currency: 'BDT',
     stock_status: 'in_stock', stock_quantity: 42, availability: true, options: [], variants: [], assets: [], primary_assets: [],
   },
   {
-    product_id: 'prod_2', name: 'Canvas Tote Bag', code: 'TOT-02', product_type: 'simple', category: 'Bags', tags: ['canvas'],
+    product_id: 'prod_2', name: 'Canvas Tote Bag', code: 'TOT-02', product_type: 'simple', brand: 'Loomhouse', category: 'Bags',tags: ['canvas'],
     description: 'Heavy cotton canvas tote with an inner pocket.', regular_price: '850.00', sale_price: null, currency: 'BDT',
     stock_status: 'in_stock', stock_quantity: 18, availability: true, options: [], variants: [], assets: [], primary_assets: [],
   },
   {
-    product_id: 'prod_3', name: 'Linen Summer Shirt', code: 'SHI-03', product_type: 'variable', category: 'Clothing', tags: ['linen', 'summer'],
+    product_id: 'prod_3', name: 'Linen Summer Shirt', code: 'SHI-03', product_type: 'variable', brand: 'Loomhouse', category: 'Clothing',tags: ['linen', 'summer'],
     description: 'Breathable linen shirt in two colours.', regular_price: '1450.00', sale_price: null, currency: 'BDT',
     stock_status: 'out_of_stock', stock_quantity: 0, availability: false,
     options: [{ name: 'Color', values: ['White', 'Sky Blue'] }, { name: 'Size', values: ['M', 'L'] }],
@@ -632,8 +632,13 @@ const apiFetch = async (endpoint, options = {}) => {
       ];
     }
     if (/^\/v1\/products\/ns_1\/all-products/.test(endpoint)) {
-      const availabilityParam = new URLSearchParams(endpoint.split('?')[1] || '').get('availability');
-      const items = mockProducts.map(mockProductListItem);
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      const availabilityParam = params.get('availability');
+      const search = (params.get('search') || '').trim().toLowerCase();
+      const items = mockProducts
+        .filter(product => !search || [product.name, product.code, product.brand, product.category]
+          .some(value => String(value || '').toLowerCase().includes(search)))
+        .map(mockProductListItem);
       return {
         items: availabilityParam === null ? items : items.filter(item => String(item.availability) === availabilityParam),
         pagination: { has_more: false, next_cursor: null },
@@ -1348,12 +1353,14 @@ export const apiService = {
     });
   },
   // `availability`: true lists in-stock products, false out-of-stock ones, null (or
-  // undefined) leaves the parameter off and lists both.
-  getProducts: (namespaceId, cursor = null, pageSize = 20, availability = null, importSource = null) => {
+  // undefined) leaves the parameter off and lists both. `search` matches name, code,
+  // brand or category.
+  getProducts: (namespaceId, cursor = null, pageSize = 20, availability = null, importSource = null, search = '') => {
     let url = `/v1/products/${namespaceId}/all-products?page_size=${pageSize}`;
     if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
     if (typeof availability === 'boolean') url += `&availability=${availability}`;
     if (importSource && importSource !== 'all') url += `&import_source=${importSource}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
     return apiFetch(url);
   },
   getProductDetail: (namespaceId, productId) => apiFetch(`/v1/products/${namespaceId}/detail/${productId}`),

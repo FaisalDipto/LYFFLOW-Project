@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { apiService } from '../services/api';
 import { API_BASE } from '../config/env';
 import { useBusiness } from '../context/BusinessContext';
-import { Upload, Plus, Trash2, Edit3, Image as ImageIcon, FileText, Video, ExternalLink } from 'lucide-react';
+import { Upload, Plus, Trash2, Edit3, Image as ImageIcon, FileText, Video, ExternalLink, Search, X } from 'lucide-react';
 import ProductPrice from './products/ProductPrice';
 import VariantEditor from './products/VariantEditor';
 import {
@@ -115,6 +115,9 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
   // Filter State
   const [availabilityFilter, setAvailabilityFilter] = useState('all'); // 'all' | 'available' | 'unavailable'
   const [sourceFilter, setSourceFilter] = useState('all'); // 'all', 'csv', 'manual'
+  // What's typed, and the debounced value that's actually searched.
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // History Modal State
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -151,7 +154,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
     try {
       // 'all' sends no availability parameter, so both kinds come back.
       const availability = availabilityFilter === 'all' ? null : availabilityFilter === 'available';
-      const data = await apiService.getProducts(selectedNamespaceId, cursor, PAGE_SIZE, availability, sourceFilter);
+      const data = await apiService.getProducts(selectedNamespaceId, cursor, PAGE_SIZE, availability, sourceFilter, searchQuery);
       setProducts(data.items || []);
       setHasMore(data.pagination?.has_more || false);
       setNextCursor(data.pagination?.next_cursor || null);
@@ -194,12 +197,18 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
     }
   };
 
+  // Search once typing pauses, rather than on every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   useEffect(() => {
     setHistory([null]);
     setCurrentIndex(0);
     fetchProducts(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedNamespaceId, availabilityFilter, sourceFilter]);
+  }, [selectedNamespaceId, availabilityFilter, sourceFilter, searchQuery]);
 
   useEffect(() => {
     if (showHistoryModal) {
@@ -529,6 +538,28 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           {toolbarStart && <div className="flex min-w-0 flex-wrap items-center gap-2">{toolbarStart}</div>}
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <div className="relative w-full sm:w-[420px]">
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setSearchInput(''); }}
+                placeholder="Search products by name, code, brand, or category"
+                aria-label="Search products"
+                className="products-filter-select products-search-input h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm font-medium text-slate-700 outline-none transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
             <div className="relative">
               <select
                 value={availabilityFilter}
@@ -624,7 +655,11 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                 <span className="material-symbols-outlined text-3xl">add_shopping_cart</span>
               </div>
               <h3 className="text-slate-800 font-black text-lg mb-1">No products found</h3>
-              <p className="text-slate-500 font-medium text-sm max-w-sm">Create your first product or import a CSV to populate your inventory.</p>
+              <p className="text-slate-500 font-medium text-sm max-w-sm">
+                {searchQuery
+                  ? <>Nothing matches &ldquo;{searchQuery}&rdquo;. Try a different name, code, brand, or category.</>
+                  : 'Create your first product or import a CSV to populate your inventory.'}
+              </p>
             </div>
           ) : (
             products.map((product) => (

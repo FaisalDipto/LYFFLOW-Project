@@ -62,6 +62,9 @@ html[data-dashboard-theme="dark"],html[data-dashboard-theme="dark"] body{backgro
 .dashboard-layout.theme-dark .products-import-button{background:#232323!important;border-color:#4b4b4b!important;box-shadow:none;color:#ededed!important}
 .dashboard-layout.theme-dark .products-filter-select:hover,
 .dashboard-layout.theme-dark .products-import-button:hover{background:#2d2d2d!important;border-color:#5a5a5a!important}
+/* The product search has its own clear button. */
+.products-search-input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.dashboard-layout.theme-dark .products-search-input::placeholder{color:#8a8a8a}
 .dashboard-layout.theme-dark .products-table{background:#141414!important;border-color:#3e3e3e!important;box-shadow:0 16px 40px rgba(0,0,0,.22)!important}
 .dashboard-layout.theme-dark .products-table-header{background:#242424!important;border-color:#3e3e3e!important;color:#6ee7b7!important;box-shadow:none!important}
 .dashboard-layout.theme-dark .products-table-body{background:#141414!important}
