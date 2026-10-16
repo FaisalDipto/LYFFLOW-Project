@@ -5,7 +5,7 @@ import { formatOrderAmount } from './customerRecordUtils';
 import ManualOrderForm from './ManualOrderForm';
 import { EMPTY_ORDER_FORM } from './manualOrderUtils';
 
-const ManualOrderPanel = ({ conversationId, contactName = '', onClose, onCreated }) => {
+const ManualOrderPanel = ({ conversationId, contactName = '', catalogId = '', onClose, onCreated }) => {
   const [createdOrder, setCreatedOrder] = useState(null);
   const panelRef = useRef(null);
 
@@ -106,6 +106,7 @@ const ManualOrderPanel = ({ conversationId, contactName = '', onClose, onCreated
         ) : (
           <ManualOrderForm
             initialForm={{ ...EMPTY_ORDER_FORM, contact_name: contactName || '' }}
+            catalogId={catalogId}
             allowTotalOverride
             submitLabel="Create order"
             submittingLabel="Creating…"

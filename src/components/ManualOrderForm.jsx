@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { apiService } from '../services/api';
+import { useProductSuggestions } from '../hooks/useProductSuggestions';
+import { currentPrice, normalizeStockStatus, stockLabel, variantTitle } from '../utils/productPricing';
 import { formatOrderAmount } from './customerRecordUtils';
 import { EMPTY_ITEM, EMPTY_ORDER_FORM, LIMITS, ORDER_STATUSES, normalizeOrderValues, toAmount } from './manualOrderUtils';
+import OrderItemSuggestions from './OrderItemSuggestions';
 
 const inputClass = (hasError) =>
   `w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition-colors placeholder:font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-offset-1 ${
@@ -15,11 +19,13 @@ const labelClass = 'mb-1.5 block text-[10px] font-black uppercase tracking-[0.14
 /**
  * Order fields shared by manual create and edit. `onSubmit(values, { computedTotal })`
  * receives normalizeOrderValues() output (plus `total` when overridden) and may throw
- * to surface an error under the form.
+ * to surface an error under the form. Item names and codes autocomplete from the
+ * product catalog `catalogId` (the business's first catalog when not given).
  */
 const ManualOrderForm = ({
   initialForm = EMPTY_ORDER_FORM,
   initialItems,
+  catalogId = '',
   allowTotalOverride = false,
   submitLabel = 'Save',
   submittingLabel = 'Saving…',
@@ -51,12 +57,130 @@ const ManualOrderForm = ({
   };
 
   const setItemField = (index, key, value) => {
-    setItems(prev => prev.map((item, i) => (i === index ? { ...item, [key]: value } : item)));
+    // Typing over a name or code means it may no longer be the catalog item picked.
+    const unlinks = key === 'name' || key === 'code';
+    setItems(prev => prev.map((item, i) => (i === index ? { ...item, [key]: value, ...(unlinks ? { stock: undefined } : {}) } : item)));
     setErrors(prev => (prev.items ? { ...prev, items: undefined } : prev));
   };
 
   const addItem = () => setItems(prev => [...prev, { ...EMPTY_ITEM }]);
-  const removeItem = (index) => setItems(prev => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)));
+  const removeItem = (index) => {
+    closeSuggestions();
+    setItems(prev => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)));
+  };
+
+  // Catalog autocomplete for the row being typed in: `suggest` is that row and field;
+  // `variantPick` is set while choosing an option of a variable product.
+  const [suggest, setSuggest] = useState(null);
+  const [variantPick, setVariantPick] = useState(null);
+  const [highlight, setHighlight] = useState(0);
+  const suggestQuery = suggest && !variantPick ? (items[suggest.index]?.[suggest.field] || '') : '';
+  const suggestions = useProductSuggestions(catalogId, suggestQuery);
+  const suggestionEntries = variantPick ? variantPick.variants : suggestions.products;
+  const suggestionStatus = variantPick ? variantPick.status : suggestions.status;
+  const openRow = suggest && (variantPick || suggestions.status !== 'idle') ? suggest.index : null;
+
+  function closeSuggestions() {
+    setSuggest(null);
+    setVariantPick(null);
+    setHighlight(0);
+  }
+
+  const fillItem = (index, { name, code, price, stock }) => {
+    setItems(prev => prev.map((item, i) => (i === index ? {
+      ...item,
+      name: (name || '').slice(0, LIMITS.item_name),
+      code: (code || '').slice(0, LIMITS.item_code),
+      price: price === null || price === undefined ? item.price : String(price),
+      stock,
+    } : item)));
+    setErrors(prev => (prev.items ? { ...prev, items: undefined } : prev));
+    closeSuggestions();
+  };
+
+  const fillFromProduct = (index, product) => fillItem(index, {
+    name: product.name,
+    code: product.code,
+    price: currentPrice(product.regular_price, product.sale_price),
+    stock: { status: product.stock_status, quantity: product.stock_quantity },
+  });
+
+  const pickSuggestion = (entry) => {
+    if (!suggest) return;
+    const { index } = suggest;
+    if (variantPick) {
+      const { product } = variantPick;
+      const inheritsPrice = entry.regular_price == null && entry.sale_price == null;
+      fillItem(index, {
+        name: `${product.name} – ${entry.title || variantTitle(entry.option_values)}`,
+        code: entry.sku || product.code,
+        price: currentPrice(entry.regular_price ?? product.regular_price, inheritsPrice ? product.sale_price : entry.sale_price),
+        stock: { status: entry.stock_status, quantity: entry.stock_quantity },
+      });
+      return;
+    }
+    if (entry.product_type !== 'variable') {
+      fillFromProduct(index, entry);
+      return;
+    }
+    // A variable product is ordered as one of its variants; list them to choose from.
+    setHighlight(0);
+    setVariantPick({ product: entry, status: 'loading', variants: [] });
+    apiService.getProductVariants(suggestions.catalogId, entry.product_id)
+      .then(variants => {
+        const active = (Array.isArray(variants) ? variants : []).filter(variant => variant.is_active !== false);
+        // No options after all: the product itself is what gets ordered.
+        if (active.length === 0) { fillFromProduct(index, entry); return; }
+        setVariantPick(prev => (prev?.product.product_id === entry.product_id ? { ...prev, status: 'ready', variants: active } : prev));
+      })
+      .catch(error => {
+        console.error('Failed to load product options:', error);
+        setVariantPick(prev => (prev?.product.product_id === entry.product_id ? { ...prev, status: 'error' } : prev));
+      });
+  };
+
+  const itemFieldProps = (index, field) => ({
+    role: 'combobox',
+    'aria-autocomplete': 'list',
+    'aria-expanded': openRow === index,
+    'aria-controls': openRow === index ? `mo-item-${index}-suggestions` : undefined,
+    'aria-activedescendant': openRow === index && suggestionEntries[highlight] ? `mo-item-${index}-suggestions-option-${highlight}` : undefined,
+    autoComplete: 'off',
+    onFocus: () => {
+      if (suggest?.index !== index || suggest?.field !== field) {
+        setVariantPick(null);
+        setHighlight(0);
+      }
+      setSuggest({ index, field });
+    },
+    onBlur: closeSuggestions,
+    onKeyDown: (e) => {
+      if (openRow !== index) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlight(h => Math.min(h + 1, Math.max(suggestionEntries.length - 1, 0)));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlight(h => Math.max(h - 1, 0));
+      } else if (e.key === 'Enter' && suggestionEntries[highlight]) {
+        // Fill the row instead of submitting the form.
+        e.preventDefault();
+        pickSuggestion(suggestionEntries[highlight]);
+      } else if (e.key === 'Escape') {
+        // Handled here so the surrounding panel doesn't close too.
+        e.preventDefault();
+        e.stopPropagation();
+        if (variantPick) { setVariantPick(null); setHighlight(0); } else closeSuggestions();
+      }
+    },
+  });
+
+  const changeItemText = (index, field, value) => {
+    setItemField(index, field, value);
+    setVariantPick(null);
+    setHighlight(0);
+    setSuggest({ index, field });
+  };
 
   const validate = () => {
     const next = {};
@@ -178,12 +302,19 @@ const ManualOrderForm = ({
             </button>
           </div>
 
+          <p className="-mt-2 mb-3 text-[11px] font-medium text-slate-400">Type a product name or code to fill it in from your catalog.</p>
           <div className="space-y-3">
-            {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-[minmax(0,1fr)_72px_100px_36px] items-center gap-x-2 gap-y-1.5">
+            {items.map((item, index) => {
+              const stockStatus = item.stock ? normalizeStockStatus(item.stock.status) : null;
+              const stockQuantity = item.stock?.quantity;
+              const overStock = stockQuantity !== null && stockQuantity !== undefined && Number(item.quantity) > stockQuantity;
+              return (
+              <div key={index} className="relative">
+              <div className="grid grid-cols-[minmax(0,1fr)_72px_100px_36px] items-center gap-x-2 gap-y-1.5">
                 <input
                   value={item.name}
-                  onChange={(e) => setItemField(index, 'name', e.target.value)}
+                  onChange={(e) => changeItemText(index, 'name', e.target.value)}
+                  {...itemFieldProps(index, 'name')}
                   maxLength={LIMITS.item_name}
                   placeholder={`Item ${index + 1} name`}
                   aria-label={`Item ${index + 1} name`}
@@ -220,15 +351,40 @@ const ManualOrderForm = ({
                 </button>
                 <input
                   value={item.code || ''}
-                  onChange={(e) => setItemField(index, 'code', e.target.value)}
+                  onChange={(e) => changeItemText(index, 'code', e.target.value)}
+                  {...itemFieldProps(index, 'code')}
                   maxLength={LIMITS.item_code}
                   placeholder="Product code / SKU (optional)"
                   aria-label={`Item ${index + 1} product code`}
                   spellCheck={false}
                   className="col-span-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs font-medium text-slate-700 outline-none transition-colors placeholder:font-sans placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 focus:ring-offset-1"
                 />
+                {item.stock && (
+                  <p className="col-span-3 flex flex-wrap items-center gap-x-2 text-[11px] font-semibold">
+                    <span className="text-slate-400">From catalog ·</span>
+                    <span className={stockStatus === 'out_of_stock' ? 'text-red-600' : stockStatus === 'on_backorder' ? 'text-amber-600' : 'text-emerald-700'}>
+                      {stockLabel(item.stock.status)}{stockQuantity !== null && stockQuantity !== undefined ? ` · ${stockQuantity} available` : ''}
+                    </span>
+                    {overStock && stockStatus !== 'out_of_stock' && <span className="text-amber-600">More than in stock</span>}
+                  </p>
+                )}
               </div>
-            ))}
+              {openRow === index && (
+                <OrderItemSuggestions
+                  id={`mo-item-${index}-suggestions`}
+                  mode={variantPick ? 'variants' : 'products'}
+                  status={suggestionStatus}
+                  entries={suggestionEntries}
+                  product={variantPick?.product}
+                  highlight={highlight}
+                  onHighlight={setHighlight}
+                  onPick={pickSuggestion}
+                  onBack={() => { setVariantPick(null); setHighlight(0); }}
+                />
+              )}
+              </div>
+              );
+            })}
           </div>
           {errors.items && <p className="mt-2 text-[11px] font-bold text-rose-600">{errors.items}</p>}
         </section>

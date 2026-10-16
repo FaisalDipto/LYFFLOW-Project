@@ -67,6 +67,9 @@ html[data-dashboard-theme="dark"],html[data-dashboard-theme="dark"] body{backgro
 .dashboard-layout.theme-dark .products-search-input::placeholder{color:#8a8a8a}
 /* Clickable rows in the conversation side panels (products, order history). */
 .dashboard-layout.theme-dark .side-panel-row:hover{background:#242424!important}
+/* Highlighted catalog suggestion under an order item (panel or edit modal). */
+.dashboard-layout.theme-dark .order-item-suggestion.is-active,
+html[data-dashboard-theme="dark"] body>.fixed .order-item-suggestion.is-active{background:#16302a!important}
 .dashboard-layout.theme-dark .products-table{background:#141414!important;border-color:#3e3e3e!important;box-shadow:0 16px 40px rgba(0,0,0,.22)!important}
 .dashboard-layout.theme-dark .products-table-header{background:#242424!important;border-color:#3e3e3e!important;color:#6ee7b7!important;box-shadow:none!important}
 .dashboard-layout.theme-dark .products-table-body{background:#141414!important}

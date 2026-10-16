@@ -2083,6 +2083,7 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
           <ManualOrderPanel
             conversationId={activeContact.conversation_id || activeContact.id}
             contactName={resolveContactName(activeContact, '')}
+            catalogId={pageCatalogId}
             onCreated={() => setConversationOrdersVersion(version => version + 1)}
             onClose={() => setSidePanel(null)}
           />

@@ -43,6 +43,11 @@ export const isOnSale = (regularPrice, salePrice) => {
   return sale !== null && regular !== null && sale < regular;
 };
 
+// What a customer pays now: the sale price when it is a real sale, else the regular one.
+export const currentPrice = (regularPrice, salePrice) => (
+  isOnSale(regularPrice, salePrice) ? toAmount(salePrice) : toAmount(regularPrice)
+);
+
 // "Red / M" from { Color: 'Red', Size: 'M' }, in the options' declared order.
 export const variantTitle = (optionValues, options = []) => {
   const order = options.map(option => option.name);
