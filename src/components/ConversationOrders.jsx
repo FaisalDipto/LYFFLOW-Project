@@ -1,61 +1,14 @@
-import { useEffect, useState } from 'react';
-import { apiService } from '../services/api';
-import { formatOrderAmount, recordStatusClass } from './customerRecordUtils';
+import { useState } from 'react';
+import { formatOrderAmount, formatOrderDate, recordStatusClass, summarizeOrderItems } from './customerRecordUtils';
 
 const COLLAPSED_COUNT = 3;
 
-const summarizeItems = (items) => {
-  if (!Array.isArray(items) || items.length === 0) return 'No items';
-  const [first, ...rest] = items;
-  const head = `${first.name}${first.quantity > 1 ? ` ×${first.quantity}` : ''}`;
-  return rest.length ? `${head} +${rest.length} more` : head;
-};
-
-const formatOrderDate = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? ''
-    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-// Orders placed in one conversation, for the chat's profile sidebar. Reloads when the
-// conversation changes or refreshKey is bumped (after a manual order is created).
-const ConversationOrders = ({ conversationId, refreshKey = 0, onOpenOrder }) => {
-  // The last response, tagged with the request it answers; anything else is still loading.
-  const [result, setResult] = useState(null);
+// Orders placed in one conversation, for the chat's profile sidebar. `ordersState`
+// comes from useConversationOrders, shared with the header count and Orders panel.
+const ConversationOrders = ({ conversationId, ordersState, onOpenOrder }) => {
   // Expansion belongs to one conversation, so switching starts collapsed again.
   const [expandedFor, setExpandedFor] = useState(null);
-  const requestKey = `${conversationId}:${refreshKey}`;
-
-  useEffect(() => {
-    if (!conversationId) return undefined;
-    let cancelled = false;
-    apiService.getConversationOrders(conversationId)
-      .then(response => {
-        if (cancelled) return;
-        setResult({ key: requestKey, conversationId, orders: Array.isArray(response) ? response : [], error: '' });
-      })
-      .catch(error => {
-        if (cancelled) return;
-        console.error('Failed to load conversation orders:', error);
-        const message = error?.status === 403
-          ? 'This conversation is not in the active business.'
-          : error?.status === 404
-            ? 'Conversation not found.'
-            : 'Could not load orders.';
-        setResult({ key: requestKey, conversationId, orders: [], error: message });
-      });
-    return () => { cancelled = true; };
-  }, [conversationId, requestKey]);
-
-  // While a refresh of the same conversation loads, keep showing its current list.
-  const current = result?.conversationId === conversationId ? result : null;
-  const status = !current || (current.key !== requestKey && current.orders.length === 0)
-    ? 'loading'
-    : current.error ? 'error' : 'ready';
-  const orders = current?.orders || [];
-  const error = current?.error || '';
+  const { status, orders, error } = ordersState;
   const isExpanded = expandedFor === conversationId;
   const setIsExpanded = (update) => setExpandedFor(update(isExpanded) ? conversationId : null);
   const visibleOrders = isExpanded ? orders : orders.slice(0, COLLAPSED_COUNT);
@@ -92,8 +45,8 @@ const ConversationOrders = ({ conversationId, refreshKey = 0, onOpenOrder }) => 
                     {String(order.status || 'unknown').replaceAll('_', ' ')}
                   </span>
                 </div>
-                <p className="mt-1 truncate text-[11px] font-medium text-slate-500" title={summarizeItems(order.order_items)}>
-                  {summarizeItems(order.order_items)}
+                <p className="mt-1 truncate text-[11px] font-medium text-slate-500" title={summarizeOrderItems(order.order_items)}>
+                  {summarizeOrderItems(order.order_items)}
                 </p>
                 <div className="mt-1 flex items-center justify-between gap-2 text-[11px]">
                   <span className="font-medium text-slate-400">
@@ -111,7 +64,7 @@ const ConversationOrders = ({ conversationId, refreshKey = 0, onOpenOrder }) => 
                     type="button"
                     onClick={() => onOpenOrder(order)}
                     title="Open in Orders"
-                    className="block w-full rounded-xl border border-solid border-slate-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/40"
+                    className="side-panel-row block w-full rounded-xl border border-solid border-slate-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/40"
                   >
                     {content}
                   </button>

@@ -27,6 +27,25 @@ export const formatOrderAmount = (val, currency = '$', fallback = '—') => {
   return `${currency}${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
+// "Cotton T-Shirt ×2 +1 more" for an order's items.
+export const summarizeOrderItems = (items) => {
+  if (!Array.isArray(items) || items.length === 0) return 'No items';
+  const [first, ...rest] = items;
+  const head = `${first.name}${first.quantity > 1 ? ` ×${first.quantity}` : ''}`;
+  return rest.length ? `${head} +${rest.length} more` : head;
+};
+
+// "Oct 17, 2026"; with `withTime`, "Oct 17, 2026, 2:30 PM". Empty for bad dates.
+export const formatOrderDate = (value, { withTime = false } = {}) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric',
+    ...(withTime ? { hour: 'numeric', minute: '2-digit' } : {}),
+  });
+};
+
 // Badge colours for lead and order statuses.
 export const recordStatusClass = (status) => {
   switch (status) {

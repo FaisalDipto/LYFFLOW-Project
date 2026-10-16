@@ -67,10 +67,11 @@ const MOCK_ORDERS = (() => {
 // Jane Smith (conv_2) none; manual create adds to the list until reload.
 const mockConversationOrders = {
   conv_1: [
-    { ...MOCK_ORDERS[0], order_items: [{ name: 'Cotton T-Shirt (Black - L)', code: 'TSH-BLK-L', quantity: 2, price: 500 }, { name: 'Gift wrap', code: null, quantity: 1, price: 0 }] },
+    { ...MOCK_ORDERS[0], notes: 'Call before delivery', order_items: [{ name: 'Cotton T-Shirt (Black - L)', code: 'TSH-BLK-L', quantity: 2, price: 500 }, { name: 'Gift wrap', code: null, quantity: 1, price: 0 }] },
     { ...MOCK_ORDERS[9], order_items: [{ name: 'Premium Leather Wallet', code: 'WAL-01', quantity: 1, price: 1170 }] },
   ].map(order => ({
     ...order, page_id: 'page_1', conversation_id: 'conv_1', contact_name: 'John Doe', delivery_charge: '60.00',
+    contact_phone: '01700000000', delivery_address: 'House 12, Road 5, Dhanmondi, Dhaka',
     total: (order.order_items.reduce((sum, item) => sum + item.quantity * item.price, 0) + 60).toFixed(2),
   })),
 };
@@ -138,7 +139,8 @@ let mockProducts = [
   {
     product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', product_type: 'simple', brand: 'Hidebound', category: 'Accessories',tags: ['leather', 'gift'],
     description: 'Full-grain leather bifold with six card slots.', regular_price: '1170.00', sale_price: '990.00', currency: 'BDT',
-    stock_status: 'in_stock', stock_quantity: 42, availability: true, options: [], variants: [], assets: [], primary_assets: [],
+    stock_status: 'in_stock', stock_quantity: 42, availability: true, options: [], variants: [], assets: [],
+    primary_assets: [{ id: 'asset_wal_1', url: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=200&auto=format&fit=crop&q=70', file_type: 'image', original_filename: 'wallet.jpg', is_primary: true }],
   },
   {
     product_id: 'prod_2', name: 'Canvas Tote Bag', code: 'TOT-02', product_type: 'simple', brand: 'Loomhouse', category: 'Bags',tags: ['canvas'],
@@ -165,7 +167,7 @@ const mockMoney = (value) => (value === null || value === undefined || value ===
 // Agents for mock mode; create and update edit this list until reload. SupportBot has
 // the Messenger pause sign turned off (null) so both states are visible.
 let mockAgents = [
-  { agent_id: 'agent_1', name: 'SalesBot', agent_name: 'SalesBot', role: 'Sales', agent_role: 'Sales', agent_tone: 'Friendly', agent_language: 'Mimic User Language', business_name: 'Demo Store', business_description: 'Leather goods and accessories, delivered across Bangladesh.', agent_timezone: 'Asia/Dhaka', human_handover_sign: '#pause' },
+  { agent_id: 'agent_1', name: 'SalesBot', agent_name: 'SalesBot', role: 'Sales', agent_role: 'Sales', agent_tone: 'Friendly', agent_language: 'Mimic User Language', business_name: 'Demo Store', business_description: 'Leather goods and accessories, delivered across Bangladesh.', agent_timezone: 'Asia/Dhaka', human_handover_sign: '#pause', namespace_id: 'ns_1' },
   { agent_id: 'agent_2', name: 'SupportBot', agent_name: 'SupportBot', role: 'Support', agent_role: 'Support', agent_tone: 'Professional', agent_language: 'English', business_name: 'Demo Store', business_description: 'Order help, returns and delivery questions for Demo Store.', agent_timezone: 'Asia/Dhaka', human_handover_sign: null },
 ];
 
