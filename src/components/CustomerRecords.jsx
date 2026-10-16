@@ -48,9 +48,8 @@ const normalizeRecord = (record, type) => ({
 });
 
 const CustomerRecords = ({ pages, recordType, focusRequest }) => {
+  // Empty means every page: page_id is an optional filter on both leads and orders.
   const [selectedPageId, setSelectedPageId] = useState('');
-  // Orders default to every page (empty page_id); leads still need a page picked.
-  const allowAllPages = recordType === 'order';
   const [records, setRecords] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
@@ -159,8 +158,6 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   };
 
   const fetchRecords = useCallback(async (cursor = null) => {
-    if (!selectedPageId && !allowAllPages) return;
-    
     if (cursor) {
       setIsPaginating(true);
     } else {
@@ -193,7 +190,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
       setIsLoading(false);
       setIsPaginating(false);
     }
-  }, [selectedPageId, allowAllPages, recordType, filterStatus]);
+  }, [selectedPageId, recordType, filterStatus]);
 
   useEffect(() => {
     fetchRecords();
@@ -441,9 +438,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
               }}
               className="bg-transparent border-none text-sm font-bold focus:ring-0 text-slate-700 cursor-pointer p-0 pl-1 pr-8 outline-none"
             >
-              {allowAllPages
-                ? <option value="">All pages</option>
-                : <option value="" disabled>Select a page</option>}
+              <option value="">All pages</option>
               {pages?.map(page => (
                 <option key={page.page_id} value={page.page_id}>
                   {page.name}
@@ -611,12 +606,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
-        {!selectedPageId && !allowAllPages ? (
-          <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-white border border-slate-200 rounded-3xl border-dashed">
-            <Users className="opacity-20 mb-4" size={48} />
-            <p className="font-medium text-slate-500">Select a page to view customer {recordType}s.</p>
-          </div>
-        ) : isLoading ? (
+        {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-400">
             <Loader2 className="animate-spin mb-4" size={32} />
             <p>Loading records...</p>
