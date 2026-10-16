@@ -30,6 +30,7 @@ import {
   SESSION_EXPIRED_EVENT,
 } from '../services/api';
 import { closeNotificationStream } from '../services/notificationStream';
+import { clearSignedIn, markSignedIn } from '../utils/sessionHint';
 import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import { useOnKeyChange } from '../hooks/useOnKeyChange';
 import './Dashboard.css';
@@ -6443,6 +6444,8 @@ export default function Dashboard() {
       const parsedNamespaces = parseCollection(namespacesData, 'namespaces');
 
       setUser(userData ? { ...userData, agents: parsedAgents, subscription: subscriptionData } : null);
+      // Lets the landing page send this user straight back here next time.
+      markSignedIn();
       setBusiness(activeBusiness?.business || null);
       setRole(activeRole);
       setPages(parsedPages);
@@ -6480,6 +6483,7 @@ export default function Dashboard() {
   // its business gets the "no active business" 403. Both leave the dashboard.
   useEffect(() => {
     const handleSessionExpired = () => {
+      clearSignedIn();
       closeNotificationStream();
       navigate('/get-started', { replace: true });
     };
@@ -7235,6 +7239,7 @@ export default function Dashboard() {
                   <button
                     onClick={() => {
                       setIsLoggingOut(true);
+                      clearSignedIn();
                       closeNotificationStream();
                       // The backend clears the session cookie and redirects to the landing page.
                       window.location.href = logoutUrl();

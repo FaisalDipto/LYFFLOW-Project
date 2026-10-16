@@ -2,6 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react' // Final check on im
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { WidgetProvider } from './context/WidgetContext'
 import AppLoadingScreen from './components/AppLoadingScreen'
+import { clearSignedIn, hasSignedInHint } from './utils/sessionHint'
 import './App.css'
 
 const Home = lazy(() => import('./pages/Home'))
@@ -35,6 +36,34 @@ function RouteFontLoader() {
   }, [pathname]);
 
   return null;
+}
+
+// The landing page, except that a signed-in user goes straight to the dashboard.
+// Only users who have signed in on this browser are checked (see sessionHint), so
+// new visitors see the page with no extra request.
+function HomeRoute() {
+  const [session, setSession] = useState(() => (hasSignedInHint() ? 'checking' : 'none'));
+
+  useEffect(() => {
+    if (session !== 'checking') return undefined;
+    let cancelled = false;
+    // Loaded on demand so the API client stays out of the landing page's first load.
+    import('./services/api')
+      .then(({ apiService }) => apiService.getUserProfile())
+      .then(() => { if (!cancelled) setSession('active'); })
+      .catch(error => {
+        // 401: the session ended (expired, or logged out elsewhere). Anything else
+        // (offline, server error) just shows the page and checks again next visit.
+        if (error?.status === 401) clearSignedIn();
+        if (!cancelled) setSession('none');
+      });
+    return () => { cancelled = true; };
+  }, [session]);
+
+  if (session === 'checking') return <AppLoadingScreen />;
+  // Keeps ?mock=true and similar flags when skipping ahead.
+  if (session === 'active') return <Navigate to={{ pathname: '/dashboard', search: window.location.search }} replace />;
+  return <Home />;
 }
 
 // Handles scroll-to-top on route change and smooth-scroll to hash sections
@@ -116,7 +145,7 @@ function App() {
       <ScrollManager />
       <Suspense fallback={<AppLoadingScreen />}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<HomeRoute />} />
           <Route path="/get-started" element={<GetStarted />} />
           {/* Google is the only login; the old email form was a placeholder. */}
           <Route path="/login" element={<Navigate to="/get-started" replace />} />
