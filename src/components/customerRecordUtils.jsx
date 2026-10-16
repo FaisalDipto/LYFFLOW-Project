@@ -27,6 +27,22 @@ export const formatOrderAmount = (val, currency = '$', fallback = '—') => {
   return `${currency}${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
+// Badge colours for lead and order statuses.
+export const recordStatusClass = (status) => {
+  switch (status) {
+    case 'new': return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'pending':
+    case 'hold':
+    case 'in_review': return 'bg-amber-100 text-amber-700 border-amber-200';
+    case 'contacted': return 'bg-amber-100 text-amber-700 border-amber-200';
+    case 'converted':
+    case 'delivered': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+    case 'cancelled':
+    case 'cancelled_approval_pending': return 'bg-red-100 text-red-700 border-red-200';
+    default: return 'bg-slate-100 text-slate-700 border-slate-200';
+  }
+};
+
 export const renderOrderSourceBadge = (source) => {
   if (!source) return null;
   const isAi = String(source).toLowerCase() === 'ai';

@@ -39,6 +39,7 @@ const AgentAvatarModal = lazy(() => import('../components/AgentAvatarModal'));
 const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
 const ProductsTab = lazy(() => import('../components/ProductsTab'));
 const ManualOrderPanel = lazy(() => import('../components/ManualOrderPanel'));
+const ConversationOrders = lazy(() => import('../components/ConversationOrders'));
 const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCourier'));
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 const AnalyticsHub = lazy(() => import('../components/dashboard/AnalyticsHub'));
@@ -782,7 +783,7 @@ const formatListTime = (rawTime) => {
   }
 };
 
-const ConversationList = ({ pages, user, focusRequest }) => {
+const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const [selectedPageId, setSelectedPageId] = useState('');
   const [humanNeededFilter, setHumanNeededFilter] = useState('all');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -844,6 +845,8 @@ const ConversationList = ({ pages, user, focusRequest }) => {
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
+  // Bumped when a manual order is created so the sidebar's order list reloads.
+  const [conversationOrdersVersion, setConversationOrdersVersion] = useState(0);
   const isLoadingOlderMsgsRef = useRef(false);
   // Scroll position captured just before older messages are prepended, so the view
   // can be held on whatever the reader is looking at (see the layout effect below).
@@ -1911,6 +1914,20 @@ const ConversationList = ({ pages, user, focusRequest }) => {
               </div>
 
               <div className="space-y-8">
+                {(activeContact?.conversation_id || activeContact?.id) && (
+                  <Suspense fallback={null}>
+                    <ConversationOrders
+                      conversationId={activeContact.conversation_id || activeContact.id}
+                      refreshKey={conversationOrdersVersion}
+                      onOpenOrder={onNavigate ? (order) => onNavigate({
+                        tab: 'customer-orders',
+                        recordType: 'order',
+                        recordId: order.customer_order_id,
+                        pageId: order.page_id,
+                      }) : undefined}
+                    />
+                  </Suspense>
+                )}
                 <div>
                   <h4 className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase mb-4 border-b border-slate-100 pb-2">Information</h4>
                   <ul className="space-y-4">
@@ -1962,6 +1979,7 @@ const ConversationList = ({ pages, user, focusRequest }) => {
           <ManualOrderPanel
             conversationId={activeContact.conversation_id || activeContact.id}
             contactName={resolveContactName(activeContact, '')}
+            onCreated={() => setConversationOrdersVersion(version => version + 1)}
             onClose={() => setIsManualOrderOpen(false)}
           />
         </Suspense>
@@ -6649,7 +6667,7 @@ export default function Dashboard() {
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
-          <ConversationList pages={pages} user={user} focusRequest={notificationFocus} />
+          <ConversationList pages={pages} user={user} focusRequest={notificationFocus} onNavigate={handleNotificationNavigate} />
         </div>}
         {(visitedTabsRef.current.has('knowledge-products') || visitedTabsRef.current.has('knowledge-documents')) && <div style={{ display: (activeTab === 'knowledge-products' || activeTab === 'knowledge-documents') ? 'contents' : 'none' }}>
           <Knowledge namespaces={namespaces} onUpdate={refreshNamespaces} activeSection={activeTab === 'knowledge-products' ? 'products' : 'documents'} />

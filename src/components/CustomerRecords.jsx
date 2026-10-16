@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Users, Phone, Mail, Calendar, Eye, Pencil, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download, Trash2 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { saveBlob } from '../utils/download';
-import { formatOrderAmount, parseOrderAmount, renderOrderSourceBadge } from './customerRecordUtils';
+import { formatOrderAmount, parseOrderAmount, recordStatusClass, renderOrderSourceBadge } from './customerRecordUtils';
 import DateRangeCalendar from './DateRangeCalendar';
 import EditOrderModal from './EditOrderModal';
 import RowActionsMenu from './RowActionsMenu';
@@ -396,22 +396,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'new': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'pending':
-      case 'hold':
-      case 'in_review': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'contacted': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'converted':
-      case 'delivered': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'cancelled':
-      case 'cancelled_approval_pending': return 'bg-red-100 text-red-700 border-red-200';
-      default: return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  };
-
-  const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
+const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
 
   const getTypeIcon = (type) => {
     return type === 'order' ? <ShoppingCart size={16} /> : <Target size={16} />;
@@ -679,7 +664,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
                         </td>
                       )}
                       <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold border capitalize ${getStatusColor(record.status)}`}>
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold border capitalize ${recordStatusClass(record.status)}`}>
                           {record.status?.replaceAll('_', ' ')}
                         </span>
                       </td>
@@ -1052,7 +1037,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
                   value={selectedRecord.status}
                   onChange={(e) => handleUpdateStatus(selectedRecord.id, e.target.value)}
                   disabled={isUpdatingStatus || isDetailLoading}
-                  className={`border-2 rounded-xl px-4 py-2 text-sm font-bold cursor-pointer transition-colors outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${getStatusColor(selectedRecord.status)} ${isUpdatingStatus || isDetailLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`border-2 rounded-xl px-4 py-2 text-sm font-bold cursor-pointer transition-colors outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${recordStatusClass(selectedRecord.status)} ${isUpdatingStatus || isDetailLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {(selectedRecord.type === 'lead' ? LEAD_STATUSES : ORDER_STATUSES).map(status => (
                     <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>

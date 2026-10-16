@@ -63,6 +63,18 @@ const MOCK_ORDERS = (() => {
   return orders;
 })();
 
+// Orders per conversation for mock mode, newest first. John Doe (conv_1) has two and
+// Jane Smith (conv_2) none; manual create adds to the list until reload.
+const mockConversationOrders = {
+  conv_1: [
+    { ...MOCK_ORDERS[0], order_items: [{ name: 'Cotton T-Shirt (Black - L)', code: 'TSH-BLK-L', quantity: 2, price: 500 }, { name: 'Gift wrap', code: null, quantity: 1, price: 0 }] },
+    { ...MOCK_ORDERS[9], order_items: [{ name: 'Premium Leather Wallet', code: 'WAL-01', quantity: 1, price: 1170 }] },
+  ].map(order => ({
+    ...order, page_id: 'page_1', conversation_id: 'conv_1', contact_name: 'John Doe', delivery_charge: '60.00',
+    total: (order.order_items.reduce((sum, item) => sum + item.quantity * item.price, 0) + 60).toFixed(2),
+  })),
+};
+
 // Filters and pages the mock orders the way the endpoint does: page_id and status
 // filters, then an opaque cursor (here, the offset of the next page).
 const mockOrdersPage = (endpoint) => {
@@ -797,7 +809,8 @@ const apiFetch = async (endpoint, options = {}) => {
       ? mockData[`/v1/${courierOrderMatch[1]}/orders/{${courierOrderMatch[2] === 'info' ? 'consignment_id' : 'order_id'}}/${courierOrderMatch[2]}`]
       : null;
     const pageOrderDetailMatch = endpoint.match(/^\/v1\/pages\/orders\/([^/?#]+)$/);
-    const pageOrderListItem = pageOrderDetailMatch && MOCK_ORDERS.find(order => order.customer_order_id === pageOrderDetailMatch[1]);
+    const pageOrderListItem = pageOrderDetailMatch && [...Object.values(mockConversationOrders).flat(), ...MOCK_ORDERS]
+      .find(order => order.customer_order_id === pageOrderDetailMatch[1]);
     const pageOrderDetailMock = pageOrderDetailMatch
       ? (pageOrderListItem
         ? { ...mockData['/v1/pages/orders/{order_id}'], ...pageOrderListItem, ...mockWooSync(pageOrderListItem) }
@@ -811,14 +824,28 @@ const apiFetch = async (endpoint, options = {}) => {
       return updated;
     }
     if (pageOrderDetailMatch && method === 'DELETE') return '';
-    const manualOrderCreateMatch = /^\/v1\/pages\/orders\/create\/[^/?#]+$/.test(endpoint);
+    const conversationOrdersMatch = endpoint.match(/^\/v1\/pages\/orders\/conversation\/([^/?#]+)(?:\?(.*))?$/);
+    if (conversationOrdersMatch) {
+      const params = new URLSearchParams(conversationOrdersMatch[2] || '');
+      return (mockConversationOrders[conversationOrdersMatch[1]] || [])
+        .filter(order => !params.get('status') || order.status === params.get('status'))
+        .slice(0, Number(params.get('limit')) || 50);
+    }
+    const manualOrderCreateMatch = endpoint.match(/^\/v1\/pages\/orders\/create\/([^/?#]+)$/);
     if (manualOrderCreateMatch) {
       const body = JSON.parse(requestOptions.body || '{}');
       const itemsTotal = (body.order_items || []).reduce((sum, item) => sum + item.quantity * item.price, 0);
-      return {
+      const conversationId = manualOrderCreateMatch[1];
+      const now = new Date().toISOString();
+      const created = {
         ...mockData['/v1/pages/orders'].orders[0], ...body, created_by: 'manual',
+        customer_order_id: `00000000-0000-4000-9000-${String(Date.now()).slice(-12)}`,
+        order_id: `ORD-M${String(Date.now()).slice(-5)}`,
+        conversation_id: conversationId, created_at: now, updated_at: now,
         total: body.total ?? (itemsTotal + Number(body.delivery_charge || 0)).toFixed(2),
       };
+      mockConversationOrders[conversationId] = [created, ...(mockConversationOrders[conversationId] || [])];
+      return created;
     }
     const pageOrdersListMatch = endpoint.startsWith('/v1/pages/orders');
     const pageOrdersListMock = (pageOrdersListMatch && !pageOrderDetailMatch)
@@ -1638,6 +1665,17 @@ export const apiService = {
     return apiFetch(`/v1/pages/orders${qs}`);
   },
   getCustomerOrder: (orderId) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}`),
+  // Orders placed in one conversation, newest first, as full order details
+  // (OrderResponseDetail[]; [] when there are none). status filters; limit is 1-50
+  // (default 50). 403 when the conversation isn't in the active business, 404 when
+  // it doesn't exist.
+  getConversationOrders: (conversationId, { status, limit } = {}) => {
+    const q = new URLSearchParams();
+    if (status) q.set('status', status);
+    if (limit) q.set('limit', limit);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return apiFetch(`/v1/pages/orders/conversation/${encodeURIComponent(conversationId)}${qs}`);
+  },
   // Streams matching orders back as a generated .xlsx; every filter is optional.
   exportCustomerOrders: ({ page_id, status, created_by, start_date, end_date } = {}) => {
     const q = new URLSearchParams();
