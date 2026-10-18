@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug, ReceiptText } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -42,8 +42,6 @@ const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
 const ProductsTab = lazy(() => import('../components/ProductsTab'));
 const ManualOrderPanel = lazy(() => import('../components/ManualOrderPanel'));
 const ConversationOrders = lazy(() => import('../components/ConversationOrders'));
-const ConversationProductsPanel = lazy(() => import('../components/ConversationProductsPanel'));
-const ConversationOrdersPanel = lazy(() => import('../components/ConversationOrdersPanel'));
 const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCourier'));
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 const AnalyticsHub = lazy(() => import('../components/dashboard/AnalyticsHub'));
@@ -787,7 +785,7 @@ const formatListTime = (rawTime) => {
   }
 };
 
-const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNavigate }) => {
+const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const [selectedPageId, setSelectedPageId] = useState('');
   const [humanNeededFilter, setHumanNeededFilter] = useState('all');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -848,13 +846,7 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
   const [loadingMoreContacts, setLoadingMoreContacts] = useState(false);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
-  // Panel in the right-hand slot beside the chat, one at a time: 'products',
-  // 'orders' (order history) or 'order-form' (manual order). Null shows the profile.
-  const [sidePanel, setSidePanel] = useState(null);
-  const isManualOrderOpen = sidePanel === 'order-form';
-  const isProductsOpen = sidePanel === 'products';
-  const isOrdersOpen = sidePanel === 'orders';
-  const composerRef = useRef(null);
+  const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
   // Bumped when a manual order is created so the sidebar's order list reloads.
   const [conversationOrdersVersion, setConversationOrdersVersion] = useState(0);
   const isLoadingOlderMsgsRef = useRef(false);
@@ -870,15 +862,12 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
   const conversationsRequestVersionRef = useRef(0);
 
   // Switching conversations would retarget an open form at a different customer.
-  // Products and order history stay open: they follow the new conversation.
   useEffect(() => {
-    setSidePanel(panel => (panel === 'order-form' ? null : panel));
+    setIsManualOrderOpen(false);
   }, [activeContact?.conversation_id, activeContact?.id]);
 
-  const toggleSidePanel = (panel) => setSidePanel(open => (open === panel ? null : panel));
-
   const activeConversationId = activeContact?.conversation_id || activeContact?.id || null;
-  // One request feeds the header count, the Orders panel and the profile's list.
+  // Orders for the profile sidebar's list; reloads after a manual order is created.
   const conversationOrders = useConversationOrders(activeConversationId, conversationOrdersVersion);
   const openOrderInRecords = onNavigate ? (order) => onNavigate({
     tab: 'customer-orders',
@@ -886,22 +875,10 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
     recordId: order.customer_order_id,
     pageId: order.page_id,
   }) : undefined;
-  // Adds a product line to whatever is already typed (the box is one line, so a second
-  // product follows a "; "), then hands focus back to the box. Below lg the panel
-  // covers the chat, so it closes to show the reply.
-  const insertIntoReply = (text) => {
-    if (window.matchMedia('(max-width: 1023px)').matches) setSidePanel(null);
-    setInputText(prev => {
-      const typed = prev.trimEnd();
-      if (!typed) return text;
-      return /[.!?:;,]$/.test(typed) ? `${typed} ${text}` : `${typed}; ${text}`;
-    });
-    requestAnimationFrame(() => composerRef.current?.focus());
-  };
 
   const selectedPage = pages?.find(p => p.page_id === selectedPageId);
   const currentPageName = selectedPage?.name || '';
-  // The catalog of the agent on this page, so Products opens on what the agent sells.
+  // The catalog of the agent on this page, for filling manual order items from it.
   const pageCatalogId = (() => {
     if (!selectedPage) return '';
     let agentId = selectedPage.agent_id || selectedPage.agent?.agent_id || selectedPage.assigned_agent_id;
@@ -1711,42 +1688,7 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => toggleSidePanel('products')}
-                  aria-pressed={isProductsOpen}
-                  className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black transition-colors md:px-3 ${
-                    isProductsOpen
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'
-                  }`}
-                  title="Search products and add them to your reply"
-                >
-                  <span className="material-symbols-outlined text-[16px]">inventory_2</span>
-                  <span className={`hidden ${sidePanel ? '' : 'lg:inline'}`}>Products</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleSidePanel('orders')}
-                  disabled={!activeConversationId}
-                  aria-pressed={isOrdersOpen}
-                  aria-label={conversationOrders.status === 'ready' ? `Order history, ${conversationOrders.orders.length} orders` : 'Order history'}
-                  className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 md:px-3 ${
-                    isOrdersOpen
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'
-                  }`}
-                  title="Orders placed in this conversation"
-                >
-                  <ReceiptText size={15} strokeWidth={2.3} />
-                  <span className={`hidden ${sidePanel ? '' : 'lg:inline'}`}>Orders</span>
-                  {conversationOrders.status === 'ready' && conversationOrders.orders.length > 0 && (
-                    <span className="min-w-[18px] rounded-full bg-emerald-600 px-1.5 py-px text-center text-[10px] font-black leading-4 text-white">
-                      {conversationOrders.orders.length}
-                    </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleSidePanel('order-form')}
+                  onClick={() => setIsManualOrderOpen(open => !open)}
                   disabled={!(activeContact?.conversation_id || activeContact?.id)}
                   aria-pressed={isManualOrderOpen}
                   className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 md:px-3 ${
@@ -1757,7 +1699,7 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
                   title="Create a manual order for this conversation"
                 >
                   <span className="material-symbols-outlined text-[16px]">add_shopping_cart</span>
-                  <span className={`hidden ${sidePanel ? '' : 'lg:inline'}`}>New order</span>
+                  <span className="hidden lg:inline">New order</span>
                 </button>
                 <button
                   type="button"
@@ -1829,7 +1771,6 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
                 </button>
                 */}
                 <input
-                  ref={composerRef}
                   className="min-w-0 flex-1 border-none bg-transparent py-2.5 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
                   placeholder="Write a reply"
                   type="text"
@@ -1867,7 +1808,7 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
       </section>
 
       {/* Profile Right Sidebar - hidden on mobile */}
-        {isProfileVisible && !sidePanel && (
+        {isProfileVisible && !isManualOrderOpen && (
           <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white animate-fade-in-right xl:flex">
             {selectedMessageActivityId ? (
               <div className="p-5 flex flex-col h-full">
@@ -1989,7 +1930,7 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
 
               <div className="mb-6 flex w-full justify-center">
                 <button
-                  onClick={() => setSidePanel('order-form')}
+                  onClick={() => setIsManualOrderOpen(true)}
                   disabled={!(activeContact?.conversation_id || activeContact?.id)}
                   className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-xs font-black text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -2053,30 +1994,6 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
         </aside>
       )}
 
-      {/* Product search - same slot, so the agent can look things up mid-conversation */}
-      {isProductsOpen && activeContact && (
-        <Suspense fallback={null}>
-          <ConversationProductsPanel
-            namespaces={namespaces}
-            defaultNamespaceId={pageCatalogId}
-            onInsert={insertIntoReply}
-            onClose={() => setSidePanel(null)}
-          />
-        </Suspense>
-      )}
-
-      {/* Order history - this conversation's orders with their items and totals */}
-      {isOrdersOpen && activeConversationId && (
-        <Suspense fallback={null}>
-          <ConversationOrdersPanel
-            ordersState={conversationOrders}
-            onOpenOrder={openOrderInRecords}
-            onCreateOrder={() => setSidePanel('order-form')}
-            onClose={() => setSidePanel(null)}
-          />
-        </Suspense>
-      )}
-
       {/* Manual order creation - takes the profile sidebar's slot so the chat stays usable */}
       {isManualOrderOpen && (activeContact?.conversation_id || activeContact?.id) && (
         <Suspense fallback={null}>
@@ -2085,7 +2002,7 @@ const ConversationList = ({ pages, user, namespaces = [], focusRequest, onNaviga
             contactName={resolveContactName(activeContact, '')}
             catalogId={pageCatalogId}
             onCreated={() => setConversationOrdersVersion(version => version + 1)}
-            onClose={() => setSidePanel(null)}
+            onClose={() => setIsManualOrderOpen(false)}
           />
         </Suspense>
       )}
@@ -6775,7 +6692,7 @@ export default function Dashboard() {
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
-          <ConversationList pages={pages} user={user} namespaces={namespaces} focusRequest={notificationFocus} onNavigate={handleNotificationNavigate} />
+          <ConversationList pages={pages} user={user} focusRequest={notificationFocus} onNavigate={handleNotificationNavigate} />
         </div>}
         {(visitedTabsRef.current.has('knowledge-products') || visitedTabsRef.current.has('knowledge-documents')) && <div style={{ display: (activeTab === 'knowledge-products' || activeTab === 'knowledge-documents') ? 'contents' : 'none' }}>
           <Knowledge namespaces={namespaces} onUpdate={refreshNamespaces} activeSection={activeTab === 'knowledge-products' ? 'products' : 'documents'} />
