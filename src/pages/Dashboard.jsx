@@ -7034,7 +7034,7 @@ export default function Dashboard() {
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               aria-expanded={isProfileOpen}
             >
-              <div className="contact-avatar very-small overflow-hidden relative ring-2 ring-white shadow-sm" style={{ backgroundColor: '#10b981', color: 'white' }}>
+              <div className="contact-avatar very-small overflow-hidden relative ring-2 ring-white shadow-sm" style={{ backgroundColor: 'var(--dashboard-avatar, #10b981)', color: 'white' }}>
                 {user?.profile_pic_url && (
                   <img src={user.profile_pic_url} alt="Profile" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
                 )}
@@ -7065,7 +7065,7 @@ export default function Dashboard() {
             </div>
             <div className="drawer-content">
               <div className="drawer-user-info">
-                <div className="contact-avatar large overflow-hidden relative" style={{ backgroundColor: '#0ea5e9', color: 'white', margin: '0 auto 16px auto' }}>
+                <div className="contact-avatar large overflow-hidden relative" style={{ backgroundColor: 'var(--dashboard-avatar-alt, #0ea5e9)', color: 'white', margin: '0 auto 16px auto' }}>
                   {user?.profile_pic_url && (
                     <img src={user.profile_pic_url} alt="Profile" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
                   )}

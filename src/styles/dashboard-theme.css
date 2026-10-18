@@ -92,24 +92,24 @@ html[data-dashboard-theme="dark"] body>.fixed .order-item-suggestion.is-active{b
 .dashboard-layout.theme-dark .agent-onboarding-shell [class*="text-red-700"]{color:#fda4af!important}
 
 /* Tailwind utility surfaces used throughout the user dashboard and its portals */
-html[data-dashboard-theme="dark"] .dashboard-layout .bg-white,
-html[data-dashboard-theme="dark"] .dashboard-layout .bg-slate-50,
-html[data-dashboard-theme="dark"] .dashboard-layout .bg-slate-50\/60,
-html[data-dashboard-theme="dark"] .dashboard-layout .bg-slate-50\/80{background-color:#141414!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .bg-slate-100{background-color:#242424!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .bg-slate-200{background-color:#333333!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .text-slate-950,
-html[data-dashboard-theme="dark"] .dashboard-layout .text-slate-900,
-html[data-dashboard-theme="dark"] .dashboard-layout .text-slate-800,
-html[data-dashboard-theme="dark"] .dashboard-layout .text-slate-700{color:#f2f2f2!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .text-slate-600,
-html[data-dashboard-theme="dark"] .dashboard-layout .text-slate-500{color:#adadad!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .text-slate-400{color:#8e8e8e!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .border-slate-100,
-html[data-dashboard-theme="dark"] .dashboard-layout .border-slate-200,
-html[data-dashboard-theme="dark"] .dashboard-layout .border-slate-300{border-color:#373737!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .divide-slate-100>*+*{border-color:#343434!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .ring-white{--tw-ring-color:#141414!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .bg-white,
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .bg-slate-50,
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .bg-slate-50\/60,
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .bg-slate-50\/80{background-color:#141414!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .bg-slate-100{background-color:#242424!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .bg-slate-200{background-color:#333333!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .text-slate-950,
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .text-slate-900,
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .text-slate-800,
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .text-slate-700{color:#f2f2f2!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .text-slate-600,
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .text-slate-500{color:#adadad!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .text-slate-400{color:#8e8e8e!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .border-slate-100,
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .border-slate-200,
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .border-slate-300{border-color:#373737!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .divide-slate-100>*+*{border-color:#343434!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .ring-white{--tw-ring-color:#141414!important}
 
 /* Portaled user-dashboard dialogs */
 html[data-dashboard-theme="dark"] body>.fixed .bg-white{background-color:#141414!important}
@@ -142,22 +142,22 @@ html[data-dashboard-theme="dark"] body>.fixed{color-scheme:dark}
    utilities, so the severity tints and hover states are mapped here. */
 .dashboard-layout.theme-dark .notifications-bell{background:#1c1c1c;border-color:#383838;color:#b5b5b5}
 .dashboard-layout.theme-dark .notifications-bell:hover{background:#242424;border-color:#494949;color:#f4f4f4}
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel{box-shadow:0 24px 60px rgba(0,0,0,.45)}
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .hover\:bg-slate-50:hover{background-color:#242424!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .hover\:bg-slate-100:hover{background-color:#2d2d2d!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .hover\:bg-slate-200:hover{background-color:#333333!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .border-slate-50{border-color:#282828!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel{box-shadow:0 24px 60px rgba(0,0,0,.45)}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .hover\:bg-slate-50:hover{background-color:#242424!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .hover\:bg-slate-100:hover{background-color:#2d2d2d!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .hover\:bg-slate-200:hover{background-color:#333333!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .border-slate-50{border-color:#282828!important}
 /* Unread row */
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-emerald-50\/40{background-color:rgba(16,45,43,.55)!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .bg-emerald-50\/40{background-color:rgba(16,45,43,.55)!important}
 /* Critical row keeps its left rule, which carries the weight in both themes. */
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-rose-50\/60{background-color:rgba(60,24,36,.6)!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .bg-rose-50\/60{background-color:rgba(60,24,36,.6)!important}
 /* Severity chips */
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-sky-50{background-color:#262626!important;color:#7dd3fc!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-emerald-50{background-color:#102d2b!important;color:#6ee7b7!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-amber-50{background-color:#33260f!important;color:#fcd34d!important}
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-rose-100{background-color:#3d1a26!important;color:#fda4af!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .bg-sky-50{background-color:#262626!important;color:#7dd3fc!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .bg-emerald-50{background-color:#102d2b!important;color:#6ee7b7!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .bg-amber-50{background-color:#33260f!important;color:#fcd34d!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .bg-rose-100{background-color:#3d1a26!important;color:#fda4af!important}
 /* Active category chip needs to read against the dark card, not vanish into it. */
-html[data-dashboard-theme="dark"] .dashboard-layout .notifications-panel .bg-slate-900{background-color:#20c997!important;color:#052019!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout) .notifications-panel .bg-slate-900{background-color:#20c997!important;color:#052019!important}
 
 /* Admin dashboard */
 .admin-layout.theme-dark{background:#0a0a0a;color:#e4e4e4;color-scheme:dark}
@@ -298,16 +298,17 @@ html[data-dashboard-theme="dark"]{
   --dashboard-text-strong:#f2f2f2;--dashboard-text-body:#d4d4d4;--dashboard-text-muted:#adadad;--dashboard-text-subtle:#8e8e8e;
   --dashboard-accent-text:#6ee7b7;--dashboard-border:#343434;--dashboard-border-strong:#4a4a4a;
   --dashboard-on-primary:#0a0a0a;--dashboard-gauge-track:#2c2c2c;
+  --dashboard-avatar:#047857;--dashboard-avatar-alt:#0369a1;
 }
 
 /* Translucent neutral fills: over a dark page a light wash turns mid-grey and
    swallows grey text, so each maps to a solid step of the dark surface scale. */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-slate-50/50"],[class~="bg-slate-50/60"],[class~="bg-slate-50/70"],[class~="bg-slate-50/80"]){background-color:#1a1a1a!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-slate-100/80"],[class~="bg-slate-100/50"]){background-color:#242424!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-slate-200/60"],[class~="bg-slate-200/50"]){background-color:#2e2e2e!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-white/60"],[class~="bg-white/75"],[class~="bg-white/80"]){background-color:rgba(20,20,20,.88)!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-slate-200/60"],[class~="border-slate-200/70"]){border-color:#343434!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) [class~="text-gray-500"]{color:#adadad!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-slate-50/50"],[class~="bg-slate-50/60"],[class~="bg-slate-50/70"],[class~="bg-slate-50/80"]){background-color:#1a1a1a!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-slate-100/80"],[class~="bg-slate-100/50"]){background-color:#242424!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-slate-200/60"],[class~="bg-slate-200/50"]){background-color:#2e2e2e!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-white/60"],[class~="bg-white/75"],[class~="bg-white/80"]){background-color:rgba(20,20,20,.88)!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-slate-200/60"],[class~="border-slate-200/70"]){border-color:#343434!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) [class~="text-gray-500"]{color:#adadad!important}
 /* Usage gauge chips: the light tint in light mode; in dark, a dark tint and a
    lightened icon mixed from the same gauge colour. */
 .usage-gauge-chip{background-color:var(--gauge-soft);color:var(--gauge-color)}
@@ -315,8 +316,106 @@ html[data-dashboard-theme="dark"] .usage-gauge-chip{background-color:color-mix(i
 /* Struck-through regular price on a highlighted suggestion row. */
 html[data-dashboard-theme="dark"] .order-item-suggestion.is-active .text-slate-400{color:#a3a3a3!important}
 .dashboard-layout.theme-dark .drawer-user-info p{color:#adadad}
+/* Hover, focus and group-hover states on neutral utilities. Light mode darkens on
+   hover; dark mode lifts the surface one step up the scale (#141414 card -> #212121
+   -> #272727 -> #2e2e2e -> #383838) and brightens text, so hovered rows and
+   buttons never flash a light fill behind light text. */
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-white"],[class~="hover:bg-slate-50"],[class~="hover:bg-slate-50/80"],[class~="hover:bg-gray-50"]):hover{background-color:#212121!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-slate-100"],[class~="hover:bg-slate-100/80"],[class~="hover:bg-gray-100"]):hover{background-color:#272727!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-slate-200"],[class~="hover:bg-slate-200/60"],[class~="hover:bg-gray-200"]):hover{background-color:#2e2e2e!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-slate-300"]):hover{background-color:#383838!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:text-slate-950"],[class~="hover:text-slate-900"],[class~="hover:text-slate-800"],[class~="hover:text-slate-700"],[class~="hover:text-gray-900"]):hover{color:#f2f2f2!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:text-slate-600"],[class~="hover:text-slate-500"]):hover{color:#d4d4d4!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) .group:hover :is([class~="group-hover:text-slate-900"],[class~="group-hover:text-slate-800"],[class~="group-hover:text-slate-700"]){color:#f2f2f2!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) .group:hover :is([class~="group-hover:text-slate-600"],[class~="group-hover:text-slate-500"]){color:#d4d4d4!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:border-slate-200"],[class~="hover:border-slate-300"],[class~="hover:border-slate-400"]):hover{border-color:#4d4d4d!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="focus:bg-white"]):focus{background-color:#1a1a1a!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="focus-within:bg-white"]):focus-within{background-color:#1a1a1a!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="focus:border-slate-400"]):focus{border-color:#5a5a5a!important}
+/* Plain-CSS controls whose light-mode hover (or resting) fill is light. Same scale
+   as the utility hovers: resting #1a1a1a, hover #212121-#2e2e2e, tinted actions use
+   the dark tint of their hue with the 300 text tint. */
+html[data-dashboard-theme="dark"] :is(.contact-item,.knowledge-item):hover{background-color:#212121}
+html[data-dashboard-theme="dark"] .btn-cancel{background-color:#242424;color:#d4d4d4}
+html[data-dashboard-theme="dark"] .btn-cancel:hover{background-color:#2e2e2e;color:#f2f2f2}
+html[data-dashboard-theme="dark"] .admin-logout-btn:hover{background:#2e1416;border-color:#6e2a2f;color:#fda4af}
+html[data-dashboard-theme="dark"] .admin-question-refresh{background:#1a1a1a;border-color:#373737;color:#adadad}
+html[data-dashboard-theme="dark"] .admin-question-refresh:hover:not(:disabled){background:#242424;color:#f2f2f2}
+html[data-dashboard-theme="dark"] .admin-question-icon-button{color:#adadad}
+html[data-dashboard-theme="dark"] .admin-question-icon-button:hover:not(:disabled){background:#2e2e2e;color:#f2f2f2}
+html[data-dashboard-theme="dark"] .admin-question-secondary-button{background:#1a1a1a;border-color:#373737;color:#d4d4d4}
+html[data-dashboard-theme="dark"] .admin-question-secondary-button:hover:not(:disabled){background:#242424;color:#f2f2f2}
+html[data-dashboard-theme="dark"] .admin-users-search button:hover{background:#2e2e2e;color:#f2f2f2}
+html[data-dashboard-theme="dark"] .admin-user-icon-btn{background:#0f1a2e;border-color:#24406e;color:#93c5fd}
+html[data-dashboard-theme="dark"] .admin-user-icon-btn:hover{background:#14233d}
+html[data-dashboard-theme="dark"] .admin-user-status-btn.suspend{background:#2e1416;border-color:#6e2a2f;color:#fda4af}
+html[data-dashboard-theme="dark"] .admin-user-status-btn.suspend:hover{background:#3d1a1d}
+html[data-dashboard-theme="dark"] .admin-user-status-btn.activate{background:#0f2a22;border-color:#1f5a47;color:#6ee7b7}
+html[data-dashboard-theme="dark"] .admin-user-status-btn.activate:hover{background:#12352b}
+/* Admin panel: tinted chips, badges, action buttons and the question-bank modal.
+   Tints use the dark fill of their hue with the 300 text tint; neutral pieces use
+   the same surface steps as the dashboard (#141414 / #1a1a1a / #242424). */
+html[data-dashboard-theme="dark"] .admin-overview-panel-mark.health{background:#1c1530;color:#c4b5fd}
+html[data-dashboard-theme="dark"] .admin-activity-icon.tone-blue{background:#0f1a2e;color:#93c5fd}
+html[data-dashboard-theme="dark"] .admin-activity-icon.tone-green{background:#0f2a22;color:#6ee7b7}
+html[data-dashboard-theme="dark"] .admin-activity-icon.tone-violet{background:#1c1530;color:#c4b5fd}
+html[data-dashboard-theme="dark"] .admin-activity-icon.tone-cyan{background:#0b2a30;color:#67e8f9}
+html[data-dashboard-theme="dark"] .admin-activity-icon.tone-amber{background:#2b200c;color:#fcd34d}
+html[data-dashboard-theme="dark"] .admin-health-legend i.remaining{background:#3a3a3a}
+html[data-dashboard-theme="dark"] .admin-snapshot-icon{background:#242424;color:#adadad}
+html[data-dashboard-theme="dark"] .admin-snapshot-icon.tone-red{background:#2e1416;color:#fca5a5}
+html[data-dashboard-theme="dark"] .admin-snapshot-icon.tone-amber{background:#2b200c;color:#fcd34d}
+html[data-dashboard-theme="dark"] .admin-snapshot-icon.tone-blue{background:#0f1a2e;color:#93c5fd}
+html[data-dashboard-theme="dark"] .badge-green{background:#0f2a22;color:#6ee7b7}
+html[data-dashboard-theme="dark"] .badge-red{background:#2e1416;color:#fca5a5}
+html[data-dashboard-theme="dark"] .badge-blue{background:#0f1a2e;color:#93c5fd}
+html[data-dashboard-theme="dark"] .badge-yellow{background:#2a240b;color:#fde047}
+html[data-dashboard-theme="dark"] .badge-slate{background:#242424;color:#d4d4d4}
+html[data-dashboard-theme="dark"] .admin-badge-count{background:#242424;color:#adadad}
+html[data-dashboard-theme="dark"] .btn-action-danger{background:#2e1416;color:#fca5a5}
+html[data-dashboard-theme="dark"] .btn-action-danger:hover{background:#3d1a1d;color:#fca5a5}
+html[data-dashboard-theme="dark"] .btn-action-blue{background:#0f1a2e;color:#93c5fd}
+html[data-dashboard-theme="dark"] .btn-action-blue:hover{background:#14233d;color:#93c5fd}
+html[data-dashboard-theme="dark"] .btn-action-success{background:#0f2a22;color:#6ee7b7}
+html[data-dashboard-theme="dark"] .btn-action-success:hover{background:#12352b;color:#6ee7b7}
+html[data-dashboard-theme="dark"] .admin-question-list-error{background:#2e1416;color:#fca5a5;border-color:#6e2a2f}
+html[data-dashboard-theme="dark"] .admin-question-list-error button{color:#fca5a5}
+html[data-dashboard-theme="dark"] .admin-question-error{background:#2e1416;color:#fca5a5;border-color:#6e2a2f}
+html[data-dashboard-theme="dark"] .admin-question-order{background:#242424;color:#d4d4d4}
+html[data-dashboard-theme="dark"] .admin-question-modal{background:#141414;border-color:#343434;color:#e4e4e4}
+html[data-dashboard-theme="dark"] :is(.admin-question-modal-header,.admin-question-modal-actions){background:#1a1a1a;border-color:#2c2c2c}
+html[data-dashboard-theme="dark"] .admin-question-modal-header h2{color:#f2f2f2}
+html[data-dashboard-theme="dark"] .admin-question-toggle{background:#1a1a1a;border-color:#373737}
+html[data-dashboard-theme="dark"] .admin-question-field input:disabled{background:#1f1f1f;color:#8e8e8e}
+html[data-dashboard-theme="dark"] .admin-users-total>.material-symbols-outlined{background:#0f2a22;color:#6ee7b7}
+html[data-dashboard-theme="dark"] .admin-users-search:focus-within{background:#1a1a1a}
+html[data-dashboard-theme="dark"] .admin-plan-pill.active{background:#0f1a2e;color:#93c5fd}
+html[data-dashboard-theme="dark"] .admin-inline-kpis .material-symbols-outlined{background:#1c1530;color:#c4b5fd}
+html[data-dashboard-theme="dark"] .admin-revenue-plan-bar{background:#2c2c2c}
+html[data-dashboard-theme="dark"] .admin-revenue-plan small{background:#242424;color:#adadad}
+html[data-dashboard-theme="dark"] .admin-analytics-filter-label>.material-symbols-outlined{background:#0f1a2e;color:#93c5fd}
+html[data-dashboard-theme="dark"] .date-range-picker input[type="date"]{background:#1a1a1a;border-color:#373737;color:#ececec;color-scheme:dark}
+html[data-dashboard-theme="dark"] .admin-check-label{color:#adadad}
+/* Admin text set for light surfaces: headings and values to the strong text tone,
+   captions to the muted tone, typed input text light. */
+html[data-dashboard-theme="dark"] .admin-overview-status{background:#1a1a1a;border-color:#343434;color:#adadad}
+html[data-dashboard-theme="dark"] :is(.admin-users-search,.admin-search-bar) input{color:#ececec}
+html[data-dashboard-theme="dark"] :is(.admin-users-search,.admin-search-bar) input::placeholder{color:#8e8e8e}
+html[data-dashboard-theme="dark"] :is(.admin-inline-kpis strong,.admin-analytics-filter-label strong){color:#f2f2f2}
+html[data-dashboard-theme="dark"] .admin-ring-copy span{color:#d4d4d4}
+html[data-dashboard-theme="dark"] :is(.admin-pipeline-row span,.admin-question-page-heading p){color:#adadad}
+/* Admin stat tiles: dark tint and lightened icon mixed from each tile's own ink. */
+html[data-dashboard-theme="dark"] .admin-overview-stat-icon{background:color-mix(in srgb,var(--admin-stat-ink) 18%,#141414);color:color-mix(in srgb,var(--admin-stat-ink) 70%,#fff)}
+/* Admin page-heading icons: the light-to-white gradient becomes a dark tint of the hue. */
+html[data-dashboard-theme="dark"] .admin-page-heading-icon{background:linear-gradient(145deg,#0f1a2e,#141414);border-color:#24406e;color:#93c5fd;box-shadow:none}
+html[data-dashboard-theme="dark"] .admin-page-heading-icon.revenue{background:linear-gradient(145deg,#0f2a22,#141414);border-color:#1f5a47;color:#6ee7b7;box-shadow:none}
+html[data-dashboard-theme="dark"] .admin-page-heading-icon.subscriptions{background:linear-gradient(145deg,#1c1530,#141414);border-color:#4c2f86;color:#c4b5fd;box-shadow:none}
+html[data-dashboard-theme="dark"] .admin-page-heading-icon.analytics{background:linear-gradient(145deg,#0f1a2e,#141414);border-color:#24406e;color:#93c5fd;box-shadow:none}
+html[data-dashboard-theme="dark"] .admin-page-heading-icon.jobs{background:linear-gradient(145deg,#0b2a30,#141414);border-color:#1a5560;color:#67e8f9;box-shadow:none}
+/* Unchecked checkboxes and radios (the forms plugin paints them white). */
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([type="checkbox"],[type="radio"]):not(:checked){background-color:#1a1a1a;border-color:#5a5a5a}
 /* Disabled send: a muted chip with a visible (not white-on-light) icon. */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) [class~="disabled:bg-slate-300"]:disabled{background-color:#262626!important;color:#7a7a7a!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) [class~="disabled:bg-slate-300"]:disabled{background-color:#262626!important;color:#7a7a7a!important}
 
 /* ---------------------------------------------------------------------------
    Dark palette for coloured utilities (generated). Same hue, flipped lightness:
@@ -326,85 +425,94 @@ html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) [class~="di
    variants are only matched by their own rules.
    --------------------------------------------------------------------------- */
 /* emerald */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-emerald-50"],[class~="bg-emerald-50/40"],[class~="bg-emerald-50/50"],[class~="bg-emerald-50/60"]){background-color:#0f2a22!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-emerald-100"],[class~="bg-emerald-100/70"]){background-color:#12352b!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:bg-emerald-50"],[class~="hover:bg-emerald-100"]):hover{background-color:#12352b!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-emerald-100"],[class~="border-emerald-100/60"],[class~="border-emerald-200"],[class~="border-emerald-300"]){border-color:#1f5a47!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:border-emerald-200"],[class~="hover:border-emerald-300"]):hover{border-color:#1f5a47!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-emerald-500"],[class~="text-emerald-600"]){color:#34d399!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-emerald-700"],[class~="text-emerald-800"],[class~="text-emerald-900"]){color:#6ee7b7!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:text-emerald-600"],[class~="hover:text-emerald-700"],[class~="hover:text-emerald-800"]):hover{color:#6ee7b7!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) .group:hover :is([class~="group-hover:text-emerald-600"],[class~="group-hover:text-emerald-700"]){color:#6ee7b7!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-emerald-50"],[class~="bg-emerald-50/40"],[class~="bg-emerald-50/50"],[class~="bg-emerald-50/60"]){background-color:#0f2a22!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-emerald-100"],[class~="bg-emerald-100/70"]){background-color:#12352b!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-emerald-50"],[class~="hover:bg-emerald-100"]):hover{background-color:#12352b!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-emerald-100"],[class~="border-emerald-100/60"],[class~="border-emerald-200"],[class~="border-emerald-300"]){border-color:#1f5a47!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:border-emerald-200"],[class~="hover:border-emerald-300"]):hover{border-color:#1f5a47!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-emerald-500"],[class~="text-emerald-600"]){color:#34d399!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-emerald-700"],[class~="text-emerald-800"],[class~="text-emerald-900"]){color:#6ee7b7!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:text-emerald-600"],[class~="hover:text-emerald-700"],[class~="hover:text-emerald-800"]):hover{color:#6ee7b7!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) .group:hover :is([class~="group-hover:text-emerald-600"],[class~="group-hover:text-emerald-700"]){color:#6ee7b7!important}
 /* amber */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-amber-50"]){background-color:#2b200c!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-amber-100"]){background-color:#3a2a0e!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:bg-amber-50"],[class~="hover:bg-amber-100"]):hover{background-color:#3a2a0e!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-amber-100"],[class~="border-amber-200"],[class~="border-amber-300"]){border-color:#6b4a12!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-amber-500"],[class~="text-amber-600"]){color:#fbbf24!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-amber-700"],[class~="text-amber-800"],[class~="text-amber-900"]){color:#fcd34d!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-amber-50"]){background-color:#2b200c!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-amber-100"]){background-color:#3a2a0e!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-amber-50"],[class~="hover:bg-amber-100"]):hover{background-color:#3a2a0e!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-amber-100"],[class~="border-amber-200"],[class~="border-amber-300"]){border-color:#6b4a12!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-amber-500"],[class~="text-amber-600"]){color:#fbbf24!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-amber-700"],[class~="text-amber-800"],[class~="text-amber-900"]){color:#fcd34d!important}
 /* red */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-red-50"],[class~="bg-red-50/60"]){background-color:#2e1416!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-red-100"]){background-color:#3d1a1d!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:bg-red-50"]):hover{background-color:#3d1a1d!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-red-100"],[class~="border-red-200"]){border-color:#6e2a2f!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:border-red-200"]):hover{border-color:#6e2a2f!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-red-500"],[class~="text-red-600"]){color:#f87171!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-red-700"],[class~="text-red-800"],[class~="text-red-900"]){color:#fca5a5!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:text-red-600"]):hover{color:#fca5a5!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-red-50"],[class~="bg-red-50/60"]){background-color:#2e1416!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-red-100"]){background-color:#3d1a1d!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-red-50"]):hover{background-color:#3d1a1d!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-red-100"],[class~="border-red-200"]){border-color:#6e2a2f!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:border-red-200"]):hover{border-color:#6e2a2f!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-red-500"],[class~="text-red-600"]){color:#f87171!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-red-700"],[class~="text-red-800"],[class~="text-red-900"]){color:#fca5a5!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:text-red-600"]):hover{color:#fca5a5!important}
 /* rose */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-rose-50"],[class~="bg-rose-50/60"]){background-color:#2e1420!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-rose-100"]){background-color:#3d1a29!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:bg-rose-50"]):hover{background-color:#3d1a29!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-rose-100"],[class~="border-rose-200"],[class~="border-rose-300"]){border-color:#6e2a45!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:border-rose-200"]):hover{border-color:#6e2a45!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-rose-500"],[class~="text-rose-600"]){color:#fb7185!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-rose-700"]){color:#fda4af!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:text-rose-600"]):hover{color:#fda4af!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-rose-50"],[class~="bg-rose-50/60"]){background-color:#2e1420!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-rose-100"]){background-color:#3d1a29!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-rose-50"]):hover{background-color:#3d1a29!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-rose-100"],[class~="border-rose-200"],[class~="border-rose-300"]){border-color:#6e2a45!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:border-rose-200"]):hover{border-color:#6e2a45!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-rose-500"],[class~="text-rose-600"]){color:#fb7185!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-rose-700"]){color:#fda4af!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:text-rose-600"]):hover{color:#fda4af!important}
 /* blue */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-blue-50"]){background-color:#0f1a2e!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-blue-100"]){background-color:#14233d!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:bg-blue-50"]):hover{background-color:#14233d!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-blue-100"],[class~="border-blue-200"],[class~="border-blue-300"]){border-color:#24406e!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-blue-500"],[class~="text-blue-600"]){color:#60a5fa!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-blue-700"],[class~="text-blue-800"]){color:#93c5fd!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-blue-50"]){background-color:#0f1a2e!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-blue-100"]){background-color:#14233d!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-blue-50"]):hover{background-color:#14233d!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-blue-100"],[class~="border-blue-200"],[class~="border-blue-300"]){border-color:#24406e!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-blue-500"],[class~="text-blue-600"]){color:#60a5fa!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-blue-700"],[class~="text-blue-800"]){color:#93c5fd!important}
 /* sky */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-sky-50"],[class~="bg-sky-50/60"]){background-color:#0c2130!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-sky-200"]){border-color:#1d4b66!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-sky-600"]){color:#38bdf8!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-sky-700"]){color:#7dd3fc!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-sky-50"],[class~="bg-sky-50/60"]){background-color:#0c2130!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-sky-200"]){border-color:#1d4b66!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-sky-600"]){color:#38bdf8!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-sky-700"]){color:#7dd3fc!important}
 /* indigo */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-indigo-50"],[class~="bg-indigo-50/50"],[class~="bg-indigo-50/60"],[class~="bg-indigo-50/80"]){background-color:#161a33!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-indigo-100"]){background-color:#1d2242!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-indigo-100"],[class~="border-indigo-200"],[class~="border-indigo-300"]){border-color:#33397a!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-indigo-500"],[class~="text-indigo-600"]){color:#818cf8!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-indigo-700"],[class~="text-indigo-800"],[class~="text-indigo-900"]){color:#a5b4fc!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-indigo-50"],[class~="bg-indigo-50/50"],[class~="bg-indigo-50/60"],[class~="bg-indigo-50/80"]){background-color:#161a33!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-indigo-100"]){background-color:#1d2242!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-indigo-100"],[class~="border-indigo-200"],[class~="border-indigo-300"]){border-color:#33397a!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-indigo-500"],[class~="text-indigo-600"]){color:#818cf8!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-indigo-700"],[class~="text-indigo-800"],[class~="text-indigo-900"]){color:#a5b4fc!important}
 /* violet */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-violet-50"]){background-color:#1c1530!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:bg-violet-50"],[class~="hover:bg-violet-100"]):hover{background-color:#251c40!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-violet-200"]){border-color:#4c2f86!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="hover:border-violet-300"]):hover{border-color:#4c2f86!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-violet-600"]){color:#a78bfa!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-violet-700"]){color:#c4b5fd!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-violet-50"]){background-color:#1c1530!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-violet-50"],[class~="hover:bg-violet-100"]):hover{background-color:#251c40!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-violet-200"]){border-color:#4c2f86!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:border-violet-300"]):hover{border-color:#4c2f86!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-violet-600"]){color:#a78bfa!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-violet-700"]){color:#c4b5fd!important}
 /* purple */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-purple-50"]){background-color:#1f1430!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="border-purple-200"]){border-color:#563087!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-purple-600"]){color:#c084fc!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="text-purple-700"]){color:#d8b4fe!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-purple-50"]){background-color:#1f1430!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="border-purple-200"]){border-color:#563087!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-purple-600"]){color:#c084fc!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="text-purple-700"]){color:#d8b4fe!important}
 /* Solid fills carrying white text */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-emerald-400"],[class~="bg-emerald-500"],[class~="bg-emerald-600"]):is(.text-white,.text-slate-50){background-color:#047857!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-emerald-400"],[class~="bg-emerald-500"],[class~="bg-emerald-600"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#065f46!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-amber-400"],[class~="bg-amber-500"],[class~="bg-amber-600"]):is(.text-white,.text-slate-50){background-color:#b45309!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-amber-400"],[class~="bg-amber-500"],[class~="bg-amber-600"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#92400e!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-yellow-400"]):is(.text-white,.text-slate-50){background-color:#a16207!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-yellow-400"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#854d0e!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-red-500"]):is(.text-white,.text-slate-50){background-color:#b91c1c!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-red-500"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#991b1b!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-rose-500"]):is(.text-white,.text-slate-50){background-color:#be123c!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-rose-500"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#9f1239!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-sky-400"],[class~="bg-sky-600"]):is(.text-white,.text-slate-50){background-color:#0369a1!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-sky-400"],[class~="bg-sky-600"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#075985!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-blue-500"]):is(.text-white,.text-slate-50){background-color:#1d4ed8!important}
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-blue-500"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#1e40af!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-emerald-400"],[class~="bg-emerald-500"],[class~="bg-emerald-600"]):is(.text-white,.text-slate-50){background-color:#047857!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-emerald-400"],[class~="bg-emerald-500"],[class~="bg-emerald-600"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#065f46!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-amber-400"],[class~="bg-amber-500"],[class~="bg-amber-600"]):is(.text-white,.text-slate-50){background-color:#b45309!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-amber-400"],[class~="bg-amber-500"],[class~="bg-amber-600"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#92400e!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-yellow-400"]):is(.text-white,.text-slate-50){background-color:#a16207!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-yellow-400"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#854d0e!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-red-500"]):is(.text-white,.text-slate-50){background-color:#b91c1c!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-red-500"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#991b1b!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-rose-500"]):is(.text-white,.text-slate-50){background-color:#be123c!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-rose-500"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#9f1239!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-sky-400"],[class~="bg-sky-600"]):is(.text-white,.text-slate-50){background-color:#0369a1!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-sky-400"],[class~="bg-sky-600"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#075985!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-blue-500"]):is(.text-white,.text-slate-50){background-color:#1d4ed8!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-blue-500"]):is(.text-white,.text-slate-50):hover:not(:disabled){background-color:#1e40af!important}
+/* Hover fills that go solid behind white text/icons deepen to the 700 too */
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-emerald-400"]):hover{background-color:#047857!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) .group:hover :is([class~="group-hover:bg-emerald-500"]){background-color:#047857!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-yellow-400"]):hover{background-color:#a16207!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-red-500"]):hover{background-color:#b91c1c!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-blue-500"]):hover{background-color:#1d4ed8!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) .group:hover :is([class~="group-hover:bg-blue-500"]){background-color:#1d4ed8!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="hover:bg-violet-500"]):hover{background-color:#6d28d9!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) .group:hover :is([class~="group-hover:bg-violet-500"]){background-color:#6d28d9!important}
 /* Bright fills that carry dark text keep it dark (the slate text flip would wash it out) */
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-emerald-400"],[class~="bg-amber-400"],[class~="bg-yellow-400"],[class~="bg-sky-400"],[class~="bg-cyan-400"]):is(.text-slate-950,.text-slate-900,.text-slate-800),
-html[data-dashboard-theme="dark"] :is(.dashboard-layout,body>.fixed) :is([class~="bg-emerald-400"],[class~="bg-amber-400"],[class~="bg-yellow-400"],[class~="bg-sky-400"],[class~="bg-cyan-400"]) :is(.text-slate-950,.text-slate-900,.text-slate-800){color:#06110d!important}
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-emerald-400"],[class~="bg-amber-400"],[class~="bg-yellow-400"],[class~="bg-sky-400"],[class~="bg-cyan-400"]):is(.text-slate-950,.text-slate-900,.text-slate-800),
+html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-emerald-400"],[class~="bg-amber-400"],[class~="bg-yellow-400"],[class~="bg-sky-400"],[class~="bg-cyan-400"]) :is(.text-slate-950,.text-slate-900,.text-slate-800){color:#06110d!important}
