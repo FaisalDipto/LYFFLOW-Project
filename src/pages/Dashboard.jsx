@@ -23,7 +23,7 @@ import { useWidget } from '../context/WidgetContext';
 import { API_BASE } from '../config/env';
 import {
   apiService,
-  facebookConnectUrl,
+  startFacebookConnect,
   isNoActiveBusinessError,
   logoutUrl,
   NO_ACTIVE_BUSINESS_EVENT,
@@ -71,10 +71,21 @@ const OwnerOnlyNotice = ({ title, description }) => (
 );
 
 // Owner-only. Connecting and reconnecting are the same Facebook OAuth flow; the
-// backend returns to /dashboard?reauth=success|warning|failed.
-const triggerFacebookReauth = () => {
-  window.location.href = facebookConnectUrl();
+// backend returns to /dashboard?reauth=success|warning|failed. With includeInstagram,
+// Facebook also asks for the Instagram professional account linked to the pages.
+// (Also used directly as an onClick handler, so anything but that option is ignored.)
+const INSTAGRAM_CONNECT_FLAG = 'lyfflow_instagram_connect';
+const triggerFacebookReauth = (options) => {
+  const includeInstagram = options?.includeInstagram === true;
+  try {
+    if (includeInstagram) sessionStorage.setItem(INSTAGRAM_CONNECT_FLAG, '1');
+    else sessionStorage.removeItem(INSTAGRAM_CONNECT_FLAG);
+  } catch { /* storage blocked: the DM tip just won't show */ }
+  startFacebookConnect({ includeInstagram });
 };
+
+// Shown after connecting Instagram: DMs only reach Lyfflow with this toggled on.
+const INSTAGRAM_DM_TIP = 'Instagram connected. To receive DMs in Lyfflow, turn on "Allow access to messages" in the Instagram app (Settings and privacy → Messages and story replies → Message controls).';
 
 // Reasons the backend appends as /dashboard?reauth=failed&error=<reason>.
 const FACEBOOK_CONNECT_ERRORS = {
@@ -218,7 +229,6 @@ const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
   const [openDropdown, setOpenDropdown] = useState(null);
   const [dropdownPlacement, setDropdownPlacement] = useState('bottom');
   const [isPlatformModalOpen, setIsPlatformModalOpen] = useState(false);
-  const [showInstaComingSoon, setShowInstaComingSoon] = useState(false);
   const [assigning, setAssigning] = useState({}); // {pageId: boolean}
   const [success, setSuccess] = useState({}); // {pageId: boolean}
   const [selectedAgents, setSelectedAgents] = useState(() => {
@@ -386,15 +396,13 @@ const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
   };
 
   const handlePlatformSelect = (platform) => {
-    if (platform === 'facebook') {
-      setIsPlatformModalOpen(false);
-      if (onAddPage) {
-        onAddPage(); // Show the pre-warning modal in parent
-      } else {
-        triggerFacebookReauth();
-      }
+    // Instagram connects through the same Facebook Login, with the linked account added.
+    const options = { includeInstagram: platform === 'instagram' };
+    setIsPlatformModalOpen(false);
+    if (onAddPage) {
+      onAddPage(options); // Show the pre-warning modal in parent
     } else {
-      setShowInstaComingSoon(true);
+      triggerFacebookReauth(options);
     }
   };
 
@@ -710,27 +718,6 @@ const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
         document.body
       )}
 
-      {/* Instagram Coming Soon Modal */}
-      {showInstaComingSoon && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={() => setShowInstaComingSoon(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-scale-in relative border border-slate-100 text-center" onClick={e => e.stopPropagation()}>
-            <div className="w-16 h-16 bg-[#E1306C]/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-[#E1306C]">
-              <span className="material-symbols-outlined text-4xl">construction</span>
-            </div>
-            <h2 className="text-2xl font-headline font-black tracking-tight text-slate-900 mb-4">Coming Soon!</h2>
-            <p className="text-slate-500 mb-8 leading-relaxed">
-              Direct Instagram integration is currently under development. For now, please use the <strong>Facebook</strong> option to connect your Instagram Business account.
-            </p>
-            <button
-              onClick={() => setShowInstaComingSoon(false)}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-4 rounded-xl transition-colors cursor-pointer border-none text-sm"
-            >
-              Got it, thanks!
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 };
@@ -6655,6 +6642,12 @@ export default function Dashboard() {
       // Pages arrive from a background sync; Channels shows progress while we poll.
       setActiveTab('channels');
       setPageSync(current => ({ status: 'syncing', attempt: current.attempt + 1 }));
+      let connectedInstagram = false;
+      try {
+        connectedInstagram = sessionStorage.getItem(INSTAGRAM_CONNECT_FLAG) === '1';
+        sessionStorage.removeItem(INSTAGRAM_CONNECT_FLAG);
+      } catch { /* storage blocked */ }
+      if (connectedInstagram) setConnectNotice({ tone: 'success', text: INSTAGRAM_DM_TIP, duration: 15000 });
     } else if (reauth === 'failed') {
       const error = params.get('error');
       setConnectNotice({ tone: 'error', text: FACEBOOK_CONNECT_ERRORS[error] || FACEBOOK_CONNECT_ERRORS.unexpected });
@@ -6674,11 +6667,11 @@ export default function Dashboard() {
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('channels') && <div style={{ display: activeTab === 'channels' ? 'contents' : 'none' }}>
-          <Channels user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={() => setPreReauthModal(true)} syncStatus={pageSync.status} onRetrySync={retryPageSync} />
+          <Channels user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={(options) => setPreReauthModal(options?.includeInstagram ? { includeInstagram: true } : true)} syncStatus={pageSync.status} onRetrySync={retryPageSync} />
         </div>}
         {visitedTabsRef.current.has('platforms') && <div style={{ display: activeTab === 'platforms' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
-            <PlatformsCatalog pages={pages} onNavigate={setActiveTab} onConnectFacebook={() => setPreReauthModal(true)} />
+            <PlatformsCatalog pages={pages} isActive={activeTab === 'platforms'} onNavigate={setActiveTab} onConnectFacebook={(options) => setPreReauthModal(options?.includeInstagram ? { includeInstagram: true } : true)} />
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('customer-leads') && <div style={{ display: activeTab === 'customer-leads' ? 'contents' : 'none' }}>
@@ -6824,7 +6817,7 @@ export default function Dashboard() {
     <NotificationsProvider onSessionExpired={() => navigate('/get-started', { replace: true })}>
     <div className={`dashboard-layout theme-${theme}`}>
       {connectNotice && (
-        <Toast tone={connectNotice.tone} message={connectNotice.text} onDismiss={dismissConnectNotice} />
+        <Toast tone={connectNotice.tone} message={connectNotice.text} duration={connectNotice.duration} onDismiss={dismissConnectNotice} />
       )}
       {upgradeAction && (
         <UpgradeRequiredModal
@@ -7179,7 +7172,9 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h3 className="text-lg font-black text-slate-900 font-['Epilogue']">Before Continuing</h3>
-                    <p className="text-xs font-semibold text-blue-600 mt-0.5">Keep your existing pages checked</p>
+                    <p className="text-xs font-semibold text-blue-600 mt-0.5">
+                      {preReauthModal?.includeInstagram ? 'Connecting Instagram through Facebook' : 'Keep your existing pages checked'}
+                    </p>
                   </div>
                 </div>
 
@@ -7204,6 +7199,12 @@ export default function Dashboard() {
                     <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 mb-5 text-sm text-slate-500 italic">No currently connected pages.</div>
                   )}
 
+                  {preReauthModal?.includeInstagram && (
+                    <p className="text-sm text-slate-600 leading-relaxed mb-5">
+                      Facebook will also ask you to choose the <strong>Instagram professional account</strong> linked to your page. Pick it so Lyfflow can answer its DMs.
+                    </p>
+                  )}
+
                   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
                     <span className="material-symbols-outlined text-amber-500 text-[18px] mt-0.5 shrink-0">warning</span>
                     <p className="text-xs text-amber-800 font-semibold leading-relaxed">
@@ -7222,8 +7223,9 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => {
+                      const includeInstagram = Boolean(preReauthModal?.includeInstagram);
                       setPreReauthModal(false);
-                      triggerFacebookReauth();
+                      triggerFacebookReauth({ includeInstagram });
                     }}
                     className="flex-1 py-3 px-4 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm text-sm flex items-center justify-center gap-2"
                   >

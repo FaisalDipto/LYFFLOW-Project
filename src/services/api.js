@@ -20,6 +20,32 @@ export const googleLoginUrl = () => `${API_BASE}/v1/auth/google/login`;
 // Owner-only. The backend 303s to Facebook and returns to /dashboard?reauth=...
 export const facebookConnectUrl = () => `${API_BASE}/v1/auth/facebook/connect`;
 
+// Starts Facebook Login for Business: the business's pages, plus the Instagram
+// professional account linked to them when `includeInstagram` is set. The endpoint
+// either redirects straight to Facebook or answers JSON { auth_url }; this handles
+// both (a manual-redirect fetch tells them apart) and ends in a full-page navigation.
+export const startFacebookConnect = async ({ includeInstagram = false } = {}) => {
+  const url = `${facebookConnectUrl()}?include_instagram=${includeInstagram ? 'true' : 'false'}`;
+  if (MOCK_MODE) {
+    // No Facebook round trip in mock mode: land back as the backend would on success.
+    window.location.href = `${window.location.pathname}?mock=true&reauth=success`;
+    return;
+  }
+  try {
+    const response = await fetch(url, { credentials: 'include', redirect: 'manual', headers: { Accept: 'application/json' } });
+    if (response.ok && (response.headers.get('content-type') || '').includes('application/json')) {
+      const data = await response.json();
+      if (data?.auth_url) {
+        window.location.href = data.auth_url;
+        return;
+      }
+    }
+  } catch {
+    // Network or CORS trouble: fall back to navigating to the endpoint itself.
+  }
+  window.location.href = url;
+};
+
 // The backend clears the session cookie and 302s to the public landing page,
 // so this must be a navigation rather than a fetch.
 export const logoutUrl = () => `${API_BASE}/v1/logout`;
@@ -768,6 +794,29 @@ const apiFetch = async (endpoint, options = {}) => {
       mockAgents = mockAgents.map(agent => (agent.agent_id === updated.agent_id ? updated : agent));
       return updated;
     }
+    if (endpoint === '/v1/business/platforms' || endpoint === '/v1/platforms') {
+      // ?mockPlatforms=error tests the fallback; ?mockInstagram=connected shows Instagram linked.
+      if (MOCK_LOAD_PARAMS.get('mockPlatforms') === 'error') {
+        const error = new Error('Platform status is unavailable');
+        error.status = 503;
+        throw error;
+      }
+      const item = (connected, isAvailable = true) => ({ connected: Boolean(connected), is_available: isAvailable });
+      return {
+        social: {
+          facebook: item(mockData['/v1/business/pages'].length > 0),
+          instagram: item(MOCK_LOAD_PARAMS.get('mockInstagram') === 'connected'),
+          whatsapp: item(false, false),
+          tiktok: item(false, false),
+        },
+        courier: { steadfast: item(true), pathao: item(false), redx: item(false, false), paperfly: item(false, false) },
+        ecommerce: {
+          woocommerce: item(mockWooStatus.status === 'connected' && mockWooStatus.plugin_connected),
+          shopify: item(false, false),
+          daraz: item(false, false),
+        },
+      };
+    }
     if (endpoint === '/v1/woocommerce/status') return mockWooStatus;
     if (endpoint === '/v1/woocommerce/disconnect' && method === 'DELETE') {
       mockWooStatus = MOCK_WOO_STATUSES.none;
@@ -1180,6 +1229,21 @@ export const apiService = {
   // Gets the active business's connected pages. `fresh` skips the short-lived cache,
   // which polling needs while a Facebook page sync is still landing rows.
   getPages: ({ fresh = false } = {}) => apiFetch('/v1/business/pages', { cacheTtl: 15000, bypassCache: fresh }),
+  /**
+   * @typedef {Object} PlatformItemStatus
+   * @property {boolean} connected     The active business has this platform connected.
+   * @property {boolean} is_available  Supported today; false means "coming soon".
+   */
+  /**
+   * @typedef {Object} BusinessPlatformsStatus
+   * @property {{ facebook: PlatformItemStatus, instagram: PlatformItemStatus, whatsapp: PlatformItemStatus, tiktok: PlatformItemStatus }} social
+   * @property {{ steadfast: PlatformItemStatus, pathao: PlatformItemStatus, redx: PlatformItemStatus, paperfly: PlatformItemStatus }} courier
+   * @property {{ woocommerce: PlatformItemStatus, shopify: PlatformItemStatus, daraz: PlatformItemStatus }} ecommerce
+   */
+  // Every platform Lyfflow supports or plans, with whether this business has it
+  // connected. Rate limited to 60/min, so callers refresh on demand, not on a timer.
+  /** @returns {Promise<BusinessPlatformsStatus>} */
+  getBusinessPlatforms: ({ fresh = false } = {}) => apiFetch('/v1/business/platforms', { cacheTtl: 10000, bypassCache: fresh }),
   // Unlinks the page from the business; its history stays on the server.
   disconnectPage: (pageId) => apiFetch(`/v1/business/pages/${encodeURIComponent(pageId)}`, {
     method: 'DELETE',
