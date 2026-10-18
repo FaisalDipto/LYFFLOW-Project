@@ -2806,8 +2806,8 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
         <div className="modal-overlay" onClick={() => setViewingItem(null)}>
           <div className="modal-content animate-fade-in-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h3 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>Knowledge Details</h3>
-              <button type="button" onClick={() => setViewingItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+              <h3 style={{ margin: 0, fontSize: '20px', color: 'var(--dashboard-text-strong, #0f172a)' }}>Knowledge Details</h3>
+              <button type="button" onClick={() => setViewingItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dashboard-text-muted, #64748b)' }}>
                 <X size={20} />
               </button>
             </div>
@@ -2815,29 +2815,29 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
             <div style={{ maxHeight: '600px', overflowY: 'auto', paddingRight: '4px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div>
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '12px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Name</h4>
-                  <div style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a' }}>{viewingItem.name || 'N/A'}</div>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '12px', textTransform: 'uppercase', color: 'var(--dashboard-text-muted, #64748b)', letterSpacing: '0.05em' }}>Name</h4>
+                  <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--dashboard-text-strong, #0f172a)' }}>{viewingItem.name || 'N/A'}</div>
                 </div>
 
                 <div>
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '12px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Title</h4>
-                  <div style={{ fontSize: '16px', color: '#334155' }}>{viewingItem.title || 'N/A'}</div>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '12px', textTransform: 'uppercase', color: 'var(--dashboard-text-muted, #64748b)', letterSpacing: '0.05em' }}>Title</h4>
+                  <div style={{ fontSize: '16px', color: 'var(--dashboard-text-body, #334155)' }}>{viewingItem.title || 'N/A'}</div>
                 </div>
 
                 <div>
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '12px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>Description</h4>
-                  <div style={{ fontSize: '15px', color: '#475569', lineHeight: '1.6', whiteSpace: 'pre-wrap', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>{viewingItem.description || 'N/A'}</div>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '12px', textTransform: 'uppercase', color: 'var(--dashboard-text-muted, #64748b)', letterSpacing: '0.05em' }}>Description</h4>
+                  <div style={{ fontSize: '15px', color: 'var(--dashboard-text-body, #475569)', lineHeight: '1.6', whiteSpace: 'pre-wrap', backgroundColor: 'var(--dashboard-surface-muted, #f8fafc)', padding: '16px', borderRadius: '8px', border: '1px solid var(--dashboard-border, #e2e8f0)' }}>{viewingItem.description || 'N/A'}</div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '32px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+                <div style={{ display: 'flex', gap: '32px', borderTop: '1px solid var(--dashboard-border, #e2e8f0)', paddingTop: '20px' }}>
                   <div>
-                    <h4 style={{ margin: '0 0 4px 0', fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8' }}>Knowledge ID</h4>
-                    <div style={{ fontSize: '13px', color: '#64748b', fontFamily: 'monospace', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px' }}>{viewingItem.knowledge_id || viewingItem.id || viewingItem.uuid || 'N/A'}</div>
+                    <h4 style={{ margin: '0 0 4px 0', fontSize: '11px', textTransform: 'uppercase', color: 'var(--dashboard-text-subtle, #94a3b8)' }}>Knowledge ID</h4>
+                    <div style={{ fontSize: '13px', color: 'var(--dashboard-text-muted, #64748b)', fontFamily: 'monospace', background: 'var(--dashboard-surface-raised, #f1f5f9)', padding: '4px 8px', borderRadius: '4px' }}>{viewingItem.knowledge_id || viewingItem.id || viewingItem.uuid || 'N/A'}</div>
                   </div>
                   {viewingItem.created_at && (
                     <div>
-                      <h4 style={{ margin: '0 0 4px 0', fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8' }}>Created</h4>
-                      <div style={{ fontSize: '13px', color: '#64748b' }}>{new Date(viewingItem.created_at).toLocaleString()}</div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '11px', textTransform: 'uppercase', color: 'var(--dashboard-text-subtle, #94a3b8)' }}>Created</h4>
+                      <div style={{ fontSize: '13px', color: 'var(--dashboard-text-muted, #64748b)' }}>{new Date(viewingItem.created_at).toLocaleString()}</div>
                     </div>
                   )}
                 </div>
@@ -2861,16 +2861,16 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
               {!editingItemId && (
                 <div className="form-group" style={{ marginBottom: '20px' }}>
                   <label>Knowledge Type</label>
-                  <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '4px', marginTop: '10px' }}>
+                  <div style={{ display: 'flex', background: 'var(--dashboard-surface-raised, #f1f5f9)', borderRadius: '8px', padding: '4px', marginTop: '10px' }}>
                     <div
                       onClick={() => setKnowledgeType('text')}
-                      style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: knowledgeType === 'text' ? '#0f172a' : '#64748b', background: knowledgeType === 'text' ? '#ffffff' : 'transparent', boxShadow: knowledgeType === 'text' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                      style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: knowledgeType === 'text' ? 'var(--dashboard-text-strong, #0f172a)' : 'var(--dashboard-text-muted, #64748b)', background: knowledgeType === 'text' ? 'var(--dashboard-surface, #ffffff)' : 'transparent', boxShadow: knowledgeType === 'text' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
                     >
                       Raw Text
                     </div>
                     <div
                       onClick={() => setKnowledgeType('file')}
-                      style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: knowledgeType === 'file' ? '#0f172a' : '#64748b', background: knowledgeType === 'file' ? '#ffffff' : 'transparent', boxShadow: knowledgeType === 'file' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                      style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: knowledgeType === 'file' ? 'var(--dashboard-text-strong, #0f172a)' : 'var(--dashboard-text-muted, #64748b)', background: knowledgeType === 'file' ? 'var(--dashboard-surface, #ffffff)' : 'transparent', boxShadow: knowledgeType === 'file' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
                     >
                       File Upload
                     </div>
@@ -2893,7 +2893,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
                       maxLength={50}
                       required={knowledgeType === 'text'}
                     />
-                    <small style={{ color: '#64748b', marginTop: '6px', fontSize: '12px', display: 'block' }}>Max 50 characters. Letters, numbers, spaces, _, and - only.</small>
+                    <small style={{ color: 'var(--dashboard-text-muted, #64748b)', marginTop: '6px', fontSize: '12px', display: 'block' }}>Max 50 characters. Letters, numbers, spaces, _, and - only.</small>
                   </div>
 
                   <div className="form-group">
@@ -2909,7 +2909,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
               ) : (
                 <div className="form-group">
                   <label>Upload Files *</label>
-                  <div style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '40px', textAlign: 'center', marginTop: '12px', background: '#f8fafc', position: 'relative' }}>
+                  <div style={{ border: '2px dashed var(--dashboard-border-strong, #cbd5e1)', borderRadius: '8px', padding: '40px', textAlign: 'center', marginTop: '12px', background: 'var(--dashboard-surface-muted, #f8fafc)', position: 'relative' }}>
                     <input
                       type="file"
                       multiple
@@ -2936,11 +2936,11 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
                     <p style={{ margin: 0, color: '#0ea5e9', fontWeight: 500, fontSize: '15px' }}>
                       {selectedFiles && selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Click to Browse Files or Drag & Drop'}
                     </p>
-                    <p style={{ color: '#64748b', margin: '8px 0 0 0', fontSize: '13px' }}>Supported formats: PDF, TXT, DOCX, CSV</p>
+                    <p style={{ color: 'var(--dashboard-text-muted, #64748b)', margin: '8px 0 0 0', fontSize: '13px' }}>Supported formats: PDF, TXT, DOCX, CSV</p>
                     {selectedFiles && selectedFiles.length > 0 && (
-                      <div style={{ marginTop: '16px', textAlign: 'left', background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', maxHeight: '120px', overflowY: 'auto', position: 'relative', zIndex: 10 }}>
+                      <div style={{ marginTop: '16px', textAlign: 'left', background: 'var(--dashboard-surface, #fff)', padding: '12px', borderRadius: '6px', border: '1px solid var(--dashboard-border, #e2e8f0)', maxHeight: '120px', overflowY: 'auto', position: 'relative', zIndex: 10 }}>
                         {Array.from(selectedFiles).map((file, idx) => (
-                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#334155', padding: '4px 0', borderBottom: idx < selectedFiles.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: 'var(--dashboard-text-body, #334155)', padding: '4px 0', borderBottom: idx < selectedFiles.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
                             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>✓ {file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
                             <button
                               type="button"
@@ -3001,7 +3001,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
               animation: 'slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               padding: '16px 20px',
               borderRadius: '8px',
-              color: '#0f172a',
+              color: 'var(--dashboard-text-strong, #0f172a)',
               fontWeight: 500,
               fontSize: '14px',
               boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
@@ -3009,14 +3009,14 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
               flexDirection: 'column',
               minWidth: '280px',
               pointerEvents: 'auto',
-              backgroundColor: '#fff',
+              backgroundColor: 'var(--dashboard-surface, #fff)',
               borderLeft: '4px solid #ef4444'
             }}>
               <div style={{ marginBottom: '14px', fontWeight: 600, fontSize: '14.5px' }}>
                 Delete "{deleteConfirmItem.name || deleteConfirmItem.title || 'this document'}"?
               </div>
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button onClick={() => setDeleteConfirmItem(null)} style={{ padding: '8px 14px', borderRadius: '6px', fontSize: '13px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 600, transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}>Cancel</button>
+                <button onClick={() => setDeleteConfirmItem(null)} style={{ padding: '8px 14px', borderRadius: '6px', fontSize: '13px', backgroundColor: 'var(--dashboard-surface-raised, #f1f5f9)', color: 'var(--dashboard-text-body, #475569)', fontWeight: 600, transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}>Cancel</button>
                 <button onClick={handleConfirmDelete} style={{ padding: '8px 14px', borderRadius: '6px', fontSize: '13px', backgroundColor: '#ef4444', color: '#fff', fontWeight: 600, transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#dc2626'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ef4444'}>Yes, delete</button>
               </div>
             </div>
@@ -4045,7 +4045,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             animation: 'slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             padding: '16px 20px',
             borderRadius: '8px',
-            color: '#0f172a',
+            color: 'var(--dashboard-text-strong, #0f172a)',
             fontWeight: 500,
             fontSize: '14px',
             boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
@@ -4053,14 +4053,14 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             flexDirection: 'column',
             minWidth: '280px',
             pointerEvents: 'auto',
-            backgroundColor: '#fff',
+            backgroundColor: 'var(--dashboard-surface, #fff)',
             borderLeft: '4px solid #ef4444'
           }}>
             <div style={{ marginBottom: '14px', fontWeight: 600, fontSize: '14.5px' }}>
               Delete "{deleteConfirmItem.name}"?
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeleteConfirmItem(null)} style={{ padding: '8px 14px', borderRadius: '6px', fontSize: '13px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 600, transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}>Cancel</button>
+              <button onClick={() => setDeleteConfirmItem(null)} style={{ padding: '8px 14px', borderRadius: '6px', fontSize: '13px', backgroundColor: 'var(--dashboard-surface-raised, #f1f5f9)', color: 'var(--dashboard-text-body, #475569)', fontWeight: 600, transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}>Cancel</button>
               <button onClick={handleConfirmDelete} style={{ padding: '8px 14px', borderRadius: '6px', fontSize: '13px', backgroundColor: '#ef4444', color: '#fff', fontWeight: 600, transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#dc2626'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ef4444'}>Yes, delete</button>
             </div>
           </div>
@@ -4070,7 +4070,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             animation: 'slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             padding: '24px',
             borderRadius: '16px',
-            color: '#0f172a',
+            color: 'var(--dashboard-text-strong, #0f172a)',
             fontWeight: 500,
             fontSize: '15px',
             boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
@@ -4079,19 +4079,19 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             minWidth: '340px',
             maxWidth: '420px',
             pointerEvents: 'auto',
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--dashboard-surface, #ffffff)',
             borderTop: '4px solid #ef4444'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--dashboard-tint-red, #fef2f2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span className="material-symbols-outlined text-[24px]" style={{ color: '#ef4444' }}>error</span>
               </div>
               <div>
-                <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>Creation Failed</h4>
-                <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Action Required</p>
+                <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--dashboard-text-strong, #0f172a)', letterSpacing: '-0.02em' }}>Creation Failed</h4>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--dashboard-text-muted, #64748b)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Action Required</p>
               </div>
             </div>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14.5px', color: '#475569', lineHeight: '1.6' }}>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14.5px', color: 'var(--dashboard-text-body, #475569)', lineHeight: '1.6' }}>
               {creationError}
             </p>
             <button
@@ -4137,7 +4137,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       pointerEvents: 'auto'
     }} onClick={closeCommentRules}>
       <div style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: 'var(--dashboard-surface, #ffffff)',
         borderRadius: '20px',
         padding: '28px',
         width: '90%',
@@ -4146,24 +4146,24 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         display: 'flex',
         flexDirection: 'column',
         maxHeight: '85vh',
-        border: '1px solid #e2e8f0',
+        border: '1px solid var(--dashboard-border, #e2e8f0)',
         animation: 'fadeInUp 0.2s ease-out'
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
             <span className="material-symbols-outlined shrink-0 text-blue-600 text-2xl">forum</span>
             <div style={{ minWidth: 0 }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.25 }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--dashboard-text-strong, #0f172a)', margin: 0, lineHeight: 1.25 }}>
                 Comment settings
               </h3>
-              <p style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={commentRulesAgent.name}>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dashboard-text-muted, #64748b)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={commentRulesAgent.name}>
                 {commentRulesAgent.name}
               </p>
             </div>
           </div>
-          <button onClick={closeCommentRules} disabled={savingCommentRules} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', flexShrink: 0, cursor: savingCommentRules ? 'not-allowed' : 'pointer', color: '#64748b', fontSize: '18px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          <button onClick={closeCommentRules} disabled={savingCommentRules} style={{ background: 'var(--dashboard-surface-raised, #f1f5f9)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', flexShrink: 0, cursor: savingCommentRules ? 'not-allowed' : 'pointer', color: 'var(--dashboard-text-muted, #64748b)', fontSize: '18px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
-        <p style={{ fontSize: '13px', color: '#64748b', margin: '12px 0 20px', lineHeight: 1.5 }}>
+        <p style={{ fontSize: '13px', color: 'var(--dashboard-text-muted, #64748b)', margin: '12px 0 20px', lineHeight: 1.5 }}>
           Choose what this agent is allowed to do with Facebook comments on its assigned pages.
         </p>
 
@@ -4186,8 +4186,8 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                   textAlign: 'left',
                   padding: '14px 16px',
                   borderRadius: '14px',
-                  border: isOn ? '2px solid #10b981' : '1px solid #e2e8f0',
-                  backgroundColor: isOn ? '#ecfdf5' : '#f8fafc',
+                  border: isOn ? '2px solid #10b981' : '1px solid var(--dashboard-border, #e2e8f0)',
+                  backgroundColor: isOn ? 'var(--dashboard-tint-emerald, #ecfdf5)' : 'var(--dashboard-surface-muted, #f8fafc)',
                   cursor: savingCommentRules ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s'
                 }}
@@ -4195,11 +4195,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                     <span className={`material-symbols-outlined shrink-0 text-[16px] ${isOn ? 'text-emerald-600' : 'text-slate-400'}`}>{field.icon}</span>
-                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--dashboard-text-strong, #0f172a)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                       {field.label}
                     </span>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 500, color: '#64748b', lineHeight: 1.45 }}>
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--dashboard-text-muted, #64748b)', lineHeight: 1.45 }}>
                     {field.description}
                   </span>
                 </div>
@@ -4220,7 +4220,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                     width: '16px',
                     height: '16px',
                     borderRadius: '50%',
-                    backgroundColor: '#fff',
+                    backgroundColor: 'var(--dashboard-surface, #fff)',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                     transform: isOn ? 'translateX(16px)' : 'translateX(0)',
                     transition: 'transform 0.2s'
@@ -4235,7 +4235,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           <button
             onClick={closeCommentRules}
             disabled={savingCommentRules}
-            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 700, border: 'none', cursor: savingCommentRules ? 'not-allowed' : 'pointer' }}
+            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: 'var(--dashboard-surface-raised, #f1f5f9)', color: 'var(--dashboard-text-body, #475569)', fontWeight: 700, border: 'none', cursor: savingCommentRules ? 'not-allowed' : 'pointer' }}
           >
             Cancel
           </button>
@@ -4268,7 +4268,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       pointerEvents: 'auto'
     }} onClick={() => setAssignModalAgent(null)}>
       <div style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: 'var(--dashboard-surface, #ffffff)',
         borderRadius: '20px',
         padding: '28px',
         width: '90%',
@@ -4277,30 +4277,30 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         display: 'flex',
         flexDirection: 'column',
         maxHeight: '85vh',
-        border: '1px solid #e2e8f0',
+        border: '1px solid var(--dashboard-border, #e2e8f0)',
         animation: 'fadeInUp 0.2s ease-out'
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
             <span className="material-symbols-outlined shrink-0 text-blue-600 text-2xl">database</span>
             <div style={{ minWidth: 0 }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.25 }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--dashboard-text-strong, #0f172a)', margin: 0, lineHeight: 1.25 }}>
                 Connect knowledge
               </h3>
-              <p style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={assignModalAgent.name}>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dashboard-text-muted, #64748b)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={assignModalAgent.name}>
                 {assignModalAgent.name}
               </p>
             </div>
           </div>
-          <button onClick={() => setAssignModalAgent(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', flexShrink: 0, cursor: 'pointer', color: '#64748b', fontSize: '18px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          <button onClick={() => setAssignModalAgent(null)} style={{ background: 'var(--dashboard-surface-raised, #f1f5f9)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', flexShrink: 0, cursor: 'pointer', color: 'var(--dashboard-text-muted, #64748b)', fontSize: '18px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
-        <p style={{ fontSize: '13px', color: '#64748b', margin: '12px 0 20px', lineHeight: 1.5 }}>
+        <p style={{ fontSize: '13px', color: 'var(--dashboard-text-muted, #64748b)', margin: '12px 0 20px', lineHeight: 1.5 }}>
           Select a knowledge namespace this agent should retrieve answers from.
         </p>
 
         <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '340px', paddingRight: '4px' }}>
           {(!namespaces || namespaces.length === 0) ? (
-            <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', fontSize: '13px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--dashboard-text-muted, #64748b)', fontSize: '13px', backgroundColor: 'var(--dashboard-surface-muted, #f8fafc)', borderRadius: '12px', border: '1px solid var(--dashboard-border, #e2e8f0)' }}>
               No namespaces available. Please generate one in the Knowledge Base first.
             </div>
           ) : (
@@ -4312,15 +4312,15 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               const isBusy = assigningId === assignModalAgent.agent_id;
 
               return (
-                <div key={nsId || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 16px', borderRadius: '14px', border: isThisNsConnected ? '2px solid #10b981' : '1px solid #e2e8f0', backgroundColor: isThisNsConnected ? '#ecfdf5' : '#f8fafc', transition: 'all 0.2s' }}>
+                <div key={nsId || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 16px', borderRadius: '14px', border: isThisNsConnected ? '2px solid #10b981' : '1px solid var(--dashboard-border, #e2e8f0)', backgroundColor: isThisNsConnected ? 'var(--dashboard-tint-emerald, #ecfdf5)' : 'var(--dashboard-surface-muted, #f8fafc)', transition: 'all 0.2s' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                       <span className="material-symbols-outlined shrink-0 text-[16px] text-blue-600">database</span>
-                      <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }} title={nsName || nsId}>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--dashboard-text-strong, #0f172a)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }} title={nsName || nsId}>
                         {nsName || 'Untitled namespace'}
                       </span>
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: isThisNsConnected ? '#059669' : '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: isThisNsConnected ? 'var(--dashboard-accent-text, #059669)' : 'var(--dashboard-text-muted, #64748b)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                       {isThisNsConnected ? '✓ Currently connected' : `ID: ${String(nsId).slice(0, 8)}…${String(nsId).slice(-4)}`}
                     </span>
                   </div>
@@ -4360,7 +4360,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
           <button
             onClick={() => setAssignModalAgent(null)}
-            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: 'var(--dashboard-surface-raised, #f1f5f9)', color: 'var(--dashboard-text-body, #475569)', fontWeight: 700, border: 'none', cursor: 'pointer' }}
           >
             Done
           </button>
@@ -4386,7 +4386,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       pointerEvents: 'auto'
     }} onClick={() => setAssignPageModalAgent(null)}>
       <div style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: 'var(--dashboard-surface, #ffffff)',
         borderRadius: '20px',
         padding: '28px',
         width: '90%',
@@ -4395,25 +4395,25 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         display: 'flex',
         flexDirection: 'column',
         maxHeight: '85vh',
-        border: '1px solid #e2e8f0',
+        border: '1px solid var(--dashboard-border, #e2e8f0)',
         animation: 'fadeInUp 0.2s ease-out'
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="material-symbols-outlined text-blue-600 text-2xl">link</span>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--dashboard-text-strong, #0f172a)', margin: 0 }}>
               Assign &quot;{assignPageModalAgent.name}&quot; to Page
             </h3>
           </div>
-          <button onClick={() => setAssignPageModalAgent(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: '#64748b', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          <button onClick={() => setAssignPageModalAgent(null)} style={{ background: 'var(--dashboard-surface-raised, #f1f5f9)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: 'var(--dashboard-text-muted, #64748b)', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
-        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px', marginTop: 0 }}>
+        <p style={{ fontSize: '13px', color: 'var(--dashboard-text-muted, #64748b)', marginBottom: '20px', marginTop: 0 }}>
           Select a connected page to handle customer messaging with this AI agent.
         </p>
 
         <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '340px', paddingRight: '4px' }}>
           {(!pages || pages.length === 0) ? (
-            <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', fontSize: '13px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--dashboard-text-muted, #64748b)', fontSize: '13px', backgroundColor: 'var(--dashboard-surface-muted, #f8fafc)', borderRadius: '12px', border: '1px solid var(--dashboard-border, #e2e8f0)' }}>
               No pages connected. Please connect a Facebook page from the Overview or Channels section first.
             </div>
           ) : (
@@ -4424,7 +4424,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               const isAssigningThisPage = assigningPageId === page.page_id;
 
               return (
-                <div key={page.page_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '14px', border: isThisAgentAssigned ? '2px solid #10b981' : '1px solid #e2e8f0', backgroundColor: isThisAgentAssigned ? '#ecfdf5' : '#f8fafc', transition: 'all 0.2s' }}>
+                <div key={page.page_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '14px', border: isThisAgentAssigned ? '2px solid #10b981' : '1px solid var(--dashboard-border, #e2e8f0)', backgroundColor: isThisAgentAssigned ? 'var(--dashboard-tint-emerald, #ecfdf5)' : 'var(--dashboard-surface-muted, #f8fafc)', transition: 'all 0.2s' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'hidden', paddingRight: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {page.profile_pic_url ? (
@@ -4432,11 +4432,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       ) : (
                         <FacebookMark className="h-3.5 w-3.5 shrink-0 text-blue-600" />
                       )}
-                      <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--dashboard-text-strong, #0f172a)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {page.page_name || page.name || `Page ${page.page_id}`}
                       </span>
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: isThisAgentAssigned ? '#059669' : (currentAssignedId ? '#d97706' : '#64748b') }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: isThisAgentAssigned ? 'var(--dashboard-accent-text, #059669)' : (currentAssignedId ? '#d97706' : 'var(--dashboard-text-muted, #64748b)') }}>
                       {isThisAgentAssigned ? '✓ Currently assigned to this agent' : (currentAssignedId ? `Assigned to: ${otherAgent?.name || 'Another Agent'}` : 'Not assigned')}
                     </span>
                   </div>
@@ -4475,7 +4475,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
           <button
             onClick={() => setAssignPageModalAgent(null)}
-            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+            style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: 'var(--dashboard-surface-raised, #f1f5f9)', color: 'var(--dashboard-text-body, #475569)', fontWeight: 700, border: 'none', cursor: 'pointer' }}
           >
             Done
           </button>
@@ -4977,22 +4977,22 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !agentName.trim()) ? '#ef4444' : 'inherit' }}>
                 Agent Name * {(attemptedSubmit && !agentName.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
               </label>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: agentName.length > 30 ? '#ef4444' : '#64748b' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: agentName.length > 30 ? '#ef4444' : 'var(--dashboard-text-muted, #64748b)' }}>
                 {agentName.length}/30 {agentName.length > 30 && '• Limit exceeded!'}
               </span>
             </div>
-            <input type="text" placeholder="e.g. Sales Bot" value={agentName} onChange={(e) => setAgentName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
+            <input type="text" placeholder="e.g. Sales Bot" value={agentName} onChange={(e) => setAgentName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? 'var(--dashboard-tint-red, #fef2f2)' : 'var(--dashboard-surface, #fff)', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !businessName.trim()) ? '#ef4444' : 'inherit' }}>
                 Business Name * {(attemptedSubmit && !businessName.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
               </label>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: businessName.length > 100 ? '#ef4444' : '#64748b' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: businessName.length > 100 ? '#ef4444' : 'var(--dashboard-text-muted, #64748b)' }}>
                 {businessName.length}/100 {businessName.length > 100 && '• Limit exceeded!'}
               </span>
             </div>
-            <input type="text" placeholder="Your Company Ltd" value={businessName} onChange={(e) => setBusinessName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? '#fef2f2' : '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
+            <input type="text" placeholder="Your Company Ltd" value={businessName} onChange={(e) => setBusinessName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? 'var(--dashboard-tint-red, #fef2f2)' : 'var(--dashboard-surface, #fff)', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
         </div>
 
@@ -5002,17 +5002,17 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               Select Persona * {(attemptedSubmit && !selectedPersona) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Please select a persona)</span>}
             </label>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', padding: (attemptedSubmit && !selectedPersona) ? '8px' : '0', border: (attemptedSubmit && !selectedPersona) ? '2px dashed #ef4444' : 'none', borderRadius: '12px', backgroundColor: (attemptedSubmit && !selectedPersona) ? '#fef2f2' : 'transparent', transition: 'all 0.2s' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', padding: (attemptedSubmit && !selectedPersona) ? '8px' : '0', border: (attemptedSubmit && !selectedPersona) ? '2px dashed #ef4444' : 'none', borderRadius: '12px', backgroundColor: (attemptedSubmit && !selectedPersona) ? 'var(--dashboard-tint-red, #fef2f2)' : 'transparent', transition: 'all 0.2s' }}>
             {PERSONAS.map((p) => {
               const Icon = p.icon;
               const isSelected = selectedPersona === p.id;
               return (
-                <div key={p.id} onClick={() => !isEditing && setSelectedPersona(p.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '14px 12px', borderRadius: '10px', border: isSelected ? '2px solid #0ea5e9' : '2px solid #e2e8f0', backgroundColor: isSelected ? 'rgba(14,165,233,0.05)' : '#f8fafc', cursor: isEditing ? 'not-allowed' : 'pointer', textAlign: 'center', transition: 'all 0.2s', opacity: isEditing && !isSelected ? 0.5 : 1 }}>
+                <div key={p.id} onClick={() => !isEditing && setSelectedPersona(p.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '14px 12px', borderRadius: '10px', border: isSelected ? '2px solid #0ea5e9' : '2px solid var(--dashboard-border, #e2e8f0)', backgroundColor: isSelected ? 'rgba(14,165,233,0.05)' : '#f8fafc', cursor: isEditing ? 'not-allowed' : 'pointer', textAlign: 'center', transition: 'all 0.2s', opacity: isEditing && !isSelected ? 0.5 : 1 }}>
                   <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: p.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isEditing && !isSelected ? 0.5 : 1 }}>
                     <Icon size={20} color={p.iconColor} />
                   </div>
                   <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{p.title}</div>
-                  {isEditing && isSelected && <div style={{ fontSize: '10px', color: '#64748b', marginTop: '-4px' }}>(Role cannot be changed)</div>}
+                  {isEditing && isSelected && <div style={{ fontSize: '10px', color: 'var(--dashboard-text-muted, #64748b)', marginTop: '-4px' }}>(Role cannot be changed)</div>}
                 </div>
               );
             })}
@@ -5022,19 +5022,19 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Tone *</label>
-            <select value={tone} onChange={e => setTone(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }}>
+            <select value={tone} onChange={e => setTone(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: 'var(--dashboard-surface, #fff)', fontSize: '14px', boxSizing: 'border-box' }}>
               {TONES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Language *</label>
-            <select value={language} onChange={e => setLanguage(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }}>
+            <select value={language} onChange={e => setLanguage(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: 'var(--dashboard-surface, #fff)', fontSize: '14px', boxSizing: 'border-box' }}>
               {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
           <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Timezone *</label>
-            <TimezoneSelect value={agentTimezone} onChange={setAgentTimezone} aria-label="Agent timezone" style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
+            <TimezoneSelect value={agentTimezone} onChange={setAgentTimezone} aria-label="Agent timezone" style={{ width: '100%', padding: '12px 14px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: 'var(--dashboard-surface, #fff)', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
         </div>
 
@@ -5043,11 +5043,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !businessDesc.trim()) ? '#ef4444' : 'inherit' }}>
               Business Description * {(attemptedSubmit && !businessDesc.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
             </label>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: businessDesc.length > 500 ? '#ef4444' : '#64748b' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: businessDesc.length > 500 ? '#ef4444' : 'var(--dashboard-text-muted, #64748b)' }}>
               {businessDesc.length}/500 {businessDesc.length > 500 && '• Limit exceeded!'}
             </span>
           </div>
-          <textarea placeholder="What does your business do? How should the agent ground its suggestions?" value={businessDesc} onChange={(e) => setBusinessDesc(e.target.value)} rows="3" style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+          <textarea placeholder="What does your business do? How should the agent ground its suggestions?" value={businessDesc} onChange={(e) => setBusinessDesc(e.target.value)} rows="3" style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? 'var(--dashboard-tint-red, #fef2f2)' : 'var(--dashboard-surface, #fff)', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
         </div>
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
@@ -5056,27 +5056,27 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               <label style={{ fontSize: '14px', fontWeight: 600 }}>{isEditing ? 'Custom Instructions (Optional)' : 'Agent Instructions'}</label>
               {!isEditing && <p className="mt-1 text-xs font-medium text-emerald-700">Prepared from your answers. Review and edit anything you want.</p>}
             </div>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '#ef4444' : '#64748b' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '#ef4444' : 'var(--dashboard-text-muted, #64748b)' }}>
               {(instructions || '').length}/{AGENT_INSTRUCTIONS_LIMIT} {(instructions || '').length > AGENT_INSTRUCTIONS_LIMIT && '• Limit exceeded!'}
             </span>
           </div>
-          <textarea placeholder="e.g. Always end conversations with 'Have a great day!'" value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={isEditing ? 3 : 6} style={{ width: '100%', padding: '12px 14px', border: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6 }} />
+          <textarea placeholder="e.g. Always end conversations with 'Have a great day!'" value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={isEditing ? 3 : 6} style={{ width: '100%', padding: '12px 14px', border: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: (instructions || '').length > AGENT_INSTRUCTIONS_LIMIT ? 'var(--dashboard-tint-red, #fef2f2)' : 'var(--dashboard-surface, #fff)', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6 }} />
         </div>
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Fallback Message (Optional)</label>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: (fallbackMessage || '').length > 250 ? '#ef4444' : '#64748b' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: (fallbackMessage || '').length > 250 ? '#ef4444' : 'var(--dashboard-text-muted, #64748b)' }}>
               {(fallbackMessage || '').length}/250 {(fallbackMessage || '').length > 250 && '• Limit exceeded!'}
             </span>
           </div>
-          <textarea placeholder="e.g. I'm not sure about that, let me connect you with someone who can help." value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} rows="2" style={{ width: '100%', padding: '12px 14px', border: (fallbackMessage || '').length > 250 ? '2px solid #ef4444' : '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: (fallbackMessage || '').length > 250 ? '#fef2f2' : '#fff', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+          <textarea placeholder="e.g. I'm not sure about that, let me connect you with someone who can help." value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} rows="2" style={{ width: '100%', padding: '12px 14px', border: (fallbackMessage || '').length > 250 ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: (fallbackMessage || '').length > 250 ? 'var(--dashboard-tint-red, #fef2f2)' : 'var(--dashboard-surface, #fff)', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
         </div>
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label htmlFor="agent-handover-sign" style={{ fontSize: '14px', fontWeight: 600 }}>Handover / Pause Sign</label>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>{handoverSign.length}/{HANDOVER_SIGN_LIMIT}</span>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dashboard-text-muted, #64748b)' }}>{handoverSign.length}/{HANDOVER_SIGN_LIMIT}</span>
           </div>
           <input
             id="agent-handover-sign"
@@ -5088,7 +5088,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             autoComplete="off"
             spellCheck={false}
             aria-describedby="agent-handover-sign-help"
-            style={{ width: '100%', maxWidth: '220px', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none', backgroundColor: '#fff', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '14px', boxSizing: 'border-box' }}
+            style={{ width: '100%', maxWidth: '220px', padding: '12px 14px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: 'var(--dashboard-surface, #fff)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '14px', boxSizing: 'border-box' }}
           />
           <p id="agent-handover-sign-help" className="m-0 text-xs font-medium text-slate-500">
             {handoverSign.trim()
@@ -5249,7 +5249,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
   return (
     <div className="dashboard-content-area animate-fade-in-up" style={{ padding: '0' }}>
       {/* Settings sub-nav */}
-      <div style={{ borderBottom: '1px solid #e2e8f0', padding: '0 32px', display: 'flex', gap: '4px', backgroundColor: '#fff' }}>
+      <div style={{ borderBottom: '1px solid var(--dashboard-border, #e2e8f0)', padding: '0 32px', display: 'flex', gap: '4px', backgroundColor: 'var(--dashboard-surface, #fff)' }}>
         {settingsTabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeSettings === tab.id;
@@ -5261,7 +5261,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
                 display: 'flex', alignItems: 'center', gap: '7px',
                 padding: '14px 16px',
                 fontSize: '13.5px', fontWeight: isActive ? 600 : 500,
-                color: isActive ? '#0ea5e9' : '#64748b',
+                color: isActive ? '#0ea5e9' : 'var(--dashboard-text-muted, #64748b)',
                 background: 'none', border: 'none',
                 borderBottom: isActive ? '2px solid #0ea5e9' : '2px solid transparent',
                 cursor: 'pointer', transition: 'color 0.15s',
@@ -5280,24 +5280,24 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
         {activeSettings === 'profile' && (
           <form onSubmit={handleProfileSave}>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Profile Information</h3>
-            <p style={{ color: '#64748b', fontSize: '13.5px', marginBottom: '24px' }}>Update your account details and how you appear to others.</p>
+            <p style={{ color: 'var(--dashboard-text-muted, #64748b)', fontSize: '13.5px', marginBottom: '24px' }}>Update your account details and how you appear to others.</p>
             
             <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               <label style={{ fontSize: '13.5px', fontWeight: 600 }}>Display Name</label>
-              <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' }} required />
-              <small style={{ color: '#94a3b8', fontSize: '12px' }}>This is how your name will appear across the platform.</small>
+              <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} style={{ padding: '12px 14px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', fontSize: '14px', outline: 'none' }} required />
+              <small style={{ color: 'var(--dashboard-text-subtle, #94a3b8)', fontSize: '12px' }}>This is how your name will appear across the platform.</small>
             </div>
 
             <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               <label htmlFor="settings-email" style={{ fontSize: '13.5px', fontWeight: 600 }}>Email Address</label>
-              <input id="settings-email" type="email" value={user?.email || ''} readOnly disabled style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }} />
-              <small style={{ color: '#94a3b8', fontSize: '12px' }}>Your sign-in email comes from your Google account and can't be changed here.</small>
+              <input id="settings-email" type="email" value={user?.email || ''} readOnly disabled style={{ padding: '12px 14px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: 'var(--dashboard-surface-muted, #f8fafc)', color: 'var(--dashboard-text-muted, #64748b)', cursor: 'not-allowed' }} />
+              <small style={{ color: 'var(--dashboard-text-subtle, #94a3b8)', fontSize: '12px' }}>Your sign-in email comes from your Google account and can't be changed here.</small>
             </div>
 
             <button
               type="submit"
               disabled={profileSaving}
-              style={{ marginTop: '16px', backgroundColor: profileSaved ? '#22c55e' : 'var(--text-primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: profileSaving ? 'not-allowed' : 'pointer', transition: 'background-color 0.25s' }}
+              style={{ marginTop: '16px', backgroundColor: profileSaved ? '#22c55e' : 'var(--text-primary)', color: 'var(--dashboard-on-primary, #fff)', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: profileSaving ? 'not-allowed' : 'pointer', transition: 'background-color 0.25s' }}
             >
               {profileSaving ? 'Saving...' : profileSaved ? '✓ Profile Updated!' : 'Save Changes'}
             </button>
@@ -5314,18 +5314,18 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
         {isOwner && activeSettings === 'integrations' && (
           <div>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '24px' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: 'var(--dashboard-tint-emerald, #ecfdf5)', color: 'var(--dashboard-accent-text, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Zap size={21} />
               </div>
               <div>
                 <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '5px' }}>Connect Steadfast</h3>
-                <p style={{ color: '#64748b', fontSize: '13.5px', lineHeight: 1.55 }}>
+                <p style={{ color: 'var(--dashboard-text-muted, #64748b)', fontSize: '13.5px', lineHeight: 1.55 }}>
                   Connect or reconnect your Steadfast account to receive delivery updates in LYFFLOW.
                 </p>
               </div>
             </div>
 
-            <form onSubmit={handleSteadfastConnect} style={{ padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', backgroundColor: '#fff' }}>
+            <form onSubmit={handleSteadfastConnect} style={{ padding: '22px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '14px', backgroundColor: 'var(--dashboard-surface, #fff)' }}>
               <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                 <label htmlFor="steadfast-api-key" style={{ fontSize: '13.5px', fontWeight: 600 }}>API Key</label>
                 <input
@@ -5336,7 +5336,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
                   onChange={(e) => setSteadfastApiKey(e.target.value)}
                   placeholder="Enter your Steadfast API key"
                   disabled={steadfastConnecting}
-                  style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: steadfastConnecting ? '#f8fafc' : '#fff' }}
+                  style={{ padding: '12px 14px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: steadfastConnecting ? 'var(--dashboard-surface-muted, #f8fafc)' : 'var(--dashboard-surface, #fff)' }}
                   required
                 />
               </div>
@@ -5351,17 +5351,17 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
                   onChange={(e) => setSteadfastSecretKey(e.target.value)}
                   placeholder="Enter your Steadfast secret key"
                   disabled={steadfastConnecting}
-                  style={{ padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: steadfastConnecting ? '#f8fafc' : '#fff' }}
+                  style={{ padding: '12px 14px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: steadfastConnecting ? 'var(--dashboard-surface-muted, #f8fafc)' : 'var(--dashboard-surface, #fff)' }}
                   required
                 />
               </div>
 
-              <p style={{ color: '#94a3b8', fontSize: '12px', lineHeight: 1.5, marginBottom: '16px' }}>
+              <p style={{ color: 'var(--dashboard-text-subtle, #94a3b8)', fontSize: '12px', lineHeight: 1.5, marginBottom: '16px' }}>
                 Your credentials are sent securely to LYFFLOW and are not saved in this browser.
               </p>
 
               {steadfastError && (
-                <div role="alert" style={{ marginBottom: '16px', padding: '11px 13px', borderRadius: '8px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '12.5px', lineHeight: 1.45 }}>
+                <div role="alert" style={{ marginBottom: '16px', padding: '11px 13px', borderRadius: '8px', backgroundColor: 'var(--dashboard-tint-red, #fef2f2)', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '12.5px', lineHeight: 1.45 }}>
                   {steadfastError}
                 </div>
               )}
@@ -5376,11 +5376,11 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
             </form>
 
             {steadfastConnection && (
-              <div role="status" style={{ marginTop: '18px', padding: '20px', borderRadius: '14px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#047857', fontWeight: 700, fontSize: '14px', marginBottom: '7px' }}>
+              <div role="status" style={{ marginTop: '18px', padding: '20px', borderRadius: '14px', backgroundColor: 'var(--dashboard-tint-emerald, #ecfdf5)', border: '1px solid #a7f3d0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--dashboard-accent-text, #047857)', fontWeight: 700, fontSize: '14px', marginBottom: '7px' }}>
                   <CheckCircle2 size={18} /> Steadfast connected successfully
                 </div>
-                <p style={{ color: '#475569', fontSize: '12.5px', lineHeight: 1.5, marginBottom: '16px' }}>
+                <p style={{ color: 'var(--dashboard-text-body, #475569)', fontSize: '12.5px', lineHeight: 1.5, marginBottom: '16px' }}>
                   Add the following values to your Steadfast webhook configuration. Keep the authentication token private.
                 </p>
 
@@ -5389,16 +5389,16 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
                   ['token', 'Authentication Token', steadfastConnection.auth_token],
                 ].map(([field, label, value]) => (
                   <div key={field} style={{ marginTop: field === 'token' ? '12px' : 0 }}>
-                    <label style={{ display: 'block', color: '#334155', fontSize: '11.5px', fontWeight: 700, marginBottom: '6px' }}>{label}</label>
+                    <label style={{ display: 'block', color: 'var(--dashboard-text-body, #334155)', fontSize: '11.5px', fontWeight: 700, marginBottom: '6px' }}>{label}</label>
                     <div style={{ display: 'flex', alignItems: 'stretch', gap: '8px' }}>
-                      <code style={{ flex: 1, minWidth: 0, padding: '10px 11px', borderRadius: '8px', backgroundColor: '#fff', border: '1px solid #d1fae5', color: '#0f172a', fontSize: '12px', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+                      <code style={{ flex: 1, minWidth: 0, padding: '10px 11px', borderRadius: '8px', backgroundColor: 'var(--dashboard-surface, #fff)', border: '1px solid #d1fae5', color: 'var(--dashboard-text-strong, #0f172a)', fontSize: '12px', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
                         {value || 'Not returned by the server'}
                       </code>
                       <button
                         type="button"
                         onClick={() => copySteadfastValue(field, value)}
                         disabled={!value}
-                        style={{ minWidth: '66px', padding: '0 12px', borderRadius: '8px', border: '1px solid #a7f3d0', backgroundColor: '#fff', color: '#047857', fontSize: '12px', fontWeight: 700, cursor: value ? 'pointer' : 'not-allowed' }}
+                        style={{ minWidth: '66px', padding: '0 12px', borderRadius: '8px', border: '1px solid #a7f3d0', backgroundColor: 'var(--dashboard-surface, #fff)', color: 'var(--dashboard-accent-text, #047857)', fontSize: '12px', fontWeight: 700, cursor: value ? 'pointer' : 'not-allowed' }}
                       >
                         {copiedSteadfastField === field ? 'Copied' : 'Copy'}
                       </button>
@@ -5414,7 +5414,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
         {SHOW_UNFINISHED_SETTINGS && activeSettings === 'themes' && (
           <div>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Themes</h3>
-            <p style={{ color: '#64748b', fontSize: '13.5px', marginBottom: '24px' }}>Choose a color theme for your dashboard.</p>
+            <p style={{ color: 'var(--dashboard-text-muted, #64748b)', fontSize: '13.5px', marginBottom: '24px' }}>Choose a color theme for your dashboard.</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
               {THEMES.map(t => {
                 const isSelected = selectedTheme === t.id;
@@ -5432,8 +5432,8 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
                     }}
                   >
                     <div style={{ height: '56px', background: `linear-gradient(135deg, ${t.primary}, ${t.accent})` }} />
-                    <div style={{ padding: '8px 10px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#374151' }}>{t.label}</span>
+                    <div style={{ padding: '8px 10px', backgroundColor: 'var(--dashboard-surface-muted, #f8fafc)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--dashboard-text-body, #374151)' }}>{t.label}</span>
                       {isSelected && (
                         <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <svg width="9" height="7" viewBox="0 0 10 8" fill="none"><path d="M1 4l2.5 2.5L9 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -5447,7 +5447,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
             <button
               onClick={handleThemeSave}
               className="btn-submit"
-              style={{ marginTop: '28px', backgroundColor: themeSaved ? '#22c55e' : 'var(--text-primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'background-color 0.25s' }}
+              style={{ marginTop: '28px', backgroundColor: themeSaved ? '#22c55e' : 'var(--text-primary)', color: 'var(--dashboard-on-primary, #fff)', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'background-color 0.25s' }}
             >
               {themeSaved ? '✓ Theme Applied!' : 'Apply Theme'}
             </button>
@@ -5458,7 +5458,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
         {SHOW_UNFINISHED_SETTINGS && activeSettings === 'widget' && (
           <form onSubmit={handleWidgetSave}>
             <h3 style={{ fontWeight: 700, fontSize: '17px', marginBottom: '6px' }}>Widget Appearance</h3>
-            <p style={{ color: '#64748b', fontSize: '13.5px', marginBottom: '24px' }}>Customize how your chat widget looks to visitors.</p>
+            <p style={{ color: 'var(--dashboard-text-muted, #64748b)', fontSize: '13.5px', marginBottom: '24px' }}>Customize how your chat widget looks to visitors.</p>
 
             <div style={{ display: 'flex', gap: '40px', alignItems: 'flex-start' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -5466,7 +5466,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
                 <div className="form-group">
                   <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     Widget Color
-                    <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 400 }}>{widgetColor}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--dashboard-text-subtle, #94a3b8)', fontWeight: 400 }}>{widgetColor}</span>
                   </label>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '8px' }}>
                     {['#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#e11d48', '#374151'].map(c => (
@@ -5527,7 +5527,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
                         style={{
                           flex: 1, padding: '10px', textAlign: 'center',
                           borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500,
-                          border: widgetPosition === pos ? '2px solid #0ea5e9' : '2px solid #e2e8f0',
+                          border: widgetPosition === pos ? '2px solid #0ea5e9' : '2px solid var(--dashboard-border, #e2e8f0)',
                           backgroundColor: widgetPosition === pos ? 'rgba(14,165,233,0.05)' : '#f8fafc',
                           transition: 'all 0.15s',
                         }}
@@ -5539,8 +5539,8 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
                 </div>
 
                 {/* Preview bubble */}
-                <div style={{ backgroundColor: '#f1f5f9', borderRadius: '12px', padding: '20px', position: 'relative', minHeight: '80px' }}>
-                  <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>PREVIEW</span>
+                <div style={{ backgroundColor: 'var(--dashboard-surface-raised, #f1f5f9)', borderRadius: '12px', padding: '20px', position: 'relative', minHeight: '80px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--dashboard-text-subtle, #94a3b8)', fontWeight: 500 }}>PREVIEW</span>
                   <div style={{
                     position: 'absolute',
                     bottom: '14px',
@@ -5559,8 +5559,8 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
               <div
                 style={{
                   width: '280px',
-                  backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
+                  backgroundColor: 'var(--dashboard-surface-muted, #f8fafc)',
+                  border: '1px solid var(--dashboard-border, #e2e8f0)',
                   borderRadius: '16px',
                   padding: '20px',
                   display: 'flex',
@@ -5570,10 +5570,10 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
                   alignSelf: 'stretch'
                 }}
               >
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Live Preview</div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dashboard-text-subtle, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Live Preview</div>
 
                 {/* Received Bubble */}
-                <div style={{ alignSelf: 'flex-start', backgroundColor: '#ffffff', color: '#334155', padding: '10px 14px', borderRadius: '16px 16px 16px 4px', fontSize: '13px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', maxWidth: '90%' }}>
+                <div style={{ alignSelf: 'flex-start', backgroundColor: 'var(--dashboard-surface, #ffffff)', color: 'var(--dashboard-text-body, #334155)', padding: '10px 14px', borderRadius: '16px 16px 16px 4px', fontSize: '13px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', maxWidth: '90%' }}>
                   {widgetGreeting || 'Hi there 👋 How can we help you?'}
                 </div>
 
@@ -5594,7 +5594,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
             <button
               type="submit"
               className="btn-submit"
-              style={{ marginTop: '24px', backgroundColor: widgetSaved ? '#22c55e' : 'var(--text-primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'background-color 0.25s' }}
+              style={{ marginTop: '24px', backgroundColor: widgetSaved ? '#22c55e' : 'var(--text-primary)', color: 'var(--dashboard-on-primary, #fff)', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'background-color 0.25s' }}
             >
               {widgetSaved ? '✓ Saved!' : 'Save Changes'}
             </button>
@@ -5649,7 +5649,7 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
         <div className="flex items-center gap-2.5 text-left">
           {/* `icon` must be in the dashboard's icon subset (public/fonts/material-symbols-dashboard.woff2);
               a missing one renders as its name, which overflow-hidden keeps inside the box. */}
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ backgroundColor: softColor, color }}>
+          <span className="usage-gauge-chip flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ '--gauge-color': color, '--gauge-soft': softColor }}>
             <span className="material-symbols-outlined text-[19px]">{icon}</span>
           </span>
           <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</p>
@@ -5670,7 +5670,7 @@ const UsageGauge = ({ label, used, max, color, softColor, icon, isActive }) => {
         <div className="absolute inset-x-0 top-0 h-[92px] overflow-hidden">
           <div
             className="absolute left-0 top-0 h-[184px] w-[184px] rounded-full"
-            style={{ borderRadius: '50%', background: `conic-gradient(from 270deg, ${color} 0deg ${animatedPercentage * 1.8}deg, #e7edf4 ${animatedPercentage * 1.8}deg 180deg, transparent 180deg 360deg)` }}
+            style={{ borderRadius: '50%', background: `conic-gradient(from 270deg, ${color} 0deg ${animatedPercentage * 1.8}deg, var(--dashboard-gauge-track, #e7edf4) ${animatedPercentage * 1.8}deg 180deg, transparent 180deg 360deg)` }}
           >
             <div className="absolute left-[22px] top-[22px] h-[140px] w-[140px] rounded-full bg-white shadow-[0_8px_24px_rgba(15,23,42,0.08)]" style={{ borderRadius: '50%' }} />
           </div>
