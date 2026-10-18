@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, CheckCircle2, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -34,6 +34,12 @@ import { clearSignedIn, markSignedIn } from '../utils/sessionHint';
 import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import { useOnKeyChange } from '../hooks/useOnKeyChange';
 import { useConversationOrders } from '../hooks/useConversationOrders';
+import { useWindowStatus } from '../hooks/useWindowStatus';
+import { memberShortName, useTeamMembers } from '../hooks/useTeamMembers';
+import { messagingWindowState } from '../utils/messagingWindow';
+import ReplyComposer from '../components/conversation/ReplyComposer';
+import MessagingWindowNotice from '../components/conversation/MessagingWindowNotice';
+import ConversationAssignee from '../components/conversation/ConversationAssignee';
 import './Dashboard.css';
 import '../styles/dashboard-theme.css';
 
@@ -821,8 +827,18 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     fetchDetail();
   }, [selectedMessageActivityId, selectedPageId, pages, user?.agents]);
   const [messages, setMessages] = useState([]);
-  const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  // Inbox queue: everything, assigned (to me, or for admins any teammate), or unassigned.
+  const [queue, setQueue] = useState('all');
+  const [queueMemberId, setQueueMemberId] = useState('');
+  // The message a reply quotes ({ id, preview, fromCustomer }).
+  const [replyTo, setReplyTo] = useState(null);
+  const [assigningConversationId, setAssigningConversationId] = useState(null);
+  const [windowRefreshKey, setWindowRefreshKey] = useState(0);
+  const [inboxNotice, setInboxNotice] = useState(null);
+  const dismissInboxNotice = useCallback(() => setInboxNotice(null), []);
+  const { canManage } = useBusiness();
+  const team = useTeamMembers(user?.email);
   const [loading, setLoading] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(false);
@@ -848,12 +864,15 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const [, setMessageInfoVersion] = useState(0);
   const conversationsRequestVersionRef = useRef(0);
 
-  // Switching conversations would retarget an open form at a different customer.
+  // Switching conversations would retarget an open form (or a quoted reply) at a different customer.
   useEffect(() => {
     setIsManualOrderOpen(false);
+    setReplyTo(null);
   }, [activeContact?.conversation_id, activeContact?.id]);
 
   const activeConversationId = activeContact?.conversation_id || activeContact?.id || null;
+  const windowStatus = useWindowStatus(selectedPageId, activeConversationId, windowRefreshKey);
+  const windowState = messagingWindowState(windowStatus.data);
   // Orders for the profile sidebar's list; reloads after a manual order is created.
   const conversationOrders = useConversationOrders(activeConversationId, conversationOrdersVersion);
   const openOrderInRecords = onNavigate ? (order) => onNavigate({
@@ -883,6 +902,12 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const isHumanNeeded = humanNeededFilter === 'all'
     ? null
     : humanNeededFilter === 'human';
+  const queueMember = queueMemberId ? team.byUserId.get(queueMemberId) : null;
+  const queueFilter = queue === 'mine'
+    ? (queueMemberId ? { userId: queueMemberId } : { assignedToMe: true })
+    : queue === 'unassigned' ? { unassigned: true } : {};
+  // Changes whenever the list request changes, for the effect below.
+  const queueKey = `${queue}:${queueMemberId}`;
 
   const resolveContactName = (contactObj, fallback = 'User') => {
     if (!contactObj) return fallback;
@@ -990,7 +1015,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     setActiveContact(null);
     setMessages([]);
     setConversationsPagination(null);
-    apiService.getPageDetails(selectedPageId, null, 10, isHumanNeeded)
+    apiService.getPageDetails(selectedPageId, null, 10, isHumanNeeded, queueFilter)
       .then(data => {
         if (requestVersion !== conversationsRequestVersionRef.current) return;
         // Handle FB Graph variations
@@ -1032,6 +1057,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       .catch(err => {
         if (requestVersion === conversationsRequestVersionRef.current) {
           console.error("Failed to fetch conversations", err);
+          if (err?.status === 403 && queueMemberId) {
+            setInboxNotice({ tone: 'error', text: "Only admins and the owner can see a teammate's assigned conversations." });
+          }
         }
       })
       .finally(() => {
@@ -1039,7 +1067,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
           setLoading(false);
         }
       });
-  }, [selectedPageId, isHumanNeeded]);
+  // queueFilter is derived from queueKey.
+  }, [selectedPageId, isHumanNeeded, queueKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedPageId || !activeContact) return;
@@ -1075,7 +1104,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     if (!selectedPageId || !conversationsPagination?.has_more || !conversationsPagination?.next_cursor) return;
     const requestVersion = conversationsRequestVersionRef.current;
     setLoadingMoreContacts(true);
-    apiService.getPageDetails(selectedPageId, conversationsPagination.next_cursor, 10, isHumanNeeded)
+    apiService.getPageDetails(selectedPageId, conversationsPagination.next_cursor, 10, isHumanNeeded, queueFilter)
       .then(data => {
         if (requestVersion !== conversationsRequestVersionRef.current) return;
         const convs = data?.conversations?.data || data?.conversations || data?.data || [];
@@ -1205,36 +1234,95 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   };
 
 
-  const handleSend = async () => {
-    if (!inputText.trim()) return;
+  // What to tell the agent when a reply is refused.
+  const replyErrorMessage = (err) => {
+    if (err?.status === 422 && /window|7-day|7 day/i.test(err.message || '')) return "Meta's 7-day messaging window has closed for this conversation.";
+    if (err?.status === 403) return "You don't have access to reply in this conversation.";
+    if (err?.status === 404) return 'This conversation no longer exists.';
+    if (err?.status === 400 || err?.status === 422) return err.message || "That reply can't be sent.";
+    return err?.message || "The reply didn't go through. Try again.";
+  };
 
-    const messageText = inputText;
-    // Clear input immediately for better UX
-    setInputText('');
-
-    if (!selectedPageId || !activeContact) return;
-    const convId = activeContact.conversation_id || activeContact.id;
-
+  // Shared by text and file replies: shows the reply straight away, then confirms it or
+  // takes it back and throws for the composer to show.
+  const sendReply = async (preview, request) => {
+    if (!selectedPageId || !activeContact) throw new Error('Choose a conversation first.');
     isLoadingOlderMsgsRef.current = false; // ensure we scroll down on send
     stickToBottomRef.current = true;
-
-    // Optimistically add message
-    const tempMsg = {
-      id: 'temp_' + Date.now(),
-      message: messageText,
-      is_ai_msg: true, // to render it on the right side
-      created_at: new Date().toISOString()
-    };
-    setMessages(prev => [...prev, tempMsg]);
-
-
+    const tempId = `temp_${Date.now()}`;
+    setMessages(prev => [...prev, {
+      id: tempId,
+      role: 'page',
+      is_ai_msg: false,
+      sent_by_user_id: team.currentUserId,
+      created_at: new Date().toISOString(),
+      _pending: true,
+      ...preview,
+    }]);
     try {
-      await apiService.replyToConversation(selectedPageId, convId, messageText);
+      const response = await request();
+      setMessages(prev => prev.map(m => (m.id === tempId ? { ...m, _pending: false, created_at: response?.sent_at || m.created_at } : m)));
+      if (response?.window_status) windowStatus.update(response.window_status);
+      setReplyTo(null);
+      const sentText = preview.message || (preview._localAttachment ? (preview._localAttachment.attachmentType === 'audio' ? 'Voice note' : preview._localAttachment.name) : '');
+      if (sentText) {
+        setContacts(prev => prev.map(c => ((c.conversation_id || c.id) === activeConversationId ? { ...c, snippet: sentText, last_message: sentText } : c)));
+      }
     } catch (err) {
-      console.error("Failed to send message:", err);
-      // Remove optimistic message on error
-      setMessages(prev => prev.filter(m => m.id !== tempMsg.id));
-      alert("Failed to send message. Please try again.");
+      console.error('Failed to send reply:', err);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      if (err?.status === 422) setWindowRefreshKey(key => key + 1);
+      throw new Error(replyErrorMessage(err));
+    }
+  };
+
+  const handleSendText = ({ message, quickReplies }) => sendReply(
+    { message },
+    () => apiService.replyToConversation(selectedPageId, activeConversationId, {
+      message,
+      reply_to_message_id: replyTo?.id || null,
+      quick_replies: quickReplies.length ? quickReplies : null,
+    }),
+  );
+
+  const handleSendFile = ({ file, attachmentType, message }) => sendReply(
+    { message: message || '', _localAttachment: { attachmentType, name: file.name } },
+    () => apiService.replyToConversationWithFile(selectedPageId, activeConversationId, {
+      file, attachmentType, message, replyToMessageId: replyTo?.id || null,
+    }),
+  );
+
+  // Keeps the list row and the open conversation in step after an assignment change.
+  const applyContactChanges = (convId, changes) => {
+    setContacts(prev => prev.map(c => ((c.conversation_id || c.id) === convId ? { ...c, ...changes } : c)));
+    setActiveContact(prev => (prev && (prev.conversation_id || prev.id) === convId ? { ...prev, ...changes } : prev));
+  };
+
+  const handleAssign = async (userId) => {
+    if (!selectedPageId || !activeConversationId) return;
+    const convId = activeConversationId;
+    const previous = activeContact?.assigned_to_user_id ?? null;
+    setAssigningConversationId(convId);
+    applyContactChanges(convId, { assigned_to_user_id: userId });
+    try {
+      const updated = await apiService.assignConversation(selectedPageId, convId, userId);
+      applyContactChanges(convId, { assigned_to_user_id: updated?.assigned_to_user_id ?? userId });
+      const member = userId ? team.byUserId.get(userId) : null;
+      setInboxNotice({
+        tone: 'success',
+        text: !userId ? 'Conversation unassigned.' : userId === team.currentUserId ? 'Assigned to you.' : `Assigned to ${member ? member.invited_email : 'your teammate'}.`,
+      });
+    } catch (err) {
+      console.error('Failed to assign conversation:', err);
+      applyContactChanges(convId, { assigned_to_user_id: previous });
+      setInboxNotice({
+        tone: 'error',
+        text: err?.status === 403 ? 'Only admins and the owner can assign conversations.'
+          : err?.status === 404 ? 'That teammate is no longer an active member of this business.'
+            : err?.message || 'Could not assign the conversation.',
+      });
+    } finally {
+      setAssigningConversationId(null);
     }
   };
 
@@ -1267,11 +1355,91 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     );
   };
 
+  // Attachments as the messages endpoint lists them: images open in the viewer, audio
+  // (voice notes) and video play inline, anything else is a download link.
+  const renderAttachments = (msg, isMe) => {
+    if (msg._localAttachment) {
+      const local = msg._localAttachment;
+      return (
+        <span className={`mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${isMe ? 'bg-white/15 text-white' : 'bg-slate-200 text-slate-600'}`}>
+          {(() => {
+            const LocalIcon = { audio: Mic, image: ImageIcon, video: Film }[local.attachmentType] || Paperclip;
+            return <LocalIcon size={13} className="shrink-0" aria-hidden="true" />;
+          })()}
+          <span className="truncate">{local.attachmentType === 'audio' ? 'Voice note' : local.name}</span>
+        </span>
+      );
+    }
+    const attachments = Array.isArray(msg.attachments) ? msg.attachments : [];
+    const hasAttachment = msg._hasAttachment ?? msg.has_attachment ?? false;
+    if (attachments.length === 0) {
+      return hasAttachment ? (
+        <span className={`mt-1 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] ${isMe ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
+          <span className="material-symbols-outlined text-[12px]">attach_file</span>Attachment
+        </span>
+      ) : null;
+    }
+    return (
+      <div className="mt-2 flex flex-col gap-2">
+        {attachments.map(att => {
+          const kind = String(att.attachment_type || '').toLowerCase();
+          const url = `${API_BASE}/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
+          const key = att.attachment_id || att.attachment_key;
+          if (kind.startsWith('image')) {
+            return (
+              <div key={key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
+                <img src={url} alt="Attachment" className={`max-h-[200px] max-w-[200px] rounded-lg border object-cover shadow-sm transition-opacity hover:opacity-90 ${isMe ? 'border-white/20' : 'border-slate-200'}`} />
+              </div>
+            );
+          }
+          if (kind.startsWith('audio')) {
+            return <audio key={key} src={url} controls preload="none" className="h-9 w-64 max-w-full" aria-label="Voice note" />;
+          }
+          if (kind.startsWith('video')) {
+            return <video key={key} src={url} controls preload="metadata" className="max-h-[240px] max-w-[280px] rounded-lg" />;
+          }
+          return (
+            <a key={key} href={url} target="_blank" rel="noopener noreferrer" className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors ${isMe ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
+              <span className="material-symbols-outlined text-[12px]">attach_file</span>
+              Attachment {att.attachment_size ? `(${Math.round(att.attachment_size / 1024)}KB)` : ''}
+            </a>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderMessageText = (msg) => {
+    const body = msg.message || msg.text;
+    if (typeof body === 'object' && body !== null) {
+      return (
+        <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
+          {JSON.stringify(body, null, 2)}
+        </pre>
+      );
+    }
+    return body ? <span style={{ whiteSpace: 'pre-wrap' }}>{body}</span> : null;
+  };
+
+  // Delivery for a sent message: sending, sent, delivered, then seen.
+  const renderDeliveryStatus = (msg) => {
+    if (msg._pending) {
+      return <Clock3 size={12} className="text-slate-400" aria-label="Sending" />;
+    }
+    if (msg.is_read) {
+      return <span className="message-status is-read inline-flex text-emerald-500" title={msg.read_at ? `Seen ${formatMessageTime(msg.read_at)}` : 'Seen'} aria-label="Seen"><CheckCheck size={14} /></span>;
+    }
+    if (msg.is_delivered) {
+      return <span className="message-status inline-flex text-slate-400" title={msg.delivered_at ? `Delivered ${formatMessageTime(msg.delivered_at)}` : 'Delivered'} aria-label="Delivered"><CheckCheck size={14} /></span>;
+    }
+    return <span className="message-status inline-flex text-slate-400" title="Sent" aria-label="Sent"><Check size={14} /></span>;
+  };
+
   const renderChatMessage = (msg) => {
     let isMe = true;
     if (msg.role === 'user') {
       isMe = false;
-    } else if (msg.is_ai_msg === true) {
+    } else if (msg.role === 'page' || msg.is_ai_msg === true) {
       isMe = true;
     } else {
       const customerId = activeContact?.senders?.data?.[0]?.id || activeContact?.participants?.data?.[0]?.id || activeContact?.id;
@@ -1283,11 +1451,11 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
 
     const rawTime = msg.created_at || msg.created_time || msg.timestamp;
     const timeStr = formatMessageTime(rawTime);
-    const msgId = msg.id || msg.message_id;
+    const msgId = msg.message_id || msg.id;
     const convId = activeContact?.conversation_id || activeContact?.id;
 
     // Fetch message info lazily and cache on the msg object itself
-    if (msgId && convId && msg._infoFetched === undefined) {
+    if (msgId && convId && !msg._pending && !String(msgId).startsWith('temp_') && msg._infoFetched === undefined) {
       msg._infoFetched = false; // mark as in-flight
       apiService.getMessageInfo(convId, msgId)
           .then(info => {
@@ -1301,50 +1469,49 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
         .catch(() => { msg._infoFetched = true; });
     }
 
-    const hasAttachment = msg._hasAttachment ?? msg.has_attachment ?? false;
-      const isAiSource   = Boolean(msg._isAiMsg ?? msg.is_ai_msg);
-      const activityId   = msg._agentActivityId ?? msg.agent_activity_id;
+    const isAiSource = Boolean(msg._isAiMsg ?? msg.is_ai_msg);
+    const activityId = msg._agentActivityId ?? msg.agent_activity_id;
+    const isDeleted = Boolean(msg.is_deleted);
+    const canQuote = Boolean(msgId) && !msg._pending && !String(msgId).startsWith('temp_') && !isDeleted;
+    const senderId = msg.sent_by_user_id;
+    const senderName = senderId
+      ? (senderId === team.currentUserId ? 'You' : team.byUserId.get(senderId) ? memberShortName(team.byUserId.get(senderId)) : 'Team')
+      : null;
+    const quoteButton = canQuote && (
+      <button
+        type="button"
+        onClick={() => setReplyTo({ id: msgId, fromCustomer: !isMe, preview: typeof (msg.message || msg.text) === 'string' ? (msg.message || msg.text) : '' })}
+        className="message-quote-button flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-full text-slate-400 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 group-hover:opacity-100"
+        aria-label="Reply to this message"
+        title="Reply"
+      >
+        <Reply size={15} />
+      </button>
+    );
+    const reaction = msg.reaction ? (
+      <span className={`message-reaction absolute -bottom-2.5 ${isMe ? 'left-2' : 'right-2'} rounded-full border border-slate-200 bg-white px-1.5 py-px text-[12px] leading-5 shadow-sm`} title="Customer reaction">
+        {msg.reaction}
+      </span>
+    ) : null;
 
     if (isMe) {
       // Sent message (AI or agent)
       return (
-        <div key={msgId || Math.random()} className="group ml-auto flex max-w-[min(78%,42rem)] flex-row-reverse gap-3">
+        <div key={msgId || Math.random()} className="group ml-auto flex max-w-[min(78%,42rem)] flex-row-reverse gap-2">
           <div className="flex min-w-0 flex-col items-end gap-1.5">
-            <div className="rounded-2xl rounded-br-md bg-slate-900 px-4 py-3 text-[14px] leading-relaxed text-white shadow-sm">
-              {typeof (msg.message || msg.text) === 'object' && (msg.message || msg.text) !== null ? (
-                <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
-                  {JSON.stringify(msg.message || msg.text, null, 2)}
-                </pre>
-              ) : (
-                <span style={{ whiteSpace: 'pre-wrap' }}>{msg.message || msg.text || ''}</span>
+            <div className={`relative rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border border-dashed border-slate-300 bg-white text-slate-400 italic' : 'bg-slate-900 text-white'} ${msg._pending ? 'opacity-70' : ''} ${reaction ? 'mb-1.5' : ''}`}>
+              {isDeleted ? 'Message unsent' : (
+                <>
+                  {renderMessageText(msg)}
+                  {renderAttachments(msg, true)}
+                </>
               )}
-              {msg.attachments && msg.attachments.length > 0 ? (
-                <div className="mt-2 flex flex-col gap-2">
-                  {msg.attachments.map(att => {
-                    const isImage = att.attachment_type?.startsWith('image/');
-                    const url = `${API_BASE}/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
-                    return isImage ? (
-                      <div key={att.attachment_id || att.attachment_key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
-                        <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-white/20 hover:opacity-90 transition-opacity" />
-                      </div>
-                    ) : (
-                      <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center w-fit gap-1 text-[11px] bg-white/20 text-white rounded-full px-2 py-0.5 hover:bg-white/30 transition-colors">
-                        <span className="material-symbols-outlined text-[12px]">attach_file</span>
-                        Attachment {att.attachment_size ? `(${Math.round(att.attachment_size / 1024)}KB)` : ''}
-                      </a>
-                    );
-                  })}
-                </div>
-              ) : hasAttachment && (
-                <span className="ml-2 inline-flex items-center gap-0.5 text-[11px] bg-white/20 text-white rounded-full px-2 py-0.5 mt-1">
-                  <span className="material-symbols-outlined text-[12px]">attach_file</span>Attachment
-                </span>
-              )}
+              {reaction}
             </div>
             <p className="flex items-center gap-1 px-1 text-[10px] font-medium text-slate-400 transition-opacity">
               {isAiSource && (
-                  <span 
-                    className={`inline-flex items-center gap-0.5 bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 font-bold ${activityId ? 'cursor-pointer hover:bg-emerald-200 hover:scale-105 transition-all' : ''}`} 
+                  <span
+                    className={`inline-flex items-center gap-0.5 bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 font-bold ${activityId ? 'cursor-pointer hover:bg-emerald-200 hover:scale-105 transition-all' : ''}`}
                     style={{ fontSize: '9px' }}
                     onClick={() => {
                        if (activityId) {
@@ -1357,9 +1524,15 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                     <span className="material-symbols-outlined" style={{ fontSize: '9px' }}>smart_toy</span>AI
                   </span>
                 )}
-              {timeStr} <span className="material-symbols-outlined text-[12px] text-emerald-500" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+              {!isAiSource && senderName && (
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-100 px-1.5 py-0.5 font-bold text-sky-700" style={{ fontSize: '9px' }} title="Sent by a team member">
+                  <span className="material-symbols-outlined" style={{ fontSize: '9px' }}>person</span>{senderName}
+                </span>
+              )}
+              {msg._pending ? 'Sending' : timeStr} {!isDeleted && renderDeliveryStatus(msg)}
             </p>
           </div>
+          {quoteButton}
         </div>
       );
     } else {
@@ -1368,41 +1541,20 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
         <div key={msgId || Math.random()} className="group flex max-w-[min(78%,42rem)] gap-2.5">
           {renderAvatar(activeContact, "w-7 h-7 rounded-full self-end ring-2 ring-white")}
           <div className="min-w-0 space-y-1.5">
-            <div className="rounded-2xl rounded-bl-md border border-slate-200 bg-white px-4 py-3 text-[14px] leading-relaxed text-slate-900 shadow-sm">
-              {typeof (msg.message || msg.text) === 'object' && (msg.message || msg.text) !== null ? (
-                <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
-                  {JSON.stringify(msg.message || msg.text, null, 2)}
-                </pre>
-              ) : (
-                <span style={{ whiteSpace: 'pre-wrap' }}>{msg.message || msg.text || ''}</span>
+            <div className={`relative rounded-2xl rounded-bl-md border px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border-dashed border-slate-300 bg-white text-slate-400 italic' : 'border-slate-200 bg-white text-slate-900'} ${reaction ? 'mb-1.5' : ''}`}>
+              {isDeleted ? 'This message was unsent' : (
+                <>
+                  {renderMessageText(msg)}
+                  {renderAttachments(msg, false)}
+                </>
               )}
-              {msg.attachments && msg.attachments.length > 0 ? (
-                <div className="mt-2 flex flex-col gap-2">
-                  {msg.attachments.map(att => {
-                    const isImage = att.attachment_type?.startsWith('image/');
-                    const url = `${API_BASE}/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
-                    return isImage ? (
-                      <div key={att.attachment_id || att.attachment_key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
-                        <img src={url} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover rounded-lg shadow-sm border border-slate-200 hover:opacity-90 transition-opacity" />
-                      </div>
-                    ) : (
-                      <a key={att.attachment_id || att.attachment_key} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center w-fit gap-1 text-[11px] bg-slate-200 text-slate-600 rounded-full px-2 py-0.5 hover:bg-slate-300 transition-colors">
-                        <span className="material-symbols-outlined text-[12px]">attach_file</span>
-                        Attachment {att.attachment_size ? `(${Math.round(att.attachment_size / 1024)}KB)` : ''}
-                      </a>
-                    );
-                  })}
-                </div>
-              ) : hasAttachment && (
-                <span className="ml-2 inline-flex items-center gap-0.5 text-[11px] bg-slate-200 text-slate-600 rounded-full px-2 py-0.5 mt-1">
-                  <span className="material-symbols-outlined text-[12px]">attach_file</span>Attachment
-                </span>
-              )}
+              {reaction}
             </div>
             <p className="flex items-center gap-1 px-1 text-[10px] font-medium text-slate-400 transition-opacity">
               {timeStr}
             </p>
           </div>
+          {quoteButton}
         </div>
       );
     }
@@ -1526,6 +1678,41 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
             )}
           </div>
 
+          <div className="conversation-queue-tabs mt-3 flex gap-1 border-b border-slate-200" role="tablist" aria-label="Conversation queue">
+            {[
+              { value: 'all', label: 'All' },
+              { value: 'mine', label: 'Assigned to me' },
+              { value: 'unassigned', label: 'Unassigned' },
+            ].map(option => (
+              <button
+                type="button"
+                role="tab"
+                key={option.value}
+                aria-selected={queue === option.value}
+                onClick={() => { setQueue(option.value); if (option.value !== 'mine') setQueueMemberId(''); }}
+                className={`-mb-px border-0 border-b-2 border-solid px-2.5 pb-2 pt-1 text-[12px] font-bold transition-colors ${queue === option.value ? 'border-emerald-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+              >
+                {option.value === 'mine' && queueMember ? 'Assigned' : option.label}
+              </button>
+            ))}
+          </div>
+
+          {queue === 'mine' && canManage && team.byUserId.size > 1 && (
+            <label className="mt-2.5 flex items-center gap-2 text-[11px] font-bold text-slate-500">
+              Assigned to
+              <select
+                value={queueMemberId}
+                onChange={(event) => setQueueMemberId(event.target.value)}
+                className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-400"
+              >
+                <option value="">Me</option>
+                {[...team.byUserId.values()].filter(member => member.user_id !== team.currentUserId).map(member => (
+                  <option key={member.user_id} value={member.user_id}>{member.invited_email}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
           <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" role="group" aria-label="Filter conversations">
             {[
               { value: 'all', label: 'All' },
@@ -1578,13 +1765,17 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
           ) : visibleContacts.length === 0 ? (
             <div className="flex flex-col items-center p-10 text-center text-sm font-medium text-slate-400">
               <span className="material-symbols-outlined mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-xl">forum</span>
-              {humanNeededFilter === 'human'
-                ? 'No conversations need human support.'
-                : humanNeededFilter === 'ai'
-                  ? 'No AI-managed conversations.'
-                  : normalizedSearchQuery
-                    ? 'No conversations match your search.'
-                    : 'No ongoing conversations.'}
+              {normalizedSearchQuery
+                ? 'No conversations match your search.'
+                : queue === 'mine'
+                  ? (queueMember ? `Nothing is assigned to ${queueMember.invited_email}${humanNeededFilter === 'all' ? '' : ' with this filter'}.` : `Nothing is assigned to you${humanNeededFilter === 'all' ? '' : ' with this filter'}.`)
+                  : queue === 'unassigned'
+                    ? `No unassigned conversations${humanNeededFilter === 'all' ? '' : ' with this filter'}.`
+                    : humanNeededFilter === 'human'
+                      ? 'No conversations need human support.'
+                      : humanNeededFilter === 'ai'
+                        ? 'No AI-managed conversations.'
+                        : 'No ongoing conversations.'}
             </div>
           ) : visibleContacts.map((contact, i) => {
             // Prefer the name from /info endpoint, fall back to FB graph resolution
@@ -1615,7 +1806,17 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                       </div>
                       <span className="mr-3 shrink-0 text-[10px] font-semibold text-slate-400">{updated}</span>
                     </div>
-                    <p className={`truncate text-xs ${isActive ? 'font-semibold text-emerald-700' : 'font-medium text-slate-500'}`}>{snippet}</p>
+                    <div className="flex items-center gap-2">
+                      <p className={`min-w-0 flex-1 truncate text-xs ${isActive ? 'font-semibold text-emerald-700' : 'font-medium text-slate-500'}`}>{snippet}</p>
+                      {contact.assigned_to_user_id && (
+                        <span className="conversation-assignee-chip mr-3 inline-flex max-w-[84px] shrink-0 items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-0.5 text-[9px] font-black text-sky-700" title="Assigned to">
+                          <span className="material-symbols-outlined text-[11px]">person</span>
+                          <span className="truncate">
+                            {contact.assigned_to_user_id === team.currentUserId ? 'You' : team.byUserId.get(contact.assigned_to_user_id) ? memberShortName(team.byUserId.get(contact.assigned_to_user_id)) : 'Assigned'}
+                          </span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </button>
@@ -1673,6 +1874,13 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                <ConversationAssignee
+                  assigneeId={activeContact?.assigned_to_user_id || null}
+                  team={team}
+                  canAssign={canManage}
+                  busy={assigningConversationId === activeConversationId}
+                  onAssign={handleAssign}
+                />
                 <button
                   type="button"
                   onClick={() => setIsManualOrderOpen(open => !open)}
@@ -1751,36 +1959,21 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
             </div>
 
             <footer className="border-t border-slate-200 bg-white p-3 md:p-4 lg:px-6">
-              <div className="mx-auto flex max-w-4xl items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5 pl-4 transition-all focus-within:border-emerald-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
-                {/* Attach file button — no functionality yet
-                <button className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors">
-                  <span className="material-symbols-outlined">attach_file</span>
-                </button>
-                */}
-                <input
-                  className="min-w-0 flex-1 border-none bg-transparent py-2.5 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
-                  placeholder="Write a reply"
-                  type="text"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                />
-                <div className="flex items-center">
-                  {/* Emoji button — no functionality yet
-                  <button className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors">
-                    <span className="material-symbols-outlined">mood</span>
-                  </button>
-                  */}
-                  <button
-                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                    onClick={handleSend}
-                    disabled={!inputText.trim()}
-                    aria-label="Send message"
-                  >
-                    <span className="material-symbols-outlined text-[19px]">send</span>
-                  </button>
+              {(windowState === 'human' || windowState === 'closed') && (
+                <div className="mx-auto mb-2 max-w-4xl">
+                  <MessagingWindowNotice status={windowStatus.data} />
                 </div>
-              </div>
+              )}
+              <ReplyComposer
+                key={activeConversationId}
+                disabled={windowState === 'closed'}
+                disabledReason="The messaging window has closed"
+                replyTo={replyTo}
+                onCancelReply={() => setReplyTo(null)}
+                onSendText={handleSendText}
+                onSendFile={handleSendFile}
+                footer={windowState === 'standard' ? <MessagingWindowNotice status={windowStatus.data} /> : null}
+              />
             </footer>
           </>
         ) : (
@@ -1793,6 +1986,10 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
           </div>
         )}
       </section>
+
+      {inboxNotice && (
+        <Toast tone={inboxNotice.tone} message={inboxNotice.text} onDismiss={dismissInboxNotice} />
+      )}
 
       {/* Profile Right Sidebar - hidden on mobile */}
         {isProfileVisible && !isManualOrderOpen && (
@@ -1946,6 +2143,15 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                         <p className="text-xs font-semibold text-slate-900">{resolveContactName(activeContact, 'Unknown')}</p>
                       </div>
                     </li>
+                    {activeContact?.is_human_needed && (activeContact?.human_needed_reason || activeContact?.human_handover_reason) && (
+                      <li className="flex items-start gap-3">
+                        <span className="material-symbols-outlined text-sm text-slate-400 mt-0.5">front_hand</span>
+                        <div>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">Handover reason</p>
+                          <p className="text-xs font-semibold text-slate-900">{activeContact.human_needed_reason || activeContact.human_handover_reason}</p>
+                        </div>
+                      </li>
+                    )}
                     <li className="flex items-start gap-3">
                       <span className="material-symbols-outlined text-sm text-slate-400 mt-0.5">mail</span>
                       <div>

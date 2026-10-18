@@ -23,6 +23,9 @@ html[data-dashboard-theme="dark"],html[data-dashboard-theme="dark"] body{backgro
 .dashboard-layout.theme-dark .profile-drawer,.dashboard-layout.theme-dark .pane-header,.dashboard-layout.theme-dark .conv-contacts-pane,.dashboard-layout.theme-dark .page-card-container,.dashboard-layout.theme-dark .stat-box,.dashboard-layout.theme-dark .knowledge-list,.dashboard-layout.theme-dark .modal-content{background-color:#141414!important;border-color:#343434!important;color:#ececec}
 .dashboard-layout.theme-dark .agent-assign-box select,.dashboard-layout.theme-dark .chat-input,.dashboard-layout.theme-dark input,.dashboard-layout.theme-dark textarea,.dashboard-layout.theme-dark select{background-color:#1a1a1a!important;border-color:#393939!important;color:#ececec!important}
 .dashboard-layout.theme-dark input::placeholder,.dashboard-layout.theme-dark textarea::placeholder{color:#818181!important}
+/* Reply composer: the text box sits inside the composer's own field; a disabled Send goes neutral. */
+.dashboard-layout.theme-dark .reply-composer textarea{background-color:transparent!important}
+.dashboard-layout.theme-dark .reply-composer button[aria-label="Send reply"]:disabled{background-color:#2e2e2e!important;color:#8e8e8e!important;box-shadow:none}
 .dashboard-layout.theme-dark .chat-message-row.received .chat-bubble{background:#212121;color:#ededed;box-shadow:none}
 .dashboard-layout.theme-dark .knowledge-header-row{background:#1a1a1a;border-color:#343434}
 .dashboard-layout.theme-dark .drawer-header,.dashboard-layout.theme-dark .pane-header{border-color:#343434}

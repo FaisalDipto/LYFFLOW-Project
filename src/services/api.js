@@ -138,6 +138,37 @@ const MOCK_WOO_STATUSES = {
   none: { status: 'not_connected', store_url: null, connected_at: null, plugin_connected: false },
 };
 let mockWooStatus = MOCK_WOO_STATUSES[MOCK_LOAD_PARAMS.get('mockWoo')] || MOCK_WOO_STATUSES.none;
+// The signed-in mock user (demo@lyfflow.com in the members list).
+const MOCK_CURRENT_USER_ID = 'user_1';
+// page_1's inbox. last_customer_at drives each reply window: inside 24h, 24h-7d, past 7d.
+const MOCK_HOUR = 3600000;
+let mockInbox = [
+  { conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', is_human_needed: false, human_needed_reason: null, assigned_to_user_id: MOCK_CURRENT_USER_ID, last_customer_at: MOCK_LOADED_AT },
+  { conversation_id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', profile_pic_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', is_human_needed: true, human_needed_reason: 'Asked for a bulk discount', assigned_to_user_id: null, last_customer_at: MOCK_LOADED_AT - 30 * MOCK_HOUR },
+  { conversation_id: 'conv_3', name: 'Rahim Uddin', snippet: 'Can I change the delivery address?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Escalated for pricing negotiation', assigned_to_user_id: 'user_2', last_customer_at: MOCK_LOADED_AT - 3 * MOCK_HOUR },
+  { conversation_id: 'conv_4', name: 'Nadia Islam', snippet: 'Thanks, I will think about it.', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_user_id: null, last_customer_at: MOCK_LOADED_AT - 9 * 24 * MOCK_HOUR },
+].map(conversation => ({ ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString() }));
+// As the API returns it (last_customer_at is mock bookkeeping).
+const mockInboxItem = (conversation) => {
+  const item = { ...conversation };
+  delete item.last_customer_at;
+  return item;
+};
+const mockWindowStatus = (conversation) => {
+  const since = Date.now() - (conversation?.last_customer_at ?? Date.now());
+  const standardLeft = Math.max(0, 24 * MOCK_HOUR - since) / 1000;
+  const humanLeft = Math.max(0, 7 * 24 * MOCK_HOUR - since) / 1000;
+  const at = (hours) => (conversation ? new Date(conversation.last_customer_at + hours * MOCK_HOUR).toISOString() : null);
+  return {
+    can_send_ai: standardLeft > 0,
+    can_send_human: humanLeft > 0,
+    human_agent_tag_required: standardLeft <= 0 && humanLeft > 0,
+    standard_window_expires_at: at(24),
+    human_agent_window_expires_at: at(7 * 24),
+    standard_window_remaining_seconds: standardLeft,
+    human_agent_window_remaining_seconds: humanLeft,
+  };
+};
 // Orders pushed during this mock session: customer_order_id -> wc_order_id.
 const mockWooPushed = new Map();
 
@@ -246,9 +277,10 @@ const mockData = {
     { member_id: 'mem_9', business_id: 'biz_3', business_name: 'Invited Boutique', role: 'admin', invite_token: '4fa1bf7a-6f3b-48aa-b541-698fba0e3032', invite_expires_at: '2026-12-01T00:00:00.000Z' },
   ],
   '/v1/business/members': [
-    { member_id: 'mem_1', invited_email: 'demo@lyfflow.com', role: 'owner', status: 'active', joined_at: '2026-09-01T00:00:00.000Z' },
-    { member_id: 'mem_2', invited_email: 'alice@example.com', role: 'admin', status: 'active', joined_at: '2026-09-10T00:00:00.000Z' },
-    { member_id: 'mem_3', invited_email: 'bob@example.com', role: 'member', status: 'invited', joined_at: null },
+    { member_id: 'mem_1', user_id: 'user_1', invited_email: 'demo@lyfflow.com', role: 'owner', status: 'active', joined_at: '2026-09-01T00:00:00.000Z' },
+    { member_id: 'mem_2', user_id: 'user_2', invited_email: 'alice@example.com', role: 'admin', status: 'active', joined_at: '2026-09-10T00:00:00.000Z' },
+    { member_id: 'mem_4', user_id: 'user_3', invited_email: 'rafi@example.com', role: 'member', status: 'active', joined_at: '2026-09-18T00:00:00.000Z' },
+    { member_id: 'mem_3', user_id: null, invited_email: 'bob@example.com', role: 'member', status: 'invited', joined_at: null },
   ],
   '/v1/business/pages': [
     { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot', profile_pic_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null },
@@ -734,18 +766,99 @@ const apiFetch = async (endpoint, options = {}) => {
     if (conversationCountMatch) {
       return { conversations: [], pagination: { has_more: true, next_cursor: null, total: conversationCountMatch[1] === 'page_1' ? 1284 : 412 } };
     }
+    // page_1's inbox: queues, assignment, handover and each conversation's reply window.
+    const inboxListMatch = endpoint.match(/^\/v1\/page\/page_1\/conversations(\/assigned)?(?:\?(.*))?$/);
+    if (inboxListMatch && method === 'GET') {
+      const params = new URLSearchParams(inboxListMatch[2] || '');
+      let list = mockInbox;
+      if (inboxListMatch[1] || params.get('assigned_to_me') === 'true') {
+        const userId = params.get('user_id') || MOCK_CURRENT_USER_ID;
+        if (userId !== MOCK_CURRENT_USER_ID && mockRole === 'member') {
+          const error = new Error("Only admins and owners can view another member's assigned conversations.");
+          error.status = 403;
+          throw error;
+        }
+        list = list.filter(conversation => conversation.assigned_to_user_id === userId);
+      } else if (params.get('unassigned') === 'true') {
+        list = list.filter(conversation => !conversation.assigned_to_user_id);
+      }
+      if (params.has('is_human_needed')) {
+        const wanted = params.get('is_human_needed') === 'true';
+        list = list.filter(conversation => conversation.is_human_needed === wanted);
+      }
+      const conversations = list.map(mockInboxItem);
+      return { conversations, pagination: { has_more: false, next_cursor: null, page_size: conversations.length, total: conversations.length } };
+    }
+    const inboxConversationMatch = endpoint.match(/^\/v1\/page\/[^/]+\/conversations\/([^/]+)\/(window-status|assign)$/);
+    if (inboxConversationMatch) {
+      const [, conversationId, action] = inboxConversationMatch;
+      const conversation = mockInbox.find(item => item.conversation_id === conversationId);
+      if (action === 'window-status') return mockWindowStatus(conversation);
+      if (method === 'PATCH') {
+        if (mockRole === 'member') {
+          const error = new Error('Only admins and owners can assign conversations.');
+          error.status = 403;
+          throw error;
+        }
+        const { assigned_to_user_id: assignee = null } = JSON.parse(requestOptions.body || '{}');
+        mockInbox = mockInbox.map(item => (item.conversation_id === conversationId ? { ...item, assigned_to_user_id: assignee, updated_time: new Date().toISOString() } : item));
+        return mockInboxItem(mockInbox.find(item => item.conversation_id === conversationId) || {});
+      }
+    }
+    const replyMatch = endpoint.match(/^\/v1\/facebook\/[^/]+\/messenger\/([^/]+)\/reply(\/file)?$/);
+    if (replyMatch && method === 'POST') {
+      const windowStatus = mockWindowStatus(mockInbox.find(item => item.conversation_id === replyMatch[1]));
+      if (!windowStatus.can_send_human) {
+        const error = new Error("This conversation is past Meta's 7-day messaging window.");
+        error.status = 422;
+        throw error;
+      }
+      return { success: true, sent_at: new Date().toISOString(), window_status: windowStatus };
+    }
+    const pauseMatch = endpoint.match(/^\/v1\/agent\/page\/[^/]+\/conversation\/([^/]+)\/pause$/);
+    if (pauseMatch && method === 'PATCH') {
+      const body = JSON.parse(requestOptions.body || '{}');
+      mockInbox = mockInbox.map(item => (item.conversation_id === pauseMatch[1] ? { ...item, is_human_needed: Boolean(body.pause_status) } : item));
+      return body;
+    }
+    const shortThreadMatch = endpoint.match(/^\/v1\/page\/page_1\/conversation\/(conv_[2-4])(?:\?|$)/);
+    if (shortThreadMatch) {
+      const conversation = mockInbox.find(item => item.conversation_id === shortThreadMatch[1]);
+      const at = (minutesAfterCustomer) => new Date(conversation.last_customer_at + minutesAfterCustomer * 60000).toISOString();
+      const messages = [
+        { id: `${conversation.conversation_id}_3`, message_id: `${conversation.conversation_id}_3`, role: 'user', is_ai_msg: false, message: conversation.snippet, created_at: at(0) },
+        { id: `${conversation.conversation_id}_2`, message_id: `${conversation.conversation_id}_2`, role: 'page', is_ai_msg: true, message: 'Thanks for reaching out! Let me check that for you.', created_at: at(-3), is_delivered: true, delivered_at: at(-3), is_read: true, read_at: at(-2) },
+        { id: `${conversation.conversation_id}_1`, message_id: `${conversation.conversation_id}_1`, role: 'user', is_ai_msg: false, message: 'Hi there', created_at: at(-4) },
+      ];
+      return { messages, pagination: { has_more: false, next_cursor: null, page_size: messages.length, total: messages.length } };
+    }
     // A long thread for conv_1, newest first and paged like the real endpoint, so
     // scrolling and "load older messages" can be exercised in mock mode.
     if (endpoint.startsWith('/v1/page/page_1/conversation/conv_1')) {
       const params = new URLSearchParams(endpoint.split('?')[1] || '');
       const size = Number(params.get('page_size')) || 20;
       const offset = Number(params.get('cursor')) || 0;
-      const thread = Array.from({ length: 60 }, (_, index) => ({
-        id: `m1_${index}`,
-        message: index % 2 ? `Agent reply #${60 - index}: here are the details you asked about.` : `Customer message #${60 - index}: could you tell me more about this item?`,
-        role: index % 2 ? 'agent' : 'user',
-        created_at: new Date(MOCK_LOADED_AT - index * 5 * 60000).toISOString(),
-      }));
+      const thread = Array.from({ length: 60 }, (_, index) => {
+        const createdAt = new Date(MOCK_LOADED_AT - index * 5 * 60000).toISOString();
+        const base = { id: `m1_${index}`, message_id: `m1_${index}`, created_at: createdAt };
+        if (index % 2 === 0) {
+          return {
+            ...base, role: 'user', is_ai_msg: false,
+            message: index === 0 ? 'Hello, I need help with my order.' : `Customer message #${60 - index}: could you tell me more about this item?`,
+            // One recalled message, as Messenger's unsend leaves it.
+            ...(index === 4 ? { is_deleted: true, deleted_at: new Date(MOCK_LOADED_AT - 15 * 60000).toISOString() } : {}),
+          };
+        }
+        // Newest reply is a teammate's and not read yet; the next one is the owner's.
+        const sentBy = index === 1 ? 'user_2' : index === 3 ? MOCK_CURRENT_USER_ID : null;
+        return {
+          ...base, role: 'page', is_ai_msg: !sentBy, sent_by_user_id: sentBy,
+          message: index === 1 ? "I've passed this to our delivery team; they'll confirm the time today." : `Agent reply #${60 - index}: here are the details you asked about.`,
+          is_delivered: true, delivered_at: createdAt,
+          is_read: index !== 1, read_at: index !== 1 ? createdAt : null,
+          reaction: index === 3 ? '❤️' : index === 9 ? '👍' : null,
+        };
+      });
       const hasMore = offset + size < thread.length;
       return { messages: thread.slice(offset, offset + size), pagination: { has_more: hasMore, next_cursor: hasMore ? String(offset + size) : null } };
     }
@@ -1537,7 +1650,10 @@ export const apiService = {
   }),
 
   // Conversations
-  getPageDetails: (pageId, cursor = null, page_size = 10, isHumanNeeded = null) => {
+  // `queue` picks the inbox: { assignedToMe } or { userId } (another member's queue,
+  // admins and owners only) read /conversations/assigned; { unassigned } the chats no
+  // one owns yet. isHumanNeeded narrows any of them.
+  getPageDetails: (pageId, cursor = null, page_size = 10, isHumanNeeded = null, queue = {}) => {
     const q = new URLSearchParams();
     if (cursor) q.set('cursor', cursor);
     const size = page_size || 10;
@@ -1546,8 +1662,11 @@ export const apiService = {
     if (isHumanNeeded !== null && isHumanNeeded !== undefined) {
       q.set('is_human_needed', String(isHumanNeeded));
     }
+    const assigned = Boolean(queue.assignedToMe || queue.userId);
+    if (queue.userId) q.set('user_id', queue.userId);
+    else if (queue.unassigned && !assigned) q.set('unassigned', 'true');
     const qs = `?${q.toString()}`;
-    return apiFetch(`/v1/page/${pageId}/conversations${qs}`);
+    return apiFetch(`/v1/page/${pageId}/conversations${assigned ? '/assigned' : ''}${qs}`);
   },
   getConversationDetails: (pageId, conversationId, cursor = null, page_size = 20) => {
     const q = new URLSearchParams();
@@ -1558,9 +1677,45 @@ export const apiService = {
     const qs = `?${q.toString()}`;
     return apiFetch(`/v1/page/${pageId}/conversation/${conversationId}${qs}`);
   },
-  replyToConversation: (pageId, conversationId, message) => apiFetch(`/v1/facebook/${pageId}/messenger/${conversationId}/reply`, {
+  /**
+   * @typedef {Object} WindowStatusResponse
+   * @property {boolean} can_send_ai      Inside the 24h standard window: the AI may reply.
+   * @property {boolean} can_send_human   Inside 7 days: a person may reply (with Meta's HUMAN_AGENT tag after 24h).
+   * @property {boolean} human_agent_tag_required
+   * @property {string|null} standard_window_expires_at
+   * @property {string|null} human_agent_window_expires_at
+   * @property {number} standard_window_remaining_seconds
+   * @property {number} human_agent_window_remaining_seconds
+   */
+  /**
+   * @typedef {Object} ReplyResponse
+   * @property {boolean} success
+   * @property {string} sent_at
+   * @property {WindowStatusResponse|null} [window_status]
+   */
+  // Manual reply. Takes the text alone or { message, reply_to_message_id, quick_replies,
+  // attachment_type, attachment_url }. @returns {Promise<ReplyResponse>}
+  replyToConversation: (pageId, conversationId, reply) => apiFetch(`/v1/facebook/${pageId}/messenger/${conversationId}/reply`, {
     method: 'POST',
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(typeof reply === 'string' ? { message: reply } : reply),
+  }),
+  // Voice note or media upload; attachmentType is audio | image | video | file.
+  // @returns {Promise<ReplyResponse>}
+  replyToConversationWithFile: (pageId, conversationId, { file, attachmentType, message, replyToMessageId }) => {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('attachment_type', attachmentType);
+    if (message) form.append('message', message);
+    if (replyToMessageId) form.append('reply_to_message_id', replyToMessageId);
+    return apiFetch(`/v1/facebook/${pageId}/messenger/${conversationId}/reply/file`, { method: 'POST', body: form });
+  },
+  // Meta's reply windows for this conversation. @returns {Promise<WindowStatusResponse>}
+  getConversationWindowStatus: (pageId, conversationId) =>
+    apiFetch(`/v1/page/${pageId}/conversations/${conversationId}/window-status`, { cacheTtl: 15000 }),
+  // Admins and owners only; null unassigns. Returns the updated ConversationInfo.
+  assignConversation: (pageId, conversationId, userId) => apiFetch(`/v1/page/${pageId}/conversations/${conversationId}/assign`, {
+    method: 'PATCH',
+    body: JSON.stringify({ assigned_to_user_id: userId || null }),
   }),
   // Returns basic info for a conversation (name, is_human_needed, updated_time)
   getConversationInfo: (conversationId) => apiFetch(`/v1/conversations/${conversationId}/info`),
