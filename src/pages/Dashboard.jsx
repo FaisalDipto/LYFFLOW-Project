@@ -48,6 +48,7 @@ const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
 const ProductsTab = lazy(() => import('../components/ProductsTab'));
 const ManualOrderPanel = lazy(() => import('../components/ManualOrderPanel'));
 const ConversationOrders = lazy(() => import('../components/ConversationOrders'));
+const CommentReviewModal = lazy(() => import('../components/CommentReviewModal'));
 const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCourier'));
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 const AnalyticsHub = lazy(() => import('../components/dashboard/AnalyticsHub'));
@@ -6579,6 +6580,9 @@ export default function Dashboard() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   // Set when a notification is clicked, so the destination tab can open the record it points at.
   const [notificationFocus, setNotificationFocus] = useState(null);
+  // A flagged comment opened from its notification: { commentAnalysisId, canAction }.
+  const [commentReview, setCommentReview] = useState(null);
+  const closeCommentReview = useCallback(() => setCommentReview(null), []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   // Expanded state per collapsible nav group, keyed by item id (e.g. { 'customer-records': true }).
@@ -6816,6 +6820,10 @@ export default function Dashboard() {
   // Routes a clicked notification to the view that already renders its record.
   // `nonce` re-fires the focus even when the same record is opened twice.
   const handleNotificationNavigate = useCallback((target) => {
+    if (target?.commentAnalysisId) {
+      setCommentReview({ commentAnalysisId: target.commentAnalysisId, canAction: target.canAction !== false });
+      return;
+    }
     if (!target?.tab) return;
     visitedTabsRef.current.add(target.tab);
     setActiveTab(target.tab);
@@ -7365,6 +7373,17 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+          )}
+
+          {commentReview && (
+            <Suspense fallback={null}>
+              <CommentReviewModal
+                key={commentReview.commentAnalysisId}
+                commentAnalysisId={commentReview.commentAnalysisId}
+                canAction={commentReview.canAction}
+                onClose={closeCommentReview}
+              />
+            </Suspense>
           )}
 
           {/* ── Pre-Reauth Warning Modal (before going to Facebook) ── */}

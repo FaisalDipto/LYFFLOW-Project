@@ -98,6 +98,12 @@ const resolveDeepLink = (notification) => {
         ? { tab: 'conversation', pageId, conversationId: payload.conversation_id }
         : { tab: 'conversation', pageId };
 
+    // Opens the review dialog rather than a tab.
+    case 'comment_review_needed':
+      return payload.comment_analysis_id
+        ? { commentAnalysisId: payload.comment_analysis_id, pageId: payload.page_id || pageId, canAction: notification.can_action !== false }
+        : null;
+
     case 'order_created':
     case 'delivery_status_update':
     case 'delivery_failed':

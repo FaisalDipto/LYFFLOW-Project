@@ -138,6 +138,46 @@ const MOCK_WOO_STATUSES = {
   none: { status: 'not_connected', store_url: null, connected_at: null, plugin_connected: false },
 };
 let mockWooStatus = MOCK_WOO_STATUSES[MOCK_LOAD_PARAMS.get('mockWoo')] || MOCK_WOO_STATUSES.none;
+// Comments the AI flagged for review: one fresh, one past Meta's 7-day private reply limit
+// and already answered in private.
+let mockComments = [
+  {
+    id: 'cmt_1', page_id: 'page_1', page_name: 'Lyfflow Demo Page', agent_id: 'agent_1', agent_name: 'SalesBot', platform: 'facebook',
+    post_id: 'post_1', post_content: 'Our new stainless steel bottle keeps water cold for 24 hours. Perfect for trips and the gym!',
+    comment_id: 'fbc_1', commenter_id: 'fbu_1', commenter_name: 'Sakuwat Rahman', comment_text: 'আমার মনে হয় দাম একটু বেশি',
+    category: 'negative_review', confidence: 0.85, reason: 'Expresses opinion that price is a bit high', action: 'review',
+    comment_reply: 'ধন্যবাদ আপনার মতামতের জন্য! আমাদের প্রডাক্টটি স্টেইনলেস স্টিলের তৈরি, তাই অনেক দিন টেকসই।',
+    inbox_message: 'হ্যালো Sakuwat! আপনার সুবিধার জন্য আমরা ডিসকাউন্টের ব্যবস্থা করতে পারি। আগ্রহী হলে জানাবেন।',
+    is_public_replied: false, is_private_replied: false, is_deleted: false, execution_status: 'pending_review',
+    created_at: new Date(MOCK_LOADED_AT - 40 * 60000).toISOString(), updated_at: new Date(MOCK_LOADED_AT - 40 * 60000).toISOString(),
+  },
+  {
+    id: 'cmt_2', page_id: 'page_1', page_name: 'Lyfflow Demo Page', agent_id: 'agent_1', agent_name: 'SalesBot', platform: 'instagram',
+    post_id: 'post_2', post_content: 'Weekend sale: 20% off all leather wallets.',
+    comment_id: 'igc_2', commenter_id: 'igu_2', commenter_name: 'Tania Akter', comment_text: 'Is the brown one still available? I messaged last week.',
+    category: 'query', confidence: 0.64, reason: 'Product availability question the agent could not confirm', action: 'review',
+    comment_reply: 'Hi Tania! The brown wallet is back in stock. We have sent you the details.',
+    inbox_message: 'Hi Tania, the brown wallet is available again. Would you like us to reserve one?',
+    is_public_replied: false, is_private_replied: true, is_deleted: false, execution_status: 'pending_review',
+    created_at: new Date(MOCK_LOADED_AT - 9 * 24 * 3600000).toISOString(), updated_at: new Date(MOCK_LOADED_AT - 9 * 24 * 3600000).toISOString(),
+  },
+];
+const mockCommentNotification = (comment, notificationId, readAt = null) => ({
+  notification_id: notificationId, business_id: 'biz_1', page_id: comment.page_id, type: 'comment_review_needed',
+  category: 'conversation', severity: 'warning', title: `Comment from ${comment.commenter_name} needs review`,
+  body: `"${comment.comment_text}" — ${comment.reason}`, can_action: true, action_role: null, read_at: readAt, created_at: comment.created_at,
+  payload: { comment_analysis_id: comment.id, page_id: comment.page_id, comment_id: comment.comment_id, post_id: comment.post_id, platform: comment.platform, commenter_name: comment.commenter_name, category: comment.category },
+});
+let mockNotifications = [
+  mockCommentNotification(mockComments[0], 'ntf_1'),
+  {
+    notification_id: 'ntf_2', business_id: 'biz_1', page_id: 'page_1', type: 'human_handover_needed', category: 'conversation', severity: 'warning',
+    title: 'Jane Smith needs a human', body: 'Asked for a bulk discount', can_action: true, action_role: null, read_at: null,
+    created_at: new Date(MOCK_LOADED_AT - 2 * 3600000).toISOString(), payload: { conversation_id: 'conv_2' },
+  },
+  mockCommentNotification(mockComments[1], 'ntf_3', new Date(MOCK_LOADED_AT - 8 * 24 * 3600000).toISOString()),
+];
+const mockUnreadCount = () => mockNotifications.filter(item => !item.read_at).length;
 // The signed-in mock user (demo@lyfflow.com in the members list).
 const MOCK_CURRENT_USER_ID = 'user_1';
 // page_1's inbox. last_customer_at drives each reply window: inside 24h, 24h-7d, past 7d.
@@ -765,6 +805,43 @@ const apiFetch = async (endpoint, options = {}) => {
     const conversationCountMatch = endpoint.match(/^\/v1\/page\/(page_\d+)\/conversations\?.*page_size=1(?:&|$)/);
     if (conversationCountMatch) {
       return { conversations: [], pagination: { has_more: true, next_cursor: null, total: conversationCountMatch[1] === 'page_1' ? 1284 : 412 } };
+    }
+    if (/^\/v1\/notifications(\?|$)/.test(endpoint) && method === 'GET') {
+      return { notifications: mockNotifications, unread_count: mockUnreadCount(), pagination: { has_more: false, next_cursor: null, page_size: mockNotifications.length, total: mockNotifications.length } };
+    }
+    if (endpoint === '/v1/notifications/unread-count') return { unread_count: mockUnreadCount() };
+    if (endpoint === '/v1/notifications/read' && method === 'POST') {
+      const ids = JSON.parse(requestOptions.body || '{}').notification_ids;
+      let updated = 0;
+      mockNotifications = mockNotifications.map(item => {
+        if (item.read_at || (ids && !ids.includes(item.notification_id))) return item;
+        updated += 1;
+        return { ...item, read_at: new Date().toISOString() };
+      });
+      return { updated, unread_count: mockUnreadCount() };
+    }
+    const commentMatch = endpoint.match(/^\/v1\/comments\/([^/?]+)(\/action)?$/);
+    if (commentMatch && commentMatch[1] !== 'summary') {
+      const comment = mockComments.find(item => item.id === commentMatch[1]);
+      if (!comment) {
+        const error = new Error('Comment not found');
+        error.status = 404;
+        throw error;
+      }
+      if (!commentMatch[2]) return comment;
+      const { action } = JSON.parse(requestOptions.body || '{}');
+      const fail = (message) => { const error = new Error(message); error.status = 400; throw error; };
+      if (comment.is_deleted && action !== 'dismiss') fail('This comment has been deleted.');
+      if (action === 'send_inbox_dm' && comment.is_private_replied) fail('A private reply was already sent for this comment.');
+      if (action === 'send_inbox_dm' && Date.now() - Date.parse(comment.created_at) > 7 * 24 * 3600000) fail('Meta only allows private replies within 7 days of the comment.');
+      const changes = {
+        reply_comment: { is_public_replied: true, execution_status: 'resolved' },
+        send_inbox_dm: { is_private_replied: true, execution_status: 'resolved' },
+        delete_comment: { is_deleted: true, execution_status: 'resolved' },
+        dismiss: { execution_status: 'dismissed' },
+      }[action] || {};
+      mockComments = mockComments.map(item => (item.id === comment.id ? { ...item, ...changes, updated_at: new Date().toISOString() } : item));
+      return mockComments.find(item => item.id === comment.id);
     }
     // page_1's inbox: queues, assignment, handover and each conversation's reply window.
     const inboxListMatch = endpoint.match(/^\/v1\/page\/page_1\/conversations(\/assigned)?(?:\?(.*))?$/);
@@ -1967,6 +2044,16 @@ export const apiService = {
     method: 'POST',
     body: JSON.stringify(notificationIds?.length ? { notification_ids: notificationIds } : {}),
     preserveGetCache: true,
+  }),
+
+  // A comment the AI analysed (from a comment_review_needed notification's payload).
+  getCommentAnalysis: (commentAnalysisId) => apiFetch(`/v1/comments/${encodeURIComponent(commentAnalysisId)}`),
+  // action: reply_comment | send_inbox_dm | delete_comment | dismiss. customReply replaces
+  // the AI's suggested text for the two replies; omitted, the suggestion is sent.
+  // Returns the updated comment.
+  actOnComment: (commentAnalysisId, action, customReply = null) => apiFetch(`/v1/comments/${encodeURIComponent(commentAnalysisId)}/action`, {
+    method: 'POST',
+    body: JSON.stringify(customReply ? { action, custom_reply: customReply } : { action }),
   }),
 
   deleteNotification: (notificationId) => apiFetch(`/v1/notifications/${notificationId}`, {
