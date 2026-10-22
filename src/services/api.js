@@ -628,7 +628,9 @@ const mockData = {
   '/v1/business/pages': [
     { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot', profile_pic_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null },
     // Second page is deliberately in the expired-token state so the reconnect UI is testable.
-    { page_id: 'page_2', name: 'Lyfflow Support Page', category: 'Software', followers: 430, agent_name: 'SupportBot', profile_pic_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: false, needs_reauth: true, token_invalid_at: '2026-09-23T05:14:40.906Z' }
+    { page_id: 'page_2', name: 'Lyfflow Support Page', category: 'Software', followers: 430, agent_name: 'SupportBot', profile_pic_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: false, needs_reauth: true, token_invalid_at: '2026-09-23T05:14:40.906Z' },
+    // The Instagram account linked to page_1 (platform `ig`, no picture: shows the logo fallbacks).
+    { page_id: 'page_3', name: 'lyfflow.store', category: 'Shopping & retail', followers: 2180, agent_name: 'SalesBot', profile_pic_url: null, platform: 'ig', linked_page_id: 'page_1', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null },
   ],
   '/v1/user-required-actions': { actions: [] },
 '/v1/agent/on-boarding/pre-questions': [

@@ -2,6 +2,8 @@
 // platform and attachment type. The backend checks the same rules (and the file's magic
 // bytes); these only let the composer say no before uploading. One request carries at
 // most 20 MB in all.
+import { isInstagram } from './platforms';
+
 const MB = 1024 * 1024;
 const REQUEST_MAX_BYTES = 20 * MB;
 
@@ -19,8 +21,8 @@ const INSTAGRAM_RULES = {
   file: { label: 'Document', extensions: ['pdf'], maxBytes: REQUEST_MAX_BYTES },
 };
 
-/** @param {string} [platform] the page's platform: 'instagram', otherwise Messenger. */
-export const replyAttachmentRules = (platform) => (platform === 'instagram' ? INSTAGRAM_RULES : MESSENGER_RULES);
+/** @param {string} [platform] the page's platform: `ig` (or 'instagram'), otherwise Messenger. */
+export const replyAttachmentRules = (platform) => (isInstagram(platform) ? INSTAGRAM_RULES : MESSENGER_RULES);
 export const REPLY_ATTACHMENT_RULES = MESSENGER_RULES;
 
 // For the file picker's `accept`.
@@ -52,7 +54,7 @@ export function classifyReplyAttachment(file, platform) {
     const what = `${extension ? `.${extension} files` : 'This file type'} can't be sent`;
     return {
       attachmentType: null,
-      error: platform === 'instagram'
+      error: isInstagram(platform)
         ? `${what} on Instagram. Use a JPG, PNG or GIF image, a video, an AAC, M4A or WAV voice note, or a PDF.`
         : `${what}. Use a JPG, PNG or GIF image, a video, a voice note, or a PDF, Word, Excel, CSV or text file.`,
     };

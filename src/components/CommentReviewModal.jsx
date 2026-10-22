@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Ban, CheckCircle2, EyeOff, Loader2, MessageCircle, MessageSquareReply, MessageSquareWarning, Send, Trash2, X } from 'lucide-react';
 import { apiService } from '../services/api';
 import { COMMENT_CATEGORIES as CATEGORY_LABELS } from '../utils/comments';
+import { platformLabel } from '../utils/platforms';
 
 const STATUS_LABELS = {
   pending_review: { label: 'Needs review', className: 'bg-amber-50 text-amber-700' },
@@ -22,7 +23,6 @@ const DONE_MESSAGES = {
 const PRIVATE_REPLY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const REPLY_MAX = 2000;
 
-const platformLabel = (platform) => (platform === 'instagram' ? 'Instagram' : 'Facebook');
 
 const formatDate = (value) => {
   const date = value ? new Date(value) : null;

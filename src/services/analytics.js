@@ -18,6 +18,7 @@
  * always holds 24-31 of them: one day is 24 hourly bars, a month is daily bars.
  */
 import { apiService } from './api';
+import { normalizePlatform } from '../utils/platforms';
 
 export const RANGE_PRESETS = [1, 7, 14, 30];
 // Daily bars stop being readable past a month.
@@ -231,8 +232,8 @@ export async function loadPageCounts(pages) {
     return {
       pageId: page.page_id,
       name: page.name || 'Untitled page',
-      // Every connected page is a Facebook page today; Instagram arrives with its own source.
-      source: page.platform || 'facebook',
+      // `fb` | `ig` from the API, as the chart's `facebook` | `instagram` sources.
+      source: normalizePlatform(page.platform),
       contacts: totalFrom(conversations, 'conversations'),
       orders: totalFrom(orders, 'orders'),
     };

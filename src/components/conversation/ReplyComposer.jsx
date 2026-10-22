@@ -10,6 +10,7 @@ import {
   formatFileSize,
   quickReplyPayload,
 } from '../../utils/replyAttachments';
+import { isInstagram } from '../../utils/platforms';
 
 const ATTACHMENT_ICONS = { audio: Mic, image: ImageIcon, video: Film, file: FileText };
 // Recording formats in order of preference; Safari records mp4, the rest webm or ogg.
@@ -31,7 +32,7 @@ const formatElapsed = (ms) => {
  * voice note. `onSendText` / `onSendFile` resolve when the reply is accepted and
  * throw (with a message to show) when it isn't; the draft comes back on failure.
  * Remount it per conversation (key) so drafts don't follow the agent around.
- * `platform` ('facebook' | 'instagram') picks the file types Meta accepts.
+ * `platform` (the page's `fb` | `ig`) picks the file types Meta accepts.
  */
 export default function ReplyComposer({ disabled = false, disabledReason = '', platform, replyTo, onCancelReply, onSendText, onSendFile, footer }) {
   const [text, setText] = useState('');
@@ -109,13 +110,13 @@ export default function ReplyComposer({ disabled = false, disabledReason = '', p
       return;
     }
     // Instagram takes no WebM or Ogg audio, so try M4A first there.
-    const recordingTypes = platform === 'instagram'
+    const recordingTypes = isInstagram(platform)
       ? RECORDING_TYPES.filter(([, extension]) => extension === 'm4a')
       : RECORDING_TYPES;
     const [mimeType, extension] = recordingTypes.find(([type]) => MediaRecorder.isTypeSupported(type)) || [];
     if (!mimeType) {
       stream.getTracks().forEach(track => track.stop());
-      setError(platform === 'instagram'
+      setError(isInstagram(platform)
         ? "This browser can't record voice notes in a format Instagram accepts. Attach an M4A, AAC or WAV file instead."
         : "Voice recording isn't supported in this browser. You can attach an audio file instead.");
       return;

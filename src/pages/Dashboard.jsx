@@ -44,6 +44,8 @@ import { messagingWindowState } from '../utils/messagingWindow';
 import ReplyComposer from '../components/conversation/ReplyComposer';
 import ProductCardsMessage from '../components/conversation/ProductCardsMessage';
 import ConversationNote from '../components/conversation/ConversationNote';
+import PlatformMark from '../components/PlatformMark';
+import { isInstagram } from '../utils/platforms';
 import { handoverCategoryLabel } from '../utils/ownerDashboard';
 import { parseProductCardsText } from '../utils/productCards';
 import MessagingWindowNotice from '../components/conversation/MessagingWindowNotice';
@@ -522,7 +524,12 @@ const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
                 <div className="min-w-0 flex-1 pt-0.5">
                   <h3 className="m-0 truncate text-sm font-black text-slate-900" title={page.name}>{page.name || 'Untitled page'}</h3>
                   <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-semibold ${needsReauth ? 'text-amber-700' : 'text-slate-600'}`}>
-                    <FacebookMark className={`h-[13px] w-[13px] shrink-0 ${needsReauth ? 'text-amber-600' : 'text-blue-700'}`} />
+                    <PlatformMark
+                      platform={page.platform}
+                      labelled
+                      className={`h-[13px] w-[13px] shrink-0 ${needsReauth ? 'text-amber-600' : isInstagram(page.platform) ? '' : 'text-blue-700'}`}
+                      {...(!needsReauth && isInstagram(page.platform) ? { style: { color: '#d62976' } } : {})}
+                    />
                     <span>{needsReauth ? 'Reconnection required' : 'Connected'}</span>
                   </div>
                 </div>
@@ -543,7 +550,7 @@ const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
               </div>
 
               <p className="mb-0 mt-3 truncate text-xs leading-5 text-slate-500" title={page.description || ''}>
-                {page.description || 'Facebook messaging page'}
+                {page.description || (isInstagram(page.platform) ? 'Instagram messaging account' : 'Facebook messaging page')}
               </p>
 
               {needsReauth && (
@@ -1849,7 +1856,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                         {p.profile_pic_url ? (
                           <img src={p.profile_pic_url} alt={p.name} className="w-5 h-5 rounded-full object-cover shrink-0 border border-slate-200" />
                         ) : (
-                          <FacebookMark className="h-4 w-4 shrink-0 text-blue-600" />
+                          <PlatformMark platform={p.platform} className={`h-4 w-4 shrink-0 ${isInstagram(p.platform) ? '' : 'text-blue-600'}`} {...(isInstagram(p.platform) ? { style: { color: '#d62976' } } : {})} />
                         )}
                         <span className="truncate">{p.name}</span>
                       </div>
@@ -4871,7 +4878,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       {page.profile_pic_url ? (
                         <img src={page.profile_pic_url} alt={page.page_name || page.name} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
-                        <FacebookMark className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+                        <PlatformMark platform={page.platform} className={`h-3.5 w-3.5 shrink-0 ${isInstagram(page.platform) ? '' : 'text-blue-600'}`} {...(isInstagram(page.platform) ? { style: { color: '#d62976' } } : {})} />
                       )}
                       <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--dashboard-text-strong, #0f172a)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {page.page_name || page.name || `Page ${page.page_id}`}
@@ -5135,11 +5142,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       {assignedPagesForThisAgent.length > 0 ? (
                         <div className="flex max-w-[88px] shrink-0 justify-end -space-x-1.5" title={`Assigned to: ${assignedPagesForThisAgent.map(p => p.name || p.page_name).join(', ')}`}>
                         {assignedPagesForThisAgent.slice(0, 3).map((p) => (
-                          <div key={p.page_id} className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-blue-500">
+                          <div key={p.page_id} className={`flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white ${isInstagram(p.platform) ? '' : 'bg-blue-500'}`} {...(isInstagram(p.platform) ? { style: { background: '#d62976' } } : {})}>
                             {p.profile_pic_url ? (
                               <img src={p.profile_pic_url} alt={p.name || p.page_name} className="h-full w-full rounded-full object-cover" />
                             ) : (
-                              <FacebookMark className="h-[13px] w-[13px] text-white" />
+                              <PlatformMark platform={p.platform} className="h-[13px] w-[13px] text-white" />
                             )}
                           </div>
                         ))}
