@@ -5,7 +5,8 @@ const COLLAPSED_COUNT = 3;
 
 // Orders placed in one conversation, for the chat's profile sidebar. `ordersState`
 // comes from useConversationOrders, shared with the header count and Orders panel.
-const ConversationOrders = ({ conversationId, ordersState, onOpenOrder }) => {
+// `creatorName(userId)` names the member who created a manual order, when known.
+const ConversationOrders = ({ conversationId, ordersState, onOpenOrder, creatorName }) => {
   // Expansion belongs to one conversation, so switching starts collapsed again.
   const [expandedFor, setExpandedFor] = useState(null);
   const { status, orders, error } = ordersState;
@@ -51,7 +52,9 @@ const ConversationOrders = ({ conversationId, ordersState, onOpenOrder }) => {
                 <div className="mt-1 flex items-center justify-between gap-2 text-[11px]">
                   <span className="font-medium text-slate-400">
                     {formatOrderDate(order.created_at)}
-                    {order.created_by === 'manual' ? ' · Manual' : ''}
+                    {order.created_by === 'manual'
+                      ? ` · Manual${order.created_by_user_id && creatorName?.(order.created_by_user_id) ? ` by ${creatorName(order.created_by_user_id)}` : ''}`
+                      : ''}
                   </span>
                   <span className="font-bold text-slate-900">{formatOrderAmount(order.total)}</span>
                 </div>

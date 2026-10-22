@@ -43,6 +43,8 @@ import { memberShortName, useTeamMembers } from '../hooks/useTeamMembers';
 import { messagingWindowState } from '../utils/messagingWindow';
 import ReplyComposer from '../components/conversation/ReplyComposer';
 import ProductCardsMessage from '../components/conversation/ProductCardsMessage';
+import ConversationNote from '../components/conversation/ConversationNote';
+import { handoverCategoryLabel } from '../utils/ownerDashboard';
 import { parseProductCardsText } from '../utils/productCards';
 import MessagingWindowNotice from '../components/conversation/MessagingWindowNotice';
 import ConversationAssignee from '../components/conversation/ConversationAssignee';
@@ -58,6 +60,7 @@ const CommentReviewModal = lazy(() => import('../components/CommentReviewModal')
 const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCourier'));
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 const AnalyticsHub = lazy(() => import('../components/dashboard/AnalyticsHub'));
+const OwnerDashboard = lazy(() => import('../components/dashboard/OwnerDashboard'));
 const PlatformsCatalog = lazy(() => import('../components/dashboard/PlatformsCatalog'));
 
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
@@ -1110,13 +1113,28 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     setMobileShowChat(true);
   }, [focusRequest]);
 
+  // The page whose first page of conversations `contacts` holds (null while loading), so
+  // a deep link waits for that list rather than reading an empty or stale one.
+  const contactsPageRef = useRef(null);
+
   useEffect(() => {
     const pending = pendingFocusRef.current;
     if (!pending || loading) return;
-    if (pending.pageId && pending.pageId !== selectedPageId) return;
-    const match = contacts.find(c => (c.conversation_id || c.id) === pending.conversationId);
-    if (match) setActiveContact(match);
+    if (pending.pageId && (pending.pageId !== selectedPageId || contactsPageRef.current !== pending.pageId)) return;
     pendingFocusRef.current = null;
+    const match = contacts.find(c => (c.conversation_id || c.id) === pending.conversationId);
+    if (match) {
+      setActiveContact(match);
+      return;
+    }
+    // Not on the first page (an older chat from the dashboard or a notification): fetch it.
+    apiService.getConversationInfo(pending.conversationId)
+      .then(info => {
+        if (!info?.conversation_id || (info.page_id && info.page_id !== selectedPageId)) return;
+        setContacts(prev => (prev.some(c => (c.conversation_id || c.id) === info.conversation_id) ? prev : [info, ...prev]));
+        setActiveContact(info);
+      })
+      .catch(err => console.warn('[inbox] could not open the linked conversation', err));
   }, [contacts, loading, selectedPageId]);
 
   useEffect(() => {
@@ -1134,6 +1152,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     const requestVersion = ++conversationsRequestVersionRef.current;
     setLoading(true);
     setLoadingMoreContacts(false);
+    contactsPageRef.current = null;
     setContacts([]);
     setActiveContact(null);
     setMessages([]);
@@ -1144,6 +1163,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
         // Handle FB Graph variations
         const convs = data?.conversations?.data || data?.conversations || data?.data || [];
         const normalized = Array.isArray(convs) ? convs : [];
+        contactsPageRef.current = selectedPageId;
         setContacts(normalized);
         
         if (data?.pagination) {
@@ -1999,7 +2019,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <div className="flex min-w-0 flex-1 items-center gap-1.5">
                         <h3 className="conversation-contact-name truncate text-sm font-black text-slate-900">{contactName}</h3>
-                        {contact.is_human_needed && <span className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-rose-600">Human</span>}
+                        {contact.is_human_needed && <span title={handoverCategoryLabel(contact.handover_category) || 'Needs a person'} className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-rose-600">Human</span>}
                       </div>
                       <span className="mr-3 shrink-0 text-[10px] font-semibold text-slate-400">{updated}</span>
                     </div>
@@ -2057,10 +2077,17 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                   </h2>
                   <div className="mt-0.5 flex items-center gap-2">
                     {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? (
-                      <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.12em] text-rose-600 md:text-[10px]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                        Human handling
-                      </p>
+                      <>
+                        <p className="flex shrink-0 items-center gap-1 text-[9px] font-black uppercase tracking-[0.12em] text-rose-600 md:text-[10px]">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                          Human handling
+                        </p>
+                        {activeContact?.is_human_needed && activeContact?.handover_category && (
+                          <span className="handover-category-badge truncate rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                            {handoverCategoryLabel(activeContact.handover_category)}
+                          </span>
+                        )}
+                      </>
                     ) : (
                       <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-600 md:text-[10px]">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -2322,12 +2349,22 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               </div>
 
               <div className="space-y-8">
+                {activeConversationId && selectedPageId && (
+                  <ConversationNote
+                    key={activeConversationId}
+                    pageId={selectedPageId}
+                    conversationId={activeConversationId}
+                    note={activeContact?.note ?? null}
+                    onSaved={updated => applyContactChanges(activeConversationId, { note: updated?.note ?? null })}
+                  />
+                )}
                 {(activeContact?.conversation_id || activeContact?.id) && (
                   <Suspense fallback={null}>
                     <ConversationOrders
                       conversationId={activeConversationId}
                       ordersState={conversationOrders}
                       onOpenOrder={openOrderInRecords}
+                      creatorName={userId => (userId === team.currentUserId ? 'you' : team.byUserId.get(userId) ? memberShortName(team.byUserId.get(userId)) : null)}
                     />
                   </Suspense>
                 )}
@@ -2341,12 +2378,19 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                         <p className="text-xs font-semibold text-slate-900">{resolveContactName(activeContact, 'Unknown')}</p>
                       </div>
                     </li>
-                    {activeContact?.is_human_needed && (activeContact?.human_needed_reason || activeContact?.human_handover_reason) && (
+                    {activeContact?.is_human_needed && (activeContact?.human_needed_reason || activeContact?.human_handover_reason || activeContact?.handover_category) && (
                       <li className="flex items-start gap-3">
                         <span className="material-symbols-outlined text-sm text-slate-400 mt-0.5">front_hand</span>
                         <div>
                           <p className="text-[10px] text-slate-400 font-bold uppercase">Handover reason</p>
-                          <p className="text-xs font-semibold text-slate-900">{activeContact.human_needed_reason || activeContact.human_handover_reason}</p>
+                          {activeContact.handover_category && (
+                            <span className="mt-0.5 inline-block rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                              {handoverCategoryLabel(activeContact.handover_category)}
+                            </span>
+                          )}
+                          {(activeContact.human_needed_reason || activeContact.human_handover_reason) && (
+                            <p className="text-xs font-semibold text-slate-900">{activeContact.human_needed_reason || activeContact.human_handover_reason}</p>
+                          )}
                         </div>
                       </li>
                     )}
@@ -7030,7 +7074,7 @@ export default function Dashboard() {
     if (!target?.tab) return;
     visitedTabsRef.current.add(target.tab);
     setActiveTab(target.tab);
-    if (target.conversationId || target.recordId) {
+    if (target.conversationId || target.recordId || target.status) {
       setNotificationFocus({ ...target, nonce: Date.now() });
     }
   }, [setActiveTab]);
@@ -7080,7 +7124,14 @@ export default function Dashboard() {
         {/* Analytics fire a burst of requests, so they wait until the business has a plan. */}
         {visitedTabsRef.current.has('dashboard') && <div style={{ display: activeTab === 'dashboard' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
-            <AnalyticsHub pages={pages} agents={user?.agents} isDark={isDark} isActive={activeTab === 'dashboard'} onNavigate={setActiveTab} />
+            {/* GET /v1/dashboard/* is for owners and admins; members keep the activity analytics. */}
+            {role === 'owner' || role === 'admin' ? (
+              <OwnerDashboard isDark={isDark} isActive={activeTab === 'dashboard'} onNavigate={handleNotificationNavigate} />
+            ) : role ? (
+              <AnalyticsHub pages={pages} agents={user?.agents} isDark={isDark} isActive={activeTab === 'dashboard'} onNavigate={setActiveTab} />
+            ) : (
+              <AppLoadingScreen />
+            )}
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('channels') && <div style={{ display: activeTab === 'channels' ? 'contents' : 'none' }}>

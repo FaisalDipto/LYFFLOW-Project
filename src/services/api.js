@@ -240,8 +240,8 @@ const MOCK_CURRENT_USER_ID = 'user_1';
 const MOCK_HOUR = 3600000;
 let mockInbox = [
   { conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', is_human_needed: false, human_needed_reason: null, assigned_to_user_id: MOCK_CURRENT_USER_ID, last_customer_at: MOCK_LOADED_AT },
-  { conversation_id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', profile_pic_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', is_human_needed: true, human_needed_reason: 'Asked for a bulk discount', assigned_to_user_id: null, last_customer_at: MOCK_LOADED_AT - 30 * MOCK_HOUR },
-  { conversation_id: 'conv_3', name: 'Rahim Uddin', snippet: 'Can I change the delivery address?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Escalated for pricing negotiation', assigned_to_user_id: 'user_2', last_customer_at: MOCK_LOADED_AT - 3 * MOCK_HOUR },
+  { conversation_id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', profile_pic_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', is_human_needed: true, human_needed_reason: 'Asked for a bulk discount', handover_category: 'bulk_custom_or_pricing', assigned_to_user_id: null, last_customer_at: MOCK_LOADED_AT - 30 * MOCK_HOUR },
+  { conversation_id: 'conv_3', name: 'Rahim Uddin', snippet: 'Can I change the delivery address?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Escalated for pricing negotiation', handover_category: null, assigned_to_user_id: 'user_2', note: 'Prefers delivery after 6 pm. Call before sending COD.', last_customer_at: MOCK_LOADED_AT - 3 * MOCK_HOUR },
   { conversation_id: 'conv_4', name: 'Nadia Islam', snippet: 'Thanks, I will think about it.', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_user_id: null, last_customer_at: MOCK_LOADED_AT - 9 * 24 * MOCK_HOUR },
 ].map(conversation => ({ ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString() }));
 // As the API returns it (last_customer_at is mock bookkeeping).
@@ -285,6 +285,215 @@ const startMockLiveScript = () => {
   setTimeout(() => { mockInbox = [...mockInbox, mockNewConversation]; }, 16900);
   mockPush('inbox_message', { conversation_id: 'conv_5', page_id: 'page_1', message: mockMessage({ message_id: 'live_3', message: mockNewConversation.snippet, created_at: new Date(Date.now() + 17000).toISOString() }) }, 17000);
   mockPush('inbox_message', { conversation_id: 'conv_9', page_id: 'page_2', message: mockMessage({ message_id: 'live_4', message: 'Another page: must not appear' }) }, 18000);
+};
+// Owner dashboard (GET /v1/dashboard/*). ?mockDashboard=empty is a brand-new business;
+// ?mockDashboard=error fails the overview (500) and the AI view (429).
+const MOCK_DASHBOARD_MODE = MOCK_LOAD_PARAMS.get('mockDashboard') || '';
+const MOCK_DASHBOARD_TZ = 'Asia/Dhaka';
+const mockTodayDhaka = () => new Intl.DateTimeFormat('en-CA', { timeZone: MOCK_DASHBOARD_TZ }).format(new Date());
+const mockDayShift = (day, days) => new Date(Date.parse(`${day}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
+const mockDashboardError = (status, message) => { const error = new Error(message); error.status = status; throw error; };
+// Resolves start_date/end_date the way the API does: default 30 days to today, max 30 days.
+const mockDashboardPeriod = (endpoint) => {
+  const params = new URLSearchParams(endpoint.split('?')[1] || '');
+  const end = params.get('end_date') || mockTodayDhaka();
+  const start = params.get('start_date') || mockDayShift(end, -29);
+  const days = Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1;
+  if (days < 1) mockDashboardError(422, 'end_date must not be before start_date.');
+  if (days > 30) mockDashboardError(422, 'The period may not be longer than 30 days.');
+  return {
+    days, start, end,
+    range: { start_date: start, end_date: end, timezone: MOCK_DASHBOARD_TZ, currency: 'BDT', previous: { start_date: mockDayShift(start, -days), end_date: mockDayShift(start, -1) } },
+  };
+};
+// Deterministic "random" in [0, 1) per seed, so a range always shows the same numbers.
+const mockNoise = (seed) => { const x = Math.sin(seed * 9301 + 49297) * 233280; return x - Math.floor(x); };
+const mockCompared = (value, previous, kind = 'pct') => {
+  if (kind === 'pp') return { value, previous, change_pp: value === null || previous === null ? null : Math.round((value - previous) * 10) / 10 };
+  const change = previous === null || Number(previous) === 0 ? null : Math.round(((Number(value) - Number(previous)) / Number(previous)) * 1000) / 10;
+  return { value, previous, change_pct: change };
+};
+const mockShare = (part, whole) => (whole ? Math.round((part / whole) * 1000) / 10 : null);
+const mockDashboardOverview = (endpoint) => {
+  const { days, start, end, range } = mockDashboardPeriod(endpoint);
+  const today = mockTodayDhaka();
+  const lastDay = end < today ? end : today;
+  const empty = MOCK_DASHBOARD_MODE === 'empty';
+  const daily = [];
+  for (let day = start; day <= lastDay; day = mockDayShift(day, 1)) {
+    const seed = Date.parse(day) / 86400000;
+    const isToday = day === today;
+    const scale = empty ? 0 : (isToday ? 0.45 : 1);
+    const customer = Math.round((230 + mockNoise(seed) * 70) * scale);
+    const orders = Math.round((10 + mockNoise(seed + 1) * 8) * scale);
+    daily.push({ date: day, customer_messages: customer, active_conversations: Math.round(customer * 0.29), orders, revenue: (orders * (1700 + Math.round(mockNoise(seed + 2) * 200))).toFixed(2) });
+  }
+  const sum = (key) => daily.reduce((total, item) => total + Number(item[key]), 0);
+  const prev = (value) => (empty ? null : Math.round(value * (0.82 + mockNoise(days) * 0.12)));
+  const customer = sum('customer_messages');
+  const replies = Math.round(customer * 1.23);
+  const aiReplies = Math.round(replies * 0.853);
+  const active = Math.round(customer * 0.2);
+  const aiHandled = Math.round(active * 0.72);
+  const handedOver = Math.round(active * 0.083);
+  const orders = sum('orders');
+  const revenue = sum('revenue');
+  const aiOrders = Math.round(orders * 0.76);
+  const prevOrders = prev(orders);
+  const prevRevenue = empty ? null : revenue * 0.87;
+  return {
+    range,
+    messages: {
+      customer_messages: mockCompared(customer, prev(customer)),
+      replies: mockCompared(replies, prev(replies)),
+      ai_replies: mockCompared(aiReplies, prev(aiReplies)),
+      ai_reply_pct: mockCompared(mockShare(aiReplies, replies), empty ? null : 84.0, 'pp'),
+    },
+    conversations: {
+      active: mockCompared(active, prev(active)),
+      new_customers: mockCompared(Math.round(active * 0.49), prev(active * 0.49)),
+      returning_customers: mockCompared(active - Math.round(active * 0.49), prev(active * 0.51)),
+      ai_handled: mockCompared(aiHandled, prev(aiHandled)),
+      ai_handled_pct: mockCompared(mockShare(aiHandled, active), empty ? null : 68.5, 'pp'),
+      handed_over: mockCompared(handedOver, prev(handedOver * 1.1)),
+      handed_over_pct: mockCompared(mockShare(handedOver, active), empty ? null : 9.1, 'pp'),
+    },
+    sales: {
+      orders: mockCompared(orders, prevOrders),
+      revenue: mockCompared(revenue.toFixed(2), prevRevenue === null ? null : prevRevenue.toFixed(2)),
+      average_order_value: mockCompared(orders ? (revenue / orders).toFixed(2) : null, prevOrders ? (prevRevenue / prevOrders).toFixed(2) : null),
+      ai_orders: mockCompared(aiOrders, prev(aiOrders)),
+      ai_orders_pct: mockCompared(mockShare(aiOrders, orders), empty ? null : 71.4, 'pp'),
+      conversion_pct: mockCompared(mockShare(Math.round(orders * 0.92), active), empty ? null : 23.0, 'pp'),
+      leads: mockCompared(Math.round(orders * 0.25), empty ? null : 0),
+    },
+    response_time: {
+      median_first_reply_seconds: mockCompared(empty ? null : 17, empty ? null : 21),
+      replied_within_5_min_pct: mockCompared(empty ? null : 93.6, empty ? null : 91.2, 'pp'),
+      unanswered_after_24h_pct: empty ? null : 1.1,
+      no_reply_needed: empty ? 0 : Math.round(customer * 0.025),
+    },
+    daily,
+  };
+};
+const mockDashboardAi = (endpoint) => {
+  if (MOCK_DASHBOARD_MODE === 'error') mockDashboardError(429, 'Too Many Requests');
+  const { days, range } = mockDashboardPeriod(endpoint);
+  if (MOCK_DASHBOARD_MODE === 'empty') {
+    return {
+      range, share: { ai_reply_pct: null, ai_handled_conversations_pct: null, ai_active_conversations_pct: null },
+      handovers: { count: 0, pct_of_ai_conversations: null, by_category: [] }, failed_turns: { count: 0, pct_of_turns: null, with_fallback: 0, silent: 0 },
+      recent_handovers: [], response_time: { ai_median_seconds: null, team_median_seconds: null, outside_app_median_seconds: null, handover_to_human_reply_median_seconds: null, handovers_without_human_reply: 0 },
+      time_saved_hours: { value: 0, ai_handled_turns: 0, seconds_per_reply: 90, is_estimate: true },
+      team: [{ user_id: 'user_1', name: 'demo@lyfflow.com', replies: 0, reply_share_pct: null, orders_created: 0, handover_reply_median_seconds: null }],
+      unattributed_human_replies: 0,
+    };
+  }
+  const scale = days / 7;
+  const categories = [['missing_knowledge', 9], ['complaint_refund_return', 7], ['order_status_or_delivery', 4], ['product_identification', 3], ['order_change_or_cancel', 2], ['uncategorized', 2]]
+    .map(([category, count]) => [category, Math.max(1, Math.round(count * scale))]);
+  const handovers = categories.reduce((total, [, count]) => total + count, 0);
+  const turns = Math.round(1209 * scale);
+  const at = (hoursAgo) => new Date(Date.now() - hoursAgo * 3600000).toISOString();
+  return {
+    range,
+    share: { ai_reply_pct: 85.3, ai_handled_conversations_pct: 72.0, ai_active_conversations_pct: 94.4 },
+    handovers: { count: handovers, pct_of_ai_conversations: 7.1, by_category: categories.map(([category, count]) => ({ category, count, pct: mockShare(count, handovers) })) },
+    failed_turns: { count: Math.round(8 * scale), pct_of_turns: 0.6, with_fallback: Math.round(6 * scale), silent: Math.round(2 * scale) },
+    recent_handovers: [
+      { conversation_id: 'conv_2', page_id: 'page_1', at: at(1.5), category: 'bulk_custom_or_pricing', reason: 'Asked for a bulk discount', customer_message: 'Can I get a better price if I order 20 wallets for my office?' },
+      { conversation_id: 'conv_3', page_id: 'page_1', at: at(4), category: 'missing_knowledge', reason: 'LED board size not in knowledge base', customer_message: 'What is the size of the LED board? Will it fit a 6 ft wall?' },
+      { conversation_id: 'conv_1', page_id: 'page_1', at: at(9), category: 'complaint_refund_return', reason: 'wrong color received', customer_message: 'I ordered black but got white. I want to return it.' },
+      { conversation_id: 'conv_4', page_id: 'page_1', at: at(26), category: 'system_failure', reason: 'Agent turn timed out after 300s', customer_message: 'Is cash on delivery available in Sylhet?' },
+      { conversation_id: 'conv_3', page_id: 'page_1', at: at(50), category: 'missing_knowledge', reason: 'Warranty period for the power bank is not listed', customer_message: 'How long is the warranty on the J101 power bank?' },
+    ],
+    response_time: { ai_median_seconds: 14, team_median_seconds: 1860, outside_app_median_seconds: 1320, handover_to_human_reply_median_seconds: 2400, handovers_without_human_reply: Math.round(4 * scale) },
+    time_saved_hours: { value: Math.round((turns * 90) / 360) / 10, ai_handled_turns: turns, seconds_per_reply: 90, is_estimate: true },
+    team: [
+      { user_id: 'user_3', name: 'Rafi Hasan', replies: Math.round(142 * scale), reply_share_pct: 42.6, orders_created: Math.round(14 * scale), handover_reply_median_seconds: 1500 },
+      { user_id: 'user_2', name: 'alice@example.com', replies: Math.round(96 * scale), reply_share_pct: 28.8, orders_created: Math.round(7 * scale), handover_reply_median_seconds: 2820 },
+      { user_id: 'user_1', name: 'Demo User', replies: 0, reply_share_pct: 0.0, orders_created: 0, handover_reply_median_seconds: null },
+    ],
+    unattributed_human_replies: Math.round(95 * scale),
+  };
+};
+// Live lists behind the attention cards, longest wait first.
+const mockAttentionRows = () => {
+  if (MOCK_DASHBOARD_MODE === 'empty') return { waiting: [], handovers: [], orders: [] };
+  const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
+  const waitRow = (conversation_id, customer_name, page_id, minutes) => ({ conversation_id, customer_name, page_id, wait_started_at: minutesAgo(minutes), waiting_minutes: minutes });
+  const waiting = [waitRow('conv_4', 'Nadia Islam', 'page_1', 48), waitRow('conv_w2', 'Tanvir Ahmed', 'page_2', 31), waitRow('conv_w3', 'Mitu Akter', 'page_1', 17)];
+  const names = ['Arif Chowdhury', 'Farzana Rahman', 'Sabbir Khan', 'Rumana Begum', 'Jahid Hasan', 'Shirin Akter', 'Kamal Uddin'];
+  const handoverCategories = ['complaint_refund_return', 'missing_knowledge', null, 'order_status_or_delivery', 'customer_asked_human', 'system_failure', 'bulk_custom_or_pricing'];
+  const assignees = [null, ['user_3', 'Rafi Hasan'], null, ['user_2', 'alice@example.com'], null, null, ['user_1', 'Demo User']];
+  const handovers = [
+    { conversation_id: 'conv_2', customer_name: 'Jane Smith', page_id: 'page_1', category: 'bulk_custom_or_pricing', assigned_to_user_id: null, assigned_to_name: null, wait_started_at: minutesAgo(1800), waiting_minutes: 1800 },
+    { conversation_id: 'conv_3', customer_name: 'Rahim Uddin', page_id: 'page_1', category: 'missing_knowledge', assigned_to_user_id: 'user_2', assigned_to_name: 'alice@example.com', wait_started_at: minutesAgo(410), waiting_minutes: 410 },
+    ...names.map((name, index) => {
+      const minutes = 300 - index * 40;
+      return {
+        conversation_id: `conv_h${index + 1}`, customer_name: name, page_id: index % 2 ? 'page_2' : 'page_1', category: handoverCategories[index],
+        assigned_to_user_id: assignees[index]?.[0] || null, assigned_to_name: assignees[index]?.[1] || null, wait_started_at: minutesAgo(minutes), waiting_minutes: minutes,
+      };
+    }),
+  ];
+  const orders = MOCK_ORDERS
+    .filter(order => order.status === 'new' && Date.now() - Date.parse(order.created_at) > 24 * 3600000)
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))
+    .map((order, index) => ({
+      customer_order_id: order.customer_order_id, order_id: order.order_id, customer_name: order.contact_name, total: order.total,
+      created_at: order.created_at, age_hours: Math.floor((Date.now() - Date.parse(order.created_at)) / 3600000), missing_contact: index % 3 === 0,
+    }));
+  return { waiting, handovers, orders };
+};
+const mockAttention = () => {
+  const { waiting, handovers, orders } = mockAttentionRows();
+  const card = (rows, extra) => ({ count: rows.length, ...extra, preview: rows.slice(0, 5), preview_truncated: rows.length > 5 });
+  const empty = MOCK_DASHBOARD_MODE === 'empty';
+  return {
+    as_of: new Date().toISOString(),
+    waiting_for_reply: card(waiting, { oldest_minutes: waiting[0]?.waiting_minutes ?? null, ai_decided_no_reply: empty ? 0 : 5 }),
+    unanswered_handovers: card(handovers, { unassigned: handovers.filter(row => !row.assigned_to_name).length, oldest_minutes: handovers[0]?.waiting_minutes ?? null }),
+    new_orders_unprocessed: card(orders, { oldest_hours: orders[0]?.age_hours ?? null, missing_contact: orders.filter(row => row.missing_contact).length }),
+    leads_not_contacted: empty ? { count: 0, oldest_hours: null } : { count: 5, oldest_hours: 40 },
+    pending_comment_reviews: { count: empty ? 0 : mockComments.filter(comment => comment.execution_status === 'pending_review').length },
+  };
+};
+const mockAttentionList = (kind, endpoint) => {
+  const rows = mockAttentionRows()[{ 'waiting-for-reply': 'waiting', 'unanswered-handovers': 'handovers', 'unprocessed-orders': 'orders' }[kind]];
+  const params = new URLSearchParams(endpoint.split('?')[1] || '');
+  const size = Math.min(100, Math.max(1, Number(params.get('page_size')) || 20));
+  const offset = Number(params.get('cursor')) || 0;
+  const next = offset + size < rows.length ? String(offset + size) : null;
+  return { items: rows.slice(offset, offset + size), pagination: { next_cursor: next, has_more: Boolean(next), page_size: size, total: rows.length } };
+};
+const mockDashboardGrowth = (endpoint) => {
+  const { days, range } = mockDashboardPeriod(endpoint);
+  const empty = MOCK_DASHBOARD_MODE === 'empty';
+  const scale = empty ? 0 : days / 7;
+  const hourShape = [8, 4, 3, 1, 1, 1, 1, 3, 5, 9, 13, 16, 19, 18, 15, 14, 14, 15, 16, 19, 23, 25, 21, 14];
+  const products = [['wal-01', 'Premium Leather Wallet', 21, 1170], ['tot-02', 'Canvas Tote Bag', 14, 850], ['tsh-blk-l', 'Cotton T-Shirt (Black - L)', 12, 500], ['shi-03', 'Linen Shirt', 9, 1450], [null, 'Gift wrap (custom)', 6, 120]];
+  const itemRevenue = products.reduce((total, [, , quantity, price]) => total + quantity * price, 0) / 0.62;
+  return {
+    range,
+    pages: [
+      { page_id: 'page_2', page_name: 'Demo Store Instagram', platform: 'ig', customer_messages: Math.round(330 * scale), active_conversations: Math.round(71 * scale), orders: Math.round(15 * scale), revenue: (27180 * scale).toFixed(2), conversion_pct: empty ? null : 21.1, median_first_reply_seconds: empty ? null : 23 },
+      { page_id: 'page_1', page_name: 'Lyfflow Demo Page', platform: 'fb', customer_messages: Math.round(1510 * scale), active_conversations: Math.round(301 * scale), orders: Math.round(81 * scale), revenue: (144180 * scale).toFixed(2), conversion_pct: empty ? null : 24.3, median_first_reply_seconds: empty ? null : 16 },
+    ],
+    busy_hours: {
+      weekday_0: 'sunday',
+      customer_messages: Array.from({ length: 7 }, (_, weekday) => hourShape.map((count, hour) => Math.round(count * scale * (weekday === 5 ? 0.85 : 1) * (0.9 + mockNoise(weekday * 24 + hour) * 0.25)))),
+    },
+    handovers_by_hour: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 2, 2, 1, 1, 2, 2, 2, 3, 2, 1, 0].map(count => Math.round(count * scale)),
+    top_products: empty ? [] : products.map(([code, name, quantity, price]) => {
+      const units = Math.max(1, Math.round(quantity * scale));
+      return { code, name, quantity: units, revenue: (units * price).toFixed(2), revenue_share_pct: Math.round(((quantity * price) / itemRevenue) * 1000) / 10 };
+    }),
+    new_vs_returning: {
+      new: { conversations: Math.round(181 * scale), ordered: Math.round(49 * scale), conversion_pct: empty ? null : 27.1 },
+      returning: { conversations: Math.round(191 * scale), ordered: Math.round(39 * scale), conversion_pct: empty ? null : 20.4 },
+    },
+  };
 };
 const mockWindowStatus = (conversation) => {
   const since = Date.now() - (conversation?.last_customer_at ?? Date.now());
@@ -947,6 +1156,29 @@ const apiFetch = async (endpoint, options = {}) => {
       mockComments = mockComments.map(item => (item.id === comment.id ? { ...item, ...changes, updated_at: new Date().toISOString() } : item));
       return mockComments.find(item => item.id === comment.id);
     }
+    // Owner dashboard: owners and admins only.
+    if (endpoint.startsWith('/v1/dashboard/')) {
+      if (mockRole === 'member') mockDashboardError(403, 'This action requires at least the admin role.');
+      if (endpoint.startsWith('/v1/dashboard/overview')) {
+        if (MOCK_DASHBOARD_MODE === 'error') mockDashboardError(500, 'Failed to compute the dashboard overview.');
+        return mockDashboardOverview(endpoint);
+      }
+      if (endpoint.startsWith('/v1/dashboard/ai')) return mockDashboardAi(endpoint);
+      if (endpoint.startsWith('/v1/dashboard/growth')) return mockDashboardGrowth(endpoint);
+      const attentionListMatch = endpoint.match(/^\/v1\/dashboard\/attention\/(waiting-for-reply|unanswered-handovers|unprocessed-orders)(?:\?|$)/);
+      if (attentionListMatch) return mockAttentionList(attentionListMatch[1], endpoint);
+      if (endpoint === '/v1/dashboard/attention') return mockAttention();
+    }
+    const noteMatch = endpoint.match(/^\/v1\/page\/[^/]+\/conversations\/([^/]+)\/note$/);
+    if (noteMatch && method === 'PATCH') {
+      const raw = JSON.parse(requestOptions.body || '{}').note;
+      const note = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+      if (note && [...note].length > 500) mockDashboardError(422, 'The note may be at most 500 characters.');
+      mockInbox = mockInbox.map(item => (item.conversation_id === noteMatch[1] ? { ...item, note } : item));
+      const conversation = mockInbox.find(item => item.conversation_id === noteMatch[1]);
+      if (!conversation) mockDashboardError(404, 'Conversation not found');
+      return mockInboxItem(conversation);
+    }
     // page_1's inbox: queues, assignment, handover and each conversation's reply window.
     const inboxListMatch = endpoint.match(/^\/v1\/page\/page_1\/conversations(\/assigned)?(?:\?(.*))?$/);
     if (inboxListMatch && method === 'GET') {
@@ -1228,7 +1460,7 @@ const apiFetch = async (endpoint, options = {}) => {
       const conversationId = manualOrderCreateMatch[1];
       const now = new Date().toISOString();
       const created = {
-        ...mockData['/v1/pages/orders'].orders[0], ...body, created_by: 'manual',
+        ...mockData['/v1/pages/orders'].orders[0], ...body, created_by: 'manual', created_by_user_id: MOCK_CURRENT_USER_ID,
         customer_order_id: `00000000-0000-4000-9000-${String(Date.now()).slice(-12)}`,
         order_id: `ORD-M${String(Date.now()).slice(-5)}`,
         conversation_id: conversationId, created_at: now, updated_at: now,
@@ -1559,6 +1791,14 @@ const connectWooPlugin = async (key, body) => {
     throw error;
   }
   return response.json();
+};
+
+const dashboardPeriodQuery = ({ start_date: startDate, end_date: endDate } = {}) => {
+  const q = new URLSearchParams();
+  if (startDate) q.set('start_date', startDate);
+  if (endDate) q.set('end_date', endDate);
+  const qs = q.toString();
+  return qs ? `?${qs}` : '';
 };
 
 export const apiService = {
@@ -1945,6 +2185,30 @@ export const apiService = {
   }),
   // Returns basic info for a conversation (name, is_human_needed, updated_time)
   getConversationInfo: (conversationId) => apiFetch(`/v1/conversations/${conversationId}/info`),
+  // Team note, any member; up to 500 characters (code points, after trimming). null or
+  // blank clears it. Returns the updated ConversationInfo.
+  updateConversationNote: (pageId, conversationId, note) => apiFetch(`/v1/page/${pageId}/conversations/${conversationId}/note`, {
+    method: 'PATCH',
+    body: JSON.stringify({ note: typeof note === 'string' && note.trim() ? note.trim() : null }),
+  }),
+
+  // Owner dashboard (owners and admins; members get 403). The period views take
+  // { start_date, end_date } as YYYY-MM-DD in the business timezone, at most 30 days;
+  // shapes are DashboardOverviewResponse, DashboardAiResponse and DashboardGrowthResponse
+  // in /openapi.json. `signal` cancels a request for a period that is no longer shown.
+  getDashboardOverview: (period = {}, { signal } = {}) => apiFetch(`/v1/dashboard/overview${dashboardPeriodQuery(period)}`, { signal }),
+  getDashboardAi: (period = {}, { signal } = {}) => apiFetch(`/v1/dashboard/ai${dashboardPeriodQuery(period)}`, { signal }),
+  getDashboardGrowth: (period = {}, { signal } = {}) => apiFetch(`/v1/dashboard/growth${dashboardPeriodQuery(period)}`, { signal }),
+  // Always live: what needs a person right now (DashboardAttentionResponse).
+  getDashboardAttention: ({ signal } = {}) => apiFetch('/v1/dashboard/attention', { signal }),
+  // The full list behind an attention card: waiting-for-reply | unanswered-handovers |
+  // unprocessed-orders. Returns { items, pagination }.
+  getDashboardAttentionList: (list, { cursor, pageSize = 20 } = {}) => {
+    const q = new URLSearchParams();
+    if (cursor) q.set('cursor', cursor);
+    q.set('page_size', pageSize);
+    return apiFetch(`/v1/dashboard/attention/${list}?${q.toString()}`);
+  },
 
   // Returns basic info for a specific message (role, has_attachment, is_ai_msg, created_at)
   getMessageInfo: (conversationId, messageId) => apiFetch(`/v1/conversations/${conversationId}/messages/${messageId}/info`),

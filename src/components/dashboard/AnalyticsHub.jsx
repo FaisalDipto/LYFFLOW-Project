@@ -20,29 +20,7 @@ import {
   rangeDays,
   sampleCommentSeries,
 } from '../../services/analytics';
-
-// Categorical slots 1-3 (green, orange, blue) validate as a set in both modes; the
-// dark column is the same hues stepped for the black surface.
-const CHART_THEME = {
-  light: {
-    series: ['#1baf7a', '#eb6834', '#2a78d6'],
-    grid: '#e2e8f0',
-    axis: '#64748b',
-    cursor: 'rgba(15, 23, 42, 0.04)',
-    meterTrack: '#c8eedd',
-    warning: '#c98500',
-    critical: '#e34948',
-  },
-  dark: {
-    series: ['#199e70', '#d95926', '#3987e5'],
-    grid: '#2a2a2a',
-    axis: '#9b9b9b',
-    cursor: 'rgba(255, 255, 255, 0.04)',
-    meterTrack: '#0f3a2b',
-    warning: '#c98500',
-    critical: '#e66767',
-  },
-};
+import { CHART_THEME } from './chartTheme';
 
 const SOURCE_LABELS = { facebook: 'Facebook', instagram: 'Instagram' };
 

@@ -235,6 +235,12 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   const handleSelectRecordRef = useRef(handleSelectRecord);
   handleSelectRecordRef.current = handleSelectRecord;
 
+  // A status from a link (the dashboard's "leads not contacted" opens new leads).
+  useEffect(() => {
+    if (focusRequest?.recordType !== recordType || !focusRequest.status) return;
+    setFilterStatus(focusRequest.status);
+  }, [focusRequest, recordType]);
+
   useEffect(() => {
     if (!focusRequest?.recordId || focusRequest.recordType !== recordType) return;
     if (focusRequest.pageId) setSelectedPageId(focusRequest.pageId);
