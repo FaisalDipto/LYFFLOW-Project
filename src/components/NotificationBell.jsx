@@ -236,7 +236,7 @@ export default function NotificationBell({ isOpen, onOpenChange, onNavigate }) {
           aria-label="Notifications"
           className="notifications-panel fixed inset-x-3 top-[76px] z-[60] flex max-h-[min(560px,calc(100vh-96px))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.16)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[390px]"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
             <div className="flex min-w-0 items-center gap-2">
               <h3 className="text-sm font-extrabold text-slate-950">Notifications</h3>
               {streamStatus !== 'live' && (
@@ -259,7 +259,10 @@ export default function NotificationBell({ isOpen, onOpenChange, onNavigate }) {
             </button>
           </div>
 
-          <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-3 py-2">
+          {/* shrink-0: an overflow container's min-height is 0 in a flex column, so without it
+              a long list squeezes this row down to a sliver. Scrolls sideways without a bar;
+              the edge fade shows there are more tabs. */}
+          <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-100 px-3 py-2 [mask-image:linear-gradient(to_right,#000_calc(100%-28px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {NOTIFICATION_CATEGORIES.map(option => (
               <button
                 type="button"
@@ -273,7 +276,7 @@ export default function NotificationBell({ isOpen, onOpenChange, onNavigate }) {
             ))}
           </div>
 
-          <div ref={listRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+          <div ref={listRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto">
             {status === 'loading' && items.length === 0 && <NotificationSkeleton />}
 
             {status === 'error' && items.length === 0 && (
