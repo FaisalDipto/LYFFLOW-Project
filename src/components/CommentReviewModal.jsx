@@ -62,7 +62,7 @@ export default function CommentReviewModal({ commentAnalysisId, canAction = true
 
   useEffect(() => {
     let cancelled = false;
-    apiService.getCommentAnalysis(commentAnalysisId)
+    apiService.getCommentDetail(commentAnalysisId)
       .then(data => {
         if (cancelled) return;
         setComment(data);
@@ -100,7 +100,7 @@ export default function CommentReviewModal({ commentAnalysisId, canAction = true
     setResult(null);
     try {
       const custom = typeof text === 'string' ? text.trim() : '';
-      const updated = await apiService.actOnComment(commentAnalysisId, action, custom || null);
+      const updated = await apiService.executeCommentAction(commentAnalysisId, action, custom || null);
       if (updated?.id) setComment(updated);
       setResult({ tone: 'success', text: DONE_MESSAGES[action] });
     } catch (error) {

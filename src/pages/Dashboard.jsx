@@ -38,6 +38,8 @@ import { useWindowStatus } from '../hooks/useWindowStatus';
 import { memberShortName, useTeamMembers } from '../hooks/useTeamMembers';
 import { messagingWindowState } from '../utils/messagingWindow';
 import ReplyComposer from '../components/conversation/ReplyComposer';
+import ProductCardsMessage from '../components/conversation/ProductCardsMessage';
+import { parseProductCardsText } from '../utils/productCards';
 import MessagingWindowNotice from '../components/conversation/MessagingWindowNotice';
 import ConversationAssignee from '../components/conversation/ConversationAssignee';
 import './Dashboard.css';
@@ -1410,8 +1412,10 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     );
   };
 
-  const renderMessageText = (msg) => {
+  const renderMessageText = (msg, isMe = false) => {
     const body = msg.message || msg.text;
+    const productCards = parseProductCardsText(body);
+    if (productCards) return <ProductCardsMessage cards={productCards} inverted={isMe} />;
     if (typeof body === 'object' && body !== null) {
       return (
         <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
@@ -1500,10 +1504,10 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       return (
         <div key={msgId || Math.random()} className="group ml-auto flex max-w-[min(78%,42rem)] flex-row-reverse gap-2">
           <div className="flex min-w-0 flex-col items-end gap-1.5">
-            <div className={`relative rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border border-dashed border-slate-300 bg-white text-slate-400 italic' : 'bg-slate-900 text-white'} ${msg._pending ? 'opacity-70' : ''} ${reaction ? 'mb-1.5' : ''}`}>
+            <div className={`relative max-w-full rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border border-dashed border-slate-300 bg-white text-slate-400 italic' : 'bg-slate-900 text-white'} ${msg._pending ? 'opacity-70' : ''} ${reaction ? 'mb-1.5' : ''}`}>
               {isDeleted ? 'Message unsent' : (
                 <>
-                  {renderMessageText(msg)}
+                  {renderMessageText(msg, true)}
                   {renderAttachments(msg, true)}
                 </>
               )}
@@ -3700,7 +3704,13 @@ const AgentLog = ({ agents }) => {
                               <span>Role: {msg.role || 'assistant'}</span>
                               <span>{fmt(msg.created_at)}</span>
                             </div>
-                            <p className="text-xs font-semibold text-slate-800 whitespace-pre-wrap">{msg.content || msg.message || '—'}</p>
+                            {msg.type === 'product_cards' ? (
+                              <ProductCardsMessage codes={msg.product_codes || []} />
+                            ) : parseProductCardsText(msg.content || msg.message) ? (
+                              <ProductCardsMessage cards={parseProductCardsText(msg.content || msg.message)} />
+                            ) : (
+                              <p className="text-xs font-semibold text-slate-800 whitespace-pre-wrap">{msg.content || msg.message || msg.url || '—'}</p>
+                            )}
                             {msg.attachments?.length > 0 && (
                               <div className="pt-2 flex flex-wrap gap-2">
                                 {msg.attachments.map((att, i) => {

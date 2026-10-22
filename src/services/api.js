@@ -162,6 +162,62 @@ let mockComments = [
     created_at: new Date(MOCK_LOADED_AT - 9 * 24 * 3600000).toISOString(), updated_at: new Date(MOCK_LOADED_AT - 9 * 24 * 3600000).toISOString(),
   },
 ];
+const mockHandledComment = (id, hoursAgo, fields) => ({
+  id, page_id: 'page_1', page_name: 'Lyfflow Demo Page', agent_id: 'agent_1', agent_name: 'SalesBot', platform: 'facebook',
+  post_id: 'post_1', post_content: 'Our new stainless steel bottle keeps water cold for 24 hours. Perfect for trips and the gym!',
+  comment_id: `fbc_${id}`, commenter_id: `fbu_${id}`, comment_reply: null, inbox_message: null,
+  is_public_replied: false, is_private_replied: false, is_deleted: false, execution_status: 'completed',
+  created_at: new Date(MOCK_LOADED_AT - hoursAgo * 3600000).toISOString(), updated_at: new Date(MOCK_LOADED_AT - hoursAgo * 3600000).toISOString(),
+  ...fields,
+});
+mockComments.push(
+  mockHandledComment('cmt_3', 3, { commenter_name: 'Nusrat Jahan', comment_text: 'Price koto? Delivery Dhakar baire hoy?', category: 'query', confidence: 0.93, reason: 'Asks about price and delivery area', action: 'reply', comment_reply: 'Hi Nusrat! It is 1,250 BDT and we deliver across Bangladesh. Check your inbox for details.', inbox_message: 'Hi Nusrat, the bottle is 1,250 BDT with delivery anywhere in Bangladesh in 2-4 days.', is_public_replied: true, is_private_replied: true }),
+  mockHandledComment('cmt_4', 7, { commenter_name: 'Arif Hossain', comment_text: 'Bought two last month, still cold after a full day. Love it!', category: 'positive_neutral', confidence: 0.97, reason: 'Positive product feedback', action: 'reply', comment_reply: 'Thank you, Arif! So glad you love them.', is_public_replied: true }),
+  mockHandledComment('cmt_5', 20, { commenter_name: 'Crypto Gains 24', comment_text: 'Earn $500 a day from home!! DM me now', category: 'spam_scam', confidence: 0.99, reason: 'Unsolicited money-making scheme', action: 'remove', is_deleted: true }),
+  mockHandledComment('cmt_6', 30, { platform: 'instagram', post_id: 'post_2', post_content: 'Weekend sale: 20% off all leather wallets.', commenter_name: 'deals.bd', comment_text: 'Same wallet for half the price at @cheapwallets', category: 'competitor_promo', confidence: 0.88, reason: 'Promotes a competing store', action: 'remove', is_deleted: true }),
+  mockHandledComment('cmt_7', 52, { commenter_name: 'Rakib', comment_text: 'Worst service, you people are useless idiots', category: 'abuse_hate', confidence: 0.91, reason: 'Insulting language aimed at the business', action: 'remove', is_deleted: true }),
+  mockHandledComment('cmt_8', 75, { platform: 'instagram', post_id: 'post_2', post_content: 'Weekend sale: 20% off all leather wallets.', commenter_name: 'Mim', comment_text: '🔥🔥', category: 'positive_neutral', confidence: 0.82, reason: 'Emoji reaction', action: 'ignore' }),
+  mockHandledComment('cmt_9', 120, { commenter_name: 'Tanvir Ahmed', comment_text: 'hmm', category: 'unclear', confidence: 0.41, reason: 'Too short to classify', action: 'ignore', execution_status: 'dismissed' }),
+  mockHandledComment('cmt_10', 200, { commenter_name: 'Sadia Islam', comment_text: 'Ordered a week ago and still nothing. Where is my parcel?', category: 'negative_review', confidence: 0.79, reason: 'Delivery complaint', action: 'reply', comment_reply: 'Sorry for the wait, Sadia. We have messaged you with the tracking details.', inbox_message: 'Hi Sadia, your parcel is with the courier: tracking LF-20391.', is_public_replied: true, is_private_replied: true, execution_status: 'failed' }),
+  mockHandledComment('cmt_11', 24 * 40, { commenter_name: 'Old Commenter', comment_text: 'Do you have a blue one?', category: 'query', confidence: 0.9, reason: 'Asks about colour options', action: 'reply', comment_reply: 'Yes! Blue is in stock.', is_public_replied: true }),
+);
+// Matches GET /v1/comments' filters: everything except the cursor and page size.
+const mockCommentMatches = (comment, params) => {
+  const search = (params.get('search') || '').trim().toLowerCase();
+  return ['page_id', 'platform', 'category', 'action', 'execution_status', 'post_id'].every(key => !params.get(key) || comment[key] === params.get(key))
+    && (!search || `${comment.comment_text} ${comment.commenter_name}`.toLowerCase().includes(search));
+};
+// GET /v1/comments/summary, computed from mockComments the way the backend aggregates.
+const mockCommentSummary = (params) => {
+  const days = Math.min(365, Math.max(1, Number(params.get('days')) || 30));
+  const since = Date.now() - days * 24 * 3600000;
+  const inWindow = mockComments.filter(item => Date.parse(item.created_at) >= since
+    && (!params.get('page_id') || item.page_id === params.get('page_id'))
+    && (!params.get('platform') || item.platform === params.get('platform')));
+  const total = inWindow.length;
+  const breakdown = (key, values) => values
+    .map(value => {
+      const count = inWindow.filter(item => item[key] === value).length;
+      return { [key]: value, count, percentage: total ? Math.round((count / total) * 1000) / 10 : 0 };
+    })
+    .filter(item => item.count > 0);
+  const daily_trends = Array.from({ length: days }, (_, index) => {
+    const date = new Date(Date.now() - (days - 1 - index) * 24 * 3600000).toISOString().slice(0, 10);
+    const day = inWindow.filter(item => item.created_at.slice(0, 10) === date);
+    const count = (...categories) => day.filter(item => categories.includes(item.category)).length;
+    return {
+      date, total: day.length, queries: count('query'), negative_reviews: count('negative_review'),
+      spam_abuse: count('spam_scam', 'abuse_hate', 'competitor_promo'), positive_neutral: count('positive_neutral'),
+    };
+  });
+  return {
+    total_comments: total,
+    pending_review_count: inWindow.filter(item => item.execution_status === 'pending_review').length,
+    categories: breakdown('category', ['abuse_hate', 'spam_scam', 'negative_review', 'competitor_promo', 'query', 'positive_neutral', 'unclear']),
+    actions: breakdown('action', ['remove', 'reply', 'ignore', 'review']),
+    daily_trends,
+  };
+};
 const mockCommentNotification = (comment, notificationId, readAt = null) => ({
   notification_id: notificationId, business_id: 'biz_1', page_id: comment.page_id, type: 'comment_review_needed',
   category: 'conversation', severity: 'warning', title: `Comment from ${comment.commenter_name} needs review`,
@@ -820,6 +876,18 @@ const apiFetch = async (endpoint, options = {}) => {
       });
       return { updated, unread_count: mockUnreadCount() };
     }
+    const commentListMatch = endpoint.match(/^\/v1\/comments(\/summary)?(?:\?(.*))?$/);
+    if (commentListMatch && method === 'GET') {
+      const params = new URLSearchParams(commentListMatch[2] || '');
+      if (commentListMatch[1]) return mockCommentSummary(params);
+      const matches = mockComments
+        .filter(item => mockCommentMatches(item, params))
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+      const size = Math.min(100, Math.max(1, Number(params.get('page_size')) || 20));
+      const start = Number(params.get('cursor')) || 0;
+      const next = start + size < matches.length ? String(start + size) : null;
+      return { comments: matches.slice(start, start + size), pagination: { next_cursor: next, has_more: Boolean(next), page_size: size, total: matches.length } };
+    }
     const commentMatch = endpoint.match(/^\/v1\/comments\/([^/?]+)(\/action)?$/);
     if (commentMatch && commentMatch[1] !== 'summary') {
       const comment = mockComments.find(item => item.id === commentMatch[1]);
@@ -921,7 +989,8 @@ const apiFetch = async (endpoint, options = {}) => {
         if (index % 2 === 0) {
           return {
             ...base, role: 'user', is_ai_msg: false,
-            message: index === 0 ? 'Hello, I need help with my order.' : `Customer message #${60 - index}: could you tell me more about this item?`,
+            // index 6 is the customer tapping a product card's button.
+            message: index === 0 ? 'Hello, I need help with my order.' : index === 6 ? 'এটা নিব (GOO47-2)' : `Customer message #${60 - index}: could you tell me more about this item?`,
             // One recalled message, as Messenger's unsend leaves it.
             ...(index === 4 ? { is_deleted: true, deleted_at: new Date(MOCK_LOADED_AT - 15 * 60000).toISOString() } : {}),
           };
@@ -930,7 +999,9 @@ const apiFetch = async (endpoint, options = {}) => {
         const sentBy = index === 1 ? 'user_2' : index === 3 ? MOCK_CURRENT_USER_ID : null;
         return {
           ...base, role: 'page', is_ai_msg: !sentBy, sent_by_user_id: sentBy,
-          message: index === 1 ? "I've passed this to our delivery team; they'll confirm the time today." : `Agent reply #${60 - index}: here are the details you asked about.`,
+          message: index === 1 ? "I've passed this to our delivery team; they'll confirm the time today."
+            : index === 7 ? '[Product cards] LED Acrylic Writing Board — ৳650 (Regular ৳1500) · Magical Water Floating Pens — ৳550 · Mini Desk Organiser — ৳420'
+            : `Agent reply #${60 - index}: here are the details you asked about.`,
           is_delivered: true, delivered_at: createdAt,
           is_read: index !== 1, read_at: index !== 1 ? createdAt : null,
           reaction: index === 3 ? '❤️' : index === 9 ? '👍' : null,
@@ -2046,12 +2117,98 @@ export const apiService = {
     preserveGetCache: true,
   }),
 
-  // A comment the AI analysed (from a comment_review_needed notification's payload).
-  getCommentAnalysis: (commentAnalysisId) => apiFetch(`/v1/comments/${encodeURIComponent(commentAnalysisId)}`),
-  // action: reply_comment | send_inbox_dm | delete_comment | dismiss. customReply replaces
-  // the AI's suggested text for the two replies; omitted, the suggestion is sent.
-  // Returns the updated comment.
-  actOnComment: (commentAnalysisId, action, customReply = null) => apiFetch(`/v1/comments/${encodeURIComponent(commentAnalysisId)}/action`, {
+  // Comment moderation
+  /**
+   * @typedef {'abuse_hate'|'spam_scam'|'negative_review'|'competitor_promo'|'query'|'positive_neutral'|'unclear'} CommentCategory
+   * @typedef {'remove'|'reply'|'ignore'|'review'} CommentAction   How the agent routed the comment.
+   * @typedef {'completed'|'pending_review'|'resolved'|'dismissed'|'failed'} CommentExecutionStatus
+   * @typedef {'delete_comment'|'reply_comment'|'send_inbox_dm'|'dismiss'} CommentManualAction
+   * @typedef {Object} CommentAnalysis
+   * @property {string} id                  Comment analysis UUID.
+   * @property {string} page_id
+   * @property {string|null} page_name
+   * @property {string} agent_id
+   * @property {string|null} agent_name
+   * @property {string} platform            e.g. 'facebook', 'instagram'.
+   * @property {string} post_id             Platform post ID.
+   * @property {string|null} post_content
+   * @property {string} comment_id          Platform comment ID.
+   * @property {string} commenter_id
+   * @property {string} commenter_name
+   * @property {string} comment_text
+   * @property {CommentCategory} category
+   * @property {number} confidence          0 to 1.
+   * @property {string} reason              Why the agent classified it this way.
+   * @property {CommentAction} action
+   * @property {string|null} comment_reply  Suggested or sent public reply.
+   * @property {string|null} inbox_message  Suggested or sent private message.
+   * @property {boolean} is_public_replied
+   * @property {boolean} is_private_replied
+   * @property {boolean} is_deleted
+   * @property {CommentExecutionStatus} execution_status
+   * @property {string} created_at
+   * @property {string} updated_at
+   * @typedef {Object} CommentListFilters
+   * @property {string} [cursor]            next_cursor from the previous page.
+   * @property {number} [page_size]         1-100, default 20.
+   * @property {string} [page_id]
+   * @property {string} [platform]
+   * @property {CommentCategory} [category]
+   * @property {CommentAction} [action]
+   * @property {CommentExecutionStatus} [execution_status]
+   * @property {string} [post_id]
+   * @property {string} [search]            Comment text or author name, up to 200 characters.
+   * @typedef {Object} CommentListResponse
+   * @property {CommentAnalysis[]} comments   Newest first.
+   * @property {{ next_cursor: string|null, has_more: boolean, page_size: number, total: number }} pagination
+   * @typedef {Object} CommentSummaryFilters
+   * @property {string} [page_id]
+   * @property {string} [platform]
+   * @property {number} [days]              1-365, default 30.
+   * @typedef {Object} DailyCommentTrend
+   * @property {string} date
+   * @property {number} total
+   * @property {number} queries
+   * @property {number} negative_reviews
+   * @property {number} spam_abuse
+   * @property {number} positive_neutral
+   * @typedef {Object} CommentSummaryResponse
+   * @property {number} total_comments
+   * @property {number} pending_review_count
+   * @property {{ category: CommentCategory, count: number, percentage: number }[]} categories
+   * @property {{ action: CommentAction, count: number, percentage: number }[]} actions
+   * @property {DailyCommentTrend[]} daily_trends
+   */
+  /** @param {CommentSummaryFilters} [filters] @returns {Promise<CommentSummaryResponse>} */
+  getCommentsSummary: (filters = {}) => {
+    const q = new URLSearchParams();
+    ['page_id', 'platform', 'days'].forEach(key => {
+      if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') q.set(key, filters[key]);
+    });
+    const qs = q.toString();
+    return apiFetch(`/v1/comments/summary${qs ? `?${qs}` : ''}`);
+  },
+  /** @param {CommentListFilters} [filters] @returns {Promise<CommentListResponse>} */
+  getComments: (filters = {}) => {
+    const q = new URLSearchParams();
+    ['cursor', 'page_size', 'page_id', 'platform', 'category', 'action', 'execution_status', 'post_id', 'search'].forEach(key => {
+      if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') q.set(key, filters[key]);
+    });
+    const qs = q.toString();
+    return apiFetch(`/v1/comments${qs ? `?${qs}` : ''}`);
+  },
+  /** @param {string} commentAnalysisId @returns {Promise<CommentAnalysis>} */
+  getCommentDetail: (commentAnalysisId) => apiFetch(`/v1/comments/${encodeURIComponent(commentAnalysisId)}`),
+  /**
+   * Fails with 400 on a deleted comment, a second private reply, or a private reply more
+   * than 7 days after the comment.
+   * @param {string} commentAnalysisId
+   * @param {CommentManualAction} action
+   * @param {string|null} [customReply]  Up to 2000 characters, for reply_comment and
+   *   send_inbox_dm; omitted, the AI's suggested text is sent.
+   * @returns {Promise<CommentAnalysis>} The updated comment.
+   */
+  executeCommentAction: (commentAnalysisId, action, customReply = null) => apiFetch(`/v1/comments/${encodeURIComponent(commentAnalysisId)}/action`, {
     method: 'POST',
     body: JSON.stringify(customReply ? { action, custom_reply: customReply } : { action }),
   }),
