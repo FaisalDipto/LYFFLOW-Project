@@ -419,7 +419,7 @@ const TruncatedNote = () => (
 export default function AnalyticsHub({ pages, agents, isDark, isActive = true, onNavigate }) {
   const { isOwner } = useBusiness();
   const palette = CHART_THEME[isDark ? 'dark' : 'light'];
-  const [range, setRange] = useState(() => presetRange(7));
+  const [range, setRange] = useState(() => presetRange(30));
   // Range-dependent series, refetched when the range changes.
   const [ranged, setRanged] = useState({ loading: true, messages: null, orders: null });
   // All-time totals, independent of the range.

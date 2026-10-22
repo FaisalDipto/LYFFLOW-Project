@@ -28,7 +28,7 @@ export const PERIOD_PRESETS = [
 
 /** { preset, start_date, end_date } for a preset, ending today in the business timezone. */
 export function presetPeriod(presetId, timeZone) {
-  const preset = PERIOD_PRESETS.find(item => item.id === presetId) || PERIOD_PRESETS[1];
+  const preset = PERIOD_PRESETS.find(item => item.id === presetId) || PERIOD_PRESETS[2];
   const end = todayInZone(timeZone);
   return { preset: preset.id, start_date: addDays(end, -(preset.days - 1)), end_date: end };
 }

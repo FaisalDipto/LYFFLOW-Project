@@ -925,7 +925,7 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
 
   // A preset is kept as its id and resolved against today in the business timezone,
   // so it is right once the business (and its timezone) has loaded.
-  const [choice, setChoice] = useState({ preset: '7d' });
+  const [choice, setChoice] = useState({ preset: '30d' });
   const period = useMemo(
     () => (choice.preset ? presetPeriod(choice.preset, timeZone) : choice),
     [choice, timeZone],
