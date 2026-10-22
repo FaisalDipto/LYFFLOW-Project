@@ -288,7 +288,8 @@ const startMockLiveScript = () => {
   mockPush('inbox_message', { conversation_id: 'conv_9', page_id: 'page_2', message: mockMessage({ message_id: 'live_4', message: 'Another page: must not appear' }) }, 18000);
 };
 // Owner dashboard (GET /v1/dashboard/*). ?mockDashboard=empty is a brand-new business;
-// ?mockDashboard=error fails the overview (500) and the AI view (429).
+// ?mockDashboard=error fails the overview (500) and the AI view (429); ?mockDashboard=missing
+// answers 404, like an API without the dashboard release.
 const MOCK_DASHBOARD_MODE = MOCK_LOAD_PARAMS.get('mockDashboard') || '';
 const MOCK_DASHBOARD_TZ = 'Asia/Dhaka';
 const mockTodayDhaka = () => new Intl.DateTimeFormat('en-CA', { timeZone: MOCK_DASHBOARD_TZ }).format(new Date());
@@ -1160,6 +1161,7 @@ const apiFetch = async (endpoint, options = {}) => {
     // Owner dashboard: owners and admins only.
     if (endpoint.startsWith('/v1/dashboard/')) {
       if (mockRole === 'member') mockDashboardError(403, 'This action requires at least the admin role.');
+      if (MOCK_DASHBOARD_MODE === 'missing') mockDashboardError(404, 'Not Found');
       if (endpoint.startsWith('/v1/dashboard/overview')) {
         if (MOCK_DASHBOARD_MODE === 'error') mockDashboardError(500, 'Failed to compute the dashboard overview.');
         return mockDashboardOverview(endpoint);

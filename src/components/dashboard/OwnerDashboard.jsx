@@ -904,14 +904,19 @@ const GrowthSection = ({ data, palette, currency, isDark }) => {
 
 const emptyView = { status: 'loading', data: null, error: '' };
 
+// A 404 from a dashboard endpoint means this API doesn't have the dashboard yet.
+const isDashboardMissing = (view, error) => error?.status === 404 && view !== 'comments';
+
 /**
  * The owner dashboard (owners and admins): what needs attention now, then the
- * business, the AI and growth for a period of up to 30 days.
+ * business, the AI and growth for a period of up to 30 days. `onUnavailable` is called
+ * when the API has no dashboard endpoints (404), so the page can show something else.
  * @param {{ isDark?: boolean, isActive?: boolean,
  *   onNavigate: (target: { tab?: string, pageId?: string, conversationId?: string, recordType?: string,
- *     recordId?: string, status?: string, commentAnalysisId?: string }) => void }} props
+ *     recordId?: string, status?: string, commentAnalysisId?: string }) => void,
+ *   onUnavailable?: () => void }} props
  */
-export default function OwnerDashboard({ isDark = false, isActive = true, onNavigate }) {
+export default function OwnerDashboard({ isDark = false, isActive = true, onNavigate, onUnavailable }) {
   const { business } = useBusiness();
   const timeZone = business?.timezone || 'UTC';
   const businessCurrency = business?.currency || 'BDT';
@@ -948,9 +953,13 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
       setViews(current => ({ ...current, [view]: { status: 'ready', data, error: '' } }));
     } catch (error) {
       if (signal.aborted || error?.name === 'AbortError') return;
+      if (isDashboardMissing(view, error)) {
+        onUnavailable?.();
+        return;
+      }
       setViews(current => ({ ...current, [view]: { status: 'error', data: current[view].data, error: dashboardErrorMessage(error) } }));
     }
-  }, [businessId, timeZone]);
+  }, [businessId, onUnavailable, timeZone]);
 
   // Period views: debounced, and the previous period's requests are cancelled.
   useEffect(() => {
@@ -974,9 +983,13 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
       setAttention({ data, error: '' });
     } catch (error) {
       if (requestId !== attentionRequestRef.current) return;
+      if (isDashboardMissing('attention', error)) {
+        onUnavailable?.();
+        return;
+      }
       setAttention(current => ({ data: current.data, error: dashboardErrorMessage(error) }));
     }
-  }, []);
+  }, [onUnavailable]);
 
   // Attention is live: on show, every minute while visible, and again on return.
   useEffect(() => {

@@ -7066,6 +7066,11 @@ export default function Dashboard() {
 
   // Routes a clicked notification to the view that already renders its record.
   // `nonce` re-fires the focus even when the same record is opened twice.
+  // The API answered 404 for the owner dashboard (not deployed there yet): fall back to
+  // the activity analytics for the rest of the session.
+  const [ownerDashboardMissing, setOwnerDashboardMissing] = useState(false);
+  const handleOwnerDashboardMissing = useCallback(() => setOwnerDashboardMissing(true), []);
+
   const handleNotificationNavigate = useCallback((target) => {
     if (target?.commentAnalysisId) {
       setCommentReview({ commentAnalysisId: target.commentAnalysisId, canAction: target.canAction !== false });
@@ -7125,8 +7130,8 @@ export default function Dashboard() {
         {visitedTabsRef.current.has('dashboard') && <div style={{ display: activeTab === 'dashboard' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
             {/* GET /v1/dashboard/* is for owners and admins; members keep the activity analytics. */}
-            {role === 'owner' || role === 'admin' ? (
-              <OwnerDashboard isDark={isDark} isActive={activeTab === 'dashboard'} onNavigate={handleNotificationNavigate} />
+            {(role === 'owner' || role === 'admin') && !ownerDashboardMissing ? (
+              <OwnerDashboard isDark={isDark} isActive={activeTab === 'dashboard'} onNavigate={handleNotificationNavigate} onUnavailable={handleOwnerDashboardMissing} />
             ) : role ? (
               <AnalyticsHub pages={pages} agents={user?.agents} isDark={isDark} isActive={activeTab === 'dashboard'} onNavigate={setActiveTab} />
             ) : (
