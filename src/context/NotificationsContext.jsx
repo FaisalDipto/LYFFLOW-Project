@@ -24,7 +24,7 @@ export function NotificationsProvider({ children, onSessionExpired }) {
   const [error, setError] = useState(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [category, setCategory] = useState('');
-  const [streamStatus, setStreamStatus] = useState('connecting'); // connecting | live | offline
+  const [streamStatus, setStreamStatus] = useState('connecting'); // connecting | live | paused | offline
 
   const categoryRef = useRef(category);
   categoryRef.current = category;
@@ -248,7 +248,8 @@ export function NotificationsProvider({ children, onSessionExpired }) {
 
   // Slow fallback while the stream is down. Never the primary mechanism.
   useEffect(() => {
-    if (streamStatus === 'live') return undefined;
+    // Paused: the tab is hidden and the stream closed on purpose; it reopens on return.
+    if (streamStatus === 'live' || streamStatus === 'paused') return undefined;
     const timer = setInterval(backfill, FALLBACK_POLL_MS);
     return () => clearInterval(timer);
   }, [backfill, streamStatus]);

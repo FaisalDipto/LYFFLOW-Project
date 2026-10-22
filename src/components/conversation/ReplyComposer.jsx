@@ -3,7 +3,7 @@ import { CornerUpLeft, FileText, Film, Image as ImageIcon, ListPlus, Loader2, Mi
 import {
   QUICK_REPLY_LIMIT,
   QUICK_REPLY_TITLE_MAX,
-  REPLY_ATTACHMENT_ACCEPT,
+  replyAttachmentAccept,
   REPLY_ATTACHMENT_RULES,
   REPLY_TEXT_MAX,
   classifyReplyAttachment,
@@ -31,8 +31,9 @@ const formatElapsed = (ms) => {
  * voice note. `onSendText` / `onSendFile` resolve when the reply is accepted and
  * throw (with a message to show) when it isn't; the draft comes back on failure.
  * Remount it per conversation (key) so drafts don't follow the agent around.
+ * `platform` ('facebook' | 'instagram') picks the file types Meta accepts.
  */
-export default function ReplyComposer({ disabled = false, disabledReason = '', replyTo, onCancelReply, onSendText, onSendFile, footer }) {
+export default function ReplyComposer({ disabled = false, disabledReason = '', platform, replyTo, onCancelReply, onSendText, onSendFile, footer }) {
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState(null); // { file, attachmentType, previewUrl }
   const [quickReplies, setQuickReplies] = useState([]);
@@ -53,7 +54,7 @@ export default function ReplyComposer({ disabled = false, disabledReason = '', r
       setAttachment(null);
       return;
     }
-    const { attachmentType, error: problem } = classifyReplyAttachment(file);
+    const { attachmentType, error: problem } = classifyReplyAttachment(file, platform);
     if (!attachmentType) {
       setAttachment(null);
       setError(problem);
@@ -107,7 +108,18 @@ export default function ReplyComposer({ disabled = false, disabledReason = '', r
       setError('Microphone access was blocked. Allow it in the browser to record a voice note.');
       return;
     }
-    const [mimeType, extension] = RECORDING_TYPES.find(([type]) => MediaRecorder.isTypeSupported(type)) || ['', 'webm'];
+    // Instagram takes no WebM or Ogg audio, so try M4A first there.
+    const recordingTypes = platform === 'instagram'
+      ? RECORDING_TYPES.filter(([, extension]) => extension === 'm4a')
+      : RECORDING_TYPES;
+    const [mimeType, extension] = recordingTypes.find(([type]) => MediaRecorder.isTypeSupported(type)) || [];
+    if (!mimeType) {
+      stream.getTracks().forEach(track => track.stop());
+      setError(platform === 'instagram'
+        ? "This browser can't record voice notes in a format Instagram accepts. Attach an M4A, AAC or WAV file instead."
+        : "Voice recording isn't supported in this browser. You can attach an audio file instead.");
+      return;
+    }
     const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     const chunks = [];
     recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
@@ -286,7 +298,7 @@ export default function ReplyComposer({ disabled = false, disabledReason = '', r
             <input
               ref={fileInputRef}
               type="file"
-              accept={REPLY_ATTACHMENT_ACCEPT}
+              accept={replyAttachmentAccept(platform)}
               className="hidden"
               onChange={(event) => { setAttachmentFile(event.target.files?.[0] || null); event.target.value = ''; }}
             />

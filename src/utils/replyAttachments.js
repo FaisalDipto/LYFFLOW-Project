@@ -1,17 +1,30 @@
 // What POST /v1/facebook/{page_id}/messenger/{conversation_id}/reply/file accepts, per
-// attachment type. The backend checks the same rules (and the file's magic bytes); these
-// only let the composer say no before uploading.
+// platform and attachment type. The backend checks the same rules (and the file's magic
+// bytes); these only let the composer say no before uploading. One request carries at
+// most 20 MB in all.
 const MB = 1024 * 1024;
+const REQUEST_MAX_BYTES = 20 * MB;
 
-export const REPLY_ATTACHMENT_RULES = {
-  audio: { label: 'Voice note', extensions: ['mp3', 'm4a', 'wav', 'ogg', 'webm', 'aac'], maxBytes: 25 * MB },
-  image: { label: 'Image', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'], maxBytes: 8 * MB },
-  video: { label: 'Video', extensions: ['mp4', 'mov'], maxBytes: 25 * MB },
-  file: { label: 'Document', extensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv'], maxBytes: 25 * MB },
+const MESSENGER_RULES = {
+  audio: { label: 'Voice note', extensions: ['mp3', 'm4a', 'wav', 'ogg', 'webm', 'aac'], maxBytes: REQUEST_MAX_BYTES },
+  image: { label: 'Image', extensions: ['jpg', 'jpeg', 'png', 'gif'], maxBytes: 8 * MB },
+  video: { label: 'Video', extensions: ['mp4', 'mov'], maxBytes: REQUEST_MAX_BYTES },
+  file: { label: 'Document', extensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv'], maxBytes: REQUEST_MAX_BYTES },
+};
+// Instagram: audio aac/m4a/wav (mp4 is taken as video), video mp4/ogg/avi/mov/webm, PDFs only.
+const INSTAGRAM_RULES = {
+  audio: { label: 'Voice note', extensions: ['aac', 'm4a', 'wav'], maxBytes: REQUEST_MAX_BYTES },
+  image: { label: 'Image', extensions: ['jpg', 'jpeg', 'png', 'gif'], maxBytes: 8 * MB },
+  video: { label: 'Video', extensions: ['mp4', 'ogg', 'avi', 'mov', 'webm'], maxBytes: REQUEST_MAX_BYTES },
+  file: { label: 'Document', extensions: ['pdf'], maxBytes: REQUEST_MAX_BYTES },
 };
 
+/** @param {string} [platform] the page's platform: 'instagram', otherwise Messenger. */
+export const replyAttachmentRules = (platform) => (platform === 'instagram' ? INSTAGRAM_RULES : MESSENGER_RULES);
+export const REPLY_ATTACHMENT_RULES = MESSENGER_RULES;
+
 // For the file picker's `accept`.
-export const REPLY_ATTACHMENT_ACCEPT = Object.values(REPLY_ATTACHMENT_RULES)
+export const replyAttachmentAccept = (platform) => Object.values(replyAttachmentRules(platform))
   .flatMap(rule => rule.extensions.map(extension => `.${extension}`))
   .join(',');
 
@@ -30,14 +43,21 @@ export const formatFileSize = (bytes) => {
  * Works out how a picked or recorded file is sent, or why it can't be.
  * @returns {{ attachmentType: 'audio'|'image'|'video'|'file', error: '' } | { attachmentType: null, error: string }}
  */
-export function classifyReplyAttachment(file) {
+export function classifyReplyAttachment(file, platform) {
+  const rules = replyAttachmentRules(platform);
   const extension = fileExtension(file?.name);
-  const attachmentType = Object.keys(REPLY_ATTACHMENT_RULES)
-    .find(type => REPLY_ATTACHMENT_RULES[type].extensions.includes(extension));
+  const attachmentType = Object.keys(rules)
+    .find(type => rules[type].extensions.includes(extension));
   if (!attachmentType) {
-    return { attachmentType: null, error: `${extension ? `.${extension} files` : 'This file type'} can't be sent. Use an image, video, voice note, PDF, Word, Excel, CSV or text file.` };
+    const what = `${extension ? `.${extension} files` : 'This file type'} can't be sent`;
+    return {
+      attachmentType: null,
+      error: platform === 'instagram'
+        ? `${what} on Instagram. Use a JPG, PNG or GIF image, a video, an AAC, M4A or WAV voice note, or a PDF.`
+        : `${what}. Use a JPG, PNG or GIF image, a video, a voice note, or a PDF, Word, Excel, CSV or text file.`,
+    };
   }
-  const rule = REPLY_ATTACHMENT_RULES[attachmentType];
+  const rule = rules[attachmentType];
   if (file.size > rule.maxBytes) {
     return { attachmentType: null, error: `${rule.label}s can be up to ${formatFileSize(rule.maxBytes)}; this one is ${formatFileSize(file.size)}.` };
   }

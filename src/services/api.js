@@ -247,8 +247,44 @@ let mockInbox = [
 // As the API returns it (last_customer_at is mock bookkeeping).
 const mockInboxItem = (conversation) => {
   const item = { ...conversation };
+  item.last_message = item.last_message || { message: item.snippet, role: 'user', created_at: item.updated_time, has_attachment: false };
   delete item.last_customer_at;
+  delete item.snippet;
   return item;
+};
+// Live stream frames in mock mode (see notificationStream's mock source).
+const mockPush = (event, data, delayMs = 0) => setTimeout(() => {
+  window.dispatchEvent(new CustomEvent('lyfflow-mock-stream', { detail: { event, data } }));
+}, delayMs);
+const mockMessage = (fields) => ({
+  message_id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, message: null, role: 'user', has_attachment: false,
+  attachments: [], is_ai_msg: false, created_at: new Date().toISOString(), agent_activity_id: null, sent_by_user_id: null,
+  is_delivered: false, delivered_at: null, is_read: false, read_at: null, is_deleted: false, deleted_at: null, reaction: null,
+  ...fields,
+});
+// A customer who writes in for the first time while the dashboard is open (?mockLive=true).
+const mockNewConversation = {
+  conversation_id: 'conv_5', name: 'Farhana Akter', is_human_needed: false, human_needed_reason: null, assigned_to_user_id: null,
+  profile_pic_url: null, last_customer_at: Date.now(), updated_time: new Date().toISOString(), snippet: 'Hi! Do you deliver to Chattogram?',
+};
+// ?mockLive=true plays a short script of live events on page_1, starting when the
+// Conversations inbox first loads (frames sent before that would be missed, as live).
+let mockLiveStarted = !(MOCK_MODE && MOCK_LOAD_PARAMS.get('mockLive') === 'true');
+const startMockLiveScript = () => {
+  if (mockLiveStarted) return;
+  mockLiveStarted = true;
+  const at = () => new Date().toISOString();
+  const customer = mockMessage({ message_id: 'live_1', message: 'Is the LED board still available in black?', created_at: at() });
+  mockPush('inbox_message', { conversation_id: 'conv_1', page_id: 'page_1', message: customer }, 3000);
+  mockPush('message_update', { conversation_id: 'conv_1', page_id: 'page_1', message_ids: ['m1_1'], fields: { is_read: true, read_at: at() } }, 6000);
+  mockPush('message_update', { conversation_id: 'conv_1', page_id: 'page_1', message_ids: ['live_1'], fields: { reaction: '😮' } }, 8000);
+  const receipt = mockMessage({ message_id: 'live_2', message: null, has_attachment: true, created_at: new Date(Date.now() + 10000).toISOString() });
+  mockPush('inbox_message', { conversation_id: 'conv_1', page_id: 'page_1', message: receipt }, 10000);
+  mockPush('inbox_message', { conversation_id: 'conv_1', page_id: 'page_1', message: { ...receipt, attachments: [{ attachment_id: 'att_live_2', attachment_type: 'application/pdf', attachment_size: 48213, attachment_key: 'mock/receipt.pdf' }] } }, 13000);
+  mockPush('conversation_update', { conversation_id: 'conv_4', page_id: 'page_1', fields: { is_human_needed: true, human_needed_reason: 'Asked for a refund' } }, 15000);
+  setTimeout(() => { mockInbox = [...mockInbox, mockNewConversation]; }, 16900);
+  mockPush('inbox_message', { conversation_id: 'conv_5', page_id: 'page_1', message: mockMessage({ message_id: 'live_3', message: mockNewConversation.snippet, created_at: new Date(Date.now() + 17000).toISOString() }) }, 17000);
+  mockPush('inbox_message', { conversation_id: 'conv_9', page_id: 'page_2', message: mockMessage({ message_id: 'live_4', message: 'Another page: must not appear' }) }, 18000);
 };
 const mockWindowStatus = (conversation) => {
   const since = Date.now() - (conversation?.last_customer_at ?? Date.now());
@@ -914,6 +950,7 @@ const apiFetch = async (endpoint, options = {}) => {
     // page_1's inbox: queues, assignment, handover and each conversation's reply window.
     const inboxListMatch = endpoint.match(/^\/v1\/page\/page_1\/conversations(\/assigned)?(?:\?(.*))?$/);
     if (inboxListMatch && method === 'GET') {
+      startMockLiveScript();
       const params = new URLSearchParams(inboxListMatch[2] || '');
       let list = mockInbox;
       if (inboxListMatch[1] || params.get('assigned_to_me') === 'true') {
@@ -958,7 +995,43 @@ const apiFetch = async (endpoint, options = {}) => {
         error.status = 422;
         throw error;
       }
-      return { success: true, sent_at: new Date().toISOString(), window_status: windowStatus };
+      const failure = MOCK_LOAD_PARAMS.get('mockReplyError');
+      const isFile = Boolean(replyMatch[2]);
+      const text = isFile ? (requestOptions.body?.get?.('message') || null) : (JSON.parse(requestOptions.body || '{}').message || null);
+      const stored = mockMessage({
+        role: 'page', message: text, has_attachment: isFile, sent_by_user_id: MOCK_CURRENT_USER_ID,
+        attachments: [],
+      });
+      const frame = { conversation_id: replyMatch[1], page_id: 'page_1', message: stored };
+      if (failure) {
+        const [status, message] = {
+          delivery_unconfirmed: [504, "Meta didn't confirm the message in time."],
+          stored_failed: [500, 'The message was delivered but could not be saved yet.'],
+          rate_limited: [429, 'Too many messages to this customer.'],
+          page_token_invalid: [409, "This page's connection to Meta has expired."],
+          meta_error: [502, 'Meta returned an error.'],
+          policy_rejected: [422, "Meta won't deliver messages to this person."],
+        }[failure] || [422, 'Rejected.'];
+        // The backend repairs both from Meta's echo; the row then arrives on the stream
+        // (?mockReplyEcho=false: it never does, to reach "Send again").
+        if (['delivery_unconfirmed', 'stored_failed'].includes(failure) && MOCK_LOAD_PARAMS.get('mockReplyEcho') !== 'false') {
+          mockPush('inbox_message', frame, 5000);
+        }
+        const error = new Error(message);
+        error.status = status;
+        error.code = failure;
+        if (failure === 'rate_limited') error.retryAfterSeconds = 20;
+        throw error;
+      }
+      // The stream echo usually lands around the same time as the response.
+      mockPush('inbox_message', frame, 150);
+      if (isFile) mockPush('inbox_message', { ...frame, message: { ...stored, attachments: [{ attachment_id: `att_${stored.message_id}`, attachment_type: requestOptions.body?.get?.('attachment_type') || 'file', attachment_size: requestOptions.body?.get?.('file')?.size ?? null, attachment_key: `mock/${requestOptions.body?.get?.('file')?.name || 'file'}` }] } }, 2500);
+      return { success: true, sent_at: stored.created_at, window_status: windowStatus, message: stored, messages: [stored] };
+    }
+    const conversationInfoMatch = endpoint.match(/^\/v1\/conversations\/([^/]+)\/info$/);
+    if (conversationInfoMatch) {
+      const conversation = mockInbox.find(item => item.conversation_id === conversationInfoMatch[1]);
+      if (conversation) return { ...mockInboxItem(conversation), page_id: 'page_1' };
     }
     const pauseMatch = endpoint.match(/^\/v1\/agent\/page\/[^/]+\/conversation\/([^/]+)\/pause$/);
     if (pauseMatch && method === 'PATCH') {
@@ -1218,27 +1291,32 @@ const apiFetch = async (endpoint, options = {}) => {
     const response = await fetch(url, mergedOptions);
 
     if (!response.ok) {
-      if (response.status === 429) {
-        window.dispatchEvent(new Event('lyfflow-api-rate-limit'));
-        const error = new Error('Too many requests. Please slow down and try again later.');
-        error.status = 429;
-        throw error;
-      }
-
-      // Attempt to extract JSON error message if provided by FastAPI
-      let errorMessage = 'An error occurred while fetching data';
+      // Attempt to extract JSON error message if provided by FastAPI. `detail` is a
+      // string, a validation list, or { code, message, retry_after_seconds }.
+      let errorMessage = response.status === 429
+        ? 'Too many requests. Please slow down and try again later.'
+        : 'An error occurred while fetching data';
+      let errorDetail = null;
       try {
         const errorData = await response.json();
         if (Array.isArray(errorData.detail)) {
           errorMessage = errorData.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join(' | ');
+        } else if (errorData.detail && typeof errorData.detail === 'object') {
+          errorDetail = errorData.detail;
+          errorMessage = errorDetail.message || errorMessage;
         } else {
           errorMessage = errorData.detail || errorMessage;
         }
       } catch {
         // Ignore parsing errors for non-JSON responses
       }
+      if (response.status === 429) {
+        window.dispatchEvent(new Event('lyfflow-api-rate-limit'));
+      }
       const error = new Error(errorMessage);
       error.status = response.status;
+      if (errorDetail?.code) error.code = errorDetail.code;
+      if (errorDetail?.retry_after_seconds != null) error.retryAfterSeconds = Number(errorDetail.retry_after_seconds);
       // Session-level failures are handled once by the app shell rather than per screen:
       // 401 means the session is gone (expired, logged out, or membership revoked);
       // this 403 means the session has no business bound and must pick one.

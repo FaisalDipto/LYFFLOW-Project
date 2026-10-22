@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -29,7 +29,11 @@ import {
   NO_ACTIVE_BUSINESS_EVENT,
   SESSION_EXPIRED_EVENT,
 } from '../services/api';
-import { closeNotificationStream } from '../services/notificationStream';
+import { closeNotificationStream, subscribeToNotificationStream } from '../services/notificationStream';
+import {
+  bumpConversation, conversationKey, findLocalBubble, mergeFirstPage, patchConversation, patchMessages,
+  previewFromMessage, previewText, upsertMessage, withConversationFields,
+} from '../utils/liveInbox';
 import { clearSignedIn, markSignedIn } from '../utils/sessionHint';
 import { useDashboardTheme } from '../hooks/useDashboardTheme';
 import { useOnKeyChange } from '../hooks/useOnKeyChange';
@@ -912,6 +916,122 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   // Changes whenever the list request changes, for the effect below.
   const queueKey = `${queue}:${queueMemberId}`;
 
+  // What the stream handlers need from the latest render (they subscribe once).
+  const liveRef = useRef(null);
+  liveRef.current = {
+    selectedPageId, activeConversationId, isHumanNeeded, queue, queueFilter, loading, loadingMsgs, contacts, messages,
+    assigneeId: queueMemberId || team.currentUserId,
+  };
+  // First messages from customers not in the list yet: conversation id -> timer.
+  const pendingNewConversationsRef = useRef(new Map());
+
+  useEffect(() => {
+    const pendingNew = pendingNewConversationsRef.current;
+    // Would this row be in the list the agent is looking at?
+    const matchesList = (row) => {
+      const live = liveRef.current;
+      if (live.isHumanNeeded !== null && Boolean(row.is_human_needed) !== live.isHumanNeeded) return false;
+      if (live.queue === 'mine') return row.assigned_to_user_id === live.assigneeId;
+      if (live.queue === 'unassigned') return !row.assigned_to_user_id;
+      return true;
+    };
+
+    // Nothing is replayed after a reconnect: refetch page one of the list and of the
+    // open conversation, and merge them into what is already loaded.
+    const refetchAfterReconnect = () => {
+      const live = liveRef.current;
+      if (!live.selectedPageId) return;
+      const pageId = live.selectedPageId;
+      if (!live.loading) {
+        const requestVersion = conversationsRequestVersionRef.current;
+        apiService.getPageDetails(pageId, null, 10, live.isHumanNeeded, live.queueFilter)
+          .then(data => {
+            if (requestVersion !== conversationsRequestVersionRef.current) return;
+            const rows = data?.conversations?.data || data?.conversations || data?.data || [];
+            if (!Array.isArray(rows)) return;
+            setContacts(prev => mergeFirstPage(prev, rows));
+            setActiveContact(prev => {
+              const fresh = prev && rows.find(row => conversationKey(row) === conversationKey(prev));
+              return fresh ? { ...prev, ...fresh } : prev;
+            });
+          })
+          .catch(err => console.warn('[inbox] could not refresh conversations after reconnecting', err));
+      }
+      const convId = live.activeConversationId;
+      if (convId && !live.loadingMsgs) {
+        apiService.getConversationDetails(pageId, convId)
+          .then(data => {
+            if (liveRef.current.activeConversationId !== convId) return;
+            const msgs = data?.messages?.data || data?.messages || data?.data || [];
+            if (Array.isArray(msgs) && msgs.length) setMessages(prev => msgs.reduce(upsertMessage, prev));
+          })
+          .catch(err => console.warn('[inbox] could not refresh the conversation after reconnecting', err));
+      }
+    };
+
+    const insertNewConversation = (conversationId, pageId, message) => {
+      if (pendingNew.has(conversationId)) return;
+      // Several frames can arrive at once for a new customer; fetch the row once.
+      pendingNew.set(conversationId, setTimeout(() => {
+        apiService.getConversationInfo(conversationId)
+          .then(info => {
+            if (!info || liveRef.current.selectedPageId !== pageId) return;
+            const row = { ...info, last_message: info.last_message || previewFromMessage(message) };
+            if (!matchesList(row)) return;
+            setContacts(prev => (prev.some(item => conversationKey(item) === conversationId) ? prev : [row, ...prev]));
+          })
+          .catch(err => console.warn('[inbox] could not load a new conversation', err))
+          .finally(() => pendingNew.delete(conversationId));
+      }, 500));
+    };
+
+    const unsubscribe = subscribeToNotificationStream({
+      onReady: refetchAfterReconnect,
+      onInboxMessage: ({ conversation_id: conversationId, page_id: pageId, message } = {}) => {
+        const live = liveRef.current;
+        if (!message?.message_id || pageId !== live.selectedPageId) return;
+        if (conversationId === live.activeConversationId) {
+          setMessages(prev => {
+            // Our own send (sending, unconfirmed, or awaiting its row) resolves to this row.
+            const local = findLocalBubble(prev, message);
+            return upsertMessage(local ? prev.filter(item => item !== local) : prev, message);
+          });
+          // A customer message reopens Meta's reply windows.
+          if (message.role === 'user') setWindowRefreshKey(key => key + 1);
+        }
+        if (live.contacts.some(row => conversationKey(row) === conversationId)) {
+          setContacts(prev => bumpConversation(prev, conversationId, message));
+        } else {
+          insertNewConversation(conversationId, pageId, message);
+        }
+      },
+      onMessageUpdate: ({ conversation_id: conversationId, page_id: pageId, message_ids: messageIds, fields } = {}) => {
+        const live = liveRef.current;
+        if (pageId !== live.selectedPageId || conversationId !== live.activeConversationId) return;
+        if (!fields) return;
+        setMessages(prev => patchMessages(prev, messageIds, fields));
+        // An unsent or edited newest message is also the list preview.
+        const patched = patchMessages(live.messages, messageIds, fields);
+        const newest = patched[patched.length - 1];
+        if (patched !== live.messages && newest && (messageIds || []).includes(newest.message_id) && ('message' in fields || 'is_deleted' in fields)) {
+          setContacts(rows => rows.map(row => (conversationKey(row) === conversationId
+            ? { ...row, last_message: previewFromMessage(newest) }
+            : row)));
+        }
+      },
+      onConversationUpdate: ({ conversation_id: conversationId, page_id: pageId, fields } = {}) => {
+        if (pageId !== liveRef.current.selectedPageId || !fields) return;
+        setContacts(prev => patchConversation(prev, conversationId, fields));
+        setActiveContact(prev => (prev && conversationKey(prev) === conversationId ? withConversationFields(prev, fields) : prev));
+      },
+    });
+    return () => {
+      unsubscribe();
+      pendingNew.forEach(timer => clearTimeout(timer));
+      pendingNew.clear();
+    };
+  }, []);
+
   const resolveContactName = (contactObj, fallback = 'User') => {
     if (!contactObj) return fallback;
     
@@ -1049,7 +1169,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               if ((c.conversation_id || c.id) === cId) {
                 return {
                   ...c,
-                  last_message: lastMsg.message || lastMsg.text || '',
+                  last_message: previewFromMessage(lastMsg),
                 };
               }
               return c;
@@ -1086,7 +1206,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
         if (newestMessage) {
           setContacts(prev => prev.map(contact =>
             (contact.conversation_id || contact.id) === convId
-              ? { ...contact, last_message: newestMessage.message || newestMessage.text || contact.last_message }
+              ? { ...contact, last_message: previewFromMessage(newestMessage) }
               : contact
           ));
         }
@@ -1101,7 +1221,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       })
       .catch(err => console.error("Failed to fetch messages", err))
       .finally(() => setLoadingMsgs(false));
-  }, [selectedPageId, activeContact]);
+  // Keyed on the conversation: live patches to the row (handover, assignment) don't reload it.
+  }, [selectedPageId, activeConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadMoreConversations = () => {
     if (!selectedPageId || !conversationsPagination?.has_more || !conversationsPagination?.next_cursor) return;
@@ -1141,7 +1262,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               if ((c.conversation_id || c.id) === cId) {
                 return {
                   ...c,
-                  last_message: lastMsg.message || lastMsg.text || '',
+                  last_message: previewFromMessage(lastMsg),
                 };
               }
               return c;
@@ -1239,6 +1360,19 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
 
   // What to tell the agent when a reply is refused.
   const replyErrorMessage = (err) => {
+    switch (err?.code) {
+      case 'outside_window': return "Meta's 7-day messaging window has closed for this conversation.";
+      case 'recipient_unavailable':
+      case 'policy_rejected': return `${err.message || "Meta won't deliver messages to this person."} Nothing was sent.`;
+      case 'page_token_invalid': return "This page's connection to Meta has expired. Reconnect the page to reply.";
+      case 'rate_limited': return err.retryAfterSeconds
+        ? `Too many messages right now. Try again in ${Math.ceil(err.retryAfterSeconds)} seconds.`
+        : 'Too many messages right now. Try again in a moment.';
+      case 'meta_error': return "Meta couldn't take the message just now. Try again.";
+      case 'request_too_large': return 'Files can be up to 20 MB in total.';
+      default: break;
+    }
+    if (err?.code) return err.message || "That reply can't be sent.";
     if (err?.status === 422 && /window|7-day|7 day/i.test(err.message || '')) return "Meta's 7-day messaging window has closed for this conversation.";
     if (err?.status === 403) return "You don't have access to reply in this conversation.";
     if (err?.status === 404) return 'This conversation no longer exists.';
@@ -1246,37 +1380,81 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     return err?.message || "The reply didn't go through. Try again.";
   };
 
-  // Shared by text and file replies: shows the reply straight away, then confirms it or
-  // takes it back and throws for the composer to show.
+  // Sends Meta never confirmed (504): bubble id -> what to send again if the agent asks.
+  const unconfirmedSendsRef = useRef(new Map());
+  // How long an unconfirmed bubble waits for Meta's echo before offering to send again.
+  const UNCONFIRMED_RESEND_AFTER_MS = 60000;
+
+  // Shared by text and file replies: shows the reply straight away, then swaps in the
+  // stored row from the response, or takes it back and throws for the composer to show.
+  // The same row also arrives on the stream; both upsert by message_id.
   const sendReply = async (preview, request) => {
     if (!selectedPageId || !activeContact) throw new Error('Choose a conversation first.');
     isLoadingOlderMsgsRef.current = false; // ensure we scroll down on send
     stickToBottomRef.current = true;
+    const convId = activeConversationId;
     const tempId = `temp_${Date.now()}`;
+    const createdAt = new Date().toISOString();
     setMessages(prev => [...prev, {
       id: tempId,
       role: 'page',
       is_ai_msg: false,
       sent_by_user_id: team.currentUserId,
-      created_at: new Date().toISOString(),
+      created_at: createdAt,
       _pending: true,
       ...preview,
     }]);
+    const updateBubble = (changes) => setMessages(prev => prev.map(m => (m.id === tempId ? { ...m, ...changes } : m)));
+    const localPreview = { message: preview.message || null, role: 'page', has_attachment: Boolean(preview._localAttachment), created_at: createdAt };
     try {
       const response = await request();
-      setMessages(prev => prev.map(m => (m.id === tempId ? { ...m, _pending: false, created_at: response?.sent_at || m.created_at } : m)));
+      const stored = Array.isArray(response?.messages) && response.messages.length
+        ? response.messages
+        : response?.message ? [response.message] : [];
+      if (stored.length) {
+        setMessages(prev => stored.reduce(upsertMessage, prev.filter(m => m.id !== tempId)));
+      } else {
+        // An older backend without the row: keep the bubble until the stream brings it.
+        updateBubble({ _pending: false, _awaitingRow: true, created_at: response?.sent_at || createdAt });
+      }
       if (response?.window_status) windowStatus.update(response.window_status);
       setReplyTo(null);
-      const sentText = preview.message || (preview._localAttachment ? (preview._localAttachment.attachmentType === 'audio' ? 'Voice note' : preview._localAttachment.name) : '');
-      if (sentText) {
-        setContacts(prev => prev.map(c => ((c.conversation_id || c.id) === activeConversationId ? { ...c, snippet: sentText, last_message: sentText } : c)));
-      }
+      setContacts(prev => bumpConversation(prev, convId, stored[stored.length - 1] || { ...localPreview, created_at: response?.sent_at || createdAt }));
     } catch (err) {
       console.error('Failed to send reply:', err);
+      if (err?.code === 'delivery_unconfirmed') {
+        // It may have reached the customer: never resend on our own. The bubble resolves
+        // when Meta's echo arrives on the stream; after a minute the agent may resend.
+        updateBubble({ _pending: false, _unconfirmed: true });
+        unconfirmedSendsRef.current.set(tempId, { preview, request });
+        setTimeout(() => updateBubble({ _canResend: true }), UNCONFIRMED_RESEND_AFTER_MS);
+        setReplyTo(null);
+        return;
+      }
+      if (err?.code === 'stored_failed') {
+        // Delivered; the stored row follows on the stream.
+        updateBubble({ _pending: false, _awaitingRow: true });
+        setReplyTo(null);
+        setContacts(prev => bumpConversation(prev, convId, localPreview));
+        return;
+      }
       setMessages(prev => prev.filter(m => m.id !== tempId));
-      if (err?.status === 422) setWindowRefreshKey(key => key + 1);
+      if (err?.code === 'outside_window' || err?.status === 422) setWindowRefreshKey(key => key + 1);
       throw new Error(replyErrorMessage(err));
     }
+  };
+
+  const discardUnconfirmed = (bubbleId) => {
+    unconfirmedSendsRef.current.delete(bubbleId);
+    setMessages(prev => prev.filter(m => m.id !== bubbleId));
+  };
+
+  const resendUnconfirmed = (bubbleId) => {
+    const pending = unconfirmedSendsRef.current.get(bubbleId);
+    discardUnconfirmed(bubbleId);
+    if (!pending) return;
+    sendReply(pending.preview, pending.request)
+      .catch(err => setInboxNotice({ tone: 'error', text: err.message }));
   };
 
   const handleSendText = ({ message, quickReplies }) => sendReply(
@@ -1431,6 +1609,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     if (msg._pending) {
       return <Clock3 size={12} className="text-slate-400" aria-label="Sending" />;
     }
+    if (msg._unconfirmed) {
+      return <TriangleAlert size={12} className="text-amber-500" aria-label="Not confirmed" />;
+    }
     if (msg.is_read) {
       return <span className="message-status is-read inline-flex text-emerald-500" title={msg.read_at ? `Seen ${formatMessageTime(msg.read_at)}` : 'Seen'} aria-label="Seen"><CheckCheck size={14} /></span>;
     }
@@ -1504,7 +1685,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       return (
         <div key={msgId || Math.random()} className="group ml-auto flex max-w-[min(78%,42rem)] flex-row-reverse gap-2">
           <div className="flex min-w-0 flex-col items-end gap-1.5">
-            <div className={`relative max-w-full rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border border-dashed border-slate-300 bg-white text-slate-400 italic' : 'bg-slate-900 text-white'} ${msg._pending ? 'opacity-70' : ''} ${reaction ? 'mb-1.5' : ''}`}>
+            <div className={`relative max-w-full rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border border-dashed border-slate-300 bg-white text-slate-400 italic' : 'bg-slate-900 text-white'} ${msg._pending || msg._unconfirmed ? 'opacity-70' : ''} ${reaction ? 'mb-1.5' : ''}`}>
               {isDeleted ? 'Message unsent' : (
                 <>
                   {renderMessageText(msg, true)}
@@ -1513,6 +1694,18 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               )}
               {reaction}
             </div>
+            {msg._unconfirmed && (
+              <div className="message-unconfirmed flex max-w-xs flex-col items-end gap-1 px-1 text-right text-[11px] font-medium text-amber-700">
+                <p>Meta didn't confirm this message. It may still arrive.</p>
+                {msg._canResend && (
+                  <p className="flex flex-wrap items-center justify-end gap-x-2">
+                    <span className="text-slate-500">Sending again may deliver it twice.</span>
+                    <button type="button" onClick={() => resendUnconfirmed(msg.id)} className="font-bold text-amber-700 underline underline-offset-2 hover:text-amber-900">Send again</button>
+                    <button type="button" onClick={() => discardUnconfirmed(msg.id)} className="font-bold text-slate-500 underline underline-offset-2 hover:text-slate-700">Remove</button>
+                  </p>
+                )}
+              </div>
+            )}
             <p className="flex items-center gap-1 px-1 text-[10px] font-medium text-slate-400 transition-opacity">
               {isAiSource && (
                   <span
@@ -1534,7 +1727,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                   <span className="material-symbols-outlined" style={{ fontSize: '9px' }}>person</span>{senderName}
                 </span>
               )}
-              {msg._pending ? 'Sending' : timeStr} {!isDeleted && renderDeliveryStatus(msg)}
+              {msg._pending ? 'Sending' : msg._unconfirmed ? 'Not confirmed' : timeStr} {!isDeleted && renderDeliveryStatus(msg)}
             </p>
           </div>
           {quoteButton}
@@ -1569,8 +1762,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const visibleContacts = normalizedSearchQuery
     ? contacts.filter((contact, index) => {
         const contactName = contact._info_name || resolveContactName(contact, `User ${index}`);
-        const snippet = contact.snippet || contact.last_message || contact.messages?.data?.[0]?.message || contact.messages?.[0]?.message || '';
-        return `${contactName} ${snippet}`.toLowerCase().includes(normalizedSearchQuery);
+        return `${contactName} ${previewText(contact)}`.toLowerCase().includes(normalizedSearchQuery);
       })
     : contacts;
 
@@ -1785,7 +1977,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
           ) : visibleContacts.map((contact, i) => {
             // Prefer the name from /info endpoint, fall back to FB graph resolution
             const contactName = contact._info_name || resolveContactName(contact, `User ${i}`);
-            const snippet = contact.snippet || contact.last_message || contact.messages?.data?.[0]?.message || contact.messages?.[0]?.message || 'No messages';
+            const snippet = previewText(contact) || 'No messages';
             const updatedTimeValue = contact.updated_time || contact.last_message_at || contact.updated;
             const updated = formatListTime(updatedTimeValue);
             const id = contact.conversation_id || contact.id || i;
@@ -1973,6 +2165,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                 key={activeConversationId}
                 disabled={windowState === 'closed'}
                 disabledReason="The messaging window has closed"
+                platform={selectedPage?.platform}
                 replyTo={replyTo}
                 onCancelReply={() => setReplyTo(null)}
                 onSendText={handleSendText}
