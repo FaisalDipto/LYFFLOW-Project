@@ -8,6 +8,7 @@ import { useBusiness } from '../../context/BusinessContext';
 import { apiService } from '../../services/api';
 import DateRangeCalendar from '../DateRangeCalendar';
 import { CHART_THEME, heatColor } from './chartTheme';
+import { COMMENT_ACTIONS, commentCategoryLabel } from '../../utils/comments';
 import {
   DASH,
   dashboardErrorMessage,
@@ -41,6 +42,11 @@ const PERIOD_VIEWS = {
   overview: apiService.getDashboardOverview,
   ai: apiService.getDashboardAi,
   growth: apiService.getDashboardGrowth,
+  // Counts back `days` from now, so a period is sent as the days from its start to today.
+  comments: ({ start_date: start, today }, options) => apiService.getCommentsSummary(
+    { days: Math.min(365, Math.max(1, periodDays(start, today))) },
+    options,
+  ),
 };
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -646,6 +652,98 @@ const AiSection = ({ data, palette, timeZone, onOpenChat }) => {
 };
 
 // ---------------------------------------------------------------------------
+// Comments: what the moderation agent saw and did.
+
+const COMMENT_TRENDS = [
+  { id: 'total', label: 'All' },
+  { id: 'queries', label: 'Questions' },
+  { id: 'negative_reviews', label: 'Negative' },
+  { id: 'spam_abuse', label: 'Spam & abuse' },
+  { id: 'positive_neutral', label: 'Positive' },
+];
+
+const CommentsSection = ({ data, period, today, palette, onReview }) => {
+  const [metric, setMetric] = useState('total');
+  const total = Number(data.total_comments) || 0;
+  // Shares from the counts, so they read the same whatever scale `percentage` uses.
+  const share = (count) => (total ? (count / total) * 100 : null);
+  const categories = [...(data.categories || [])].filter(item => item.count > 0).sort((a, b) => b.count - a.count);
+  const actions = [...(data.actions || [])].filter(item => item.count > 0).sort((a, b) => b.count - a.count);
+  const maxCategory = Math.max(1, ...categories.map(item => item.count));
+  // The summary counts back from now; a range ending before today shows only its own days.
+  const trends = (data.daily_trends || []).filter(day => day.date >= period.start_date && day.date <= period.end_date);
+  const metricLabel = COMMENT_TRENDS.find(item => item.id === metric)?.label;
+  const since = period.end_date !== today ? `since ${formatDay(period.start_date)}` : null;
+
+  if (total === 0) {
+    return <Card><p className="m-0 text-[13px] text-slate-500">No comments were checked in this period.</p></Card>;
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+      <Card>
+        <Stat label={`Comments checked${since ? ` ${since}` : ''}`} hint="Comments on your posts the moderation agent evaluated." value={formatCount(total)} />
+        <div className={`mt-3 flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-[13px] ${data.pending_review_count ? 'bg-amber-50 text-amber-800' : 'bg-slate-50 text-slate-600'}`}>
+          <span><strong className="font-semibold">{formatCount(data.pending_review_count)}</strong> waiting for your review</span>
+          {data.pending_review_count > 0 && (
+            <button type="button" onClick={onReview} className="inline-flex items-center gap-0.5 font-semibold text-amber-900 hover:underline">
+              Review<ChevronRight size={14} />
+            </button>
+          )}
+        </div>
+        <h3 className="mb-2 mt-4 text-[12px] font-semibold uppercase tracking-wide text-slate-500">What the agent did</h3>
+        <dl className="m-0 grid grid-cols-1 gap-2 text-[13px]">
+          {actions.map(item => (
+            <MetricLine key={item.action} label={COMMENT_ACTIONS[item.action] || item.action} value={`${formatCount(item.count)} · ${formatPct(share(item.count))}`} />
+          ))}
+        </dl>
+      </Card>
+
+      <Card title="By category">
+        <ul className="m-0 list-none space-y-2.5 p-0">
+          {categories.map(item => (
+            <li key={item.category}>
+              <div className="flex items-baseline justify-between gap-2 text-[12.5px]">
+                <span className="truncate text-slate-700">{commentCategoryLabel(item.category)}</span>
+                <span className="shrink-0 tabular-nums text-slate-500"><strong className="font-semibold text-slate-900">{formatCount(item.count)}</strong> · {formatPct(share(item.count))}</span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full rounded-full" style={{ width: `${(item.count / maxCategory) * 100}%`, background: palette.series[2] }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <Card>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="m-0 text-[14px] font-semibold text-slate-900">Per day</h3>
+          <select
+            value={metric}
+            onChange={event => setMetric(event.target.value)}
+            aria-label="Comments shown per day"
+            className="h-8 rounded-lg border border-solid border-slate-200 bg-white py-0 pl-2 pr-7 text-[12px] font-semibold leading-8 text-slate-700"
+          >
+            {COMMENT_TRENDS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </div>
+        <div className="h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={trends.map(day => ({ label: formatDay(day.date), value: Number(day[metric]) || 0 }))} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
+              <CartesianGrid vertical={false} stroke={palette.grid} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: palette.axis, fontSize: 10 }} minTickGap={12} />
+              <YAxis tickLine={false} axisLine={false} width={28} allowDecimals={false} tick={{ fill: palette.axis, fontSize: 10 }} />
+              <Tooltip cursor={{ fill: palette.cursor }} content={<ChartTooltip format={value => `${formatCount(value)} ${metricLabel === 'All' ? 'comments' : metricLabel.toLowerCase()}`} />} />
+              <Bar dataKey="value" name={metricLabel} fill={palette.series[2]} radius={[4, 4, 0, 0]} maxBarSize={32} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Growth: where to act to sell more.
 
 const PLATFORM_LABELS = { fb: 'Facebook', ig: 'Instagram', wa: 'WhatsApp', tt: 'TikTok' };
@@ -827,14 +925,16 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
     () => (choice.preset ? presetPeriod(choice.preset, timeZone) : choice),
     [choice, timeZone],
   );
-  const [views, setViews] = useState({ overview: emptyView, ai: emptyView, growth: emptyView });
+  const [views, setViews] = useState({ overview: emptyView, ai: emptyView, growth: emptyView, comments: emptyView });
+  const today = todayInZone(timeZone);
   const [reloadKey, setReloadKey] = useState(0);
   const [attention, setAttention] = useState({ data: null, error: '' });
   const [openList, setOpenList] = useState(null);
   const attentionRequestRef = useRef(0);
 
   const loadView = useCallback(async (view, target, signal, { force = false } = {}) => {
-    const cacheKey = `${businessId}|${view}|${target.start_date}|${target.end_date}`;
+    const today = todayInZone(timeZone);
+    const cacheKey = `${businessId}|${view}|${target.start_date}|${target.end_date}|${today}`;
     const cached = periodCache.get(cacheKey);
     if (!force && cached && Date.now() - cached.at < PERIOD_CACHE_MS) {
       setViews(current => ({ ...current, [view]: { status: 'ready', data: cached.data, error: '' } }));
@@ -842,7 +942,7 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
     }
     setViews(current => ({ ...current, [view]: { ...current[view], status: 'loading', error: '' } }));
     try {
-      const data = await PERIOD_VIEWS[view]({ start_date: target.start_date, end_date: target.end_date }, { signal });
+      const data = await PERIOD_VIEWS[view]({ start_date: target.start_date, end_date: target.end_date, today }, { signal });
       if (signal.aborted) return;
       periodCache.set(cacheKey, { data, at: Date.now() });
       setViews(current => ({ ...current, [view]: { status: 'ready', data, error: '' } }));
@@ -850,7 +950,7 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
       if (signal.aborted || error?.name === 'AbortError') return;
       setViews(current => ({ ...current, [view]: { status: 'error', data: current[view].data, error: dashboardErrorMessage(error) } }));
     }
-  }, [businessId]);
+  }, [businessId, timeZone]);
 
   // Period views: debounced, and the previous period's requests are cancelled.
   useEffect(() => {
@@ -993,6 +1093,12 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
         <Section title="AI performance" icon={Bot}>
           {renderView('ai', <Skeleton className="h-[320px]" />, data => (
             <AiSection data={data} palette={palette} timeZone={data.range?.timezone || timeZone} onOpenChat={openChat} />
+          ))}
+        </Section>
+
+        <Section title="Comments" icon={MessageCircle}>
+          {renderView('comments', <Skeleton className="h-[300px]" />, data => (
+            <CommentsSection data={data} period={period} today={today} palette={palette} onReview={() => setOpenList('comments')} />
           ))}
         </Section>
 

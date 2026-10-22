@@ -191,7 +191,8 @@ const mockCommentMatches = (comment, params) => {
 const mockCommentSummary = (params) => {
   const days = Math.min(365, Math.max(1, Number(params.get('days')) || 30));
   const since = Date.now() - days * 24 * 3600000;
-  const inWindow = mockComments.filter(item => Date.parse(item.created_at) >= since
+  // ?mockDashboard=empty: a business with no comments yet.
+  const inWindow = mockComments.filter(item => MOCK_DASHBOARD_MODE !== 'empty' && Date.parse(item.created_at) >= since
     && (!params.get('page_id') || item.page_id === params.get('page_id'))
     && (!params.get('platform') || item.platform === params.get('platform')));
   const total = inWindow.length;
@@ -2521,14 +2522,18 @@ export const apiService = {
    * @property {{ action: CommentAction, count: number, percentage: number }[]} actions
    * @property {DailyCommentTrend[]} daily_trends
    */
-  /** @param {CommentSummaryFilters} [filters] @returns {Promise<CommentSummaryResponse>} */
-  getCommentsSummary: (filters = {}) => {
+  /**
+   * @param {CommentSummaryFilters} [filters]
+   * @param {{ signal?: AbortSignal }} [options]
+   * @returns {Promise<CommentSummaryResponse>}
+   */
+  getCommentsSummary: (filters = {}, { signal } = {}) => {
     const q = new URLSearchParams();
     ['page_id', 'platform', 'days'].forEach(key => {
       if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') q.set(key, filters[key]);
     });
     const qs = q.toString();
-    return apiFetch(`/v1/comments/summary${qs ? `?${qs}` : ''}`);
+    return apiFetch(`/v1/comments/summary${qs ? `?${qs}` : ''}`, { signal });
   },
   /** @param {CommentListFilters} [filters] @returns {Promise<CommentListResponse>} */
   getComments: (filters = {}) => {

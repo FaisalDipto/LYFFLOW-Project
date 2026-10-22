@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Ban, CheckCircle2, EyeOff, Loader2, MessageCircle, MessageSquareReply, MessageSquareWarning, Send, Trash2, X } from 'lucide-react';
 import { apiService } from '../services/api';
-
-const CATEGORY_LABELS = {
-  abuse_hate: { label: 'Abuse or hate', className: 'bg-rose-50 text-rose-700' },
-  spam_scam: { label: 'Spam or scam', className: 'bg-rose-50 text-rose-700' },
-  negative_review: { label: 'Negative review', className: 'bg-amber-50 text-amber-700' },
-  competitor_promo: { label: 'Competitor promotion', className: 'bg-amber-50 text-amber-700' },
-  query: { label: 'Question', className: 'bg-sky-50 text-sky-700' },
-  positive_neutral: { label: 'Positive or neutral', className: 'bg-emerald-50 text-emerald-700' },
-  unclear: { label: 'Unclear', className: 'bg-slate-100 text-slate-600' },
-};
+import { COMMENT_CATEGORIES as CATEGORY_LABELS } from '../utils/comments';
 
 const STATUS_LABELS = {
   pending_review: { label: 'Needs review', className: 'bg-amber-50 text-amber-700' },
