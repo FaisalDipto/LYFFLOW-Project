@@ -1667,8 +1667,11 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     const msgId = msg.message_id || msg.id;
     const convId = activeContact?.conversation_id || activeContact?.id;
 
-    // Fetch message info lazily and cache on the msg object itself
-    if (msgId && convId && !msg._pending && !String(msgId).startsWith('temp_') && msg._infoFetched === undefined) {
+    // The messages endpoint already returns is_ai_msg, has_attachment and
+    // agent_activity_id; only a message without them (an older response shape) needs the
+    // per-message info call. Fetched lazily and cached on the msg object itself.
+    const hasMetadata = 'is_ai_msg' in msg && 'has_attachment' in msg && 'agent_activity_id' in msg;
+    if (!hasMetadata && msgId && convId && !msg._pending && !String(msgId).startsWith('temp_') && msg._infoFetched === undefined) {
       msg._infoFetched = false; // mark as in-flight
       apiService.getMessageInfo(convId, msgId)
           .then(info => {

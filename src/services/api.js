@@ -954,7 +954,7 @@ const invalidateGetState = () => {
   inFlightGetRequests.clear();
 };
 
-const apiFetch = async (endpoint, options = {}) => {
+const requestApi = async (endpoint, options = {}) => {
   const { cacheTtl = 0, invalidateCache = false, preserveGetCache = false, bypassCache = false, ...requestOptions } = options;
   const method = (requestOptions.method || 'GET').toUpperCase();
 
@@ -1306,7 +1306,7 @@ const apiFetch = async (endpoint, options = {}) => {
       const offset = Number(params.get('cursor')) || 0;
       const thread = Array.from({ length: 60 }, (_, index) => {
         const createdAt = new Date(MOCK_LOADED_AT - index * 5 * 60000).toISOString();
-        const base = { id: `m1_${index}`, message_id: `m1_${index}`, created_at: createdAt };
+        const base = { id: `m1_${index}`, message_id: `m1_${index}`, created_at: createdAt, has_attachment: false, attachments: [], agent_activity_id: null };
         if (index % 2 === 0) {
           return {
             ...base, role: 'user', is_ai_msg: false,
@@ -1610,6 +1610,95 @@ const apiFetch = async (endpoint, options = {}) => {
       inFlightGetRequests.delete(requestKey);
     }
   }
+};
+
+// Data that rarely changes, kept in memory across views: the profile, the active business,
+// its members, agents, knowledge bases, plans and courier reference data. Unlike the
+// short-lived cache above, an unrelated write (marking a notification read, sending a
+// reply) doesn't drop it; only a write under one of `invalidatedBy` does, a business
+// switch or creation clears all of it, and so does a 401. `bypassCache` still forces a
+// fresh read. Mock mode goes through it too, so it behaves the same.
+const MINUTE_MS = 60000;
+const STATIC_GETS = [
+  { path: '/v1/user/profile', ttl: 10 * MINUTE_MS, invalidatedBy: ['/v1/profile', '/v1/user/'] },
+  { path: '/v1/business', ttl: 10 * MINUTE_MS, invalidatedBy: ['/v1/business'] },
+  { path: '/v1/business/members', ttl: 5 * MINUTE_MS, invalidatedBy: ['/v1/business/members'] },
+  { path: '/v1/agents', ttl: 10 * MINUTE_MS, invalidatedBy: ['/v1/agent', '/v1/business/pages'] },
+  { path: '/v1/knowledge/get-namespaces', ttl: 10 * MINUTE_MS, invalidatedBy: ['/v1/knowledge'] },
+  { path: '/v1/subscription', ttl: 5 * MINUTE_MS, invalidatedBy: ['/v1/subscription'] },
+  { path: '/v1/plans', ttl: 60 * MINUTE_MS, invalidatedBy: [] },
+  { path: '/v1/user-required-actions', ttl: 2 * MINUTE_MS, invalidatedBy: ['/v1/user-required-actions', '/v1/business/pages', '/v1/subscription', '/v1/woocommerce', '/v1/pathao', '/v1/steadfast'] },
+  { path: '/v1/pathao/stores', ttl: 10 * MINUTE_MS, invalidatedBy: ['/v1/pathao'] },
+  { path: '/v1/pathao/locations', ttl: 60 * MINUTE_MS, invalidatedBy: [] },
+];
+// Writes that change which business (or session) the cached data belongs to.
+const CLEARS_ALL_STATIC = ['/v1/businesses'];
+
+const staticCache = new Map();
+const staticInFlight = new Map();
+let staticGeneration = 0;
+
+const pathOf = (endpoint) => endpoint.split('?')[0];
+const staticRuleFor = (endpoint) => STATIC_GETS.find(rule => rule.path === pathOf(endpoint)) || null;
+
+export const clearStaticCache = () => {
+  staticGeneration += 1;
+  staticCache.clear();
+  staticInFlight.clear();
+};
+
+const invalidateStaticAfterWrite = (endpoint, method) => {
+  const path = pathOf(endpoint);
+  if (CLEARS_ALL_STATIC.some(prefix => path.startsWith(prefix)) || (path === '/v1/business' && method === 'DELETE')) {
+    clearStaticCache();
+    return;
+  }
+  const stale = STATIC_GETS.filter(rule => rule.invalidatedBy.some(prefix => path.startsWith(prefix)));
+  if (stale.length === 0) return;
+  staticGeneration += 1;
+  [...staticCache.keys()].forEach(key => {
+    if (stale.some(rule => pathOf(key) === rule.path)) staticCache.delete(key);
+  });
+  stale.forEach(rule => {
+    [...staticInFlight.keys()].forEach(key => { if (pathOf(key) === rule.path) staticInFlight.delete(key); });
+  });
+};
+
+const apiFetch = async (endpoint, options = {}) => {
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET') {
+    try {
+      return await requestApi(endpoint, options);
+    } finally {
+      // Even a failed write may have changed something; the next read refetches.
+      invalidateStaticAfterWrite(endpoint, method);
+    }
+  }
+  const rule = staticRuleFor(endpoint);
+  if (!rule) return requestApi(endpoint, options);
+
+  if (!options.bypassCache) {
+    const cached = staticCache.get(endpoint);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const pending = staticInFlight.get(endpoint);
+    if (pending) return pending;
+  }
+  const generation = staticGeneration;
+  const request = requestApi(endpoint, options)
+    .then(value => {
+      // A write that landed meanwhile may have made this response stale; don't keep it.
+      if (generation === staticGeneration) staticCache.set(endpoint, { value, expiresAt: Date.now() + rule.ttl });
+      return value;
+    })
+    .catch(error => {
+      if (error?.status === 401) clearStaticCache();
+      throw error;
+    })
+    .finally(() => {
+      if (staticInFlight.get(endpoint) === request) staticInFlight.delete(endpoint);
+    });
+  staticInFlight.set(endpoint, request);
+  return request;
 };
 
 /**
