@@ -39,6 +39,8 @@ const CreateBusinessForm = ({ onCreated, onCancel }) => {
     country: '',
     website: '',
     email: '',
+    description: '',
+    address: '',
   }));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -67,6 +69,8 @@ const CreateBusinessForm = ({ onCreated, onCancel }) => {
         country: optionalText(form.country),
         website: optionalText(form.website),
         email: optionalText(form.email),
+        description: optionalText(form.description),
+        address: optionalText(form.address),
       });
       onCreated();
     } catch (err) {
@@ -95,6 +99,24 @@ const CreateBusinessForm = ({ onCreated, onCancel }) => {
         <div className="sm:col-span-2">
           <label htmlFor="business-name" className={labelClass}>Business name</label>
           <input id="business-name" type="text" required value={form.name} maxLength={100} onChange={update('name')} placeholder="e.g. Dhaka Leather Co." autoFocus className={fieldClass} />
+        </div>
+
+        <div className="sm:col-span-2">
+          <div className="mb-1.5 flex items-baseline justify-between gap-2">
+            <label htmlFor="business-description" className="block text-xs font-bold text-slate-700 dark:text-slate-300">What does your business do? {optionalTag}</label>
+            <span className={`text-[11px] font-semibold ${form.description.length > 500 ? 'text-red-600' : 'text-slate-400 dark:text-slate-500'}`}>{form.description.length}/500</span>
+          </div>
+          <textarea
+            id="business-description"
+            rows={3}
+            maxLength={500}
+            value={form.description}
+            onChange={update('description')}
+            placeholder="e.g. Handmade leather wallets and bags, delivered across Bangladesh."
+            aria-describedby="business-description-hint"
+            className={`${fieldClass} resize-y`}
+          />
+          <p id="business-description-hint" className="mb-0 mt-1 text-[11px] text-slate-500 dark:text-slate-400">Your AI agents use this to answer questions about the business. You can change it later in Settings.</p>
         </div>
 
         <div>
@@ -143,6 +165,11 @@ const CreateBusinessForm = ({ onCreated, onCancel }) => {
         <div>
           <label htmlFor="business-email" className={labelClass}>Email {optionalTag}</label>
           <input id="business-email" type="email" autoComplete="email" value={form.email} onChange={update('email')} placeholder="hello@example.com" className={fieldClass} />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label htmlFor="business-address" className={labelClass}>Address {optionalTag}</label>
+          <input id="business-address" type="text" maxLength={200} autoComplete="street-address" value={form.address} onChange={update('address')} placeholder="e.g. House 12, Road 5, Dhanmondi, Dhaka" className={fieldClass} />
         </div>
       </fieldset>
 

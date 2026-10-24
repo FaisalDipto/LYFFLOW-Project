@@ -3509,6 +3509,8 @@ const DEFAULT_AGENT_FALLBACK = "I'm not sure about that, let me connect you with
 // backend default; an empty field is saved as null, which turns the sign off.
 const DEFAULT_HANDOVER_SIGN = '#pause';
 const HANDOVER_SIGN_LIMIT = 10;
+// comment_instruction: guidance for the comment moderation agent's replies and DMs.
+const COMMENT_INSTRUCTION_LIMIT = 1000;
 const ROLE_BY_PERSONA = Object.fromEntries(PERSONAS.map(persona => [persona.id, persona.value]));
 
 /* Facebook comment + inbox automation flags exposed by /v1/agent/update/{agent_id}. */
@@ -4011,7 +4013,7 @@ const AgentLog = ({ agents }) => {
   );
 };
 
-const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgentEdited }) => {
+const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgentEdited, onOpenBusinessProfile }) => {
   // Every member can see agents and their activity; changing them is admin+.
   const { business, canManage } = useBusiness();
   // New agents start in the business's timezone, else the browser's.
@@ -4026,8 +4028,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [selectedPersona, setSelectedPersona] = useState(null);
   const [tone, setTone] = useState('Professional');
   const [language, setLanguage] = useState('Mimic User Language');
-  const [businessName, setBusinessName] = useState('');
-  const [businessDesc, setBusinessDesc] = useState('');
   const [instructions, setInstructions] = useState('');
   const [fallbackMessage, setFallbackMessage] = useState(DEFAULT_AGENT_FALLBACK);
   const [agentTimezone, setAgentTimezone] = useState(defaultAgentTimezone);
@@ -4051,6 +4051,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [customizingAvatarAgent, setCustomizingAvatarAgent] = useState(null);
   const [commentRulesAgent, setCommentRulesAgent] = useState(null);
   const [commentRulesDraft, setCommentRulesDraft] = useState(null);
+  const [commentInstructionDraft, setCommentInstructionDraft] = useState('');
   const [savingCommentRules, setSavingCommentRules] = useState(false);
   const [, setLocalAvatarsTick] = useState(0); // bumped to re-render after avatar changes
   const [creationError, setCreationError] = useState(null);
@@ -4086,8 +4087,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setAttemptedSubmit(false);
     setCreationError(null);
     setAgentName('');
-    setBusinessName('');
-    setBusinessDesc('');
     setInstructions('');
     setFallbackMessage(DEFAULT_AGENT_FALLBACK);
     setSelectedPersona(null);
@@ -4112,7 +4111,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const filteredAgents = agents.filter(agent => {
     const normalizedQuery = agentQuery.trim().toLowerCase();
     if (normalizedQuery) {
-      const searchableText = [agent.name, agent.role, agent.business_name, agent.tone]
+      const searchableText = [agent.name, agent.role, agent.tone]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
@@ -4158,6 +4157,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     console.log('[CommentRules] opening modal for', agent.agent_id, '— flags on the agent object:', readCommentRules(agent));
     setCommentRulesAgent(agent);
     setCommentRulesDraft(readCommentRules(agent));
+    setCommentInstructionDraft(agent.comment_instruction || '');
   };
 
   const closeCommentRules = () => {
@@ -4171,7 +4171,8 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     const agent = commentRulesAgent;
     setSavingCommentRules(true);
     try {
-      const payload = { ...commentRulesDraft };
+      // An empty box clears the instruction (null), back to the default rules.
+      const payload = { ...commentRulesDraft, comment_instruction: commentInstructionDraft.trim() || null };
       console.log('[CommentRules] PATCH /v1/agent/update/' + agent.agent_id, '— request body:', payload);
       const updateResponse = await apiService.updateAgent(agent.agent_id, payload);
       console.log('[CommentRules] PATCH response:', updateResponse);
@@ -4375,8 +4376,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setCreationError(null);
 
     setAgentName(agent.name || agent.agent_name || '');
-    setBusinessName(agent.business_name || '');
-    setBusinessDesc(agent.business_description || '');
     setInstructions(agent.instructions || '');
     setFallbackMessage(agent.fallback_message || DEFAULT_AGENT_FALLBACK);
     setSelectedPersona(REVERSE_ROLE_MAP[agent.role || agent.agent_role] || 'general');
@@ -4397,9 +4396,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
 
     const missing = [];
     if (!agentName.trim()) missing.push("Agent Name");
-    if (!businessName.trim()) missing.push("Business Name");
     if (!selectedPersona) missing.push("Select Persona");
-    if (!businessDesc.trim()) missing.push("Business Description");
 
     if (missing.length > 0) {
       const missingNames = missing.join(", ");
@@ -4409,7 +4406,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     }
     setCreationError(null);
 
-    if (agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > AGENT_INSTRUCTIONS_LIMIT) || (fallbackMessage && fallbackMessage.length > 250)) {
+    if (agentName.length > 30 || (instructions && instructions.length > AGENT_INSTRUCTIONS_LIMIT) || (fallbackMessage && fallbackMessage.length > 250)) {
       setCreationError(`Cannot ${isEditing ? 'save changes' : 'create agent'}. One or more input fields exceed the maximum allowed character limit.`);
       addToast("Character limit exceeded!", 'error');
       return;
@@ -4421,8 +4418,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         agent_name: agentName.trim(),
         agent_tone: tone,
         agent_language: language,
-        business_name: businessName.trim(),
-        business_description: businessDesc.trim(),
+        // The business name and description come from the business profile now.
         instructions: instructions.trim() || null,
         fallback_message: fallbackMessage.trim() || null,
         agent_timezone: agentTimezone || defaultAgentTimezone,
@@ -4448,8 +4444,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         setCreated(false);
         setAgentName('');
         setSelectedPersona(null);
-        setBusinessName('');
-        setBusinessDesc('');
         setInstructions('');
         setFallbackMessage(DEFAULT_AGENT_FALLBACK);
         setAgentTimezone(defaultAgentTimezone);
@@ -4682,6 +4676,30 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           })}
         </div>
 
+        <div className="comment-instruction-field" style={{ marginTop: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>
+            <label htmlFor="agent-comment-instruction" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--dashboard-text-strong, #0f172a)' }}>
+              Comment instructions <span style={{ fontWeight: 500, color: 'var(--dashboard-text-muted, #64748b)' }}>(optional)</span>
+            </label>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: commentInstructionDraft.length > COMMENT_INSTRUCTION_LIMIT ? '#ef4444' : 'var(--dashboard-text-muted, #64748b)' }}>
+              {commentInstructionDraft.length}/{COMMENT_INSTRUCTION_LIMIT}
+            </span>
+          </div>
+          <textarea
+            id="agent-comment-instruction"
+            rows={3}
+            value={commentInstructionDraft}
+            onChange={(e) => setCommentInstructionDraft(e.target.value)}
+            disabled={savingCommentRules}
+            placeholder="e.g. Mention our 10% weekend discount and invite people to check their inbox for exact prices."
+            aria-describedby="agent-comment-instruction-help"
+            style={{ width: '100%', marginTop: '8px', padding: '10px 12px', border: commentInstructionDraft.length > COMMENT_INSTRUCTION_LIMIT ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '10px', outline: 'none', backgroundColor: 'var(--dashboard-surface, #fff)', fontFamily: 'inherit', fontSize: '13px', lineHeight: 1.5, resize: 'vertical', boxSizing: 'border-box' }}
+          />
+          <p id="agent-comment-instruction-help" style={{ fontSize: '11px', color: 'var(--dashboard-text-muted, #64748b)', margin: '4px 0 0', lineHeight: 1.45 }}>
+            How this agent words public comment replies and the private messages it sends from comments. Leave empty to use the default rules.
+          </p>
+        </div>
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
           <button
             onClick={closeCommentRules}
@@ -4692,7 +4710,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           </button>
           <button
             onClick={handleSaveCommentRules}
-            disabled={savingCommentRules}
+            disabled={savingCommentRules || commentInstructionDraft.length > COMMENT_INSTRUCTION_LIMIT}
             style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', backgroundColor: '#0f172a', color: '#fff', fontWeight: 700, border: 'none', cursor: savingCommentRules ? 'not-allowed' : 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
           >
             {savingCommentRules ? 'Saving…' : 'Save changes'}
@@ -5434,17 +5452,28 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             </div>
             <input type="text" placeholder="e.g. Sales Bot" value={agentName} onChange={(e) => setAgentName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !agentName.trim()) || agentName.length > 30 ? 'var(--dashboard-tint-red, #fef2f2)' : 'var(--dashboard-surface, #fff)', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
-          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !businessName.trim()) ? '#ef4444' : 'inherit' }}>
-                Business Name * {(attemptedSubmit && !businessName.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
-              </label>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: businessName.length > 100 ? '#ef4444' : 'var(--dashboard-text-muted, #64748b)' }}>
-                {businessName.length}/100 {businessName.length > 100 && '• Limit exceeded!'}
-              </span>
+        </div>
+
+        <div className="agent-business-profile rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="m-0 text-[11px] font-bold uppercase tracking-wider text-slate-500">Business profile</p>
+              <p className="m-0 mt-1 truncate text-sm font-bold text-slate-900">{business?.name || 'Your business'}</p>
             </div>
-            <input type="text" placeholder="Your Company Ltd" value={businessName} onChange={(e) => setBusinessName(e.target.value)} style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessName.trim()) || businessName.length > 100 ? 'var(--dashboard-tint-red, #fef2f2)' : 'var(--dashboard-surface, #fff)', fontSize: '14px', boxSizing: 'border-box' }} />
+            {onOpenBusinessProfile && (
+              <button type="button" onClick={onOpenBusinessProfile} className="shrink-0 text-xs font-bold text-emerald-700 underline-offset-2 hover:underline">
+                Edit in Settings
+              </button>
+            )}
           </div>
+          {business?.description ? (
+            <p className="mb-0 mt-1 line-clamp-2 text-xs leading-5 text-slate-600" title={business.description}>{business.description}</p>
+          ) : (
+            <p className="mb-0 mt-1 text-xs font-semibold leading-5 text-amber-700">
+              No description yet. Add one in Settings → Business so the agent can answer questions about what you sell.
+            </p>
+          )}
+          <p className="mb-0 mt-1.5 text-[11px] text-slate-500">Every agent uses the business name and description from the business profile.</p>
         </div>
 
         {isEditing && <div className="form-group">
@@ -5487,18 +5516,6 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             <label style={{ fontSize: '14px', fontWeight: 600 }}>Timezone *</label>
             <TimezoneSelect value={agentTimezone} onChange={setAgentTimezone} aria-label="Agent timezone" style={{ width: '100%', padding: '12px 14px', border: '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: 'var(--dashboard-surface, #fff)', fontSize: '14px', boxSizing: 'border-box' }} />
           </div>
-        </div>
-
-        <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <label style={{ fontSize: '14px', fontWeight: 600, color: (attemptedSubmit && !businessDesc.trim()) ? '#ef4444' : 'inherit' }}>
-              Business Description * {(attemptedSubmit && !businessDesc.trim()) && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>(Required)</span>}
-            </label>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: businessDesc.length > 500 ? '#ef4444' : 'var(--dashboard-text-muted, #64748b)' }}>
-              {businessDesc.length}/500 {businessDesc.length > 500 && '• Limit exceeded!'}
-            </span>
-          </div>
-          <textarea placeholder="What does your business do? How should the agent ground its suggestions?" value={businessDesc} onChange={(e) => setBusinessDesc(e.target.value)} rows="3" style={{ width: '100%', padding: '12px 14px', border: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: (attemptedSubmit && !businessDesc.trim()) || businessDesc.length > 500 ? 'var(--dashboard-tint-red, #fef2f2)' : 'var(--dashboard-surface, #fff)', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
         </div>
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
@@ -5549,7 +5566,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         </div>
 
         {(() => {
-          const hasLimitError = agentName.length > 30 || businessName.length > 100 || businessDesc.length > 500 || (instructions && instructions.length > AGENT_INSTRUCTIONS_LIMIT) || (fallbackMessage && fallbackMessage.length > 250);
+          const hasLimitError = agentName.length > 30 || (instructions && instructions.length > AGENT_INSTRUCTIONS_LIMIT) || (fallbackMessage && fallbackMessage.length > 250);
           return (
             <button type="submit" className={`btn-submit inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-[15px] font-extrabold text-white shadow-lg transition ${hasLimitError ? 'bg-red-500 shadow-red-500/10' : created ? 'bg-emerald-500 shadow-emerald-500/10' : 'bg-slate-950 shadow-slate-950/10 hover:-translate-y-0.5 hover:bg-slate-800'} disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0`} disabled={loading}>
               {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
@@ -5581,9 +5598,15 @@ const THEMES = [
   { id: 'amber', label: 'Amber', primary: '#fcd34d', accent: '#d97706' },
 ];
 
-const SettingsPanel = ({ user, onUpdate, onBusinessDeleted }) => {
+const SettingsPanel = ({ user, onUpdate, onBusinessDeleted, focusRequest }) => {
   const { isOwner } = useBusiness();
-  const [activeSettings, setActiveSettings] = useState('profile');
+  const [activeSettings, setActiveSettings] = useState(focusRequest?.settingsTab || 'profile');
+  // A link into Settings (e.g. "Edit in Settings" on an agent) opens that section.
+  const [focusedSettings, setFocusedSettings] = useState(focusRequest);
+  if (focusRequest !== focusedSettings) {
+    setFocusedSettings(focusRequest);
+    if (focusRequest?.settingsTab) setActiveSettings(focusRequest.settingsTab);
+  }
 
   // ── Profile state ──
   // display_name is the only editable field; email is fixed by the Google account.
@@ -7089,7 +7112,7 @@ export default function Dashboard() {
     if (!target?.tab) return;
     visitedTabsRef.current.add(target.tab);
     setActiveTab(target.tab);
-    if (target.conversationId || target.recordId || target.status) {
+    if (target.conversationId || target.recordId || target.status || target.settingsTab) {
       setNotificationFocus({ ...target, nonce: Date.now() });
     }
   }, [setActiveTab]);
@@ -7184,13 +7207,13 @@ export default function Dashboard() {
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('agent') && <div style={{ display: activeTab === 'agent' ? 'contents' : 'none' }}>
-          <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={refreshAgentWorkspace} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />
+          <AgentPanel user={user} pages={pages} namespaces={namespaces} onUpdate={refreshAgentWorkspace} onOpenBusinessProfile={() => handleNotificationNavigate({ tab: 'settings', settingsTab: 'business' })} onAgentCreated={(newAgent) => setUser(prev => prev ? { ...prev, agents: [...(prev.agents || []), newAgent] } : prev)} onAgentEdited={(id, payload) => setUser(prev => prev ? { ...prev, agents: (prev.agents || []).map(a => a.agent_id === id ? { ...a, ...payload } : a) } : prev)} />
         </div>}
         {visitedTabsRef.current.has('feedback') && <div style={{ display: activeTab === 'feedback' ? 'contents' : 'none' }}>
           <FeedbackPanel />
         </div>}
         {visitedTabsRef.current.has('settings') && <div style={{ display: activeTab === 'settings' ? 'contents' : 'none' }}>
-          <SettingsPanel user={user} onUpdate={refreshProfile} onBusinessDeleted={() => navigate('/businesses?reason=deleted', { replace: true })} />
+          <SettingsPanel user={user} onUpdate={refreshProfile} focusRequest={notificationFocus} onBusinessDeleted={() => navigate('/businesses?reason=deleted', { replace: true })} />
         </div>}
         {visitedTabsRef.current.has('subscription') && <div style={{ display: activeTab === 'subscription' ? 'contents' : 'none' }}>
           {role === 'owner' ? (

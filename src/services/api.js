@@ -567,8 +567,8 @@ const mockMoney = (value) => (value === null || value === undefined || value ===
 // Agents for mock mode; create and update edit this list until reload. SupportBot has
 // the Messenger pause sign turned off (null) so both states are visible.
 let mockAgents = [
-  { agent_id: 'agent_1', name: 'SalesBot', agent_name: 'SalesBot', role: 'Sales', agent_role: 'Sales', agent_tone: 'Friendly', agent_language: 'Mimic User Language', business_name: 'Demo Store', business_description: 'Leather goods and accessories, delivered across Bangladesh.', agent_timezone: 'Asia/Dhaka', human_handover_sign: '#pause', namespace_id: 'ns_1' },
-  { agent_id: 'agent_2', name: 'SupportBot', agent_name: 'SupportBot', role: 'Support', agent_role: 'Support', agent_tone: 'Professional', agent_language: 'English', business_name: 'Demo Store', business_description: 'Order help, returns and delivery questions for Demo Store.', agent_timezone: 'Asia/Dhaka', human_handover_sign: null },
+  { agent_id: 'agent_1', name: 'SalesBot', agent_name: 'SalesBot', role: 'Sales', agent_role: 'Sales', agent_tone: 'Friendly', agent_language: 'Mimic User Language', agent_timezone: 'Asia/Dhaka', human_handover_sign: '#pause', namespace_id: 'ns_1', is_comment_manage: true, is_reply_comment: true, comment_instruction: 'Mention free delivery inside Dhaka on orders over ৳2000.' },
+  { agent_id: 'agent_2', name: 'SupportBot', agent_name: 'SupportBot', role: 'Support', agent_role: 'Support', agent_tone: 'Professional', agent_language: 'English', agent_timezone: 'Asia/Dhaka', human_handover_sign: null, comment_instruction: null },
 ];
 
 const MOCK_NAMESPACES = [{ namespace_id: 'ns_1', namespace_name: 'Demo catalog' }];
@@ -607,6 +607,8 @@ let mockBusiness = {
   timezone: 'Asia/Dhaka',
   website: 'https://demostore.example',
   email: 'hello@demostore.example',
+  description: 'Leather goods and accessories, delivered across Bangladesh.',
+  address: 'House 12, Road 5, Dhanmondi, Dhaka 1205',
   created_at: '2026-09-01T00:00:00.000Z',
 };
 
@@ -1377,6 +1379,11 @@ const requestApi = async (endpoint, options = {}) => {
     if (agentUpdateMatch && method === 'PATCH') {
       const body = JSON.parse(requestOptions.body || '{}');
       if ('human_handover_sign' in body) body.human_handover_sign = body.human_handover_sign || null;
+      if (typeof body.comment_instruction === 'string' && body.comment_instruction.length > 1000) {
+        const error = new Error('body.comment_instruction: String should have at most 1000 characters');
+        error.status = 422;
+        throw error;
+      }
       const existing = mockAgents.find(agent => agent.agent_id === agentUpdateMatch[1]) || { agent_id: agentUpdateMatch[1] };
       const updated = { ...existing, ...body, name: body.agent_name || existing.name, updated_at: new Date().toISOString() };
       mockAgents = mockAgents.map(agent => (agent.agent_id === updated.agent_id ? updated : agent));

@@ -34,6 +34,8 @@ const profileFromBusiness = (business) => ({
   phone_number: business?.phone_number || '',
   email: business?.email || '',
   website: business?.website || '',
+  description: business?.description || '',
+  address: business?.address || '',
   country: business?.country || '',
   timezone: business?.timezone || 'UTC',
 });
@@ -82,6 +84,8 @@ export const BusinessDetailsSettings = ({ onBusinessDeleted }) => {
         phone_number: phone,
         email: optionalText(form.email),
         website: optionalText(form.website),
+        description: optionalText(form.description),
+        address: optionalText(form.address),
         country: optionalText(form.country),
         timezone: form.timezone || 'UTC',
       });
@@ -122,6 +126,38 @@ export const BusinessDetailsSettings = ({ onBusinessDeleted }) => {
           <div className="sm:col-span-2">
             <label htmlFor="settings-business-name" className={labelClass}>Business name</label>
             <input id="settings-business-name" type="text" required value={form.name} maxLength={100} onChange={update('name')} className={inputClass} />
+          </div>
+
+          <div className="sm:col-span-2">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <label htmlFor="settings-business-description" className="block text-[13.5px] font-semibold text-slate-800">
+                Description <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <span className={`text-xs font-semibold ${form.description.length > 500 ? 'text-red-600' : 'text-slate-400'}`}>{form.description.length}/500</span>
+            </div>
+            <textarea
+              id="settings-business-description"
+              rows={3}
+              maxLength={500}
+              value={form.description}
+              onChange={update('description')}
+              placeholder="What you sell, who you sell to, and what makes you different."
+              aria-describedby="settings-business-description-help"
+              className={`${inputClass} resize-y`}
+            />
+            <p id="settings-business-description-help" className="mb-0 mt-1.5 text-xs text-slate-500">
+              Your AI agents use this, with the business name, to answer questions about the business and to reply to comments.
+            </p>
+          </div>
+
+          <div className="sm:col-span-2">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <label htmlFor="settings-business-address" className="block text-[13.5px] font-semibold text-slate-800">
+                Address <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <span className={`text-xs font-semibold ${form.address.length > 200 ? 'text-red-600' : 'text-slate-400'}`}>{form.address.length}/200</span>
+            </div>
+            <input id="settings-business-address" type="text" maxLength={200} autoComplete="street-address" value={form.address} onChange={update('address')} placeholder="e.g. House 12, Road 5, Dhanmondi, Dhaka" className={inputClass} />
           </div>
 
           <div>
