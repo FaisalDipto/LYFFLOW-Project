@@ -47,7 +47,7 @@ import ConversationNote from '../components/conversation/ConversationNote';
 import PlatformMark from '../components/PlatformMark';
 import { isInstagram } from '../utils/platforms';
 import { handoverCategoryLabel } from '../utils/ownerDashboard';
-import { parseProductCardsText } from '../utils/productCards';
+import { messageProductCards } from '../utils/productCards';
 import MessagingWindowNotice from '../components/conversation/MessagingWindowNotice';
 import ConversationAssignee from '../components/conversation/ConversationAssignee';
 import './Dashboard.css';
@@ -1619,7 +1619,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
 
   const renderMessageText = (msg, isMe = false) => {
     const body = msg.message || msg.text;
-    const productCards = parseProductCardsText(body);
+    const productCards = messageProductCards(msg);
     if (productCards) return <ProductCardsMessage cards={productCards} inverted={isMe} />;
     if (typeof body === 'object' && body !== null) {
       return (
@@ -3950,8 +3950,8 @@ const AgentLog = ({ agents }) => {
                             </div>
                             {msg.type === 'product_cards' ? (
                               <ProductCardsMessage codes={msg.product_codes || []} />
-                            ) : parseProductCardsText(msg.content || msg.message) ? (
-                              <ProductCardsMessage cards={parseProductCardsText(msg.content || msg.message)} />
+                            ) : messageProductCards(msg) ? (
+                              <ProductCardsMessage cards={messageProductCards(msg)} />
                             ) : (
                               <p className="text-xs font-semibold text-slate-800 whitespace-pre-wrap">{msg.content || msg.message || msg.url || '—'}</p>
                             )}

@@ -1,10 +1,13 @@
-// The sale agent's product cards (Meta generic template). The thread stores them as a
-// text message: "[Product cards] Name — ৳650 (Regular ৳1500) · Other name — ৳550".
+// The sale agent's product cards (Meta generic template). Messages carry them as
+// `product_cards` ([{ code, title, subtitle, image_key }]); `message` holds a plain-text
+// version, "[Product cards] Name (Code: X) — ৳650 (Regular ৳1500) · Other — ৳550", which
+// is all that card messages stored before the field existed have.
 export const PRODUCT_CARDS_PREFIX = '[Product cards]';
 
 /**
+ * Cards from the plain-text version.
  * @param {unknown} text
- * @returns {{ name: string, price: string }[] | null} The cards, or null for any other message.
+ * @returns {{ code: string, title: string, subtitle: string, image_key: null }[] | null} null for any other message.
  */
 export const parseProductCardsText = (text) => {
   if (typeof text !== 'string' || !text.startsWith(PRODUCT_CARDS_PREFIX)) return null;
@@ -15,8 +18,22 @@ export const parseProductCardsText = (text) => {
     .filter(Boolean)
     .map(part => {
       const split = part.lastIndexOf(' — ');
-      return split > 0
-        ? { name: part.slice(0, split).trim(), price: part.slice(split + 3).trim() }
-        : { name: part, price: '' };
+      const name = split > 0 ? part.slice(0, split).trim() : part;
+      const codeMatch = /\s*\(Code:\s*([^)]+)\)\s*$/.exec(name);
+      return {
+        code: codeMatch ? codeMatch[1].trim() : '',
+        title: codeMatch ? name.slice(0, codeMatch.index).trim() : name,
+        subtitle: split > 0 ? part.slice(split + 3).trim() : '',
+        image_key: null,
+      };
     });
+};
+
+/**
+ * A message's product cards: the `product_cards` field, else parsed from the text.
+ * @returns {{ code: string, title: string, subtitle: string, image_key: string|null }[] | null}
+ */
+export const messageProductCards = (message) => {
+  if (Array.isArray(message?.product_cards) && message.product_cards.length) return message.product_cards;
+  return parseProductCardsText(message?.message ?? message?.text ?? message?.content);
 };

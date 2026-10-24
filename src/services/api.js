@@ -1310,8 +1310,14 @@ const apiFetch = async (endpoint, options = {}) => {
         return {
           ...base, role: 'page', is_ai_msg: !sentBy, sent_by_user_id: sentBy,
           message: index === 1 ? "I've passed this to our delivery team; they'll confirm the time today."
-            : index === 7 ? '[Product cards] LED Acrylic Writing Board — ৳650 (Regular ৳1500) · Magical Water Floating Pens — ৳550 · Mini Desk Organiser — ৳420'
+            : index === 7 ? '[Product cards] LED Acrylic Writing Board (Code: GOO47-2) — ৳650 (Regular ৳1500) · Magical Water Floating Pens (Code: GOO69-1) — ৳550 · Mini Desk Organiser (Code: GOO12) — ৳420'
             : `Agent reply #${60 - index}: here are the details you asked about.`,
+          // Card messages carry the cards too; image keys only resolve against the real API.
+          product_cards: index === 7 ? [
+            { code: 'GOO47-2', title: 'LED Acrylic Writing Board', subtitle: '৳650 (Regular ৳1500)', image_key: 'mock-card-1' },
+            { code: 'GOO69-1', title: 'Magical Water Floating Pens', subtitle: '৳550', image_key: 'mock-card-2' },
+            { code: 'GOO12', title: 'Mini Desk Organiser', subtitle: '৳420', image_key: null },
+          ] : null,
           is_delivered: true, delivered_at: createdAt,
           is_read: index !== 1, read_at: index !== 1 ? createdAt : null,
           reaction: index === 3 ? '❤️' : index === 9 ? '👍' : null,
