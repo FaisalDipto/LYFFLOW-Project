@@ -7370,22 +7370,8 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <div className="flex-1 px-1 py-5">
-          <button
-            type="button"
-            onClick={() => navigate('/businesses')}
-            title="Switch business"
-            className="group mb-5 flex w-full items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-left transition hover:border-white/[0.16] hover:bg-white/[0.07]"
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-400/10 text-sm font-black text-emerald-300">
-              {(business?.name || '?').charAt(0).toUpperCase()}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-bold text-slate-100">{workspaceName}</span>
-              <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-slate-500">{role ? `${role} · switch` : 'Switch business'}</span>
-            </span>
-            <ArrowLeftRight size={14} className="shrink-0 text-slate-500 transition group-hover:text-slate-200" />
-          </button>
+        {/* Switching business lives in the profile menu (top bar). */}
+        <div className="flex-1 px-1 pb-5 pt-4">
           <p className="mb-2 px-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Workspace</p>
           <nav className="space-y-1">
           {primaryNavItems.map(item => {
