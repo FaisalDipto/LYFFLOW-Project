@@ -775,7 +775,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowCreateModal(false)}></div>
-          <div className={`bg-white rounded-3xl shadow-2xl w-full ${formData.product_type === 'variable' ? 'max-w-3xl' : 'max-w-2xl'} relative z-10 overflow-hidden flex flex-col max-h-[90vh] transition-[max-width] duration-200`}>
+          <div className={`bg-white rounded-3xl shadow-2xl w-full ${formData.product_type === 'variable' ? 'max-w-4xl' : 'max-w-3xl'} relative z-10 overflow-hidden flex flex-col max-h-[94vh] transition-[max-width] duration-200`}>
             <div className="flex justify-between items-center p-6 border-b border-slate-100">
               <h3 className="text-2xl font-black font-['Epilogue'] tracking-tight text-slate-900">{editingProductId ? 'Edit Product' : 'Create New Product'}</h3>
               <button onClick={() => setShowCreateModal(false)} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors">
@@ -785,67 +785,70 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
             
             <div className="overflow-y-auto overflow-x-hidden p-6 flex-1 no-scrollbar">
               <form id="createProductForm" onSubmit={handleSubmitProduct} className="space-y-4 sm:px-8">
-                <div className="flex flex-col sm:flex-row w-full">
-                  <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
-                    <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product Name *</label>
-                    <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Premium T-Shirt" />
-                  </div>
-                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
-                    <label htmlFor="product-code" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product Code *</label>
-                    <input
-                      id="product-code"
-                      ref={codeInputRef}
-                      type="text"
-                      required
-                      value={formData.code}
-                      onChange={e => { setFormData({...formData, code: e.target.value}); if (codeError) setCodeError(''); }}
-                      aria-invalid={codeError ? 'true' : undefined}
-                      aria-describedby={codeError ? 'product-code-error' : undefined}
-                      className={`w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 transition-all ${codeError ? 'product-code-invalid border-red-400 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500'}`}
-                      placeholder="E.g. SKU-12345"
-                    />
-                    {codeError && (
-                      <p id="product-code-error" role="alert" className="product-code-error m-0 text-xs font-semibold text-red-600">{codeError}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row w-full">
-                  <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
-                    <label htmlFor="product-regular-price" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Regular price *</label>
-                    <div className="flex items-stretch w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 transition-all">
-                      <span className="flex items-center bg-slate-100 border-r border-slate-200 px-3 text-sm font-bold text-slate-600">{currency}</span>
-                      <input id="product-regular-price" type="number" min="0" step="0.01" required value={formData.regular_price} onChange={e => { setFormData({...formData, regular_price: e.target.value}); if (priceError) setPriceError(''); }} className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-slate-700 outline-none" placeholder="E.g. 1200" />
+                {/* Name, code, prices, type and category: kept tight so the description gets the room. */}
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row w-full">
+                    <div className="space-y-1 w-full sm:w-1/2 sm:pr-3 mb-3 sm:mb-0">
+                      <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product Name *</label>
+                      <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Premium T-Shirt" />
+                    </div>
+                    <div className="space-y-1 w-full sm:w-1/2 sm:pl-3">
+                      <label htmlFor="product-code" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product Code *</label>
+                      <input
+                        id="product-code"
+                        ref={codeInputRef}
+                        type="text"
+                        required
+                        value={formData.code}
+                        onChange={e => { setFormData({...formData, code: e.target.value}); if (codeError) setCodeError(''); }}
+                        aria-invalid={codeError ? 'true' : undefined}
+                        aria-describedby={codeError ? 'product-code-error' : undefined}
+                        className={`w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 transition-all ${codeError ? 'product-code-invalid border-red-400 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500'}`}
+                        placeholder="E.g. SKU-12345"
+                      />
+                      {codeError && (
+                        <p id="product-code-error" role="alert" className="product-code-error m-0 text-xs font-semibold text-red-600">{codeError}</p>
+                      )}
                     </div>
                   </div>
-                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
-                    <label htmlFor="product-sale-price" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Sale price</label>
-                    <div className={`flex items-stretch w-full bg-slate-50 border rounded-xl overflow-hidden focus-within:ring-2 transition-all ${priceError ? 'product-code-invalid border-red-400 focus-within:ring-red-500' : 'border-slate-200 focus-within:ring-emerald-500'}`}>
-                      <span className="flex items-center bg-slate-100 border-r border-slate-200 px-3 text-sm font-bold text-slate-600">{currency}</span>
-                      <input id="product-sale-price" type="number" min="0" step="0.01" value={formData.sale_price} onChange={e => { setFormData({...formData, sale_price: e.target.value}); if (priceError) setPriceError(''); }} aria-invalid={priceError ? 'true' : undefined} aria-describedby={priceError ? 'product-price-error' : 'product-sale-hint'} className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-slate-700 outline-none" placeholder="Optional" />
-                    </div>
-                    {priceError
-                      ? <p id="product-price-error" role="alert" className="product-code-error m-0 text-xs font-semibold text-red-600">{priceError}</p>
-                      : <p id="product-sale-hint" className="m-0 text-[11px] text-slate-500">{isOnSale(formData.regular_price, formData.sale_price) ? 'Shown as the selling price, with the regular price struck through.' : 'Leave empty when the product isn\'t on sale.'}</p>}
-                  </div>
-                </div>
 
-                <div className="flex flex-col sm:flex-row w-full">
-                  <div className="space-y-2 w-full sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
-                    <label htmlFor="product-type" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product type</label>
-                    <select id="product-type" value={formData.product_type} onChange={e => setFormData({...formData, product_type: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
-                      {PRODUCT_TYPES.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
-                    </select>
+                  <div className="flex flex-col sm:flex-row w-full">
+                    <div className="space-y-1 w-full sm:w-1/2 sm:pr-3 mb-3 sm:mb-0">
+                      <label htmlFor="product-regular-price" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Regular price *</label>
+                      <div className="flex items-stretch w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 transition-all">
+                        <span className="flex items-center bg-slate-100 border-r border-slate-200 px-3 text-sm font-bold text-slate-600">{currency}</span>
+                        <input id="product-regular-price" type="number" min="0" step="0.01" required value={formData.regular_price} onChange={e => { setFormData({...formData, regular_price: e.target.value}); if (priceError) setPriceError(''); }} className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-slate-700 outline-none" placeholder="E.g. 1200" />
+                      </div>
+                    </div>
+                    <div className="space-y-1 w-full sm:w-1/2 sm:pl-3">
+                      <label htmlFor="product-sale-price" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Sale price</label>
+                      <div className={`flex items-stretch w-full bg-slate-50 border rounded-xl overflow-hidden focus-within:ring-2 transition-all ${priceError ? 'product-code-invalid border-red-400 focus-within:ring-red-500' : 'border-slate-200 focus-within:ring-emerald-500'}`}>
+                        <span className="flex items-center bg-slate-100 border-r border-slate-200 px-3 text-sm font-bold text-slate-600">{currency}</span>
+                        <input id="product-sale-price" type="number" min="0" step="0.01" value={formData.sale_price} onChange={e => { setFormData({...formData, sale_price: e.target.value}); if (priceError) setPriceError(''); }} aria-invalid={priceError ? 'true' : undefined} aria-describedby={priceError ? 'product-price-error' : 'product-sale-hint'} className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-slate-700 outline-none" placeholder="Optional" />
+                      </div>
+                      {priceError
+                        ? <p id="product-price-error" role="alert" className="product-code-error m-0 text-xs font-semibold text-red-600">{priceError}</p>
+                        : <p id="product-sale-hint" className="m-0 text-[11px] text-slate-500">{isOnSale(formData.regular_price, formData.sale_price) ? 'Shown as the selling price, with the regular price struck through.' : 'Leave empty when the product isn\'t on sale.'}</p>}
+                    </div>
                   </div>
-                  <div className="space-y-2 w-full sm:w-1/2 sm:pl-4">
-                    <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Category</label>
-                    <input type="text" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Apparel" />
+
+                  <div className="flex flex-col sm:flex-row w-full">
+                    <div className="space-y-1 w-full sm:w-1/2 sm:pr-3 mb-3 sm:mb-0">
+                      <label htmlFor="product-type" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Product type</label>
+                      <select id="product-type" value={formData.product_type} onChange={e => setFormData({...formData, product_type: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                        {PRODUCT_TYPES.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1 w-full sm:w-1/2 sm:pl-3">
+                      <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Category</label>
+                      <input type="text" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="E.g. Apparel" />
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Description *</label>
-                  <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500 transition-all resize-none" placeholder="Detailed product description..."></textarea>
+                  <label htmlFor="product-description" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Description *</label>
+                  <textarea id="product-description" required rows={8} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="block w-full min-h-[10rem] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium leading-6 text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500 transition-[box-shadow] resize-y" placeholder="Detailed product description..."></textarea>
                 </div>
 
                 <div className="space-y-2">
