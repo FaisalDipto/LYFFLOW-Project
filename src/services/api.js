@@ -236,14 +236,14 @@ let mockNotifications = [
 ];
 const mockUnreadCount = () => mockNotifications.filter(item => !item.read_at).length;
 // The signed-in mock user (demo@lyfflow.com in the members list).
-const MOCK_CURRENT_USER_ID = 'user_1';
+const MOCK_CURRENT_MEMBER_ID = 'mem_1';
 // page_1's inbox. last_customer_at drives each reply window: inside 24h, 24h-7d, past 7d.
 const MOCK_HOUR = 3600000;
 let mockInbox = [
-  { conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', is_human_needed: false, human_needed_reason: null, assigned_to_user_id: MOCK_CURRENT_USER_ID, last_customer_at: MOCK_LOADED_AT },
-  { conversation_id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', profile_pic_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', is_human_needed: true, human_needed_reason: 'Asked for a bulk discount', handover_category: 'bulk_custom_or_pricing', assigned_to_user_id: null, last_customer_at: MOCK_LOADED_AT - 30 * MOCK_HOUR },
-  { conversation_id: 'conv_3', name: 'Rahim Uddin', snippet: 'Can I change the delivery address?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Escalated for pricing negotiation', handover_category: null, assigned_to_user_id: 'user_2', note: 'Prefers delivery after 6 pm. Call before sending COD.', last_customer_at: MOCK_LOADED_AT - 3 * MOCK_HOUR },
-  { conversation_id: 'conv_4', name: 'Nadia Islam', snippet: 'Thanks, I will think about it.', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_user_id: null, last_customer_at: MOCK_LOADED_AT - 9 * 24 * MOCK_HOUR },
+  { conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', is_human_needed: false, human_needed_reason: null, assigned_to_member_id: MOCK_CURRENT_MEMBER_ID, last_customer_at: MOCK_LOADED_AT },
+  { conversation_id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', profile_pic_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', is_human_needed: true, human_needed_reason: 'Asked for a bulk discount', handover_category: 'bulk_custom_or_pricing', assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 30 * MOCK_HOUR },
+  { conversation_id: 'conv_3', name: 'Rahim Uddin', snippet: 'Can I change the delivery address?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Escalated for pricing negotiation', handover_category: null, assigned_to_member_id: 'mem_2', note: 'Prefers delivery after 6 pm. Call before sending COD.', last_customer_at: MOCK_LOADED_AT - 3 * MOCK_HOUR },
+  { conversation_id: 'conv_4', name: 'Nadia Islam', snippet: 'Thanks, I will think about it.', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 9 * 24 * MOCK_HOUR },
 ].map(conversation => ({ ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString() }));
 // As the API returns it (last_customer_at is mock bookkeeping).
 const mockInboxItem = (conversation) => {
@@ -259,13 +259,13 @@ const mockPush = (event, data, delayMs = 0) => setTimeout(() => {
 }, delayMs);
 const mockMessage = (fields) => ({
   message_id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, message: null, role: 'user', has_attachment: false,
-  attachments: [], is_ai_msg: false, created_at: new Date().toISOString(), agent_activity_id: null, sent_by_user_id: null,
+  attachments: [], is_ai_msg: false, created_at: new Date().toISOString(), agent_activity_id: null, sent_by_member_id: null,
   is_delivered: false, delivered_at: null, is_read: false, read_at: null, is_deleted: false, deleted_at: null, reaction: null,
   ...fields,
 });
 // A customer who writes in for the first time while the dashboard is open (?mockLive=true).
 const mockNewConversation = {
-  conversation_id: 'conv_5', name: 'Farhana Akter', is_human_needed: false, human_needed_reason: null, assigned_to_user_id: null,
+  conversation_id: 'conv_5', name: 'Farhana Akter', is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null,
   profile_pic_url: null, last_customer_at: Date.now(), updated_time: new Date().toISOString(), snippet: 'Hi! Do you deliver to Chattogram?',
 };
 // ?mockLive=true plays a short script of live events on page_1, starting when the
@@ -387,7 +387,7 @@ const mockDashboardAi = (endpoint) => {
       handovers: { count: 0, pct_of_ai_conversations: null, by_category: [] }, failed_turns: { count: 0, pct_of_turns: null, with_fallback: 0, silent: 0 },
       recent_handovers: [], response_time: { ai_median_seconds: null, team_median_seconds: null, outside_app_median_seconds: null, handover_to_human_reply_median_seconds: null, handovers_without_human_reply: 0 },
       time_saved_hours: { value: 0, ai_handled_turns: 0, seconds_per_reply: 90, is_estimate: true },
-      team: [{ user_id: 'user_1', name: 'demo@lyfflow.com', replies: 0, reply_share_pct: null, orders_created: 0, handover_reply_median_seconds: null }],
+      team: [{ member_id: 'mem_1', name: 'demo@lyfflow.com', replies: 0, reply_share_pct: null, orders_created: 0, handover_reply_median_seconds: null }],
       unattributed_human_replies: 0,
     };
   }
@@ -412,9 +412,9 @@ const mockDashboardAi = (endpoint) => {
     response_time: { ai_median_seconds: 14, team_median_seconds: 1860, outside_app_median_seconds: 1320, handover_to_human_reply_median_seconds: 2400, handovers_without_human_reply: Math.round(4 * scale) },
     time_saved_hours: { value: Math.round((turns * 90) / 360) / 10, ai_handled_turns: turns, seconds_per_reply: 90, is_estimate: true },
     team: [
-      { user_id: 'user_3', name: 'Rafi Hasan', replies: Math.round(142 * scale), reply_share_pct: 42.6, orders_created: Math.round(14 * scale), handover_reply_median_seconds: 1500 },
-      { user_id: 'user_2', name: 'alice@example.com', replies: Math.round(96 * scale), reply_share_pct: 28.8, orders_created: Math.round(7 * scale), handover_reply_median_seconds: 2820 },
-      { user_id: 'user_1', name: 'Demo User', replies: 0, reply_share_pct: 0.0, orders_created: 0, handover_reply_median_seconds: null },
+      { member_id: 'mem_4', name: 'Rafi Hasan', replies: Math.round(142 * scale), reply_share_pct: 42.6, orders_created: Math.round(14 * scale), handover_reply_median_seconds: 1500 },
+      { member_id: 'mem_2', name: 'alice@example.com', replies: Math.round(96 * scale), reply_share_pct: 28.8, orders_created: Math.round(7 * scale), handover_reply_median_seconds: 2820 },
+      { member_id: 'mem_1', name: 'Demo User', replies: 0, reply_share_pct: 0.0, orders_created: 0, handover_reply_median_seconds: null },
     ],
     unattributed_human_replies: Math.round(95 * scale),
   };
@@ -427,15 +427,15 @@ const mockAttentionRows = () => {
   const waiting = [waitRow('conv_4', 'Nadia Islam', 'page_1', 48), waitRow('conv_w2', 'Tanvir Ahmed', 'page_2', 31), waitRow('conv_w3', 'Mitu Akter', 'page_1', 17)];
   const names = ['Arif Chowdhury', 'Farzana Rahman', 'Sabbir Khan', 'Rumana Begum', 'Jahid Hasan', 'Shirin Akter', 'Kamal Uddin'];
   const handoverCategories = ['complaint_refund_return', 'missing_knowledge', null, 'order_status_or_delivery', 'customer_asked_human', 'system_failure', 'bulk_custom_or_pricing'];
-  const assignees = [null, ['user_3', 'Rafi Hasan'], null, ['user_2', 'alice@example.com'], null, null, ['user_1', 'Demo User']];
+  const assignees = [null, ['mem_4', 'Rafi Hasan'], null, ['mem_2', 'alice@example.com'], null, null, ['mem_1', 'Demo User']];
   const handovers = [
-    { conversation_id: 'conv_2', customer_name: 'Jane Smith', page_id: 'page_1', category: 'bulk_custom_or_pricing', assigned_to_user_id: null, assigned_to_name: null, wait_started_at: minutesAgo(1800), waiting_minutes: 1800 },
-    { conversation_id: 'conv_3', customer_name: 'Rahim Uddin', page_id: 'page_1', category: 'missing_knowledge', assigned_to_user_id: 'user_2', assigned_to_name: 'alice@example.com', wait_started_at: minutesAgo(410), waiting_minutes: 410 },
+    { conversation_id: 'conv_2', customer_name: 'Jane Smith', page_id: 'page_1', category: 'bulk_custom_or_pricing', assigned_to_member_id: null, assigned_to_name: null, wait_started_at: minutesAgo(1800), waiting_minutes: 1800 },
+    { conversation_id: 'conv_3', customer_name: 'Rahim Uddin', page_id: 'page_1', category: 'missing_knowledge', assigned_to_member_id: 'mem_2', assigned_to_name: 'alice@example.com', wait_started_at: minutesAgo(410), waiting_minutes: 410 },
     ...names.map((name, index) => {
       const minutes = 300 - index * 40;
       return {
         conversation_id: `conv_h${index + 1}`, customer_name: name, page_id: index % 2 ? 'page_2' : 'page_1', category: handoverCategories[index],
-        assigned_to_user_id: assignees[index]?.[0] || null, assigned_to_name: assignees[index]?.[1] || null, wait_started_at: minutesAgo(minutes), waiting_minutes: minutes,
+        assigned_to_member_id: assignees[index]?.[0] || null, assigned_to_name: assignees[index]?.[1] || null, wait_started_at: minutesAgo(minutes), waiting_minutes: minutes,
       };
     }),
   ];
@@ -620,10 +620,10 @@ const mockData = {
     { member_id: 'mem_9', business_id: 'biz_3', business_name: 'Invited Boutique', role: 'admin', invite_token: '4fa1bf7a-6f3b-48aa-b541-698fba0e3032', invite_expires_at: '2026-12-01T00:00:00.000Z' },
   ],
   '/v1/business/members': [
-    { member_id: 'mem_1', user_id: 'user_1', invited_email: 'demo@lyfflow.com', role: 'owner', status: 'active', joined_at: '2026-09-01T00:00:00.000Z' },
-    { member_id: 'mem_2', user_id: 'user_2', invited_email: 'alice@example.com', role: 'admin', status: 'active', joined_at: '2026-09-10T00:00:00.000Z' },
-    { member_id: 'mem_4', user_id: 'user_3', invited_email: 'rafi@example.com', role: 'member', status: 'active', joined_at: '2026-09-18T00:00:00.000Z' },
-    { member_id: 'mem_3', user_id: null, invited_email: 'bob@example.com', role: 'member', status: 'invited', joined_at: null },
+    { member_id: 'mem_1', invited_email: 'demo@lyfflow.com', role: 'owner', status: 'active', joined_at: '2026-09-01T00:00:00.000Z' },
+    { member_id: 'mem_2', invited_email: 'alice@example.com', role: 'admin', status: 'active', joined_at: '2026-09-10T00:00:00.000Z' },
+    { member_id: 'mem_4', invited_email: 'rafi@example.com', role: 'member', status: 'active', joined_at: '2026-09-18T00:00:00.000Z' },
+    { member_id: 'mem_3', invited_email: 'bob@example.com', role: 'member', status: 'invited', joined_at: null },
   ],
   '/v1/business/pages': [
     { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot', profile_pic_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null },
@@ -854,7 +854,7 @@ const mockData = {
     arq_job_id: "arq:job:3fa85f64",
     job_type: "initial_facebook_sync",
     status: "queued",
-    user_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    created_by_member_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     page_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     input_payload: {
       additionalProp1: { sync_messages: true, max_history_days: 30 }
@@ -873,7 +873,7 @@ const mockData = {
     subscriptions: [
       {
         subscription_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-        user_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        created_by_member_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
         user_display_name: "Johnathan Smith",
         user_email: "john.smith@example.com",
         profile_pic_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
@@ -886,7 +886,7 @@ const mockData = {
       },
       {
         subscription_id: "9ab85c21-1234-4567-890a-bcdef0123456",
-        user_id: "71234c21-8888-4567-890a-bcdef0123456",
+        created_by_member_id: "71234c21-8888-4567-890a-bcdef0123456",
         user_display_name: "Sarah Jenkins",
         user_email: "s.jenkins@techcorp.io",
         profile_pic_url: "",
@@ -1191,15 +1191,15 @@ const apiFetch = async (endpoint, options = {}) => {
       const params = new URLSearchParams(inboxListMatch[2] || '');
       let list = mockInbox;
       if (inboxListMatch[1] || params.get('assigned_to_me') === 'true') {
-        const userId = params.get('user_id') || MOCK_CURRENT_USER_ID;
-        if (userId !== MOCK_CURRENT_USER_ID && mockRole === 'member') {
+        const memberId = params.get('member_id') || MOCK_CURRENT_MEMBER_ID;
+        if (memberId !== MOCK_CURRENT_MEMBER_ID && mockRole === 'member') {
           const error = new Error("Only admins and owners can view another member's assigned conversations.");
           error.status = 403;
           throw error;
         }
-        list = list.filter(conversation => conversation.assigned_to_user_id === userId);
+        list = list.filter(conversation => conversation.assigned_to_member_id === memberId);
       } else if (params.get('unassigned') === 'true') {
-        list = list.filter(conversation => !conversation.assigned_to_user_id);
+        list = list.filter(conversation => !conversation.assigned_to_member_id);
       }
       if (params.has('is_human_needed')) {
         const wanted = params.get('is_human_needed') === 'true';
@@ -1219,8 +1219,19 @@ const apiFetch = async (endpoint, options = {}) => {
           error.status = 403;
           throw error;
         }
-        const { assigned_to_user_id: assignee = null } = JSON.parse(requestOptions.body || '{}');
-        mockInbox = mockInbox.map(item => (item.conversation_id === conversationId ? { ...item, assigned_to_user_id: assignee, updated_time: new Date().toISOString() } : item));
+        const body = JSON.parse(requestOptions.body || '{}');
+        if (!('assigned_to_member_id' in body)) {
+          const error = new Error('assigned_to_member_id is required.');
+          error.status = 422;
+          throw error;
+        }
+        const assignee = body.assigned_to_member_id;
+        if (assignee && !mockData['/v1/business/members'].some(member => member.member_id === assignee && member.status === 'active')) {
+          const error = new Error('Member not found.');
+          error.status = 404;
+          throw error;
+        }
+        mockInbox = mockInbox.map(item => (item.conversation_id === conversationId ? { ...item, assigned_to_member_id: assignee, updated_time: new Date().toISOString() } : item));
         return mockInboxItem(mockInbox.find(item => item.conversation_id === conversationId) || {});
       }
     }
@@ -1236,7 +1247,7 @@ const apiFetch = async (endpoint, options = {}) => {
       const isFile = Boolean(replyMatch[2]);
       const text = isFile ? (requestOptions.body?.get?.('message') || null) : (JSON.parse(requestOptions.body || '{}').message || null);
       const stored = mockMessage({
-        role: 'page', message: text, has_attachment: isFile, sent_by_user_id: MOCK_CURRENT_USER_ID,
+        role: 'page', message: text, has_attachment: isFile, sent_by_member_id: MOCK_CURRENT_MEMBER_ID,
         attachments: [],
       });
       const frame = { conversation_id: replyMatch[1], page_id: 'page_1', message: stored };
@@ -1306,9 +1317,9 @@ const apiFetch = async (endpoint, options = {}) => {
           };
         }
         // Newest reply is a teammate's and not read yet; the next one is the owner's.
-        const sentBy = index === 1 ? 'user_2' : index === 3 ? MOCK_CURRENT_USER_ID : null;
+        const sentBy = index === 1 ? 'mem_2' : index === 3 ? MOCK_CURRENT_MEMBER_ID : null;
         return {
-          ...base, role: 'page', is_ai_msg: !sentBy, sent_by_user_id: sentBy,
+          ...base, role: 'page', is_ai_msg: !sentBy, sent_by_member_id: sentBy,
           message: index === 1 ? "I've passed this to our delivery team; they'll confirm the time today."
             : index === 7 ? '[Product cards] LED Acrylic Writing Board (Code: GOO47-2) — ৳650 (Regular ৳1500) · Magical Water Floating Pens (Code: GOO69-1) — ৳550 · Mini Desk Organiser (Code: GOO12) — ৳420'
             : `Agent reply #${60 - index}: here are the details you asked about.`,
@@ -1471,7 +1482,7 @@ const apiFetch = async (endpoint, options = {}) => {
       const conversationId = manualOrderCreateMatch[1];
       const now = new Date().toISOString();
       const created = {
-        ...mockData['/v1/pages/orders'].orders[0], ...body, created_by: 'manual', created_by_user_id: MOCK_CURRENT_USER_ID,
+        ...mockData['/v1/pages/orders'].orders[0], ...body, created_by: 'manual', created_by_member_id: MOCK_CURRENT_MEMBER_ID,
         customer_order_id: `00000000-0000-4000-9000-${String(Date.now()).slice(-12)}`,
         order_id: `ORD-M${String(Date.now()).slice(-5)}`,
         conversation_id: conversationId, created_at: now, updated_at: now,
@@ -2127,7 +2138,7 @@ export const apiService = {
   }),
 
   // Conversations
-  // `queue` picks the inbox: { assignedToMe } or { userId } (another member's queue,
+  // `queue` picks the inbox: { assignedToMe } or { memberId } (another member's queue,
   // admins and owners only) read /conversations/assigned; { unassigned } the chats no
   // one owns yet. isHumanNeeded narrows any of them.
   getPageDetails: (pageId, cursor = null, page_size = 10, isHumanNeeded = null, queue = {}) => {
@@ -2139,8 +2150,8 @@ export const apiService = {
     if (isHumanNeeded !== null && isHumanNeeded !== undefined) {
       q.set('is_human_needed', String(isHumanNeeded));
     }
-    const assigned = Boolean(queue.assignedToMe || queue.userId);
-    if (queue.userId) q.set('user_id', queue.userId);
+    const assigned = Boolean(queue.assignedToMe || queue.memberId);
+    if (queue.memberId) q.set('member_id', queue.memberId);
     else if (queue.unassigned && !assigned) q.set('unassigned', 'true');
     const qs = `?${q.toString()}`;
     return apiFetch(`/v1/page/${pageId}/conversations${assigned ? '/assigned' : ''}${qs}`);
@@ -2190,9 +2201,9 @@ export const apiService = {
   getConversationWindowStatus: (pageId, conversationId) =>
     apiFetch(`/v1/page/${pageId}/conversations/${conversationId}/window-status`, { cacheTtl: 15000 }),
   // Admins and owners only; null unassigns. Returns the updated ConversationInfo.
-  assignConversation: (pageId, conversationId, userId) => apiFetch(`/v1/page/${pageId}/conversations/${conversationId}/assign`, {
+  assignConversation: (pageId, conversationId, memberId) => apiFetch(`/v1/page/${pageId}/conversations/${conversationId}/assign`, {
     method: 'PATCH',
-    body: JSON.stringify({ assigned_to_user_id: userId || null }),
+    body: JSON.stringify({ assigned_to_member_id: memberId || null }),
   }),
   // Returns basic info for a conversation (name, is_human_needed, updated_time)
   getConversationInfo: (conversationId) => apiFetch(`/v1/conversations/${conversationId}/info`),

@@ -12,11 +12,11 @@ const initial = (name) => (name || '?').charAt(0).toUpperCase();
 export default function ConversationAssignee({ assigneeId, team, canAssign, busy = false, onAssign }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
-  const { members, byUserId, currentUserId } = team;
-  const assignee = assigneeId ? byUserId.get(assigneeId) : null;
-  const isMe = Boolean(assigneeId && assigneeId === currentUserId);
+  const { members, byMemberId, currentMemberId } = team;
+  const assignee = assigneeId ? byMemberId.get(assigneeId) : null;
+  const isMe = Boolean(assigneeId && assigneeId === currentMemberId);
   const label = !assigneeId ? 'Unassigned' : isMe ? 'You' : assignee ? memberShortName(assignee) : 'Teammate';
-  const assignable = members.filter(member => member.user_id);
+  const assignable = members;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -30,9 +30,9 @@ export default function ConversationAssignee({ assigneeId, team, canAssign, busy
     };
   }, [open]);
 
-  const choose = (userId) => {
+  const choose = (memberId) => {
     setOpen(false);
-    if ((userId || null) !== (assigneeId || null)) onAssign(userId);
+    if ((memberId || null) !== (assigneeId || null)) onAssign(memberId);
   };
 
   return (
@@ -63,19 +63,19 @@ export default function ConversationAssignee({ assigneeId, team, canAssign, busy
         <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl" role="menu">
           <p className="m-0 border-b border-slate-100 px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Assign to</p>
           {assignable.length === 0 ? (
-            <p className="m-0 px-3 py-3 text-xs font-medium leading-5 text-slate-500">Team members can't be listed for assignment right now.</p>
+            <p className="m-0 px-3 py-3 text-xs font-medium leading-5 text-slate-500">No active team members to assign yet. Invite teammates from Settings → Team.</p>
           ) : (
             <div className="max-h-64 overflow-y-auto">
               {assignable.map(member => {
-                const selected = member.user_id === assigneeId;
-                const you = member.user_id === currentUserId;
+                const selected = member.member_id === assigneeId;
+                const you = member.member_id === currentMemberId;
                 return (
                   <button
                     type="button"
                     role="menuitemradio"
                     aria-checked={selected}
-                    key={member.user_id}
-                    onClick={() => choose(member.user_id)}
+                    key={member.member_id}
+                    onClick={() => choose(member.member_id)}
                     className={`flex w-full items-center gap-2.5 border-0 px-3 py-2 text-left transition-colors hover:bg-slate-50 ${selected ? 'bg-sky-50' : 'bg-white'}`}
                   >
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-black text-slate-600">{initial(memberShortName(member))}</span>

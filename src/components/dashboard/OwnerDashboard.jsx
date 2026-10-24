@@ -628,7 +628,7 @@ const AiSection = ({ data, palette, timeZone, onOpenChat }) => {
                 </thead>
                 <tbody>
                   {team.map(member => (
-                    <tr key={member.user_id} className="border-t border-slate-100">
+                    <tr key={member.member_id} className="border-t border-slate-100">
                       <td className="max-w-[140px] truncate px-1 py-2 font-medium text-slate-900">{member.name}</td>
                       <td className="px-1 py-2 text-right tabular-nums text-slate-700">
                         {formatCount(member.replies)}

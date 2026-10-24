@@ -6,10 +6,10 @@ export const memberShortName = (member) => (member?.invited_email || '').split('
 
 /**
  * Active business members, for assigning conversations and naming who sent a reply.
- * Assignment needs each member's `user_id`; members without one can't be picked.
- * `currentUserId` is the signed-in user's, matched by email.
+ * Inside a business teammates are identified by `member_id` (assignments, senders,
+ * order creators). `currentMemberId` is the signed-in user's, matched by email.
  *
- * @returns {{ members: object[], byUserId: Map<string, object>, currentUserId: string|null, loaded: boolean }}
+ * @returns {{ members: object[], byMemberId: Map<string, object>, currentMemberId: string|null, loaded: boolean }}
  */
 export function useTeamMembers(currentEmail) {
   const [members, setMembers] = useState(null);
@@ -29,8 +29,8 @@ export function useTeamMembers(currentEmail) {
   }, []);
 
   const list = members || [];
-  const byUserId = new Map(list.filter(member => member.user_id).map(member => [member.user_id, member]));
+  const byMemberId = new Map(list.map(member => [member.member_id, member]));
   const email = (currentEmail || '').toLowerCase();
-  const currentUserId = list.find(member => member.user_id && member.invited_email?.toLowerCase() === email)?.user_id || null;
-  return { members: list, byUserId, currentUserId, loaded: members !== null };
+  const currentMemberId = list.find(member => member.invited_email?.toLowerCase() === email)?.member_id || null;
+  return { members: list, byMemberId, currentMemberId, loaded: members !== null };
 }

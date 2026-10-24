@@ -919,9 +919,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const isHumanNeeded = humanNeededFilter === 'all'
     ? null
     : humanNeededFilter === 'human';
-  const queueMember = queueMemberId ? team.byUserId.get(queueMemberId) : null;
+  const queueMember = queueMemberId ? team.byMemberId.get(queueMemberId) : null;
   const queueFilter = queue === 'mine'
-    ? (queueMemberId ? { userId: queueMemberId } : { assignedToMe: true })
+    ? (queueMemberId ? { memberId: queueMemberId } : { assignedToMe: true })
     : queue === 'unassigned' ? { unassigned: true } : {};
   // Changes whenever the list request changes, for the effect below.
   const queueKey = `${queue}:${queueMemberId}`;
@@ -930,7 +930,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const liveRef = useRef(null);
   liveRef.current = {
     selectedPageId, activeConversationId, isHumanNeeded, queue, queueFilter, loading, loadingMsgs, contacts, messages,
-    assigneeId: queueMemberId || team.currentUserId,
+    assigneeId: queueMemberId || team.currentMemberId,
   };
   // First messages from customers not in the list yet: conversation id -> timer.
   const pendingNewConversationsRef = useRef(new Map());
@@ -941,8 +941,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     const matchesList = (row) => {
       const live = liveRef.current;
       if (live.isHumanNeeded !== null && Boolean(row.is_human_needed) !== live.isHumanNeeded) return false;
-      if (live.queue === 'mine') return row.assigned_to_user_id === live.assigneeId;
-      if (live.queue === 'unassigned') return !row.assigned_to_user_id;
+      if (live.queue === 'mine') return row.assigned_to_member_id === live.assigneeId;
+      if (live.queue === 'unassigned') return !row.assigned_to_member_id;
       return true;
     };
 
@@ -1426,7 +1426,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       id: tempId,
       role: 'page',
       is_ai_msg: false,
-      sent_by_user_id: team.currentUserId,
+      sent_by_member_id: team.currentMemberId,
       created_at: createdAt,
       _pending: true,
       ...preview,
@@ -1506,23 +1506,23 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     setActiveContact(prev => (prev && (prev.conversation_id || prev.id) === convId ? { ...prev, ...changes } : prev));
   };
 
-  const handleAssign = async (userId) => {
+  const handleAssign = async (memberId) => {
     if (!selectedPageId || !activeConversationId) return;
     const convId = activeConversationId;
-    const previous = activeContact?.assigned_to_user_id ?? null;
+    const previous = activeContact?.assigned_to_member_id ?? null;
     setAssigningConversationId(convId);
-    applyContactChanges(convId, { assigned_to_user_id: userId });
+    applyContactChanges(convId, { assigned_to_member_id: memberId });
     try {
-      const updated = await apiService.assignConversation(selectedPageId, convId, userId);
-      applyContactChanges(convId, { assigned_to_user_id: updated?.assigned_to_user_id ?? userId });
-      const member = userId ? team.byUserId.get(userId) : null;
+      const updated = await apiService.assignConversation(selectedPageId, convId, memberId);
+      applyContactChanges(convId, { assigned_to_member_id: updated?.assigned_to_member_id ?? memberId });
+      const member = memberId ? team.byMemberId.get(memberId) : null;
       setInboxNotice({
         tone: 'success',
-        text: !userId ? 'Conversation unassigned.' : userId === team.currentUserId ? 'Assigned to you.' : `Assigned to ${member ? member.invited_email : 'your teammate'}.`,
+        text: !memberId ? 'Conversation unassigned.' : memberId === team.currentMemberId ? 'Assigned to you.' : `Assigned to ${member ? member.invited_email : 'your teammate'}.`,
       });
     } catch (err) {
       console.error('Failed to assign conversation:', err);
-      applyContactChanges(convId, { assigned_to_user_id: previous });
+      applyContactChanges(convId, { assigned_to_member_id: previous });
       setInboxNotice({
         tone: 'error',
         text: err?.status === 403 ? 'Only admins and the owner can assign conversations.'
@@ -1686,9 +1686,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     const activityId = msg._agentActivityId ?? msg.agent_activity_id;
     const isDeleted = Boolean(msg.is_deleted);
     const canQuote = Boolean(msgId) && !msg._pending && !String(msgId).startsWith('temp_') && !isDeleted;
-    const senderId = msg.sent_by_user_id;
+    const senderId = msg.sent_by_member_id;
     const senderName = senderId
-      ? (senderId === team.currentUserId ? 'You' : team.byUserId.get(senderId) ? memberShortName(team.byUserId.get(senderId)) : 'Team')
+      ? (senderId === team.currentMemberId ? 'You' : team.byMemberId.get(senderId) ? memberShortName(team.byMemberId.get(senderId)) : 'Team')
       : null;
     const quoteButton = canQuote && (
       <button
@@ -1921,7 +1921,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
             ))}
           </div>
 
-          {queue === 'mine' && canManage && team.byUserId.size > 1 && (
+          {queue === 'mine' && canManage && team.byMemberId.size > 1 && (
             <label className="mt-2.5 flex items-center gap-2 text-[11px] font-bold text-slate-500">
               Assigned to
               <select
@@ -1930,8 +1930,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                 className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-400"
               >
                 <option value="">Me</option>
-                {[...team.byUserId.values()].filter(member => member.user_id !== team.currentUserId).map(member => (
-                  <option key={member.user_id} value={member.user_id}>{member.invited_email}</option>
+                {[...team.byMemberId.values()].filter(member => member.member_id !== team.currentMemberId).map(member => (
+                  <option key={member.member_id} value={member.member_id}>{member.invited_email}</option>
                 ))}
               </select>
             </label>
@@ -2032,11 +2032,11 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                     </div>
                     <div className="flex items-center gap-2">
                       <p className={`min-w-0 flex-1 truncate text-xs ${isActive ? 'font-semibold text-emerald-700' : 'font-medium text-slate-500'}`}>{snippet}</p>
-                      {contact.assigned_to_user_id && (
+                      {contact.assigned_to_member_id && (
                         <span className="conversation-assignee-chip mr-3 inline-flex max-w-[84px] shrink-0 items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-0.5 text-[9px] font-black text-sky-700" title="Assigned to">
                           <span className="material-symbols-outlined text-[11px]">person</span>
                           <span className="truncate">
-                            {contact.assigned_to_user_id === team.currentUserId ? 'You' : team.byUserId.get(contact.assigned_to_user_id) ? memberShortName(team.byUserId.get(contact.assigned_to_user_id)) : 'Assigned'}
+                            {contact.assigned_to_member_id === team.currentMemberId ? 'You' : team.byMemberId.get(contact.assigned_to_member_id) ? memberShortName(team.byMemberId.get(contact.assigned_to_member_id)) : 'Assigned'}
                           </span>
                         </span>
                       )}
@@ -2106,7 +2106,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <ConversationAssignee
-                  assigneeId={activeContact?.assigned_to_user_id || null}
+                  assigneeId={activeContact?.assigned_to_member_id || null}
                   team={team}
                   canAssign={canManage}
                   busy={assigningConversationId === activeConversationId}
@@ -2371,7 +2371,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                       conversationId={activeConversationId}
                       ordersState={conversationOrders}
                       onOpenOrder={openOrderInRecords}
-                      creatorName={userId => (userId === team.currentUserId ? 'you' : team.byUserId.get(userId) ? memberShortName(team.byUserId.get(userId)) : null)}
+                      creatorName={memberId => (memberId === team.currentMemberId ? 'you' : team.byMemberId.get(memberId) ? memberShortName(team.byMemberId.get(memberId)) : null)}
                     />
                   </Suspense>
                 )}
