@@ -7106,7 +7106,12 @@ export default function Dashboard() {
 
   const handleNotificationNavigate = useCallback((target) => {
     if (target?.commentAnalysisId) {
-      setCommentReview({ commentAnalysisId: target.commentAnalysisId, canAction: target.canAction !== false });
+      setCommentReview({
+        commentAnalysisId: target.commentAnalysisId,
+        canAction: target.canAction !== false,
+        pageId: target.pageId || null,
+        conversationId: target.conversationId || null,
+      });
       return;
     }
     if (!target?.tab) return;
@@ -7673,6 +7678,12 @@ export default function Dashboard() {
                 key={commentReview.commentAnalysisId}
                 commentAnalysisId={commentReview.commentAnalysisId}
                 canAction={commentReview.canAction}
+                conversationId={commentReview.conversationId}
+                onOpenConversation={commentReview.conversationId ? () => {
+                  const { pageId, conversationId } = commentReview;
+                  closeCommentReview();
+                  handleNotificationNavigate({ tab: 'conversation', pageId, conversationId });
+                } : null}
                 onClose={closeCommentReview}
               />
             </Suspense>

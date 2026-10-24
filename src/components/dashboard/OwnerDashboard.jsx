@@ -658,6 +658,7 @@ const COMMENT_TRENDS = [
   { id: 'total', label: 'All' },
   { id: 'queries', label: 'Questions' },
   { id: 'negative_reviews', label: 'Negative' },
+  { id: 'support_issues', label: 'Support issues' },
   { id: 'spam_abuse', label: 'Spam & abuse' },
   { id: 'positive_neutral', label: 'Positive' },
 ];

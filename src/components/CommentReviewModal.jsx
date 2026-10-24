@@ -18,6 +18,8 @@ const DONE_MESSAGES = {
   delete_comment: 'Comment deleted.',
   dismiss: 'Marked as reviewed. No action was taken.',
 };
+// A support issue is closed by dismissing it once the inbox conversation is handled.
+const SUPPORT_DONE_MESSAGE = 'Marked as handled.';
 
 // Meta only accepts a private reply to a comment within 7 days of it.
 const PRIVATE_REPLY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -41,8 +43,11 @@ const loadError = (error) => {
  * Review a comment the AI flagged (a comment_review_needed notification): see the
  * comment, the post and why it was flagged, edit the suggested replies, then reply in
  * public, message the commenter privately, delete the comment or dismiss it.
+ * A support issue (a customer's problem with their order) is followed up in the inbox:
+ * `conversationId` is the thread the agent's apology DM opened, and
+ * `onOpenConversation` goes there.
  */
-export default function CommentReviewModal({ commentAnalysisId, canAction = true, onClose }) {
+export default function CommentReviewModal({ commentAnalysisId, canAction = true, conversationId = null, onOpenConversation = null, onClose }) {
   const [comment, setComment] = useState(null);
   const [loadState, setLoadState] = useState({ id: null, error: '' });
   const [publicReply, setPublicReply] = useState('');
@@ -77,8 +82,11 @@ export default function CommentReviewModal({ commentAnalysisId, canAction = true
 
   const loading = loadState.id !== commentAnalysisId;
   const deleted = Boolean(comment?.is_deleted);
+  const isSupportIssue = comment?.category === 'support_issue';
   const ageMs = comment ? Date.now() - Date.parse(comment.created_at) : 0;
-  const privateReplyBlocked = deleted
+  const privateReplyBlocked = comment?.category === 'support_issue' && comment?.is_private_replied
+    ? 'Sent when the comment was removed. Continue the conversation in the inbox.'
+    : deleted
     ? 'The comment was deleted.'
     : comment?.is_private_replied
       ? 'A private message was already sent. Meta allows one per comment.'
@@ -93,7 +101,7 @@ export default function CommentReviewModal({ commentAnalysisId, canAction = true
       const custom = typeof text === 'string' ? text.trim() : '';
       const updated = await apiService.executeCommentAction(commentAnalysisId, action, custom || null);
       if (updated?.id) setComment(updated);
-      setResult({ tone: 'success', text: DONE_MESSAGES[action] });
+      setResult({ tone: 'success', text: action === 'dismiss' && isSupportIssue ? SUPPORT_DONE_MESSAGE : DONE_MESSAGES[action] });
     } catch (error) {
       console.error('Comment action failed:', error);
       setResult({ tone: 'error', text: error?.message || 'That action did not go through. Try again.' });
@@ -167,6 +175,27 @@ export default function CommentReviewModal({ commentAnalysisId, canAction = true
                 </div>
               </div>
 
+              {isSupportIssue && (
+                <div className="comment-support-issue flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
+                  <p className="m-0 min-w-0 flex-1 text-[13px] leading-5 text-violet-900">
+                    <strong className="font-black">Follow up in the inbox.</strong>{' '}
+                    {comment.is_private_replied
+                      ? `${comment.commenter_name} was sent an apology and their conversation is waiting for a person.`
+                      : `${comment.commenter_name} reported a problem with their order. Reach out to them, then mark this as handled.`}
+                  </p>
+                  {conversationId && onOpenConversation && (
+                    <button
+                      type="button"
+                      onClick={onOpenConversation}
+                      disabled={Boolean(busyAction)}
+                      className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-violet-700 px-3.5 text-xs font-black text-white transition-colors hover:bg-violet-800 disabled:opacity-50"
+                    >
+                      <MessageCircle size={14} /> Open conversation
+                    </button>
+                  )}
+                </div>
+              )}
+
               {comment.reason && (
                 <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                   <MessageSquareWarning size={16} className="mt-0.5 shrink-0 text-amber-600" aria-hidden="true" />
@@ -181,7 +210,7 @@ export default function CommentReviewModal({ commentAnalysisId, canAction = true
                 <p className="m-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-600">You can view this comment, but your role can't act on it.</p>
               )}
 
-              <section>
+              {!isSupportIssue && <section>
                 <label htmlFor="comment-public-reply" className="flex items-center gap-1.5 text-xs font-black text-slate-700">
                   <MessageSquareReply size={15} className="text-slate-400" aria-hidden="true" /> Public reply
                   <span className="font-semibold text-slate-400">· shown under the comment</span>
@@ -208,11 +237,11 @@ export default function CommentReviewModal({ commentAnalysisId, canAction = true
                     Reply publicly
                   </button>
                 </div>
-              </section>
+              </section>}
 
               <section>
                 <label htmlFor="comment-private-message" className="flex items-center gap-1.5 text-xs font-black text-slate-700">
-                  <Send size={14} className="text-slate-400" aria-hidden="true" /> Private message
+                  <Send size={14} className="text-slate-400" aria-hidden="true" /> {isSupportIssue && comment.is_private_replied ? 'Apology sent privately' : 'Private message'}
                   <span className="font-semibold text-slate-400">· sent to {comment.commenter_name}'s inbox</span>
                 </label>
                 <textarea
@@ -284,11 +313,11 @@ export default function CommentReviewModal({ commentAnalysisId, canAction = true
                   type="button"
                   onClick={() => act('dismiss')}
                   disabled={disabled || comment.execution_status === 'dismissed'}
-                  title="Mark as reviewed without replying or deleting"
+                  title={isSupportIssue ? 'Close this once the customer has been helped in the inbox' : 'Mark as reviewed without replying or deleting'}
                   className="flex h-9 items-center gap-1.5 rounded-lg border border-solid border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {busyAction === 'dismiss' ? <Loader2 size={14} className="animate-spin" /> : <EyeOff size={14} />}
-                  Dismiss
+                  {busyAction === 'dismiss' ? <Loader2 size={14} className="animate-spin" /> : isSupportIssue ? <CheckCircle2 size={14} /> : <EyeOff size={14} />}
+                  {isSupportIssue ? 'Mark as handled' : 'Dismiss'}
                 </button>
                 <button type="button" onClick={onClose} disabled={Boolean(busyAction)} className="h-9 rounded-lg bg-slate-900 px-4 text-xs font-black text-white transition-colors hover:bg-slate-800">
                   Done

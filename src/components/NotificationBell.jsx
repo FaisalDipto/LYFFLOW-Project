@@ -101,7 +101,13 @@ const resolveDeepLink = (notification) => {
     // Opens the review dialog rather than a tab.
     case 'comment_review_needed':
       return payload.comment_analysis_id
-        ? { commentAnalysisId: payload.comment_analysis_id, pageId: payload.page_id || pageId, canAction: notification.can_action !== false }
+        ? {
+          commentAnalysisId: payload.comment_analysis_id,
+          pageId: payload.page_id || pageId,
+          // The inbox thread the agent's DM opened (support issues); null otherwise.
+          conversationId: payload.conversation_id || null,
+          canAction: notification.can_action !== false,
+        }
         : null;
 
     case 'order_created':

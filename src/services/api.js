@@ -179,6 +179,12 @@ mockComments.push(
   mockHandledComment('cmt_8', 75, { platform: 'instagram', post_id: 'post_2', post_content: 'Weekend sale: 20% off all leather wallets.', commenter_name: 'Mim', comment_text: '🔥🔥', category: 'positive_neutral', confidence: 0.82, reason: 'Emoji reaction', action: 'ignore' }),
   mockHandledComment('cmt_9', 120, { commenter_name: 'Tanvir Ahmed', comment_text: 'hmm', category: 'unclear', confidence: 0.41, reason: 'Too short to classify', action: 'ignore', execution_status: 'dismissed' }),
   mockHandledComment('cmt_10', 200, { commenter_name: 'Sadia Islam', comment_text: 'Ordered a week ago and still nothing. Where is my parcel?', category: 'negative_review', confidence: 0.79, reason: 'Delivery complaint', action: 'reply', comment_reply: 'Sorry for the wait, Sadia. We have messaged you with the tracking details.', inbox_message: 'Hi Sadia, your parcel is with the courier: tracking LF-20391.', is_public_replied: true, is_private_replied: true, execution_status: 'failed' }),
+  mockHandledComment('cmt_12', 1.2, {
+    commenter_name: 'Jane Smith', comment_text: 'The earbuds I got last week do not connect at all. Very disappointed.',
+    category: 'support_issue', confidence: 0.93, action: 'remove', is_deleted: true, is_private_replied: true, execution_status: 'pending_review',
+    reason: 'Customer reported a problem — Customer reports the earbuds do not connect. The comment was removed. The customer was messaged; continue in the inbox.',
+    inbox_message: 'দুঃখিত! অর্ডার নম্বর বা ফোন নম্বরটি এখানে জানালে আমাদের টিম দ্রুত সমাধান করবে।',
+  }),
   mockHandledComment('cmt_11', 24 * 40, { commenter_name: 'Old Commenter', comment_text: 'Do you have a blue one?', category: 'query', confidence: 0.9, reason: 'Asks about colour options', action: 'reply', comment_reply: 'Yes! Blue is in stock.', is_public_replied: true }),
 );
 // Matches GET /v1/comments' filters: everything except the cursor and page size.
@@ -208,13 +214,14 @@ const mockCommentSummary = (params) => {
     const count = (...categories) => day.filter(item => categories.includes(item.category)).length;
     return {
       date, total: day.length, queries: count('query'), negative_reviews: count('negative_review'),
+      support_issues: count('support_issue'),
       spam_abuse: count('spam_scam', 'abuse_hate', 'competitor_promo'), positive_neutral: count('positive_neutral'),
     };
   });
   return {
     total_comments: total,
     pending_review_count: inWindow.filter(item => item.execution_status === 'pending_review').length,
-    categories: breakdown('category', ['abuse_hate', 'spam_scam', 'negative_review', 'competitor_promo', 'query', 'positive_neutral', 'unclear']),
+    categories: breakdown('category', ['abuse_hate', 'spam_scam', 'negative_review', 'support_issue', 'competitor_promo', 'query', 'positive_neutral', 'unclear']),
     actions: breakdown('action', ['remove', 'reply', 'ignore', 'review']),
     daily_trends,
   };
@@ -226,6 +233,11 @@ const mockCommentNotification = (comment, notificationId, readAt = null) => ({
   payload: { comment_analysis_id: comment.id, page_id: comment.page_id, comment_id: comment.comment_id, post_id: comment.post_id, platform: comment.platform, commenter_name: comment.commenter_name, category: comment.category },
 });
 let mockNotifications = [
+  {
+    ...mockCommentNotification(mockComments.find(item => item.id === 'cmt_12'), 'ntf_4'),
+    title: 'Jane Smith reported a problem with their order',
+    payload: { ...mockCommentNotification(mockComments.find(item => item.id === 'cmt_12'), 'ntf_4').payload, conversation_id: 'conv_2' },
+  },
   mockCommentNotification(mockComments[0], 'ntf_1'),
   {
     notification_id: 'ntf_2', business_id: 'biz_1', page_id: 'page_1', type: 'human_handover_needed', category: 'conversation', severity: 'warning',
@@ -2579,7 +2591,8 @@ export const apiService = {
 
   // Comment moderation
   /**
-   * @typedef {'abuse_hate'|'spam_scam'|'negative_review'|'competitor_promo'|'query'|'positive_neutral'|'unclear'} CommentCategory
+   * @typedef {'abuse_hate'|'spam_scam'|'negative_review'|'support_issue'|'competitor_promo'|'query'|'positive_neutral'|'unclear'} CommentCategory
+   *   New values may appear; show unknown ones neutrally.
    * @typedef {'remove'|'reply'|'ignore'|'review'} CommentAction   How the agent routed the comment.
    * @typedef {'completed'|'pending_review'|'resolved'|'dismissed'|'failed'} CommentExecutionStatus
    * @typedef {'delete_comment'|'reply_comment'|'send_inbox_dm'|'dismiss'} CommentManualAction
@@ -2630,6 +2643,7 @@ export const apiService = {
    * @property {number} total
    * @property {number} queries
    * @property {number} negative_reviews
+   * @property {number} support_issues
    * @property {number} spam_abuse
    * @property {number} positive_neutral
    * @typedef {Object} CommentSummaryResponse
