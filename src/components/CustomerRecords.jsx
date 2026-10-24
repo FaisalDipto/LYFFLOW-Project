@@ -59,7 +59,8 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   const [filterStatus, setFilterStatus] = useState('');
   
   const [selectedRecord, setSelectedRecord] = useState(null);
-  const { isOwner } = useBusiness();
+  const { isOwner, business } = useBusiness();
+  const currency = business?.currency || 'BDT';
   // WooCommerce store status, for order sync badges and pushes (orders only).
   const [wooStatus, setWooStatus] = useState(null);
   const wooState = wooConnectionState(wooStatus);
@@ -650,7 +651,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                           </td>
                           <td className="p-4">
                             <span className="text-sm font-bold text-slate-800">
-                              {formatOrderAmount(record.total)}
+                              {formatOrderAmount(record.total, currency)}
                             </span>
                           </td>
                         </>
@@ -805,7 +806,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                             </td>
                             <td className="px-4 py-3 text-center text-slate-600">{item.quantity}</td>
                             <td className="px-4 py-3 text-right font-bold text-slate-800">
-                              ${Number(item.price || 0).toFixed(2)}
+                              {formatOrderAmount(item.price || 0, currency)}
                             </td>
                           </tr>
                         ))}
@@ -824,7 +825,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                       <div className="flex justify-between text-slate-600">
                         <span>Items Subtotal</span>
                         <span className="font-semibold text-slate-700">
-                          ${selectedRecord.order_items.reduce((sum, it) => sum + (Number(it.price || 0) * (Number(it.quantity) || 1)), 0).toFixed(2)}
+                          {formatOrderAmount(selectedRecord.order_items.reduce((sum, it) => sum + (Number(it.price || 0) * (Number(it.quantity) || 1)), 0), currency)}
                         </span>
                       </div>
                     )}
@@ -832,14 +833,14 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                       <div className="flex justify-between text-slate-600">
                         <span>Delivery Charge</span>
                         <span className="font-semibold text-slate-700">
-                          {formatOrderAmount(selectedRecord.delivery_charge)}
+                          {formatOrderAmount(selectedRecord.delivery_charge, currency)}
                         </span>
                       </div>
                     )}
                     <div className="border-t border-slate-200 pt-2.5 flex justify-between items-baseline">
                       <span className="font-black text-slate-800 text-base">Total</span>
                       <span className="font-black text-emerald-600 text-lg">
-                        {formatOrderAmount(selectedRecord.total)}
+                        {formatOrderAmount(selectedRecord.total, currency)}
                       </span>
                     </div>
                   </div>

@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 import { ShoppingCart, X } from 'lucide-react';
 import { apiService } from '../services/api';
+import { useBusiness } from '../context/BusinessContext';
 import { formatOrderAmount } from './customerRecordUtils';
 import ManualOrderForm from './ManualOrderForm';
 import { EMPTY_ORDER_FORM } from './manualOrderUtils';
 
 const ManualOrderPanel = ({ conversationId, contactName = '', catalogId = '', onClose, onCreated }) => {
+  const { business } = useBusiness();
   const [createdOrder, setCreatedOrder] = useState(null);
   const panelRef = useRef(null);
 
@@ -87,7 +89,7 @@ const ManualOrderPanel = ({ conversationId, contactName = '', catalogId = '', on
               {[
                 ['Order ID', createdOrder.order_id || '—'],
                 ['Status', createdOrder.status.replaceAll('_', ' ')],
-                ['Total', formatOrderAmount(createdOrder.total)],
+                ['Total', formatOrderAmount(createdOrder.total, business?.currency || 'BDT')],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between gap-4">
                   <dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{label}</dt>

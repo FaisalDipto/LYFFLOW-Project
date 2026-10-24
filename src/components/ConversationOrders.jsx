@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useBusiness } from '../context/BusinessContext';
 import { formatOrderAmount, formatOrderDate, recordStatusClass, summarizeOrderItems } from './customerRecordUtils';
 
 const COLLAPSED_COUNT = 3;
@@ -7,6 +8,8 @@ const COLLAPSED_COUNT = 3;
 // comes from useConversationOrders, shared with the header count and Orders panel.
 // `creatorName(memberId)` names the member who created a manual order, when known.
 const ConversationOrders = ({ conversationId, ordersState, onOpenOrder, creatorName }) => {
+  const { business } = useBusiness();
+  const currency = business?.currency || 'BDT';
   // Expansion belongs to one conversation, so switching starts collapsed again.
   const [expandedFor, setExpandedFor] = useState(null);
   const { status, orders, error } = ordersState;
@@ -56,7 +59,7 @@ const ConversationOrders = ({ conversationId, ordersState, onOpenOrder, creatorN
                       ? ` · Manual${order.created_by_member_id && creatorName?.(order.created_by_member_id) ? ` by ${creatorName(order.created_by_member_id)}` : ''}`
                       : ''}
                   </span>
-                  <span className="font-bold text-slate-900">{formatOrderAmount(order.total)}</span>
+                  <span className="font-bold text-slate-900">{formatOrderAmount(order.total, currency)}</span>
                 </div>
               </>
             );

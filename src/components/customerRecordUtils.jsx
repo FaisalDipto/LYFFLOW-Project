@@ -18,13 +18,14 @@ export const parseOrderAmount = (val) => {
   return Number.isFinite(num) ? num : null;
 };
 
-export const formatOrderAmount = (val, currency = '$', fallback = '—') => {
+// "BDT 1,250.00": the business's currency code, as product prices show it.
+export const formatOrderAmount = (val, currency = 'BDT', fallback = '—') => {
   const num = parseOrderAmount(val);
   if (num === null) return fallback;
   if (Math.abs(num) > 1e11) {
-    return `${currency}${num.toExponential(2)}`;
+    return `${currency} ${num.toExponential(2)}`;
   }
-  return `${currency}${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 // "Cotton T-Shirt ×2 +1 more" for an order's items.

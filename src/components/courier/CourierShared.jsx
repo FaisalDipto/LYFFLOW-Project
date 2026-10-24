@@ -242,17 +242,19 @@ const parseAmount = (val) => {
   return Number.isFinite(num) ? num : null;
 };
 
-const formatAmount = (val) => {
+const formatAmount = (val, currency = 'BDT') => {
   const num = parseAmount(val);
   if (num === null) return '—';
-  if (Math.abs(num) > 1e11) return `$${num.toExponential(2)}`;
-  return `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (Math.abs(num) > 1e11) return `${currency} ${num.toExponential(2)}`;
+  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const normalizeOrder = (order) => ({ ...order, id: order.customer_order_id || order.order_id });
 
 /** Customer orders for one page, each with a button to ship it with the courier. */
 export const CourierOrderList = ({ pages, courierName, onShip }) => {
+  const { business } = useBusiness();
+  const currency = business?.currency || 'BDT';
   const [chosenPageId, setChosenPageId] = useState('');
   // Default to the first connected page until the user picks one.
   const pageId = chosenPageId || pages?.[0]?.page_id || '';
@@ -368,7 +370,7 @@ export const CourierOrderList = ({ pages, courierName, onShip }) => {
                     </td>
                     <td className="p-4">
                       <span className="text-sm font-bold text-slate-800">
-                        {formatAmount(order.total)}
+                        {formatAmount(order.total, currency)}
                       </span>
                     </td>
                     <td className="p-4">

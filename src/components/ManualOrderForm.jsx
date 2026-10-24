@@ -3,6 +3,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { useProductSuggestions } from '../hooks/useProductSuggestions';
 import { currentPrice, normalizeStockStatus, stockLabel, variantTitle } from '../utils/productPricing';
+import { useBusiness } from '../context/BusinessContext';
 import { formatOrderAmount } from './customerRecordUtils';
 import { EMPTY_ITEM, EMPTY_ORDER_FORM, LIMITS, ORDER_STATUSES, normalizeOrderValues, toAmount } from './manualOrderUtils';
 import OrderItemSuggestions from './OrderItemSuggestions';
@@ -32,6 +33,8 @@ const ManualOrderForm = ({
   onSubmit,
   onCancel,
 }) => {
+  const { business } = useBusiness();
+  const currency = business?.currency || 'BDT';
   const [form, setForm] = useState(() => ({ ...EMPTY_ORDER_FORM, ...initialForm }));
   const [items, setItems] = useState(() => (initialItems?.length ? initialItems : [{ ...EMPTY_ITEM }]));
   const [overrideTotal, setOverrideTotal] = useState(false);
@@ -426,7 +429,7 @@ const ManualOrderForm = ({
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Total</p>
                 <p className="mt-0.5 text-lg font-black tracking-tight text-slate-900">
-                  {formatOrderAmount(overrideTotal ? toAmount(totalInput) : computedTotal)}
+                  {formatOrderAmount(overrideTotal ? toAmount(totalInput) : computedTotal, currency)}
                 </p>
               </div>
               {allowTotalOverride && (
@@ -460,7 +463,7 @@ const ManualOrderForm = ({
               </div>
             ) : (
               <p className="mt-2 text-[11px] font-medium text-slate-400">
-                Items {formatOrderAmount(itemsSubtotal)} + delivery {formatOrderAmount(toAmount(form.delivery_charge))}
+                Items {formatOrderAmount(itemsSubtotal, currency)} + delivery {formatOrderAmount(toAmount(form.delivery_charge), currency)}
                 {!allowTotalOverride && ' · recalculated on save'}
               </p>
             )}
