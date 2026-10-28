@@ -8,6 +8,7 @@ import EditOrderModal from './EditOrderModal';
 import RowActionsMenu from './RowActionsMenu';
 import { WooBulkPushButton, WooOrderSyncPanel } from './WooOrderSync';
 import { useBusiness } from '../context/BusinessContext';
+import Toast from './Toast';
 import { wooConnectionState, wooSyncStatus } from '../utils/woocommerce';
 
 const LEAD_STATUSES = ['new', 'contacted', 'converted', 'cancelled'];
@@ -196,6 +197,23 @@ const CustomerRecords = ({ pages, recordType, focusRequest }) => {
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
+
+  // Outcome of a WooCommerce push, as a toast: { tone, text }.
+  const [pushNotice, setPushNotice] = useState(null);
+  const dismissPushNotice = useCallback(() => setPushNotice(null), []);
+
+  // A push started: show the order as sending (or in the store, when the response names
+  // the WooCommerce order) right away, then reload it for the real state.
+  const handleOrderPushed = (response) => {
+    const orderId = selectedRecord?.id;
+    setSelectedRecord(open => (open && open.id === orderId ? {
+      ...open,
+      wc_sync_status: response?.wc_order_id ? 'synced' : 'syncing',
+      wc_order_id: response?.wc_order_id || open.wc_order_id || null,
+      wc_sync_error: null,
+    } : open));
+    refreshSelectedOrder();
+  };
 
   const refreshSelectedOrder = async () => {
     const current = selectedRecord;
@@ -411,6 +429,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden relative">
+      {pushNotice && <Toast tone={pushNotice.tone} message={pushNotice.text} onDismiss={dismissPushNotice} />}
       {/* The top bar already names the section, so this is just the filter toolbar. */}
       <div className="records-toolbar border-b border-slate-200 bg-white px-6 py-4 md:px-8">
         <div className="flex flex-wrap items-center justify-end gap-3">
@@ -905,7 +924,9 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                   order={selectedRecord}
                   storeUrl={wooStatus?.store_url}
                   canPush={wooState === 'connected'}
-                  onPushed={refreshSelectedOrder}
+                  onPushed={handleOrderPushed}
+                  onRefresh={refreshSelectedOrder}
+                  onNotify={(tone, text) => setPushNotice({ tone, text })}
                 />
               )}
 

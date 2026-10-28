@@ -1465,10 +1465,13 @@ const requestApi = async (endpoint, options = {}) => {
       const order = MOCK_ORDERS.find(item => item.customer_order_id === wooPushMatch[1]);
       const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };
       if (!mockWooStatus.store_url) fail(400, 'No WooCommerce store is connected.');
+      // ?mockPushError=400|403|409|500 fails the push with that status.
+      const forced = Number(MOCK_LOAD_PARAMS.get('mockPushError'));
+      if (forced) fail(forced, `Mock push failure (${forced}).`);
       if (!order || ['cancelled', 'deleted'].includes(order.status)) fail(409, 'The order was not found, or it is cancelled or deleted.');
       if (['synced', 'syncing'].includes(mockWooSync(order).wc_sync_status)) fail(409, 'This order is already pushed or being pushed.');
       mockWooPushed.set(order.customer_order_id, 5000 + MOCK_ORDERS.indexOf(order));
-      return { success: true, message: 'Sending the order to WooCommerce now.' };
+      return { success: true, message: 'Order queued for WooCommerce.', wc_order_id: null, job_id: `job_${order.customer_order_id.slice(-4)}` };
     }
     if (endpoint === '/v1/woocommerce/orders/bulk-push' && method === 'POST') {
       const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };

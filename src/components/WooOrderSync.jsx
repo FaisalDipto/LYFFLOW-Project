@@ -10,10 +10,16 @@ const formatWhen = (value) => {
   return Number.isNaN(date.getTime()) ? null : date.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 };
 
+// POST /v1/woocommerce/orders/{order_id}/push failures, by status.
 const pushErrorText = (err) => {
-  if (err?.status === 429) return 'Too many pushes in a minute. Wait a moment and try again.';
-  if (err?.status === 409) return 'This order is already in WooCommerce or being sent, or it was cancelled or deleted.';
-  return err?.message || 'Could not push the order.';
+  switch (err?.status) {
+    case 400: return 'Connect a WooCommerce store in Platforms to push orders.';
+    case 403: return 'No active business. Choose a business, then try again.';
+    case 409: return 'This order is already in WooCommerce or being sent, or it was cancelled, deleted or not found.';
+    case 429: return 'Too many pushes in a minute. Wait a moment and try again.';
+    case 500: return "Couldn't queue the push. Try again in a moment.";
+    default: return err?.message || "Couldn't push the order to WooCommerce.";
+  }
 };
 
 // How each wc_sync_status reads, and whether "Push now" is offered (a manual push skips
@@ -36,10 +42,11 @@ const TONE_CLASSES = {
 };
 
 // WooCommerce push state for one order (OrderResponseDetail's wc_* fields), with a link
-// into WP admin once it's in the store and "Push now" while it isn't.
-export function WooOrderSyncPanel({ order, storeUrl, canPush, onPushed }) {
+// into WP admin once it's in the store and "Push to WooCommerce" while it isn't. The push
+// skips the 30-minute hold. `onPushed(response)` gets the success body to update the
+// order; `onNotify(tone, text)` shows the outcome as a toast.
+export function WooOrderSyncPanel({ order, storeUrl, canPush, onPushed, onRefresh, onNotify }) {
   const [pushing, setPushing] = useState(false);
-  const [result, setResult] = useState(null); // { tone, text }
   const orderId = order.customer_order_id || order.id;
   const status = wooSyncStatus(order);
   const view = SYNC_STATES[status || 'none'] || SYNC_STATES.none;
@@ -47,20 +54,17 @@ export function WooOrderSyncPanel({ order, storeUrl, canPush, onPushed }) {
   const adminUrl = wooOrderAdminUrl(storeUrl, order.wc_order_id);
   const Icon = view.icon;
 
-  // A different order opened in the same panel starts clean.
-  useEffect(() => { setResult(null); }, [orderId]);
-
   const push = async () => {
+    if (pushing) return;
     setPushing(true);
-    setResult(null);
     try {
       const response = await apiService.pushWooOrder(orderId);
-      setResult({ tone: 'success', text: response?.message || 'Sending it to WooCommerce now.' });
-      onPushed?.();
+      onNotify?.('success', response?.message || 'Sending the order to WooCommerce now.');
+      onPushed?.(response);
     } catch (err) {
-      setResult({ tone: 'error', text: pushErrorText(err) });
+      onNotify?.('error', pushErrorText(err));
       // A 409 means the order moved on (pushed, cancelled…); show where it stands.
-      if (err?.status === 409) onPushed?.();
+      if (err?.status === 409) onRefresh?.();
     } finally {
       setPushing(false);
     }
@@ -97,18 +101,17 @@ export function WooOrderSyncPanel({ order, storeUrl, canPush, onPushed }) {
             type="button"
             onClick={push}
             disabled={pushing}
+            aria-busy={pushing}
+            title="Send this order to your store now, without the 30-minute wait"
             className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-60 ${status === 'failed' ? 'bg-red-600 hover:bg-red-700' : 'bg-violet-600 hover:bg-violet-500'}`}
           >
             {pushing ? <Loader2 size={13} className="animate-spin" /> : status === 'failed' ? <RefreshCw size={13} /> : <UploadCloud size={13} />}
-            {pushing ? 'Pushing…' : 'Push now'}
+            {pushing ? 'Pushing…' : 'Push to WooCommerce'}
           </button>
         )}
       </div>
       {view.canPush && !canPush && (
         <p className="mb-0 mt-2 text-[11px] text-slate-500">Connect your store in Platforms → WooCommerce to push orders.</p>
-      )}
-      {result && (
-        <p role={result.tone === 'error' ? 'alert' : 'status'} className={`mb-0 mt-2 text-xs font-medium ${result.tone === 'error' ? 'text-red-700' : 'text-emerald-700'}`}>{result.text}</p>
       )}
     </section>
   );
