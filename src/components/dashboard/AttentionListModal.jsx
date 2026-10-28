@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
 import { apiService } from '../../services/api';
+import { customerName } from '../../utils/customer';
 import {
   dashboardErrorMessage,
   formatDateTime,
@@ -97,7 +98,7 @@ export default function AttentionListModal({ kind, timeZone, currency, onOpen, o
       return (
         <>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-semibold text-slate-900">{row.customer_name || 'Customer'} <span className="font-medium text-slate-500">· {row.order_id}</span></span>
+            <span className="block truncate text-[13px] font-semibold text-slate-900">{customerName(row.customer_name)} <span className="font-medium text-slate-500">· {row.order_id}</span></span>
             <span className="block text-[12px] text-slate-500">
               {formatMoney(row.total, currency)} · placed {formatDateTime(row.created_at, timeZone)}
               {row.missing_contact && <span className="ml-1.5 font-semibold text-amber-700">· No phone or address</span>}
@@ -121,7 +122,7 @@ export default function AttentionListModal({ kind, timeZone, currency, onOpen, o
     return (
       <>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-semibold text-slate-900">{row.customer_name || 'Customer'}</span>
+          <span className="block truncate text-[13px] font-semibold text-slate-900">{customerName(row.customer_name)}</span>
           {kind === 'handovers' && (
             <span className="block truncate text-[12px] text-slate-500">
               {handoverCategoryLabel(row.category) || 'Paused or no category'} · {row.assigned_to_name || 'Unassigned'}

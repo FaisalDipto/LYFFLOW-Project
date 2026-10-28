@@ -255,6 +255,8 @@ let mockInbox = [
   { conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', is_human_needed: false, human_needed_reason: null, assigned_to_member_id: MOCK_CURRENT_MEMBER_ID, last_customer_at: MOCK_LOADED_AT },
   { conversation_id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', profile_pic_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', is_human_needed: true, human_needed_reason: 'Asked for a bulk discount', handover_category: 'bulk_custom_or_pricing', assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 30 * MOCK_HOUR },
   { conversation_id: 'conv_3', name: 'Rahim Uddin', snippet: 'Can I change the delivery address?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Escalated for pricing negotiation', handover_category: null, assigned_to_member_id: 'mem_2', note: 'Prefers delivery after 6 pm. Call before sending COD.', last_customer_at: MOCK_LOADED_AT - 3 * MOCK_HOUR },
+  // Saved while the page's token was failing: Meta couldn't give the name yet.
+  { conversation_id: 'conv_6', name: '', snippet: 'Hi, do you have this in blue?', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 20 * 60000 },
   { conversation_id: 'conv_4', name: 'Nadia Islam', snippet: 'Thanks, I will think about it.', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 9 * 24 * MOCK_HOUR },
 ].map(conversation => ({ ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString() }));
 // As the API returns it (last_customer_at is mock bookkeeping).
@@ -436,7 +438,7 @@ const mockAttentionRows = () => {
   if (MOCK_DASHBOARD_MODE === 'empty') return { waiting: [], handovers: [], orders: [] };
   const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
   const waitRow = (conversation_id, customer_name, page_id, minutes) => ({ conversation_id, customer_name, page_id, wait_started_at: minutesAgo(minutes), waiting_minutes: minutes });
-  const waiting = [waitRow('conv_4', 'Nadia Islam', 'page_1', 48), waitRow('conv_w2', 'Tanvir Ahmed', 'page_2', 31), waitRow('conv_w3', 'Mitu Akter', 'page_1', 17)];
+  const waiting = [waitRow('conv_4', 'Nadia Islam', 'page_1', 48), waitRow('conv_w2', 'Tanvir Ahmed', 'page_2', 31), waitRow('conv_6', '', 'page_1', 20), waitRow('conv_w3', 'Mitu Akter', 'page_1', 17)];
   const names = ['Arif Chowdhury', 'Farzana Rahman', 'Sabbir Khan', 'Rumana Begum', 'Jahid Hasan', 'Shirin Akter', 'Kamal Uddin'];
   const handoverCategories = ['complaint_refund_return', 'missing_knowledge', null, 'order_status_or_delivery', 'customer_asked_human', 'system_failure', 'bulk_custom_or_pricing'];
   const assignees = [null, ['mem_4', 'Rafi Hasan'], null, ['mem_2', 'alice@example.com'], null, null, ['mem_1', 'Demo User']];
@@ -1317,7 +1319,7 @@ const requestApi = async (endpoint, options = {}) => {
       mockInbox = mockInbox.map(item => (item.conversation_id === pauseMatch[1] ? { ...item, is_human_needed: Boolean(body.pause_status) } : item));
       return body;
     }
-    const shortThreadMatch = endpoint.match(/^\/v1\/page\/page_1\/conversation\/(conv_[2-4])(?:\?|$)/);
+    const shortThreadMatch = endpoint.match(/^\/v1\/page\/page_1\/conversation\/(conv_[2-46])(?:\?|$)/);
     if (shortThreadMatch) {
       const conversation = mockInbox.find(item => item.conversation_id === shortThreadMatch[1]);
       const at = (minutesAfterCustomer) => new Date(conversation.last_customer_at + minutesAfterCustomer * 60000).toISOString();

@@ -9,6 +9,7 @@ import { apiService } from '../../services/api';
 import DateRangeCalendar from '../DateRangeCalendar';
 import { CHART_THEME, heatColor } from './chartTheme';
 import { COMMENT_ACTIONS, commentCategoryLabel } from '../../utils/comments';
+import { customerName } from '../../utils/customer';
 import {
   DASH,
   dashboardErrorMessage,
@@ -330,7 +331,7 @@ const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOp
           {waiting.preview.length > 0 && (
             <ul className="-mx-2 mb-0 mt-2 list-none p-0">
               {waiting.preview.map(row => (
-                <PreviewRow key={row.conversation_id} onClick={() => onOpenChat(row)} primary={row.customer_name || 'Customer'} trailing={formatMinutes(row.waiting_minutes)} />
+                <PreviewRow key={row.conversation_id} onClick={() => onOpenChat(row)} primary={customerName(row.customer_name)} trailing={formatMinutes(row.waiting_minutes)} />
               ))}
             </ul>
           )}
@@ -350,7 +351,7 @@ const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOp
                 <PreviewRow
                   key={row.conversation_id}
                   onClick={() => onOpenChat(row)}
-                  primary={row.customer_name || 'Customer'}
+                  primary={customerName(row.customer_name)}
                   secondary={`${handoverCategoryLabel(row.category) || 'Paused or no category'} · ${row.assigned_to_name || 'Unassigned'}`}
                   trailing={`waiting ${formatMinutes(row.waiting_minutes)}`}
                 />
@@ -373,7 +374,7 @@ const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOp
                 <PreviewRow
                   key={row.customer_order_id}
                   onClick={() => onOpenOrder(row)}
-                  primary={`${row.order_id} · ${row.customer_name || 'Customer'}`}
+                  primary={`${row.order_id} · ${customerName(row.customer_name)}`}
                   secondary={[formatMoney(row.total, currency), row.missing_contact ? 'No phone or address' : null].filter(Boolean).join(' · ')}
                   trailing={formatHours(row.age_hours)}
                 />

@@ -48,6 +48,7 @@ import PlatformMark from '../components/PlatformMark';
 import { isInstagram } from '../utils/platforms';
 import { handoverCategoryLabel } from '../utils/ownerDashboard';
 import { messageProductCards } from '../utils/productCards';
+import { UNKNOWN_CUSTOMER } from '../utils/customer';
 import MessagingWindowNotice from '../components/conversation/MessagingWindowNotice';
 import ConversationAssignee from '../components/conversation/ConversationAssignee';
 import './Dashboard.css';
@@ -1535,7 +1536,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   };
 
   const renderAvatar = (contactObj, extraClass = "") => {
-    const name = resolveContactName(contactObj, 'U');
+    // An empty name (Meta couldn't give it yet) gets a person icon, not an initial.
+    const knownName = resolveContactName(contactObj, '');
+    const name = knownName || UNKNOWN_CUSTOMER;
     const rawPic = contactObj?.profile_pic_url || contactObj?.profile_pic || contactObj?.profile_picture_url || (typeof contactObj?.picture === 'string' ? contactObj.picture : contactObj?.picture?.data?.url) || contactObj?.avatar_url || contactObj?.avatar || contactObj?.senders?.data?.[0]?.profile_pic_url || contactObj?.senders?.data?.[0]?.profile_pic || contactObj?.participants?.data?.[0]?.profile_pic_url || contactObj?.participants?.data?.[0]?.profile_pic;
     const picUrl = (rawPic && rawPic !== 'string' && rawPic !== 'null' && rawPic !== 'undefined') ? rawPic : null;
 
@@ -1547,13 +1550,20 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
           src={picUrl}
           referrerPolicy="no-referrer"
           onError={(e) => {
-            const initial = name.charAt(0).toUpperCase();
-            e.target.src = `https://ui-avatars.com/api/?name=${initial}&background=random&font-size=0.4`;
+            const initial = knownName.charAt(0).toUpperCase() || '?';
+            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(initial)}&background=random&font-size=0.4`;
           }}
         />
       );
     }
-    const initial = name.charAt(0).toUpperCase();
+    if (!knownName) {
+      return (
+        <span role="img" aria-label={UNKNOWN_CUSTOMER} className={`${extraClass} unknown-customer-avatar flex shrink-0 items-center justify-center bg-slate-200 text-slate-500`}>
+          <UserRound className="h-1/2 w-1/2" aria-hidden="true" />
+        </span>
+      );
+    }
+    const initial = knownName.charAt(0).toUpperCase();
     return (
       <img
         alt={name}
@@ -1790,8 +1800,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const visibleContacts = normalizedSearchQuery
-    ? contacts.filter((contact, index) => {
-        const contactName = contact._info_name || resolveContactName(contact, `User ${index}`);
+    ? contacts.filter((contact) => {
+        const contactName = contact._info_name || resolveContactName(contact, UNKNOWN_CUSTOMER);
         return `${contactName} ${previewText(contact)}`.toLowerCase().includes(normalizedSearchQuery);
       })
     : contacts;
@@ -2006,7 +2016,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
             </div>
           ) : visibleContacts.map((contact, i) => {
             // Prefer the name from /info endpoint, fall back to FB graph resolution
-            const contactName = contact._info_name || resolveContactName(contact, `User ${i}`);
+            const contactName = contact._info_name || resolveContactName(contact, UNKNOWN_CUSTOMER);
             const snippet = previewText(contact) || 'No messages';
             const updatedTimeValue = contact.updated_time || contact.last_message_at || contact.updated;
             const updated = formatListTime(updatedTimeValue);
@@ -2083,7 +2093,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                 </div>
                 <div className="min-w-0">
                   <h2 className="m-0 truncate font-['Epilogue'] text-[15px] font-black tracking-tight text-slate-900 md:text-base">
-                    {resolveContactName(activeContact, 'User')}
+                    {resolveContactName(activeContact, UNKNOWN_CUSTOMER)}
                   </h2>
                   <div className="mt-0.5 flex items-center gap-2">
                     {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? (
@@ -2318,7 +2328,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
 
               <div className="mb-6 text-center">
                 <h2 className="font-['Epilogue'] text-lg font-black tracking-tight text-slate-900">
-                  {resolveContactName(activeContact, 'Chat Participant')}
+                  {resolveContactName(activeContact, UNKNOWN_CUSTOMER)}
                 </h2>
                 <p className="mt-1 text-xs font-medium text-slate-400">Facebook Messenger</p>
                 <div className="mt-3 flex flex-wrap justify-center gap-1.5">
@@ -2385,7 +2395,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                       <span className="material-symbols-outlined text-sm text-slate-400 mt-0.5">person</span>
                       <div>
                         <p className="text-[10px] text-slate-400 font-bold uppercase">Name</p>
-                        <p className="text-xs font-semibold text-slate-900">{resolveContactName(activeContact, 'Unknown')}</p>
+                        <p className="text-xs font-semibold text-slate-900">{resolveContactName(activeContact, UNKNOWN_CUSTOMER)}</p>
                       </div>
                     </li>
                     {activeContact?.is_human_needed && (activeContact?.human_needed_reason || activeContact?.human_handover_reason || activeContact?.handover_category) && (
