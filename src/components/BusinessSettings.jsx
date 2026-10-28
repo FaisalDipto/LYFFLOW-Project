@@ -5,7 +5,7 @@ import { apiService } from '../services/api';
 import { useBusiness } from '../context/BusinessContext';
 import { usePlanGate } from '../context/PlanGateContext';
 import TimezoneSelect from './TimezoneSelect';
-import { describeBusinessError, optionalText, PHONE_HINT, PHONE_PATTERN } from '../utils/businessProfile';
+import { cleanOrderPrefix, describeBusinessError, isValidOrderPrefix, optionalText, ORDER_PREFIX_PATTERN, PHONE_HINT, PHONE_PATTERN } from '../utils/businessProfile';
 
 const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-50';
 const labelClass = 'mb-2 block text-[13.5px] font-semibold text-slate-800';
@@ -30,6 +30,7 @@ const SectionHeading = ({ title, description }) => (
 // The editable profile, as the form holds it (blank strings, not nulls).
 const profileFromBusiness = (business) => ({
   name: business?.name || '',
+  order_prefix: business?.order_prefix || '',
   currency: business?.currency || 'BDT',
   phone_number: business?.phone_number || '',
   email: business?.email || '',
@@ -74,12 +75,18 @@ export const BusinessDetailsSettings = ({ onBusinessDeleted }) => {
       setMessage({ tone: 'error', text: 'The business needs a phone number.' });
       return;
     }
+    if (form.order_prefix !== saved.order_prefix && !isValidOrderPrefix(form.order_prefix)) {
+      setMessage({ tone: 'error', text: 'The order number prefix needs exactly 3 letters, like GDS.' });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
       // Blank optional fields are sent as null, which clears them.
       await apiService.updateBusiness({
         name,
+        // Sent only when it changed.
+        ...(form.order_prefix !== saved.order_prefix ? { order_prefix: form.order_prefix } : {}),
         currency: form.currency,
         phone_number: phone,
         email: optionalText(form.email),
@@ -126,6 +133,29 @@ export const BusinessDetailsSettings = ({ onBusinessDeleted }) => {
           <div className="sm:col-span-2">
             <label htmlFor="settings-business-name" className={labelClass}>Business name</label>
             <input id="settings-business-name" type="text" required value={form.name} maxLength={100} onChange={update('name')} className={inputClass} />
+          </div>
+
+          <div>
+            <label htmlFor="settings-business-order-prefix" className={labelClass}>Order number prefix</label>
+            <input
+              id="settings-business-order-prefix"
+              type="text"
+              required={Boolean(saved.order_prefix)}
+              minLength={3}
+              maxLength={3}
+              pattern={ORDER_PREFIX_PATTERN}
+              title="Exactly 3 letters, like GDS"
+              autoComplete="off"
+              spellCheck={false}
+              value={form.order_prefix}
+              onChange={(event) => setForm(current => ({ ...current, order_prefix: cleanOrderPrefix(event.target.value) }))}
+              placeholder="GDS"
+              aria-describedby="settings-business-order-prefix-help"
+              className={`${inputClass} font-mono uppercase tracking-widest`}
+            />
+            <p id="settings-business-order-prefix-help" className="mb-0 mt-1.5 text-xs text-slate-500">
+              3 letters. Order numbers look like <span className="font-mono font-semibold text-slate-700">{form.order_prefix || 'GDS'}-10001</span>.
+            </p>
           </div>
 
           <div className="sm:col-span-2">

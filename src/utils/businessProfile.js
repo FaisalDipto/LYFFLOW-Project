@@ -16,6 +16,7 @@ const FIELD_LABELS = {
   website: 'Website',
   email: 'Email',
   currency: 'Currency',
+  order_prefix: 'Order number prefix',
 };
 
 // apiFetch flattens a 422 into "body.phone_number: Value error, ..." (joined with " | ").
@@ -30,6 +31,12 @@ export const describeBusinessError = (err, fallback) => {
       .replace(/Value error,\s*/i, ''))
     .join(' ');
 };
+
+// Order numbers start with a 3-letter prefix ("GDS" → GDS-10001). The input keeps
+// letters only, uppercased, at most 3.
+export const ORDER_PREFIX_PATTERN = '[A-Za-z]{3}';
+export const cleanOrderPrefix = (value) => String(value || '').replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3);
+export const isValidOrderPrefix = (value) => /^[A-Z]{3}$/.test(value || '');
 
 // Optional text fields go out as null when blank, which also clears them on PATCH.
 export const optionalText = (value) => {

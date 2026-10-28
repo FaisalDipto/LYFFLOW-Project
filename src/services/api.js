@@ -621,6 +621,7 @@ let mockApiKeys = [
 let mockBusiness = {
   business_id: 'biz_1',
   name: 'Demo Store',
+  order_prefix: 'DMS',
   currency: 'BDT',
   phone_number: '+8801712345678',
   country: 'Bangladesh',
@@ -635,8 +636,8 @@ let mockBusiness = {
 const mockData = {
   '/v1/user/profile': { display_name: 'Demo User', email: 'demo@lyfflow.com', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
   '/v1/businesses': [
-    { business_id: 'biz_1', name: 'Demo Store', currency: 'BDT', role: 'owner', is_owner: true, phone_number: '+8801712345678', country: 'Bangladesh', timezone: 'Asia/Dhaka' },
-    { business_id: 'biz_2', name: 'Partner Shop', currency: 'USD', role: 'member', is_owner: false, phone_number: '+12025550143', country: 'United States', timezone: 'America/New_York' },
+    { business_id: 'biz_1', name: 'Demo Store', order_prefix: 'DMS', currency: 'BDT', role: 'owner', is_owner: true, phone_number: '+8801712345678', country: 'Bangladesh', timezone: 'Asia/Dhaka' },
+    { business_id: 'biz_2', name: 'Partner Shop', order_prefix: 'PSH', currency: 'USD', role: 'member', is_owner: false, phone_number: '+12025550143', country: 'United States', timezone: 'America/New_York' },
   ],
   '/v1/business/invitations': [
     { member_id: 'mem_9', business_id: 'biz_3', business_name: 'Invited Boutique', role: 'admin', invite_token: '4fa1bf7a-6f3b-48aa-b541-698fba0e3032', invite_expires_at: '2026-12-01T00:00:00.000Z' },
@@ -988,7 +989,14 @@ const requestApi = async (endpoint, options = {}) => {
     
     const mockRole = new URLSearchParams(window.location.search).get('mockRole') || 'owner';
     if (endpoint === '/v1/business' && method === 'PATCH') {
-      mockBusiness = { ...mockBusiness, ...JSON.parse(requestOptions.body || '{}') };
+      const changes = JSON.parse(requestOptions.body || '{}');
+      if ('order_prefix' in changes && !/^[A-Za-z]{3}$/.test(changes.order_prefix || '')) {
+        const error = new Error('body.order_prefix: Value error, Order prefix must be exactly 3 letters.');
+        error.status = 422;
+        throw error;
+      }
+      if (changes.order_prefix) changes.order_prefix = changes.order_prefix.toUpperCase();
+      mockBusiness = { ...mockBusiness, ...changes };
       return mockBusiness;
     }
     if (endpoint === '/v1/business' && method === 'GET') {

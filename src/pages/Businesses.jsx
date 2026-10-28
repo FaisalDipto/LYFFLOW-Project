@@ -10,7 +10,7 @@ import RoleBadge from '../components/RoleBadge';
 import { useSiteTheme } from '../hooks/useSiteTheme';
 import TimezoneSelect from '../components/TimezoneSelect';
 import { browserTimezone } from '../utils/timezones';
-import { describeBusinessError, optionalText, PHONE_HINT, PHONE_PATTERN } from '../utils/businessProfile';
+import { cleanOrderPrefix, describeBusinessError, isValidOrderPrefix, optionalText, ORDER_PREFIX_PATTERN, PHONE_HINT, PHONE_PATTERN } from '../utils/businessProfile';
 
 const CURRENCIES = [
   { value: 'BDT', label: 'BDT — Bangladeshi Taka' },
@@ -41,6 +41,7 @@ const CreateBusinessForm = ({ onCreated, onCancel }) => {
     email: '',
     description: '',
     address: '',
+    order_prefix: '',
   }));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +59,10 @@ const CreateBusinessForm = ({ onCreated, onCancel }) => {
       setError('Enter a phone number for your business.');
       return;
     }
+    if (form.order_prefix && !isValidOrderPrefix(form.order_prefix)) {
+      setError('The order number prefix needs exactly 3 letters, like GDS, or leave it empty.');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -71,6 +76,8 @@ const CreateBusinessForm = ({ onCreated, onCancel }) => {
         email: optionalText(form.email),
         description: optionalText(form.description),
         address: optionalText(form.address),
+        // Empty lets the backend make one from the business name.
+        order_prefix: form.order_prefix || null,
       });
       onCreated();
     } catch (err) {
@@ -138,6 +145,30 @@ const CreateBusinessForm = ({ onCreated, onCancel }) => {
             className={fieldClass}
           />
           <p id="business-phone-hint" className="mb-0 mt-1 text-[11px] text-slate-500 dark:text-slate-400">Customers and couriers may use this to reach you.</p>
+        </div>
+
+        <div>
+          <label htmlFor="business-order-prefix" className={labelClass}>Order number prefix {optionalTag}</label>
+          <input
+            id="business-order-prefix"
+            type="text"
+            minLength={3}
+            maxLength={3}
+            pattern={ORDER_PREFIX_PATTERN}
+            title="Exactly 3 letters, like GDS"
+            autoComplete="off"
+            spellCheck={false}
+            value={form.order_prefix}
+            onChange={(event) => setForm(current => ({ ...current, order_prefix: cleanOrderPrefix(event.target.value) }))}
+            placeholder="GDS"
+            aria-describedby="business-order-prefix-hint"
+            className={`${fieldClass} font-mono uppercase tracking-widest`}
+          />
+          <p id="business-order-prefix-hint" className="mb-0 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            {form.order_prefix.length === 3
+              ? <>Order numbers will look like <span className="font-mono font-semibold">{form.order_prefix}-10001</span>.</>
+              : 'Leave empty to make one from the business name.'}
+          </p>
         </div>
 
         <div>
