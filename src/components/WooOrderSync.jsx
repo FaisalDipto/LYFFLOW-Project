@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, RefreshCw, Store, UploadCloud } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, ExternalLink, Loader2, MinusCircle, RefreshCw, Store, UploadCloud } from 'lucide-react';
 import { apiService } from '../services/api';
-import { wooOrderAdminUrl } from '../utils/woocommerce';
+import { wooOrderAdminUrl, wooSyncStatus } from '../utils/woocommerce';
 
 const formatWhen = (value) => {
   if (!value) return null;
@@ -10,20 +10,42 @@ const formatWhen = (value) => {
   return Number.isNaN(date.getTime()) ? null : date.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 };
 
-const pushErrorText = (err) => (err?.status === 429
-  ? 'Too many pushes in a minute. Wait a moment and try again.'
-  : err?.message || 'Could not push the order.');
+const pushErrorText = (err) => {
+  if (err?.status === 429) return 'Too many pushes in a minute. Wait a moment and try again.';
+  if (err?.status === 409) return 'This order is already in WooCommerce or being sent, or it was cancelled or deleted.';
+  return err?.message || 'Could not push the order.';
+};
 
-// WooCommerce sync state for one order (from OrderResponseDetail's wc_* fields):
-// synced → link into WP admin; failed → the error and Retry push; otherwise local only.
-// Orders are pushed automatically when created; the button is for failures and nudges.
+// How each wc_sync_status reads, and whether "Push now" is offered (a manual push skips
+// the 30-minute hold and ignores the store's order sync setting).
+const SYNC_STATES = {
+  synced: { icon: CheckCircle2, tone: 'synced', title: 'In WooCommerce', canPush: false },
+  syncing: { icon: Loader2, tone: 'syncing', title: 'Sending to your store', detail: "The order can't be edited while it's being sent.", canPush: false },
+  pending: { icon: Clock3, tone: 'pending', title: 'Waiting to be sent', detail: 'New orders wait 30 minutes, so the customer can still change them, then go to your store. Push now to send it straight away.', canPush: true },
+  failed: { icon: AlertTriangle, tone: 'failed', title: "Couldn't be sent to WooCommerce", canPush: true },
+  skipped: { icon: MinusCircle, tone: 'local', title: 'Not sent to WooCommerce', detail: 'It was cancelled or deleted, order sync was off, or the store was disconnected.', canPush: true },
+  none: { icon: Store, tone: 'local', title: 'Not sent to WooCommerce', detail: 'No store was connected, or order sync was off, when this order came in.', canPush: true },
+};
+
+const TONE_CLASSES = {
+  synced: { box: 'border-emerald-200 bg-emerald-50/50', icon: 'text-emerald-600' },
+  syncing: { box: 'border-violet-200 bg-violet-50/60', icon: 'animate-spin text-violet-600' },
+  pending: { box: 'border-amber-200 bg-amber-50/60', icon: 'text-amber-600' },
+  failed: { box: 'border-red-200 bg-red-50/60', icon: 'text-red-600' },
+  local: { box: 'border-slate-200 bg-slate-50', icon: 'text-slate-400' },
+};
+
+// WooCommerce push state for one order (OrderResponseDetail's wc_* fields), with a link
+// into WP admin once it's in the store and "Push now" while it isn't.
 export function WooOrderSyncPanel({ order, storeUrl, canPush, onPushed }) {
   const [pushing, setPushing] = useState(false);
   const [result, setResult] = useState(null); // { tone, text }
   const orderId = order.customer_order_id || order.id;
-  const synced = order.wc_order_id != null;
-  const failed = !synced && Boolean(order.wc_sync_error);
+  const status = wooSyncStatus(order);
+  const view = SYNC_STATES[status || 'none'] || SYNC_STATES.none;
+  const tone = TONE_CLASSES[view.tone];
   const adminUrl = wooOrderAdminUrl(storeUrl, order.wc_order_id);
+  const Icon = view.icon;
 
   // A different order opened in the same panel starts clean.
   useEffect(() => { setResult(null); }, [orderId]);
@@ -33,61 +55,56 @@ export function WooOrderSyncPanel({ order, storeUrl, canPush, onPushed }) {
     setResult(null);
     try {
       const response = await apiService.pushWooOrder(orderId);
-      setResult({
-        tone: 'success',
-        text: response?.wc_order_id ? `Pushed to WooCommerce as order #${response.wc_order_id}.` : (response?.message || 'Push started.'),
-      });
+      setResult({ tone: 'success', text: response?.message || 'Sending it to WooCommerce now.' });
       onPushed?.();
     } catch (err) {
       setResult({ tone: 'error', text: pushErrorText(err) });
+      // A 409 means the order moved on (pushed, cancelled…); show where it stands.
+      if (err?.status === 409) onPushed?.();
     } finally {
       setPushing(false);
     }
   };
 
-  const tone = synced ? 'synced' : failed ? 'failed' : 'local';
-  const Icon = synced ? CheckCircle2 : failed ? AlertTriangle : Store;
+  let detail = view.detail;
+  if (status === 'synced') detail = formatWhen(order.wc_synced_at) ? `Pushed ${formatWhen(order.wc_synced_at)}. Later changes here aren't sent to the store.` : "This order is in your store. Later changes here aren't sent to it.";
+  if (status === 'failed') detail = order.wc_sync_error || 'The store rejected the order.';
 
   return (
-    <section aria-label="WooCommerce sync" className={`woo-order-sync is-${tone} rounded-2xl border p-4 ${synced ? 'border-emerald-200 bg-emerald-50/50' : failed ? 'border-red-200 bg-red-50/60' : 'border-slate-200 bg-slate-50'}`}>
+    <section aria-label="WooCommerce sync" className={`woo-order-sync is-${status || 'none'} rounded-2xl border p-4 ${tone.box}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5">
-          <Icon size={17} className={`mt-0.5 shrink-0 ${synced ? 'text-emerald-600' : failed ? 'text-red-600' : 'text-slate-400'}`} aria-hidden="true" />
+          <Icon size={17} className={`mt-0.5 shrink-0 ${tone.icon}`} aria-hidden="true" />
           <div className="min-w-0">
             <p className="m-0 text-sm font-semibold text-slate-900">
-              {synced && <>Synced to WooCommerce <span className="font-normal text-slate-600">· WC #{order.wc_order_id}</span></>}
-              {failed && 'WooCommerce sync failed'}
-              {!synced && !failed && 'Local only'}
+              {view.title}
+              {status === 'synced' && order.wc_order_id != null && <span className="font-normal text-slate-600"> · WC #{order.wc_order_id}</span>}
             </p>
-            <p className="mb-0 mt-0.5 text-xs leading-5 text-slate-600">
-              {synced && (formatWhen(order.wc_synced_at) ? `Pushed ${formatWhen(order.wc_synced_at)}.` : 'This order is in your store.')}
-              {failed && order.wc_sync_error}
-              {!synced && !failed && 'This order hasn\'t been sent to your WooCommerce store.'}
-            </p>
-            {failed && order.wc_sync_attempts > 0 && (
+            <p className="mb-0 mt-0.5 text-xs leading-5 text-slate-600">{detail}</p>
+            {status === 'failed' && order.wc_sync_attempts > 0 && (
               <p className="mb-0 mt-0.5 text-[11px] text-slate-500">{order.wc_sync_attempts} {order.wc_sync_attempts === 1 ? 'attempt' : 'attempts'} so far</p>
             )}
           </div>
         </div>
 
-        {synced && adminUrl && (
+        {status === 'synced' && adminUrl && (
           <a href={adminUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 text-xs font-semibold text-emerald-700 no-underline hover:bg-emerald-50">
             Open in WooCommerce <ExternalLink size={13} />
           </a>
         )}
-        {!synced && canPush && (
+        {view.canPush && canPush && (
           <button
             type="button"
             onClick={push}
             disabled={pushing}
-            className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-60 ${failed ? 'bg-red-600 hover:bg-red-700' : 'bg-violet-600 hover:bg-violet-500'}`}
+            className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-60 ${status === 'failed' ? 'bg-red-600 hover:bg-red-700' : 'bg-violet-600 hover:bg-violet-500'}`}
           >
-            {pushing ? <Loader2 size={13} className="animate-spin" /> : failed ? <RefreshCw size={13} /> : <UploadCloud size={13} />}
-            {pushing ? 'Pushing…' : failed ? 'Retry push' : 'Push to WooCommerce'}
+            {pushing ? <Loader2 size={13} className="animate-spin" /> : status === 'failed' ? <RefreshCw size={13} /> : <UploadCloud size={13} />}
+            {pushing ? 'Pushing…' : 'Push now'}
           </button>
         )}
       </div>
-      {!synced && !canPush && (
+      {view.canPush && !canPush && (
         <p className="mb-0 mt-2 text-[11px] text-slate-500">Connect your store in Platforms → WooCommerce to push orders.</p>
       )}
       {result && (
@@ -97,37 +114,57 @@ export function WooOrderSyncPanel({ order, storeUrl, canPush, onPushed }) {
   );
 }
 
-// Owner-only: queues every unsynced order for the store in one go.
-export function WooBulkPushButton({ onPushed }) {
-  const [state, setState] = useState({ status: 'idle', text: '' });
+const BULK_PUSH_MAX = 100;
+
+// Owner-only: pushes the orders on screen now (up to 100), skipping the 30-minute hold.
+// Orders already in the store, being sent, cancelled or deleted are left out.
+export function WooBulkPushButton({ orderIds = [], onPushed }) {
+  const [state, setState] = useState({ status: 'idle', text: '' }); // idle | confirm | pushing | done | error
   const timer = useRef(null);
   useEffect(() => () => clearTimeout(timer.current), []);
+  const ids = orderIds.filter(Boolean).slice(0, BULK_PUSH_MAX);
 
   const run = async () => {
     setState({ status: 'pushing', text: '' });
     clearTimeout(timer.current);
     try {
-      const response = await apiService.bulkPushWooOrders();
+      const response = await apiService.bulkPushWooOrders(ids);
       const count = Number(response?.queued_count) || 0;
-      setState({ status: 'done', text: count === 0 ? 'Every order is already in WooCommerce.' : `Queued ${count} ${count === 1 ? 'order' : 'orders'} for WooCommerce.` });
+      const left = ids.length - count;
+      setState({
+        status: 'done',
+        text: count === 0
+          ? 'Nothing to send: these orders are already in WooCommerce, being sent, cancelled or deleted.'
+          : `Sending ${count} ${count === 1 ? 'order' : 'orders'} to WooCommerce.${left > 0 ? ` ${left} left out (already sent, cancelled or deleted).` : ''}`,
+      });
       onPushed?.();
     } catch (err) {
       setState({ status: 'error', text: err?.status === 429 ? 'Too many bulk pushes. Try again in a minute.' : err?.message || 'Could not push orders.' });
     }
-    timer.current = setTimeout(() => setState({ status: 'idle', text: '' }), 6000);
+    timer.current = setTimeout(() => setState({ status: 'idle', text: '' }), 8000);
   };
+
+  if (state.status === 'confirm') {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm">
+        <span className="text-violet-900">Push {ids.length} {ids.length === 1 ? 'order' : 'orders'} now, without the 30-minute wait?</span>
+        <button type="button" onClick={run} className="rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-violet-500">Push</button>
+        <button type="button" onClick={() => setState({ status: 'idle', text: '' })} className="rounded-lg px-2 py-1 text-xs font-bold text-violet-700 hover:bg-violet-100">Cancel</button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
-        onClick={run}
-        disabled={state.status === 'pushing'}
-        title="Send every order that isn't in your WooCommerce store yet"
-        className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-bold text-violet-700 transition-colors hover:border-violet-300 hover:bg-violet-100 disabled:cursor-wait disabled:opacity-60"
+        onClick={() => setState({ status: 'confirm', text: '' })}
+        disabled={state.status === 'pushing' || ids.length === 0}
+        title="Send the orders on this page to your WooCommerce store now"
+        className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-bold text-violet-700 transition-colors hover:border-violet-300 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {state.status === 'pushing' ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
-        {state.status === 'pushing' ? 'Pushing…' : 'Push unsynced to WooCommerce'}
+        {state.status === 'pushing' ? 'Pushing…' : 'Push these orders now'}
       </button>
       {state.text && (
         <span role={state.status === 'error' ? 'alert' : 'status'} className={`text-xs font-semibold ${state.status === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>{state.text}</span>

@@ -526,18 +526,26 @@ const mockWindowStatus = (conversation) => {
 };
 // Orders pushed during this mock session: customer_order_id -> wc_order_id.
 const mockWooPushed = new Map();
+// GET/PATCH /v1/woocommerce/settings while a store is connected.
+let mockWooSettings = { order_sync_enabled: true, order_push_status: 'pending' };
 
-// Deterministic sync state per mock order while a store is connected: every third
-// order synced, the next failed, the rest local only.
+// Deterministic sync state per mock order while a store is connected, cycling through
+// every wc_sync_status: synced, failed, pending, skipped, syncing, never sent.
 const mockWooSync = (order) => {
   const n = Math.max(0, MOCK_ORDERS.indexOf(order));
-  if (!mockWooStatus.store_url) return { wc_order_id: null, wc_synced_at: null, wc_sync_error: null, wc_sync_attempts: 0 };
+  const none = { wc_order_id: null, wc_sync_status: null, wc_synced_at: null, wc_sync_error: null, wc_sync_attempts: 0 };
+  if (!mockWooStatus.store_url) return none;
   if (mockWooPushed.has(order.customer_order_id)) {
-    return { wc_order_id: mockWooPushed.get(order.customer_order_id), wc_synced_at: new Date().toISOString(), wc_sync_error: null, wc_sync_attempts: 1 };
+    return { ...none, wc_order_id: mockWooPushed.get(order.customer_order_id), wc_sync_status: 'synced', wc_synced_at: new Date().toISOString(), wc_sync_attempts: 1 };
   }
-  if (n % 3 === 0) return { wc_order_id: 4000 + n, wc_synced_at: order.created_at, wc_sync_error: null, wc_sync_attempts: 1 };
-  if (n % 3 === 1) return { wc_order_id: null, wc_synced_at: null, wc_sync_error: 'WooCommerce rejected the order: SKU WAL-01 is out of stock.', wc_sync_attempts: 3 };
-  return { wc_order_id: null, wc_synced_at: null, wc_sync_error: null, wc_sync_attempts: 0 };
+  switch (n % 6) {
+    case 0: return { ...none, wc_order_id: 4000 + n, wc_sync_status: 'synced', wc_synced_at: order.created_at, wc_sync_attempts: 1 };
+    case 1: return { ...none, wc_sync_status: 'failed', wc_sync_error: 'WooCommerce rejected the order: SKU WAL-01 is out of stock.', wc_sync_attempts: 3 };
+    case 2: return { ...none, wc_sync_status: 'pending' };
+    case 3: return { ...none, wc_sync_status: 'skipped' };
+    case 4: return { ...none, wc_sync_status: 'syncing', wc_sync_attempts: 1 };
+    default: return none;
+  }
 };
 
 // Product catalog for mock mode (namespace ns_1). Create, update, delete and the
@@ -1429,23 +1437,39 @@ const requestApi = async (endpoint, options = {}) => {
       mockWooStatus = MOCK_WOO_STATUSES.none;
       return { message: 'WooCommerce store disconnected successfully.' };
     }
+    if (endpoint === '/v1/woocommerce/settings') {
+      const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };
+      if (!mockWooStatus.store_url) fail(404, 'No WooCommerce store is connected.');
+      if (method === 'PATCH') {
+        if (mockRole === 'member') fail(403, 'This action requires at least the admin role.');
+        const body = JSON.parse(requestOptions.body || '{}');
+        const unknown = Object.keys(body).filter(key => !['order_sync_enabled', 'order_push_status'].includes(key));
+        if (unknown.length) fail(422, `Unknown field: ${unknown[0]}`);
+        if ('order_push_status' in body && !['pending', 'processing', 'on-hold', 'completed'].includes(body.order_push_status)) fail(422, 'Invalid order_push_status.');
+        mockWooSettings = { ...mockWooSettings, ...Object.fromEntries(Object.entries(body).filter(([, value]) => value !== null)) };
+      }
+      return mockWooSettings;
+    }
     const wooPushMatch = endpoint.match(/^\/v1\/woocommerce\/orders\/([^/]+)\/push$/);
     if (wooPushMatch && method === 'POST') {
       const order = MOCK_ORDERS.find(item => item.customer_order_id === wooPushMatch[1]);
-      const fail = (message) => { const error = new Error(message); error.status = 400; throw error; };
-      if (!mockWooStatus.store_url) fail('No WooCommerce store is connected.');
-      if (!order) fail('Order not found.');
-      if (mockWooSync(order).wc_order_id) fail('This order is already synced to WooCommerce.');
-      const wcOrderId = 5000 + MOCK_ORDERS.indexOf(order);
-      mockWooPushed.set(order.customer_order_id, wcOrderId);
-      return { success: true, message: 'Order push initiated successfully.', wc_order_id: wcOrderId, job_id: null };
+      const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };
+      if (!mockWooStatus.store_url) fail(400, 'No WooCommerce store is connected.');
+      if (!order || ['cancelled', 'deleted'].includes(order.status)) fail(409, 'The order was not found, or it is cancelled or deleted.');
+      if (['synced', 'syncing'].includes(mockWooSync(order).wc_sync_status)) fail(409, 'This order is already pushed or being pushed.');
+      mockWooPushed.set(order.customer_order_id, 5000 + MOCK_ORDERS.indexOf(order));
+      return { success: true, message: 'Sending the order to WooCommerce now.' };
     }
     if (endpoint === '/v1/woocommerce/orders/bulk-push' && method === 'POST') {
-      if (!mockWooStatus.store_url) { const error = new Error('No WooCommerce store is connected.'); error.status = 400; throw error; }
+      const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };
+      if (!mockWooStatus.store_url) fail(400, 'No WooCommerce store is connected.');
       const ids = JSON.parse(requestOptions.body || '{}').order_ids;
-      const pending = MOCK_ORDERS.filter(order => (!ids || ids.includes(order.customer_order_id)) && !mockWooSync(order).wc_order_id);
-      pending.forEach(order => mockWooPushed.set(order.customer_order_id, 5000 + MOCK_ORDERS.indexOf(order)));
-      return { queued_count: pending.length, message: `Successfully queued ${pending.length} order(s) for WooCommerce push.` };
+      if (!Array.isArray(ids) || ids.length < 1 || ids.length > 100) fail(422, 'order_ids must list 1 to 100 orders.');
+      const queued = MOCK_ORDERS.filter(order => ids.includes(order.customer_order_id)
+        && !['cancelled', 'deleted'].includes(order.status)
+        && !['synced', 'syncing'].includes(mockWooSync(order).wc_sync_status));
+      queued.forEach(order => mockWooPushed.set(order.customer_order_id, 5000 + MOCK_ORDERS.indexOf(order)));
+      return { queued_count: queued.length, message: `Queued ${queued.length} order(s) for WooCommerce.` };
     }
     if (/^\/v1\/products\/ns_1\/import\/csv\/history/.test(endpoint)) {
       return { batches: [], items: [], pagination: { has_more: false, next_cursor: null } };
@@ -1480,7 +1504,14 @@ const requestApi = async (endpoint, options = {}) => {
         : mockData['/v1/pages/orders/{order_id}'])
       : null;
     if (pageOrderDetailMatch && method === 'PATCH') {
-      const updated = { ...pageOrderDetailMock, ...JSON.parse(requestOptions.body || '{}') };
+      const changes = JSON.parse(requestOptions.body || '{}');
+      // Once the push to WooCommerce has started only the status may change.
+      if (['syncing', 'synced'].includes(pageOrderDetailMock?.wc_sync_status) && Object.keys(changes).some(key => key !== 'status')) {
+        const error = new Error('This order has already been sent to WooCommerce; only its status can change.');
+        error.status = 409;
+        throw error;
+      }
+      const updated = { ...pageOrderDetailMock, ...changes };
       const itemsTotal = (updated.order_items || []).reduce((sum, item) => sum + item.quantity * item.price, 0);
       updated.total = (itemsTotal + Number(updated.delivery_charge || 0)).toFixed(2);
       updated.updated_at = new Date().toISOString();
@@ -2427,7 +2458,8 @@ export const apiService = {
    * @property {string} business_id
    * @property {string} namespace_id
    *
-   * @typedef {{ success: boolean, message: string, wc_order_id?: number|null, job_id?: string|null }} OrderPushResponse
+   * @typedef {{ success: boolean, message: string }} OrderPushResponse
+   * @typedef {{ order_sync_enabled: boolean, order_push_status: 'pending'|'processing'|'on-hold'|'completed' }} WooCommerceSettings
    * @typedef {{ queued_count: number, message: string }} OrderBulkPushResponse
    */
   /** @param {{ fresh?: boolean }} [options] fresh skips the 15s cache (after "Check again"). */
@@ -2441,11 +2473,22 @@ export const apiService = {
   // The plugin zip for manual install. Needs the session (401 without it), so it goes
   // through apiDownload rather than a plain link. Resolves to { blob, filename }.
   downloadWooPlugin: () => apiDownload('/v1/woocommerce/plugin/download', 'lyfflow-woocommerce.zip'),
-  // Retries (or first-time pushes) one order. Orders are pushed automatically when
-  // created, so this is for failures and manual nudges. 30 requests a minute.
+  // Store settings: push new orders (after a 30-minute hold) and the WooCommerce status
+  // they get. Any member reads; owner or admin writes (either field). 404 without a store.
+  /** @returns {Promise<WooCommerceSettings>} */
+  getWooSettings: () => apiFetch('/v1/woocommerce/settings'),
+  /** @param {Partial<WooCommerceSettings>} changes @returns {Promise<WooCommerceSettings>} */
+  updateWooSettings: (changes) => apiFetch('/v1/woocommerce/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(changes),
+  }),
+  // Pushes one order now, skipping the 30-minute hold and the sync setting. 409 when it's
+  // already pushed or being pushed, cancelled, deleted or not found.
+  /** @returns {Promise<OrderPushResponse>} */
   pushWooOrder: (orderId) => apiFetch(`/v1/woocommerce/orders/${encodeURIComponent(orderId)}/push`, { method: 'POST' }),
-  // Owner only; null/omitted ids pushes every unsynced order. 5 requests a minute.
-  bulkPushWooOrders: (orderIds = null) => apiFetch('/v1/woocommerce/orders/bulk-push', {
+  // Pushes these orders now (1 to 100 ids, required). Ones already pushed or being pushed,
+  // cancelled or deleted are left out; queued_count says how many went.
+  bulkPushWooOrders: (orderIds) => apiFetch('/v1/woocommerce/orders/bulk-push', {
     method: 'POST',
     body: JSON.stringify({ order_ids: orderIds }),
   }),

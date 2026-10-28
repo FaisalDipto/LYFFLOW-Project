@@ -4,6 +4,7 @@ import { AlertTriangle, Bike, CheckCircle2, Clock, Download, Link2, Loader2, Pac
 import { useBusiness } from '../../context/BusinessContext';
 import { apiService } from '../../services/api';
 import ApiKeysManager from './ApiKeysManager';
+import WooOrderSettings from './WooOrderSettings';
 import { wooConnectionState } from '../../utils/woocommerce';
 import { saveBlob } from '../../utils/download';
 
@@ -178,6 +179,7 @@ const DownloadPluginButton = () => {
 // here and paste it into the plugin, which lists the key's catalogs (namespaces), lets
 // the merchant pick one and connects the store (it detects the store URL itself).
 const WooCommerceModal = ({ isOwner, status, onStatusChange, onClose }) => {
+  const { canManage } = useBusiness();
   const [checking, setChecking] = useState(false);
   const state = wooConnectionState(status);
   // Names the catalog the plugin syncs into; falls back to the raw id if it isn't listed.
@@ -237,6 +239,8 @@ const WooCommerceModal = ({ isOwner, status, onStatusChange, onClose }) => {
 
         <div className="space-y-5 overflow-y-auto px-6 py-5">
           <WooStatusPanel status={status} state={state} checking={checking} onRefresh={refresh} isOwner={isOwner} onDisconnect={disconnect} catalogName={catalogName} />
+
+          {state !== 'none' && <WooOrderSettings canEdit={canManage} />}
 
           <ol className="m-0 list-none space-y-3 p-0">
             <WooStep n={1}>

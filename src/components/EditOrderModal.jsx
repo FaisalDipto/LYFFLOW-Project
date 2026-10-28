@@ -1,8 +1,52 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Pencil, X } from 'lucide-react';
+import { Loader2, Lock, Pencil, X } from 'lucide-react';
 import { apiService } from '../services/api';
 import ManualOrderForm from './ManualOrderForm';
-import { normalizeOrderValues, orderToFormState } from './manualOrderUtils';
+import { normalizeOrderValues, ORDER_STATUSES, orderToFormState } from './manualOrderUtils';
+import { isWooLocked } from '../utils/woocommerce';
+
+const saveErrorText = (err) => (err?.status === 409
+  ? "This order has already been sent to WooCommerce, so only its status can change. Changes made here aren't sent to the store."
+  : err?.message || 'Could not save the changes. Please try again.');
+
+// Once an order is in WooCommerce (or being sent) its contents are fixed; the status
+// can still change here.
+const StatusOnlyForm = ({ order, onSave, onCancel }) => {
+  const [status, setStatus] = useState(order.status || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const submit = async (event) => {
+    event.preventDefault();
+    if (status === order.status) { onCancel?.(); return; }
+    setSaving(true);
+    setError('');
+    try {
+      await onSave(status);
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="space-y-4 px-5 py-5">
+      <p className="m-0 flex items-start gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-3 text-xs leading-5 text-violet-900">
+        <Lock size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+        This order has been sent to WooCommerce, so its items, contact details, address, notes and delivery charge can't change. You can still update its status; it isn't sent to the store.
+      </p>
+      <div>
+        <label htmlFor="edit-order-status" className="mb-1.5 block text-xs font-bold text-slate-700">Status</label>
+        <select id="edit-order-status" value={status} onChange={event => setStatus(event.target.value)} className="h-10 w-full max-w-xs rounded-xl border border-solid border-slate-200 bg-white px-3 text-sm capitalize text-slate-800">
+          {ORDER_STATUSES.map(value => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}
+        </select>
+      </div>
+      {error && <p role="alert" className="m-0 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-bold text-rose-700">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className="h-10 rounded-xl border border-solid border-slate-200 bg-white px-4 text-xs font-black text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button type="submit" disabled={saving} className="h-10 rounded-xl bg-slate-900 px-5 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-60">{saving ? 'Saving…' : 'Save status'}</button>
+      </div>
+    </form>
+  );
+};
 
 // List rows only carry a summary; the detail response is what has order_items.
 const hasFullDetail = (order) => Array.isArray(order?.order_items);
@@ -58,7 +102,18 @@ const EditOrderModal = ({ orderId, order: initialOrder, onClose, onSaved }) => {
       onSaved?.(data?.order || data);
     } catch (err) {
       console.error('Order update failed:', err);
-      throw new Error(err?.message || 'Could not save the changes. Please try again.');
+      throw new Error(saveErrorText(err));
+    }
+  };
+
+  const saveStatus = async (status) => {
+    try {
+      const response = await apiService.updateCustomerOrder(orderId, { status });
+      const data = response?.data || response;
+      onSaved?.(data?.order || data);
+    } catch (err) {
+      console.error('Order status update failed:', err);
+      throw new Error(saveErrorText(err));
     }
   };
 
@@ -92,7 +147,9 @@ const EditOrderModal = ({ orderId, order: initialOrder, onClose, onSaved }) => {
           </button>
         </div>
 
-        {initialState ? (
+        {initialState && isWooLocked(order) ? (
+          <StatusOnlyForm order={order} onSave={saveStatus} onCancel={onClose} />
+        ) : initialState ? (
           <ManualOrderForm
             initialForm={initialState.form}
             initialItems={initialState.items}

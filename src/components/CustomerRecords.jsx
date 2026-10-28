@@ -8,7 +8,7 @@ import EditOrderModal from './EditOrderModal';
 import RowActionsMenu from './RowActionsMenu';
 import { WooBulkPushButton, WooOrderSyncPanel } from './WooOrderSync';
 import { useBusiness } from '../context/BusinessContext';
-import { wooConnectionState } from '../utils/woocommerce';
+import { wooConnectionState, wooSyncStatus } from '../utils/woocommerce';
 
 const LEAD_STATUSES = ['new', 'contacted', 'converted', 'cancelled'];
 const ORDER_STATUSES = [
@@ -447,7 +447,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
           </div>
 
           {recordType === 'order' && isOwner && wooState === 'connected' && (
-            <WooBulkPushButton onPushed={refreshSelectedOrder} />
+            <WooBulkPushButton orderIds={records.map(record => record.id)} onPushed={refreshSelectedOrder} />
           )}
 
           {recordType === 'order' && (
@@ -900,7 +900,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
               )}
 
               {/* WooCommerce sync: shown once a store is on record, or if the order has sync history. */}
-              {selectedRecord.type === 'order' && (wooState !== 'none' || selectedRecord.wc_order_id != null || selectedRecord.wc_sync_error) && (
+              {selectedRecord.type === 'order' && (wooState !== 'none' || wooSyncStatus(selectedRecord) !== null) && (
                 <WooOrderSyncPanel
                   order={selectedRecord}
                   storeUrl={wooStatus?.store_url}
