@@ -49,6 +49,8 @@ import { isInstagram } from '../utils/platforms';
 import { handoverCategoryLabel } from '../utils/ownerDashboard';
 import { messageProductCards } from '../utils/productCards';
 import { UNKNOWN_CUSTOMER } from '../utils/customer';
+import { INBOX_CATEGORIES, matchesInboxCategory } from '../utils/inboxCategories';
+import { useInboxSeen } from '../hooks/useInboxSeen';
 import MessagingWindowNotice from '../components/conversation/MessagingWindowNotice';
 import ConversationAssignee from '../components/conversation/ConversationAssignee';
 import './Dashboard.css';
@@ -799,6 +801,12 @@ const formatListTime = (rawTime) => {
 const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const [selectedPageId, setSelectedPageId] = useState('');
   const [humanNeededFilter, setHumanNeededFilter] = useState('all');
+  // Category tab: a group of handover categories, or 'all'.
+  const [inboxCategory, setInboxCategory] = useState('all');
+  // Unread rows: a customer message after this conversation was last opened here.
+  const inboxSeen = useInboxSeen(selectedPageId);
+  const markSeenRef = useRef(inboxSeen.markSeen);
+  markSeenRef.current = inboxSeen.markSeen;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileVisible, setIsProfileVisible] = useState(false);
   const [contacts, setContacts] = useState([]);
@@ -917,9 +925,11 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     return agent?.namespace_id || '';
   })();
   const currentPageNeedsReauth = pageNeedsReauth(selectedPage);
-  const isHumanNeeded = humanNeededFilter === 'all'
-    ? null
-    : humanNeededFilter === 'human';
+  const isHumanNeeded = inboxCategory !== 'all'
+    ? true
+    : humanNeededFilter === 'all'
+      ? null
+      : humanNeededFilter === 'human';
   const queueMember = queueMemberId ? team.byMemberId.get(queueMemberId) : null;
   const queueFilter = queue === 'mine'
     ? (queueMemberId ? { memberId: queueMemberId } : { assignedToMe: true })
@@ -1009,6 +1019,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
           });
           // A customer message reopens Meta's reply windows.
           if (message.role === 'user') setWindowRefreshKey(key => key + 1);
+          markSeenRef.current(conversationId);
         }
         if (live.contacts.some(row => conversationKey(row) === conversationId)) {
           setContacts(prev => bumpConversation(prev, conversationId, message));
@@ -1240,6 +1251,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
         }
         // Typically Facebook returns newest first, reverse for chat UI
         setMessages(Array.isArray(msgs) ? [...msgs].reverse() : []);
+        markSeenRef.current(convId);
         
         if (data?.pagination) {
           setMessagesPagination(data.pagination);
@@ -1799,12 +1811,13 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   };
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const categoryContacts = inboxCategory === 'all' ? contacts : contacts.filter(contact => matchesInboxCategory(contact, inboxCategory));
   const visibleContacts = normalizedSearchQuery
-    ? contacts.filter((contact) => {
+    ? categoryContacts.filter((contact) => {
         const contactName = contact._info_name || resolveContactName(contact, UNKNOWN_CUSTOMER);
         return `${contactName} ${previewText(contact)}`.toLowerCase().includes(normalizedSearchQuery);
       })
-    : contacts;
+    : categoryContacts;
 
   if (!pages || pages.length === 0) {
     return (
@@ -1894,6 +1907,25 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
             </div>
           </header>
 
+          <div
+            className="inbox-category-tabs -mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            role="tablist"
+            aria-label="Conversation category"
+          >
+            {INBOX_CATEGORIES.map(tab => (
+              <button
+                type="button"
+                role="tab"
+                key={tab.id}
+                aria-selected={inboxCategory === tab.id}
+                onClick={() => setInboxCategory(tab.id)}
+                className={`h-8 shrink-0 rounded-full border border-solid px-3 text-[12px] font-bold transition-colors ${inboxCategory === tab.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <div className="group relative w-full">
             <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[19px] text-slate-400 transition-colors group-focus-within:text-emerald-600">search</span>
             <input
@@ -1959,9 +1991,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               <button
                 type="button"
                 key={option.value}
-                onClick={() => setHumanNeededFilter(option.value)}
-                className={`h-8 rounded-lg px-2 text-[11px] font-bold transition-all ${humanNeededFilter === option.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                aria-pressed={humanNeededFilter === option.value}
+                onClick={() => { setHumanNeededFilter(option.value); if (option.value !== 'human') setInboxCategory('all'); }}
+                className={`h-8 rounded-lg px-2 text-[11px] font-bold transition-all ${(inboxCategory !== 'all' ? option.value === 'human' : humanNeededFilter === option.value) ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                aria-pressed={inboxCategory !== 'all' ? option.value === 'human' : humanNeededFilter === option.value}
               >
                 {option.label}
               </button>
@@ -2004,6 +2036,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               <span className="material-symbols-outlined mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-xl">forum</span>
               {normalizedSearchQuery
                 ? 'No conversations match your search.'
+                : inboxCategory !== 'all'
+                  ? `No handed-over conversations in “${INBOX_CATEGORIES.find(tab => tab.id === inboxCategory)?.label}”${conversationsPagination?.has_more ? ' among those loaded so far' : ''}.`
                 : queue === 'mine'
                   ? (queueMember ? `Nothing is assigned to ${queueMember.invited_email}${humanNeededFilter === 'all' ? '' : ' with this filter'}.` : `Nothing is assigned to you${humanNeededFilter === 'all' ? '' : ' with this filter'}.`)
                   : queue === 'unassigned'
@@ -2015,20 +2049,26 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                         : 'No ongoing conversations.'}
             </div>
           ) : visibleContacts.map((contact, i) => {
-            // Prefer the name from /info endpoint, fall back to FB graph resolution
-            const contactName = contact._info_name || resolveContactName(contact, UNKNOWN_CUSTOMER);
-            const snippet = previewText(contact) || 'No messages';
-            const updatedTimeValue = contact.updated_time || contact.last_message_at || contact.updated;
-            const updated = formatListTime(updatedTimeValue);
             const id = contact.conversation_id || contact.id || i;
             const isActive = (activeContact?.id || activeContact?.conversation_id) === id;
+            // Prefer the name from /info endpoint, fall back to FB graph resolution
+            const contactName = contact._info_name || resolveContactName(contact, UNKNOWN_CUSTOMER);
+            const preview = previewText(contact);
+            const lastRole = contact.last_message && typeof contact.last_message === 'object' ? contact.last_message.role : null;
+            // "You: …" for the page's (or AI's) messages, the customer's first name for theirs.
+            const sender = !preview ? '' : lastRole === 'page' ? 'You' : lastRole === 'user' && contactName !== UNKNOWN_CUSTOMER ? contactName.split(/\s+/)[0] : '';
+            const snippet = preview || 'No messages';
+            const unread = !isActive && inboxSeen.isUnread(contact);
+            const updatedTimeValue = contact.updated_time || contact.last_message_at || contact.updated;
+            const updated = formatListTime(updatedTimeValue);
 
             return (
               <button
                 type="button"
                 key={id}
                 onClick={() => { setActiveContact(contact); setMobileShowChat(true); }}
-                className={`conversation-contact ${isActive ? 'is-active' : ''} group w-full rounded-xl border p-3 text-left transition-all ${isActive ? 'border-emerald-200 bg-emerald-50 shadow-sm' : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'}`}
+                aria-label={unread ? `${contactName}, unread` : undefined}
+                className={`conversation-contact ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''} group w-full rounded-xl border p-3 text-left transition-all ${isActive ? 'border-emerald-200 bg-emerald-50 shadow-sm' : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="relative shrink-0">
@@ -2041,10 +2081,13 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                         <h3 className="conversation-contact-name truncate text-sm font-black text-slate-900">{contactName}</h3>
                         {contact.is_human_needed && <span title={handoverCategoryLabel(contact.handover_category) || 'Needs a person'} className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-rose-600">Human</span>}
                       </div>
-                      <span className="mr-3 shrink-0 text-[10px] font-semibold text-slate-400">{updated}</span>
+                      <span className={`mr-3 shrink-0 text-[10px] ${unread ? 'font-black text-emerald-600' : 'font-semibold text-slate-400'}`}>{updated}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <p className={`min-w-0 flex-1 truncate text-xs ${isActive ? 'font-semibold text-emerald-700' : 'font-medium text-slate-500'}`}>{snippet}</p>
+                      <p className={`conversation-preview min-w-0 flex-1 truncate text-xs ${isActive ? 'font-semibold text-emerald-700' : unread ? 'font-bold text-slate-900' : 'font-medium text-slate-500'}`}>
+                        {sender && <span className={unread ? 'font-bold' : 'font-semibold'}>{sender}: </span>}{snippet}
+                      </p>
+                      {unread && <span className="conversation-new-tag mr-3 shrink-0 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">New</span>}
                       {contact.assigned_to_member_id && (
                         <span className="conversation-assignee-chip mr-3 inline-flex max-w-[84px] shrink-0 items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-0.5 text-[9px] font-black text-sky-700" title="Assigned to">
                           <span className="material-symbols-outlined text-[11px]">person</span>

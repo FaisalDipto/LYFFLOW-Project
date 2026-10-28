@@ -297,7 +297,7 @@ const startMockLiveScript = () => {
   mockPush('inbox_message', { conversation_id: 'conv_1', page_id: 'page_1', message: receipt }, 10000);
   mockPush('inbox_message', { conversation_id: 'conv_1', page_id: 'page_1', message: { ...receipt, attachments: [{ attachment_id: 'att_live_2', attachment_type: 'application/pdf', attachment_size: 48213, attachment_key: 'mock/receipt.pdf' }] } }, 13000);
   mockPush('conversation_update', { conversation_id: 'conv_4', page_id: 'page_1', fields: { is_human_needed: true, human_needed_reason: 'Asked for a refund' } }, 15000);
-  setTimeout(() => { mockInbox = [...mockInbox, mockNewConversation]; }, 16900);
+  setTimeout(() => { mockInbox = [...mockInbox, { ...mockNewConversation, last_customer_at: Date.now(), updated_time: new Date().toISOString() }]; }, 16900);
   mockPush('inbox_message', { conversation_id: 'conv_5', page_id: 'page_1', message: mockMessage({ message_id: 'live_3', message: mockNewConversation.snippet, created_at: new Date(Date.now() + 17000).toISOString() }) }, 17000);
   mockPush('inbox_message', { conversation_id: 'conv_9', page_id: 'page_2', message: mockMessage({ message_id: 'live_4', message: 'Another page: must not appear' }) }, 18000);
 };
