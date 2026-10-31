@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -44,12 +44,15 @@ import { messagingWindowState } from '../utils/messagingWindow';
 import ReplyComposer from '../components/conversation/ReplyComposer';
 import ProductCardsMessage from '../components/conversation/ProductCardsMessage';
 import ConversationNote from '../components/conversation/ConversationNote';
+import AgentReplyStyle from '../components/AgentReplyStyle';
+import { examplesToRows, exampleProblems, RESPONSE_FORMAT_MAX, rowsToExamples, sameExamples } from '../utils/agentReplyStyle';
 import PlatformMark from '../components/PlatformMark';
 import { isInstagram } from '../utils/platforms';
 import { handoverCategoryLabel } from '../utils/ownerDashboard';
 import { messageProductCards } from '../utils/productCards';
 import { UNKNOWN_CUSTOMER } from '../utils/customer';
 import { INBOX_CATEGORIES, matchesInboxCategory } from '../utils/inboxCategories';
+import InboxCategoryMenu from '../components/conversation/InboxCategoryMenu';
 import { useInboxSeen } from '../hooks/useInboxSeen';
 import MessagingWindowNotice from '../components/conversation/MessagingWindowNotice';
 import ConversationAssignee from '../components/conversation/ConversationAssignee';
@@ -798,13 +801,18 @@ const formatListTime = (rawTime) => {
   }
 };
 
+// The inbox page picker's value for every page of the business (GET /v1/conversations).
+const ALL_PAGES = 'all';
+
 const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const [selectedPageId, setSelectedPageId] = useState('');
+  // The page picker: one page's id, or ALL_PAGES for every page of the business.
+  const listPageId = selectedPageId && selectedPageId !== ALL_PAGES ? selectedPageId : null;
   const [humanNeededFilter, setHumanNeededFilter] = useState('all');
   // Category tab: a group of handover categories, or 'all'.
   const [inboxCategory, setInboxCategory] = useState('all');
   // Unread rows: a customer message after this conversation was last opened here.
-  const inboxSeen = useInboxSeen(selectedPageId);
+  const inboxSeen = useInboxSeen(selectedPageId ? 'inbox' : '');
   const markSeenRef = useRef(inboxSeen.markSeen);
   markSeenRef.current = inboxSeen.markSeen;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -823,14 +831,15 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     const fetchDetail = async () => {
       setIsSidebarActivityLoading(true);
       try {
-        const currentPage = pages?.find(p => p.page_id === selectedPageId);
+        const conversationPageId = activeContact?.page_id || selectedPageId;
+        const currentPage = pages?.find(p => p.page_id === conversationPageId);
         let agentId = currentPage?.agent_id || currentPage?.agent?.agent_id || currentPage?.assigned_agent_id;
         if (!agentId) {
           try {
             const cached = localStorage.getItem('lyfflow_assigned_agents');
             if (cached) {
               const parsed = JSON.parse(cached);
-              agentId = parsed[selectedPageId];
+              agentId = parsed[conversationPageId];
             }
           } catch { /* ignore storage/JSON errors */ }
         }
@@ -851,7 +860,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       }
     };
     fetchDetail();
-  }, [selectedMessageActivityId, selectedPageId, pages, user?.agents]);
+  }, [selectedMessageActivityId, selectedPageId, activeContact?.page_id, pages, user?.agents]);
   const [messages, setMessages] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   // Inbox queue: everything, assigned (to me, or for admins any teammate), or unassigned.
@@ -897,7 +906,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   }, [activeContact?.conversation_id, activeContact?.id]);
 
   const activeConversationId = activeContact?.conversation_id || activeContact?.id || null;
-  const windowStatus = useWindowStatus(selectedPageId, activeConversationId, windowRefreshKey);
+  const windowStatus = useWindowStatus(activeContact?.page_id || (selectedPageId === ALL_PAGES ? '' : selectedPageId), activeConversationId, windowRefreshKey);
   const windowState = messagingWindowState(windowStatus.data);
   // Orders for the profile sidebar's list; reloads after a manual order is created.
   const conversationOrders = useConversationOrders(activeConversationId, conversationOrdersVersion);
@@ -908,8 +917,12 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     pageId: order.page_id,
   }) : undefined;
 
-  const selectedPage = pages?.find(p => p.page_id === selectedPageId);
-  const currentPageName = selectedPage?.name || '';
+  // The open conversation's page: replies, its window, notes and orders go through it.
+  const activePageId = activeContact?.page_id || listPageId;
+  const selectedPage = pages?.find(p => p.page_id === activePageId);
+  const pickedPage = listPageId ? pages?.find(p => p.page_id === listPageId) : null;
+  // Page names, so a page's own name is never taken for the customer's.
+  const pageNames = new Set((pages || []).map(p => (p.name || '').toLowerCase()).filter(Boolean));
   // The catalog of the agent on this page, for filling manual order items from it.
   const pageCatalogId = (() => {
     if (!selectedPage) return '';
@@ -925,6 +938,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     return agent?.namespace_id || '';
   })();
   const currentPageNeedsReauth = pageNeedsReauth(selectedPage);
+  // Only a picked page tints the picker; with every page listed the menu marks the ones to reconnect.
+  const pickedPageNeedsReauth = Boolean(listPageId) && pageNeedsReauth(pickedPage);
   const isHumanNeeded = inboxCategory !== 'all'
     ? true
     : humanNeededFilter === 'all'
@@ -940,7 +955,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   // What the stream handlers need from the latest render (they subscribe once).
   const liveRef = useRef(null);
   liveRef.current = {
-    selectedPageId, activeConversationId, isHumanNeeded, queue, queueFilter, loading, loadingMsgs, contacts, messages,
+    selectedPageId, listPageId, activePageId, activeConversationId, isHumanNeeded, queue, queueFilter, loading, loadingMsgs, contacts, messages,
     assigneeId: queueMemberId || team.currentMemberId,
   };
   // First messages from customers not in the list yet: conversation id -> timer.
@@ -962,10 +977,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     const refetchAfterReconnect = () => {
       const live = liveRef.current;
       if (!live.selectedPageId) return;
-      const pageId = live.selectedPageId;
       if (!live.loading) {
         const requestVersion = conversationsRequestVersionRef.current;
-        apiService.getPageDetails(pageId, null, 10, live.isHumanNeeded, live.queueFilter)
+        apiService.getPageDetails(live.listPageId, null, 10, live.isHumanNeeded, live.queueFilter)
           .then(data => {
             if (requestVersion !== conversationsRequestVersionRef.current) return;
             const rows = data?.conversations?.data || data?.conversations || data?.data || [];
@@ -979,8 +993,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
           .catch(err => console.warn('[inbox] could not refresh conversations after reconnecting', err));
       }
       const convId = live.activeConversationId;
-      if (convId && !live.loadingMsgs) {
-        apiService.getConversationDetails(pageId, convId)
+      if (convId && live.activePageId && !live.loadingMsgs) {
+        apiService.getConversationDetails(live.activePageId, convId)
           .then(data => {
             if (liveRef.current.activeConversationId !== convId) return;
             const msgs = data?.messages?.data || data?.messages || data?.data || [];
@@ -996,7 +1010,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       pendingNew.set(conversationId, setTimeout(() => {
         apiService.getConversationInfo(conversationId)
           .then(info => {
-            if (!info || liveRef.current.selectedPageId !== pageId) return;
+            const listPage = liveRef.current.listPageId;
+            if (!info?.conversation_id || (listPage && (info.page_id || pageId) !== listPage)) return;
             const row = { ...info, last_message: info.last_message || previewFromMessage(message) };
             if (!matchesList(row)) return;
             setContacts(prev => (prev.some(item => conversationKey(item) === conversationId) ? prev : [row, ...prev]));
@@ -1010,7 +1025,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       onReady: refetchAfterReconnect,
       onInboxMessage: ({ conversation_id: conversationId, page_id: pageId, message } = {}) => {
         const live = liveRef.current;
-        if (!message?.message_id || pageId !== live.selectedPageId) return;
+        if (!message?.message_id) return;
         if (conversationId === live.activeConversationId) {
           setMessages(prev => {
             // Our own send (sending, unconfirmed, or awaiting its row) resolves to this row.
@@ -1021,15 +1036,17 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
           if (message.role === 'user') setWindowRefreshKey(key => key + 1);
           markSeenRef.current(conversationId);
         }
+        // The list shows every page, or only the picked one.
+        if (live.listPageId && pageId !== live.listPageId) return;
         if (live.contacts.some(row => conversationKey(row) === conversationId)) {
           setContacts(prev => bumpConversation(prev, conversationId, message));
         } else {
           insertNewConversation(conversationId, pageId, message);
         }
       },
-      onMessageUpdate: ({ conversation_id: conversationId, page_id: pageId, message_ids: messageIds, fields } = {}) => {
+      onMessageUpdate: ({ conversation_id: conversationId, message_ids: messageIds, fields } = {}) => {
         const live = liveRef.current;
-        if (pageId !== live.selectedPageId || conversationId !== live.activeConversationId) return;
+        if (conversationId !== live.activeConversationId) return;
         if (!fields) return;
         setMessages(prev => patchMessages(prev, messageIds, fields));
         // An unsent or edited newest message is also the list preview.
@@ -1042,7 +1059,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
         }
       },
       onConversationUpdate: ({ conversation_id: conversationId, page_id: pageId, fields } = {}) => {
-        if (pageId !== liveRef.current.selectedPageId || !fields) return;
+        const listPage = liveRef.current.listPageId;
+        if (!fields || (listPage && pageId !== listPage)) return;
         setContacts(prev => patchConversation(prev, conversationId, fields));
         setActiveContact(prev => (prev && conversationKey(prev) === conversationId ? withConversationFields(prev, fields) : prev));
       },
@@ -1058,7 +1076,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     if (!contactObj) return fallback;
     
     const isBadName = (n) => !n || n.toLowerCase() === 'facebook user' || n.toLowerCase() === 'instagram user';
-    const isPageName = (n) => currentPageName && n && n.toLowerCase() === currentPageName.toLowerCase();
+    const isPageName = (n) => Boolean(n) && pageNames.has(n.toLowerCase());
 
     let resolvedName = null;
 
@@ -1117,7 +1135,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   useEffect(() => {
     if (pages && pages.length > 0) {
       // Functional update: only defaults when nothing is selected, without depending on selectedPageId.
-      setSelectedPageId(prev => prev || pages[0].page_id);
+      setSelectedPageId(prev => prev || ALL_PAGES);
     }
   }, [pages]);
 
@@ -1128,7 +1146,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   useEffect(() => {
     if (!focusRequest?.conversationId) return;
     pendingFocusRef.current = focusRequest;
-    if (focusRequest.pageId) setSelectedPageId(focusRequest.pageId);
+    if (focusRequest.pageId) setSelectedPageId(current => (current === ALL_PAGES ? current : focusRequest.pageId));
     setMobileShowChat(true);
   }, [focusRequest]);
 
@@ -1139,7 +1157,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   useEffect(() => {
     const pending = pendingFocusRef.current;
     if (!pending || loading) return;
-    if (pending.pageId && (pending.pageId !== selectedPageId || contactsPageRef.current !== pending.pageId)) return;
+    if (contactsPageRef.current !== (listPageId || ALL_PAGES)) return;
+    if (pending.pageId && listPageId && pending.pageId !== listPageId) return;
     pendingFocusRef.current = null;
     const match = contacts.find(c => (c.conversation_id || c.id) === pending.conversationId);
     if (match) {
@@ -1149,12 +1168,12 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     // Not on the first page (an older chat from the dashboard or a notification): fetch it.
     apiService.getConversationInfo(pending.conversationId)
       .then(info => {
-        if (!info?.conversation_id || (info.page_id && info.page_id !== selectedPageId)) return;
+        if (!info?.conversation_id || (info.page_id && listPageId && info.page_id !== listPageId)) return;
         setContacts(prev => (prev.some(c => (c.conversation_id || c.id) === info.conversation_id) ? prev : [info, ...prev]));
         setActiveContact(info);
       })
       .catch(err => console.warn('[inbox] could not open the linked conversation', err));
-  }, [contacts, loading, selectedPageId]);
+  }, [contacts, loading, listPageId]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -1176,13 +1195,13 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     setActiveContact(null);
     setMessages([]);
     setConversationsPagination(null);
-    apiService.getPageDetails(selectedPageId, null, 10, isHumanNeeded, queueFilter)
+    apiService.getPageDetails(listPageId, null, 10, isHumanNeeded, queueFilter)
       .then(data => {
         if (requestVersion !== conversationsRequestVersionRef.current) return;
         // Handle FB Graph variations
         const convs = data?.conversations?.data || data?.conversations || data?.data || [];
         const normalized = Array.isArray(convs) ? convs : [];
-        contactsPageRef.current = selectedPageId;
+        contactsPageRef.current = listPageId || ALL_PAGES;
         setContacts(normalized);
         
         if (data?.pagination) {
@@ -1199,7 +1218,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
         normalized.forEach((conv, index) => {
           const cId = conv.conversation_id || conv.id;
           if (!cId || index === 0 || conv.snippet || conv.last_message) return;
-          apiService.getConversationDetails(selectedPageId, cId, null, 1).then(details => {
+          apiService.getConversationDetails(conv.page_id || listPageId, cId, null, 1).then(details => {
             if (requestVersion !== conversationsRequestVersionRef.current) return;
             const msgs = details?.messages?.data || details?.messages || details?.data || [];
             const lastMsg = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
@@ -1233,12 +1252,12 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   }, [selectedPageId, isHumanNeeded, queueKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!selectedPageId || !activeContact) return;
+    if (!activePageId || !activeContact) return;
     setLoadingMsgs(true);
     stickToBottomRef.current = true; // a newly opened thread starts at the newest message
     setMessages([]); // Clear previous messages
     const convId = activeContact.id || activeContact.conversation_id || activeContact.id;
-    apiService.getConversationDetails(selectedPageId, convId)
+    apiService.getConversationDetails(activePageId, convId)
       .then(data => {
         const msgs = data?.messages?.data || data?.messages || data?.data || [];
         const newestMessage = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
@@ -1262,13 +1281,13 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       .catch(err => console.error("Failed to fetch messages", err))
       .finally(() => setLoadingMsgs(false));
   // Keyed on the conversation: live patches to the row (handover, assignment) don't reload it.
-  }, [selectedPageId, activeConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activePageId, activeConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadMoreConversations = () => {
     if (!selectedPageId || !conversationsPagination?.has_more || !conversationsPagination?.next_cursor) return;
     const requestVersion = conversationsRequestVersionRef.current;
     setLoadingMoreContacts(true);
-    apiService.getPageDetails(selectedPageId, conversationsPagination.next_cursor, 10, isHumanNeeded, queueFilter)
+    apiService.getPageDetails(listPageId, conversationsPagination.next_cursor, 10, isHumanNeeded, queueFilter)
       .then(data => {
         if (requestVersion !== conversationsRequestVersionRef.current) return;
         const convs = data?.conversations?.data || data?.conversations || data?.data || [];
@@ -1293,7 +1312,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
         normalized.forEach(conv => {
           const cId = conv.conversation_id || conv.id;
           if (!cId || conv.snippet || conv.last_message) return;
-          apiService.getConversationDetails(selectedPageId, cId, null, 1).then(details => {
+          apiService.getConversationDetails(conv.page_id || listPageId, cId, null, 1).then(details => {
             if (requestVersion !== conversationsRequestVersionRef.current) return;
             const msgs = details?.messages?.data || details?.messages || details?.data || [];
             const lastMsg = Array.isArray(msgs) && msgs.length > 0 ? msgs[0] : null;
@@ -1331,12 +1350,12 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   };
 
   const handleLoadMoreMessages = () => {
-    if (!selectedPageId || !activeContact || !messagesPagination?.has_more || !messagesPagination?.next_cursor || loadingMoreMessages) return;
+    if (!activePageId || !activeContact || !messagesPagination?.has_more || !messagesPagination?.next_cursor || loadingMoreMessages) return;
     setLoadingMoreMessages(true);
     isLoadingOlderMsgsRef.current = true;
     const convId = activeContact.id || activeContact.conversation_id || activeContact.id;
 
-    apiService.getConversationDetails(selectedPageId, convId, messagesPagination.next_cursor)
+    apiService.getConversationDetails(activePageId, convId, messagesPagination.next_cursor)
       .then(data => {
         const msgs = data?.messages?.data || data?.messages || data?.data || [];
         const newMsgs = Array.isArray(msgs) ? msgs.reverse() : [];
@@ -1369,7 +1388,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   };
 
   const handleToggleAIPause = async () => {
-    if (!selectedPageId || !activeContact) return;
+    if (!activePageId || !activeContact) return;
     const convId = activeContact.conversation_id || activeContact.id;
     // Determine current status: if is_paused is explicitly set use it, otherwise fall back to is_human_needed or false.
     const currentStatus = activeContact.is_paused !== undefined ? activeContact.is_paused : (activeContact.is_human_needed || false);
@@ -1384,7 +1403,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     setActiveContact(prev => ({ ...prev, is_paused: newStatus, is_human_needed: newStatus }));
 
     try {
-      await apiService.setConversationPauseStatus(selectedPageId, convId, newStatus);
+      await apiService.setConversationPauseStatus(activePageId, convId, newStatus);
     } catch (err) {
       console.error("Failed to toggle AI pause status:", err);
       // Revert on error
@@ -1429,7 +1448,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   // stored row from the response, or takes it back and throws for the composer to show.
   // The same row also arrives on the stream; both upsert by message_id.
   const sendReply = async (preview, request) => {
-    if (!selectedPageId || !activeContact) throw new Error('Choose a conversation first.');
+    if (!activePageId || !activeContact) throw new Error('Choose a conversation first.');
     isLoadingOlderMsgsRef.current = false; // ensure we scroll down on send
     stickToBottomRef.current = true;
     const convId = activeConversationId;
@@ -1499,7 +1518,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
 
   const handleSendText = ({ message, quickReplies }) => sendReply(
     { message },
-    () => apiService.replyToConversation(selectedPageId, activeConversationId, {
+    () => apiService.replyToConversation(activePageId, activeConversationId, {
       message,
       reply_to_message_id: replyTo?.id || null,
       quick_replies: quickReplies.length ? quickReplies : null,
@@ -1508,7 +1527,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
 
   const handleSendFile = ({ file, attachmentType, message }) => sendReply(
     { message: message || '', _localAttachment: { attachmentType, name: file.name } },
-    () => apiService.replyToConversationWithFile(selectedPageId, activeConversationId, {
+    () => apiService.replyToConversationWithFile(activePageId, activeConversationId, {
       file, attachmentType, message, replyToMessageId: replyTo?.id || null,
     }),
   );
@@ -1520,13 +1539,13 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   };
 
   const handleAssign = async (memberId) => {
-    if (!selectedPageId || !activeConversationId) return;
+    if (!activePageId || !activeConversationId) return;
     const convId = activeConversationId;
     const previous = activeContact?.assigned_to_member_id ?? null;
     setAssigningConversationId(convId);
     applyContactChanges(convId, { assigned_to_member_id: memberId });
     try {
-      const updated = await apiService.assignConversation(selectedPageId, convId, memberId);
+      const updated = await apiService.assignConversation(activePageId, convId, memberId);
       applyContactChanges(convId, { assigned_to_member_id: updated?.assigned_to_member_id ?? memberId });
       const member = memberId ? team.byMemberId.get(memberId) : null;
       setInboxNotice({
@@ -1846,12 +1865,13 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
             <div className="relative page-dropdown-container">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`relative z-0 flex h-9 max-w-[150px] items-center gap-2 rounded-lg border bg-white px-2.5 shadow-sm transition-colors ${currentPageNeedsReauth ? 'border-amber-300 text-amber-700 hover:border-amber-400 hover:bg-amber-50' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                className={`relative z-0 flex h-9 max-w-[150px] items-center gap-2 rounded-lg border bg-white px-2.5 shadow-sm transition-colors ${pickedPageNeedsReauth ? 'border-amber-300 text-amber-700 hover:border-amber-400 hover:bg-amber-50' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
                 aria-expanded={isDropdownOpen}
                 aria-haspopup="menu"
               >
                 {(() => {
-                  const selP = pages.find(p => p.page_id === selectedPageId);
+                  const selP = pickedPage;
+                  if (!selP) return <Layers size={16} className="shrink-0" aria-hidden="true" />;
                   return selP?.profile_pic_url ? (
                     <img src={selP.profile_pic_url} alt={selP.name} className="w-5 h-5 rounded-full object-cover shrink-0 border border-slate-200" />
                   ) : (
@@ -1859,7 +1879,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                   );
                 })()}
                  <span className="max-w-[82px] truncate text-xs font-bold">
-                  {pages.find(p => p.page_id === selectedPageId)?.name || 'Select Page'}
+                  {pickedPage?.name || 'All pages'}
                 </span>
                 <span className="material-symbols-outlined text-[16px]">expand_more</span>
               </button>
@@ -1869,6 +1889,21 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                   <div className="mb-1 border-b border-slate-100 px-3 py-2">
                     <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Switch page</p>
                   </div>
+                  <button
+                    onClick={() => {
+                      setSelectedPageId(ALL_PAGES);
+                      setIsDropdownOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between border-0 px-3 py-2.5 text-left text-[13px] font-semibold transition-colors hover:bg-slate-50 ${selectedPageId === ALL_PAGES ? 'bg-emerald-50 text-emerald-700' : 'bg-white text-slate-700'}`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Layers size={16} className="text-slate-500" aria-hidden="true" />
+                      All pages
+                    </span>
+                    {selectedPageId === ALL_PAGES && (
+                      <span className="material-symbols-outlined text-[16px] text-emerald-500" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    )}
+                  </button>
                   {pages.map(p => (
                     <button
                       key={p.page_id}
@@ -1907,24 +1942,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
             </div>
           </header>
 
-          <div
-            className="inbox-category-tabs -mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            role="tablist"
-            aria-label="Conversation category"
-          >
-            {INBOX_CATEGORIES.map(tab => (
-              <button
-                type="button"
-                role="tab"
-                key={tab.id}
-                aria-selected={inboxCategory === tab.id}
-                onClick={() => setInboxCategory(tab.id)}
-                className={`h-8 shrink-0 rounded-full border border-solid px-3 text-[12px] font-bold transition-colors ${inboxCategory === tab.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <InboxCategoryMenu value={inboxCategory} onChange={setInboxCategory} />
 
           <div className="group relative w-full">
             <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[19px] text-slate-400 transition-colors group-focus-within:text-emerald-600">search</span>
@@ -2059,6 +2077,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
             const sender = !preview ? '' : lastRole === 'page' ? 'You' : lastRole === 'user' && contactName !== UNKNOWN_CUSTOMER ? contactName.split(/\s+/)[0] : '';
             const snippet = preview || 'No messages';
             const unread = !isActive && inboxSeen.isUnread(contact);
+            // With every page listed, each row says which page it came in on.
+            const rowPage = !listPageId ? pages?.find(p => p.page_id === contact.page_id) : null;
             const updatedTimeValue = contact.updated_time || contact.last_message_at || contact.updated;
             const updated = formatListTime(updatedTimeValue);
 
@@ -2097,6 +2117,12 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                         </span>
                       )}
                     </div>
+                    {rowPage && (
+                      <p className="conversation-page m-0 mt-1 flex min-w-0 items-center gap-1 text-[10px] font-semibold text-slate-400">
+                        <PlatformMark platform={rowPage.platform} className={`h-3 w-3 shrink-0 ${isInstagram(rowPage.platform) ? '' : 'text-blue-600'}`} {...(isInstagram(rowPage.platform) ? { style: { color: '#d62976' } } : {})} />
+                        <span className="truncate">{rowPage.name}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </button>
@@ -2384,38 +2410,11 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                 </div>
               </div>
 
-              <div className="mb-6 flex w-full justify-center">
-                <button 
-                  onClick={handleToggleAIPause}
-                  className={`flex h-10 w-full items-center justify-center gap-2 rounded-lg border text-xs font-black transition-colors ${
-                    (activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) 
-                      ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'play_circle' : 'pause_circle'}
-                  </span>
-                  {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'Resume AI Agent' : 'Pause AI Agent'}
-                </button>
-              </div>
-
-              <div className="mb-6 flex w-full justify-center">
-                <button
-                  onClick={() => setIsManualOrderOpen(true)}
-                  disabled={!(activeContact?.conversation_id || activeContact?.id)}
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-xs font-black text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add_shopping_cart</span>
-                  Create manual order
-                </button>
-              </div>
-
               <div className="space-y-8">
-                {activeConversationId && selectedPageId && (
+                {activeConversationId && activePageId && (
                   <ConversationNote
                     key={activeConversationId}
-                    pageId={selectedPageId}
+                    pageId={activePageId}
                     conversationId={activeConversationId}
                     note={activeContact?.note ?? null}
                     onSaved={updated => applyContactChanges(activeConversationId, { note: updated?.note ?? null })}
@@ -4085,6 +4084,13 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [fallbackMessage, setFallbackMessage] = useState(DEFAULT_AGENT_FALLBACK);
   const [agentTimezone, setAgentTimezone] = useState(defaultAgentTimezone);
   const [handoverSign, setHandoverSign] = useState(DEFAULT_HANDOVER_SIGN);
+  // Reply style (edit only): the owner's reply shape and examples, what they were when
+  // the form opened, and whether each part is set to go back to the role's default.
+  const [responseFormat, setResponseFormat] = useState('');
+  const [replyExamples, setReplyExamples] = useState([]);
+  const [replyStyleOriginal, setReplyStyleOriginal] = useState({ format: '', examples: [] });
+  const [resetReplyFormat, setResetReplyFormat] = useState(false);
+  const [resetReplyExamples, setResetReplyExamples] = useState(false);
   const [creationStep, setCreationStep] = useState(1);
   const [preQuestions, setPreQuestions] = useState([]);
   const [preQuestionAnswers, setPreQuestionAnswers] = useState({});
@@ -4437,6 +4443,11 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     setAgentTimezone(agent.agent_timezone || 'UTC');
     // Missing (older responses) means the backend default; null means it's turned off.
     setHandoverSign(agent.human_handover_sign === undefined ? DEFAULT_HANDOVER_SIGN : (agent.human_handover_sign || ''));
+    setResponseFormat(agent.response_format || '');
+    setReplyExamples(examplesToRows(agent.response_examples));
+    setReplyStyleOriginal({ format: agent.response_format || '', examples: agent.response_examples || [] });
+    setResetReplyFormat(false);
+    setResetReplyExamples(false);
     setCreationStep(3);
     setPreQuestions([]);
     setPreQuestionAnswers({});
@@ -4459,7 +4470,13 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     }
     setCreationError(null);
 
-    if (agentName.length > 30 || (instructions && instructions.length > AGENT_INSTRUCTIONS_LIMIT) || (fallbackMessage && fallbackMessage.length > 250)) {
+    if (isEditing && !resetReplyExamples && Object.keys(exampleProblems(replyExamples)).length > 0) {
+      setCreationError('Cannot save changes. Finish or remove the reply examples marked in red.');
+      addToast('Check the reply examples', 'error');
+      return;
+    }
+
+    if (agentName.length > 30 || (instructions && instructions.length > AGENT_INSTRUCTIONS_LIMIT) || (fallbackMessage && fallbackMessage.length > 250) || responseFormat.length > RESPONSE_FORMAT_MAX) {
       setCreationError(`Cannot ${isEditing ? 'save changes' : 'create agent'}. One or more input fields exceed the maximum allowed character limit.`);
       addToast("Character limit exceeded!", 'error');
       return;
@@ -4479,7 +4496,13 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
       };
 
       if (isEditing) {
-        const updatedAgent = await apiService.updateAgent(editingAgentId, sharedPayload);
+        // Reply style goes only when it changed; null restores the role's default.
+        const replyStyle = {};
+        if (resetReplyFormat) replyStyle.response_format = null;
+        else if (responseFormat.trim() !== replyStyleOriginal.format.trim()) replyStyle.response_format = responseFormat.trim() || null;
+        if (resetReplyExamples) replyStyle.response_examples = null;
+        else if (!sameExamples(replyExamples, replyStyleOriginal.examples)) replyStyle.response_examples = replyExamples.length ? rowsToExamples(replyExamples) : null;
+        const updatedAgent = await apiService.updateAgent(editingAgentId, { ...sharedPayload, ...replyStyle });
         if (onAgentEdited) onAgentEdited(editingAgentId, normalizeAgentResponse(updatedAgent || sharedPayload));
       } else {
         const payload = {
@@ -4501,6 +4524,10 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         setFallbackMessage(DEFAULT_AGENT_FALLBACK);
         setAgentTimezone(defaultAgentTimezone);
         setHandoverSign(DEFAULT_HANDOVER_SIGN);
+        setResponseFormat('');
+        setReplyExamples([]);
+        setResetReplyFormat(false);
+        setResetReplyExamples(false);
         setCreationStep(1);
         setPreQuestions([]);
         setPreQuestionAnswers({});
@@ -5593,6 +5620,22 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
           </div>
           <textarea placeholder="e.g. I'm not sure about that, let me connect you with someone who can help." value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} rows="2" style={{ width: '100%', padding: '12px 14px', border: (fallbackMessage || '').length > 250 ? '2px solid #ef4444' : '1px solid var(--dashboard-border, #e2e8f0)', borderRadius: '8px', outline: 'none', backgroundColor: (fallbackMessage || '').length > 250 ? 'var(--dashboard-tint-red, #fef2f2)' : 'var(--dashboard-surface, #fff)', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
         </div>
+
+        {/* New agents start with their role's defaults; the owner tunes them here afterwards. */}
+        {isEditing && (
+          <AgentReplyStyle
+            format={responseFormat}
+            examples={replyExamples}
+            resetFormat={resetReplyFormat}
+            resetExamples={resetReplyExamples}
+            onFormatChange={(text) => { setResponseFormat(text); setResetReplyFormat(false); }}
+            onExamplesChange={(rows) => { setReplyExamples(rows); setResetReplyExamples(false); }}
+            onResetFormat={() => { setResponseFormat(''); setResetReplyFormat(true); }}
+            onResetExamples={() => setResetReplyExamples(true)}
+            disabled={loading}
+            showErrors={attemptedSubmit}
+          />
+        )}
 
         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

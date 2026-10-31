@@ -6,7 +6,7 @@ import { formatOrderAmount, parseOrderAmount, recordStatusClass, renderOrderSour
 import DateRangeCalendar from './DateRangeCalendar';
 import EditOrderModal from './EditOrderModal';
 import RowActionsMenu from './RowActionsMenu';
-import { WooBulkPushButton, WooOrderSyncPanel } from './WooOrderSync';
+import { WooBulkPushButton, WooOrderSyncPanel, WooPushButton } from './WooOrderSync';
 import { useBusiness } from '../context/BusinessContext';
 import Toast from './Toast';
 import { wooConnectionState, wooSyncStatus } from '../utils/woocommerce';
@@ -628,7 +628,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Reference</th>
+                    {recordType !== 'order' && <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Reference</th>}
                     {recordType === 'order' ? (
                       <>
                         <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Source</th>
@@ -652,17 +652,20 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                       <td className="p-4">
                         <div className="flex flex-col">
                           <span className="font-bold text-slate-800">{record.contact_name || 'Unknown User'}</span>
+                          {record.type === 'order' && (
+                            <span className="order-row-id mt-0.5 font-mono text-xs font-semibold text-slate-500">{record.order_id || record.id}</span>
+                          )}
                           <span className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                             {record.contact_email && <><Mail size={12}/> {record.contact_email}</>}
                             {record.contact_phone && <><span className="mx-1">•</span> <Phone size={12}/> {record.contact_phone}</>}
                           </span>
                         </div>
                       </td>
-                      <td className="p-4">
-                        <span className="text-sm text-slate-500 font-mono">
-                          {record.type === 'order' ? (record.order_id || record.id) : record.id}
-                        </span>
-                      </td>
+                      {recordType !== 'order' && (
+                        <td className="p-4">
+                          <span className="text-sm text-slate-500 font-mono">{record.id}</span>
+                        </td>
+                      )}
                       {recordType === 'order' ? (
                         <>
                           <td className="p-4">
@@ -691,10 +694,19 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                         {record.created_at ? new Date(record.created_at).toLocaleDateString() : '—'}
                       </td>
                       <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
-                        <RowActionsMenu
-                          actions={getRowActions(record)}
-                          label={`Actions for ${record.contact_name || record.order_id || record.id}`}
-                        />
+                        <div className="flex items-center justify-end gap-1.5">
+                          {record.type === 'order' && wooState === 'connected' && (
+                            <WooPushButton
+                              orderId={record.id}
+                              onNotify={(tone, text) => setPushNotice({ tone, text })}
+                              onPushed={() => { if (selectedRecord?.id === record.id) refreshSelectedOrder(); }}
+                            />
+                          )}
+                          <RowActionsMenu
+                            actions={getRowActions(record)}
+                            label={`Actions for ${record.contact_name || record.order_id || record.id}`}
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}

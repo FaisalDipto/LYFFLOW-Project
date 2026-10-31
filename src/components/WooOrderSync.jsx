@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, ExternalLink, Loader2, MinusCircle, RefreshCw, Store, UploadCloud } from 'lucide-react';
 import { apiService } from '../services/api';
-import { wooOrderAdminUrl, wooSyncStatus } from '../utils/woocommerce';
+import { wooOrderAdminUrl, wooPushErrorText, wooSyncStatus } from '../utils/woocommerce';
 
 const formatWhen = (value) => {
   if (!value) return null;
@@ -10,17 +10,42 @@ const formatWhen = (value) => {
   return Number.isNaN(date.getTime()) ? null : date.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 };
 
-// POST /v1/woocommerce/orders/{order_id}/push failures, by status.
-const pushErrorText = (err) => {
-  switch (err?.status) {
-    case 400: return 'Connect a WooCommerce store in Platforms to push orders.';
-    case 403: return 'No active business. Choose a business, then try again.';
-    case 409: return 'This order is already in WooCommerce or being sent, or it was cancelled, deleted or not found.';
-    case 429: return 'Too many pushes in a minute. Wait a moment and try again.';
-    case 500: return "Couldn't queue the push. Try again in a moment.";
-    default: return err?.message || "Couldn't push the order to WooCommerce.";
-  }
-};
+/**
+ * "Push to WooCommerce" for one order in a list row: sends it now (skipping the
+ * 30-minute hold), spins while the request runs, and reports through `onNotify`.
+ * @param {{ orderId: string, onNotify: (tone: string, text: string) => void, onPushed?: (response: object) => void }} props
+ */
+export function WooPushButton({ orderId, onNotify, onPushed }) {
+  const [pushing, setPushing] = useState(false);
+  const push = async (event) => {
+    event.stopPropagation();
+    if (pushing) return;
+    setPushing(true);
+    try {
+      const response = await apiService.pushWooOrder(orderId);
+      onNotify('success', response?.message || 'Sending the order to WooCommerce now.');
+      onPushed?.(response);
+    } catch (err) {
+      onNotify('error', wooPushErrorText(err));
+    } finally {
+      setPushing(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={push}
+      disabled={pushing}
+      aria-busy={pushing}
+      aria-label={pushing ? 'Pushing to WooCommerce' : 'Push to WooCommerce'}
+      title="Push to WooCommerce now, without the 30-minute wait"
+      className="woo-row-push inline-flex h-8 items-center gap-1.5 rounded-lg border border-solid border-violet-200 bg-violet-50 px-2.5 text-xs font-bold text-violet-700 transition-colors hover:border-violet-300 hover:bg-violet-100 disabled:cursor-wait disabled:opacity-70"
+    >
+      {pushing ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <UploadCloud size={14} aria-hidden="true" />}
+      <span className="hidden xl:inline">{pushing ? 'Pushing…' : 'Push'}</span>
+    </button>
+  );
+}
 
 // How each wc_sync_status reads, and whether "Push now" is offered (a manual push skips
 // the 30-minute hold and ignores the store's order sync setting).
@@ -62,7 +87,7 @@ export function WooOrderSyncPanel({ order, storeUrl, canPush, onPushed, onRefres
       onNotify?.('success', response?.message || 'Sending the order to WooCommerce now.');
       onPushed?.(response);
     } catch (err) {
-      onNotify?.('error', pushErrorText(err));
+      onNotify?.('error', wooPushErrorText(err));
       // A 409 means the order moved on (pushed, cancelled…); show where it stands.
       if (err?.status === 409) onRefresh?.();
     } finally {

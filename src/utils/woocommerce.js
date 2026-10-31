@@ -40,3 +40,16 @@ export const WOO_PUSH_STATUSES = [
   { value: 'on-hold', label: 'On hold' },
   { value: 'completed', label: 'Completed' },
 ];
+
+// POST /v1/woocommerce/orders/{order_id}/push failures, by status, for toasts.
+export const wooPushErrorText = (err) => {
+  switch (err?.status) {
+    case 400: return 'Connect a WooCommerce store in Platforms to push orders.';
+    case 403: return 'No active business. Choose a business, then try again.';
+    case 409: return 'This order is already in WooCommerce or being sent, or it was cancelled, deleted or not found.';
+    case 422: return "That order can't be pushed: its ID isn't valid.";
+    case 429: return 'Too many pushes in a minute. Wait a moment and try again.';
+    case 500: return "Couldn't queue the push. Try again in a moment.";
+    default: return err?.message || "Couldn't push the order to WooCommerce.";
+  }
+};

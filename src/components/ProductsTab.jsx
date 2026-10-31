@@ -16,13 +16,35 @@ const DEFAULT_CURRENCY = 'BDT';
 // Form state. Prices and quantities stay strings while typing; options keep the
 // comma list as typed (valuesText). See VariantEditor for the row shapes.
 const emptyProductForm = () => ({
-  name: '', code: '', description: '', category: '', tags: '',
+  name: '', code: '', short_description: '', description: '', category: '', tags: '',
   regular_price: '', sale_price: '', product_type: 'simple',
   stock_status: 'in_stock', stock_quantity: '', availability: true,
   options: [], variants: [],
 });
 
 const amountText = (value) => (toAmount(value) === null ? '' : String(toAmount(value)));
+
+// Backend limits (422 above them). Some older products' descriptions are already over,
+// so the counter says why their save fails until the text is shortened.
+const DESCRIPTION_MAX = 1000;
+const SHORT_DESCRIPTION_MAX = 600;
+const TEXT_LIMITS = { description: DESCRIPTION_MAX, short_description: SHORT_DESCRIPTION_MAX };
+
+// "body.short_description: String should have at most 600 characters" → the field.
+const tooLongField = (err) => {
+  if (err?.status !== 422) return null;
+  const match = /body\.(short_description|description):/.exec(err.message || '');
+  return match ? match[1] : null;
+};
+
+const CharCounter = ({ id, length, max }) => {
+  const over = length > max;
+  return (
+    <span id={id} className={`text-[11px] font-semibold tabular-nums ${over ? 'text-red-600' : length > max * 0.9 ? 'text-amber-600' : 'text-slate-400'}`} aria-live="polite">
+      {length.toLocaleString()}/{max.toLocaleString()}
+    </span>
+  );
+};
 const quantityText = (value) => (value === null || value === undefined ? '' : String(value));
 
 // A saved variant as an editable form row.
@@ -86,6 +108,8 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
   // Variants as loaded for the product being edited, to work out what changed on save.
   const originalVariantsRef = useRef([]);
   const [priceError, setPriceError] = useState('');
+  // The text field the backend (or the limit check) rejected as too long.
+  const [textError, setTextError] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -238,6 +262,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
     setExistingAssets(product.primary_assets || product.assets || []);
     setCodeError('');
     setPriceError('');
+    setTextError(null);
     setShowCreateModal(true);
 
     try {
@@ -247,6 +272,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       setFormData(prev => ({
         ...prev,
         description: detail.description || prev.description,
+        short_description: detail.short_description || '',
         category: detail.category || prev.category,
         tags: Array.isArray(detail.tags) ? detail.tags.join(', ') : (detail.tags || prev.tags),
         product_type: detail.product_type === 'variable' || variants.length > 0 ? 'variable' : prev.product_type,
@@ -304,6 +330,14 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
     }
     setCodeError('');
     setPriceError('');
+    setTextError(null);
+
+    const overLimit = Object.entries(TEXT_LIMITS).find(([field, max]) => (formData[field] || '').length > max);
+    if (overLimit) {
+      setTextError(overLimit[0]);
+      document.getElementById(`product-${overLimit[0].replace('_', '-')}`)?.focus();
+      return;
+    }
 
     const regularPrice = toAmount(formData.regular_price);
     const salePrice = toAmount(formData.sale_price);
@@ -332,6 +366,8 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
           name: formData.name,
           code: formData.code,
           description: formData.description,
+          // "" clears it; the edit form always holds the current value.
+          short_description: formData.short_description.trim(),
           category: formData.category || null,
           tags,
           product_type: formData.product_type,
@@ -365,6 +401,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
           name: formData.name,
           code: formData.code,
           description: formData.description,
+          short_description: formData.short_description.trim() || null,
           regular_price: String(regularPrice ?? 0),
           sale_price: salePrice === null ? null : String(salePrice),
           product_type: formData.product_type,
@@ -415,6 +452,13 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
           ? `Product code "${code}" is already used in this catalog. Enter a different code.`
           : 'This product code is already used in this catalog. Enter a different code.');
         codeInputRef.current?.focus();
+        return;
+      }
+      // 422 for text over its limit: point at the field instead of a raw message.
+      const field = tooLongField(err);
+      if (field) {
+        setTextError(field);
+        document.getElementById(`product-${field.replace('_', '-')}`)?.focus();
         return;
       }
       addToast(`Failed to ${editingProductId ? 'update' : 'create'} product: ` + err.message, 'error');
@@ -847,8 +891,50 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="product-description" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Description *</label>
-                  <textarea id="product-description" required rows={8} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="block w-full min-h-[10rem] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium leading-6 text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500 transition-[box-shadow] resize-y" placeholder="Detailed product description..."></textarea>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <label htmlFor="product-short-description" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Short description</label>
+                    <CharCounter id="product-short-description-count" length={formData.short_description.length} max={SHORT_DESCRIPTION_MAX} />
+                  </div>
+                  <textarea
+                    id="product-short-description"
+                    rows={3}
+                    maxLength={SHORT_DESCRIPTION_MAX}
+                    value={formData.short_description}
+                    onChange={e => { setFormData({ ...formData, short_description: e.target.value }); if (textError === 'short_description') setTextError(null); }}
+                    aria-invalid={formData.short_description.length > SHORT_DESCRIPTION_MAX || textError === 'short_description' ? 'true' : undefined}
+                    aria-describedby="product-short-description-count product-short-description-help"
+                    className={`block w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm font-medium leading-6 text-slate-600 outline-none focus:ring-2 transition-[box-shadow] resize-y ${formData.short_description.length > SHORT_DESCRIPTION_MAX || textError === 'short_description' ? 'product-code-invalid border-red-400 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500'}`}
+                    placeholder="A line or two customers see first (optional)"
+                  ></textarea>
+                  <p id="product-short-description-help" className={`m-0 text-[11px] ${formData.short_description.length > SHORT_DESCRIPTION_MAX || textError === 'short_description' ? 'font-semibold text-red-600' : 'text-slate-500'}`}>
+                    {formData.short_description.length > SHORT_DESCRIPTION_MAX || textError === 'short_description'
+                      ? `Shorten it to ${SHORT_DESCRIPTION_MAX.toLocaleString()} characters to save.`
+                      : 'Optional. Leave empty to clear it.'}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <label htmlFor="product-description" className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">Description *</label>
+                    <CharCounter id="product-description-count" length={formData.description.length} max={DESCRIPTION_MAX} />
+                  </div>
+                  <textarea
+                    id="product-description"
+                    required
+                    rows={8}
+                    maxLength={DESCRIPTION_MAX}
+                    value={formData.description}
+                    onChange={e => { setFormData({ ...formData, description: e.target.value }); if (textError === 'description') setTextError(null); }}
+                    aria-invalid={formData.description.length > DESCRIPTION_MAX || textError === 'description' ? 'true' : undefined}
+                    aria-describedby="product-description-count"
+                    className={`block w-full min-h-[10rem] bg-slate-50 border rounded-xl px-3 py-2 text-sm font-medium leading-6 text-slate-600 outline-none focus:ring-2 transition-[box-shadow] resize-y ${formData.description.length > DESCRIPTION_MAX || textError === 'description' ? 'product-code-invalid border-red-400 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500'}`}
+                    placeholder="Detailed product description..."
+                  ></textarea>
+                  {(formData.description.length > DESCRIPTION_MAX || textError === 'description') && (
+                    <p role="alert" className="m-0 text-[11px] font-semibold text-red-600">
+                      Descriptions can be up to {DESCRIPTION_MAX.toLocaleString()} characters{formData.description.length > DESCRIPTION_MAX ? `; this one is ${formData.description.length.toLocaleString()}` : ''}. Shorten it to save.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1217,6 +1303,13 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                         </div>
                       </div>
                       
+                      {selectedProductDetail.short_description && (
+                        <div className="mb-4">
+                          <div className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-2">SHORT DESCRIPTION</div>
+                          <p className="m-0 text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedProductDetail.short_description}</p>
+                        </div>
+                      )}
+
                       {/* Description Block */}
                       <div className="mb-6">
                         <div className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-2">DESCRIPTION</div>

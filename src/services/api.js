@@ -137,7 +137,9 @@ const MOCK_WOO_STATUSES = {
   },
   none: { status: 'not_connected', store_url: null, connected_at: null, plugin_connected: false },
 };
-let mockWooStatus = MOCK_WOO_STATUSES[MOCK_LOAD_PARAMS.get('mockWoo')] || MOCK_WOO_STATUSES.none;
+// Connected by default so the store features show on a plain mock load; ?mockWoo=none,
+// pending or error for the other states.
+let mockWooStatus = MOCK_WOO_STATUSES[MOCK_LOAD_PARAMS.get('mockWoo')] || MOCK_WOO_STATUSES.connected;
 // Comments the AI flagged for review: one fresh, one past Meta's 7-day private reply limit
 // and already answered in private.
 let mockComments = [
@@ -258,7 +260,10 @@ let mockInbox = [
   // Saved while the page's token was failing: Meta couldn't give the name yet.
   { conversation_id: 'conv_6', name: '', snippet: 'Hi, do you have this in blue?', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 20 * 60000 },
   { conversation_id: 'conv_4', name: 'Nadia Islam', snippet: 'Thanks, I will think about it.', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 9 * 24 * MOCK_HOUR },
-].map(conversation => ({ ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString() }));
+  // The Instagram account (page_3), so the all-pages inbox mixes pages.
+  { conversation_id: 'conv_7', page_id: 'page_3', name: 'Tasnim Rahman', snippet: 'Is the tote available in black?', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 35 * 60000 },
+  { conversation_id: 'conv_8', page_id: 'page_3', name: 'Rafsan Chowdhury', snippet: 'Can I pay on delivery?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Asked about payment options', handover_category: 'order_status_or_delivery', assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 5 * MOCK_HOUR },
+].map(conversation => ({ page_id: 'page_1', ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString() }));
 // As the API returns it (last_customer_at is mock bookkeeping).
 const mockInboxItem = (conversation) => {
   const item = { ...conversation };
@@ -279,7 +284,7 @@ const mockMessage = (fields) => ({
 });
 // A customer who writes in for the first time while the dashboard is open (?mockLive=true).
 const mockNewConversation = {
-  conversation_id: 'conv_5', name: 'Farhana Akter', is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null,
+  conversation_id: 'conv_5', page_id: 'page_1', name: 'Farhana Akter', is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null,
   profile_pic_url: null, last_customer_at: Date.now(), updated_time: new Date().toISOString(), snippet: 'Hi! Do you deliver to Chattogram?',
 };
 // ?mockLive=true plays a short script of live events on page_1, starting when the
@@ -557,10 +562,20 @@ const mockVariant = (productId, n, sku, title, optionValues, regular, sale, qty,
   regular_price: regular, sale_price: sale, cost_price: null, track_inventory: qty !== null, stock_quantity: qty, stock_status: status,
   weight: null, image_asset_id: null, position: n, is_active: true, created_at: '2026-10-01T10:00:00Z', updated_at: '2026-10-01T10:00:00Z',
 });
+// The backend's 422 for product text over its limit, in FastAPI's shape as apiFetch flattens it.
+const mockProductTextLimits = (fields) => {
+  const limits = { short_description: 600, description: 1000 };
+  const over = Object.entries(limits).find(([field, max]) => typeof fields[field] === 'string' && fields[field].length > max);
+  if (!over) return;
+  const error = new Error(`body.${over[0]}: String should have at most ${over[1]} characters`);
+  error.status = 422;
+  throw error;
+};
 let mockProducts = [
   {
     product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', product_type: 'simple', brand: 'Hidebound', category: 'Accessories',tags: ['leather', 'gift'],
     description: 'Full-grain leather bifold with six card slots.', regular_price: '1170.00', sale_price: '990.00', currency: 'BDT',
+    short_description: 'Slim bifold in full-grain leather. Fits six cards and folded notes.',
     stock_status: 'in_stock', stock_quantity: 42, availability: true, options: [], variants: [], assets: [],
     primary_assets: [{ id: 'asset_wal_1', url: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=200&auto=format&fit=crop&q=70', file_type: 'image', original_filename: 'wallet.jpg', is_primary: true }],
   },
@@ -571,7 +586,8 @@ let mockProducts = [
   },
   {
     product_id: 'prod_3', name: 'Linen Summer Shirt', code: 'SHI-03', product_type: 'variable', brand: 'Loomhouse', category: 'Clothing',tags: ['linen', 'summer'],
-    description: 'Breathable linen shirt in two colours.', regular_price: '1450.00', sale_price: null, currency: 'BDT',
+    // Over the 1,000-character limit, like some older products: saving it unchanged gets 422.
+    description: 'Breathable linen shirt in two colours, cut for hot and humid days. The fabric is a mid-weight European flax linen that softens with every wash and keeps air moving close to the skin. It has a relaxed fit through the chest and waist, a classic point collar, a single chest pocket and mother-of-pearl buttons. The back has a box pleat for movement and a locker loop. Side seams are flat-felled so they stay neat after many washes, and the hem is curved so it can be worn tucked or untucked. Sizes run true; if you are between sizes we suggest the larger one for a looser drape. Care: machine wash cold on a gentle cycle with similar colours, do not bleach, hang to dry in the shade and iron while slightly damp for a crisp finish. Linen creases naturally; that relaxed texture is part of its character. Made in small batches, so the colour can vary slightly between lots. Every shirt is checked by hand before it is packed and shipped from our Dhaka studio, with a spare button sewn inside the placket for later repairs.', short_description: null, regular_price: '1450.00', sale_price: null, currency: 'BDT',
     stock_status: 'out_of_stock', stock_quantity: 0, availability: false,
     options: [{ name: 'Color', values: ['White', 'Sky Blue'] }, { name: 'Size', values: ['M', 'L'] }],
     variants: [
@@ -588,10 +604,30 @@ const mockMoney = (value) => (value === null || value === undefined || value ===
 
 // Agents for mock mode; create and update edit this list until reload. SupportBot has
 // the Messenger pause sign turned off (null) so both states are visible.
+// Role defaults for the owner-editable prompt parts (reply shape and examples).
+const MOCK_REPLY_STYLE_DEFAULTS = {
+  format: 'Reply in 1 to 3 short sentences. At most one emoji. Greet only in the first reply. End with one clear next step.',
+  photo: 'Another photo of a product you already showed in this conversation',
+};
+const mockDefaultExamples = (role) => (role === 'Support'
+  ? [
+    { kind: 'text', customer_message: 'My order hasn\u2019t arrived yet.', agent_reply: 'Sorry about the wait! Could you share your order number so I can check it?' },
+    { kind: 'text', customer_message: 'Can I return this?', agent_reply: 'Yes, within 7 days if it\u2019s unused. Shall I start the return for you?' },
+  ]
+  : [
+    { kind: 'text', customer_message: 'আছে?', agent_reply: 'জি, আছে। নিতে চাইলে জানাবেন।' },
+    { kind: 'text', customer_message: 'Price koto?', agent_reply: 'It\u2019s ৳990 now (regular ৳1,170). Would you like to order one?' },
+    { kind: 'image', customer_message: MOCK_REPLY_STYLE_DEFAULTS.photo, agent_reply: 'জি, এটাই। কয়টি নেবেন?' },
+  ]);
 let mockAgents = [
-  { agent_id: 'agent_1', name: 'SalesBot', agent_name: 'SalesBot', role: 'Sales', agent_role: 'Sales', agent_tone: 'Friendly', agent_language: 'Mimic User Language', agent_timezone: 'Asia/Dhaka', human_handover_sign: '#pause', namespace_id: 'ns_1', is_comment_manage: true, is_reply_comment: true, comment_instruction: 'Mention free delivery inside Dhaka on orders over ৳2000.' },
+  { agent_id: 'agent_1', name: 'SalesBot', agent_name: 'SalesBot', role: 'Sales', agent_role: 'Sales', agent_tone: 'Friendly', agent_language: 'Mimic User Language', agent_timezone: 'Asia/Dhaka', human_handover_sign: '#pause', namespace_id: 'ns_1', is_comment_manage: true, is_reply_comment: true, comment_instruction: 'Mention free delivery inside Dhaka on orders over ৳2000.', response_format: 'Short sentences. No emoji. One call to action per reply.' },
   { agent_id: 'agent_2', name: 'SupportBot', agent_name: 'SupportBot', role: 'Support', agent_role: 'Support', agent_tone: 'Professional', agent_language: 'English', agent_timezone: 'Asia/Dhaka', human_handover_sign: null, comment_instruction: null },
 ];
+mockAgents = mockAgents.map(agent => ({
+  ...agent,
+  response_format: agent.response_format || MOCK_REPLY_STYLE_DEFAULTS.format,
+  response_examples: agent.response_examples || mockDefaultExamples(agent.agent_role),
+}));
 
 const MOCK_NAMESPACES = [{ namespace_id: 'ns_1', namespace_name: 'Demo catalog' }];
 
@@ -789,12 +825,6 @@ const mockData = {
       { city_id: 2, city_name: 'Chattogram', zones: [
         { zone_id: 3, zone_name: 'Agrabad', areas: [{ area_id: 31, area_name: 'CDA Avenue' }] }
       ] }
-    ]
-  },
-  '/v1/page/page_1/conversations': {
-    conversations: [
-      { id: 'conv_1', conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', updated_time: new Date().toISOString(), profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
-      { id: 'conv_2', conversation_id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', updated_time: new Date().toISOString(), profile_pic_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80' }
     ]
   },
   '/v1/page/page_1/conversation/conv_1': {
@@ -1089,6 +1119,8 @@ const requestApi = async (endpoint, options = {}) => {
     const productUpdateMatch = endpoint.match(/^\/v1\/products\/[^/]+\/update\/([^/?]+)$/);
     if (productUpdateMatch && method === 'PATCH') {
       const changes = JSON.parse(requestOptions.body || '{}');
+      mockProductTextLimits(changes);
+      if (changes.short_description === '') changes.short_description = null;
       ['regular_price', 'sale_price'].forEach(field => { if (field in changes) changes[field] = mockMoney(changes[field]); });
       mockProducts = mockProducts.map(item => (item.product_id === productUpdateMatch[1] ? { ...item, ...changes } : item));
       return mockProducts.find(item => item.product_id === productUpdateMatch[1]);
@@ -1139,9 +1171,9 @@ const requestApi = async (endpoint, options = {}) => {
       }
       return { agent_activities, pagination: { has_more: false, next_cursor: null, total: agent_activities.length } };
     }
-    const conversationCountMatch = endpoint.match(/^\/v1\/page\/(page_\d+)\/conversations\?.*page_size=1(?:&|$)/);
+    const conversationCountMatch = /^\/v1\/conversations\?.*page_size=1(?:&|$)/.test(endpoint) ? new URLSearchParams(endpoint.split('?')[1]).get('page_id') : null;
     if (conversationCountMatch) {
-      return { conversations: [], pagination: { has_more: true, next_cursor: null, total: conversationCountMatch[1] === 'page_1' ? 1284 : 412 } };
+      return { conversations: [], pagination: { has_more: true, next_cursor: null, total: conversationCountMatch === 'page_1' ? 1284 : 412 } };
     }
     if (/^\/v1\/notifications(\?|$)/.test(endpoint) && method === 'GET') {
       return { notifications: mockNotifications, unread_count: mockUnreadCount(), pagination: { has_more: false, next_cursor: null, page_size: mockNotifications.length, total: mockNotifications.length } };
@@ -1217,11 +1249,18 @@ const requestApi = async (endpoint, options = {}) => {
       return mockInboxItem(conversation);
     }
     // page_1's inbox: queues, assignment, handover and each conversation's reply window.
-    const inboxListMatch = endpoint.match(/^\/v1\/page\/page_1\/conversations(\/assigned)?(?:\?(.*))?$/);
+    // GET /v1/conversations[/assigned]: every page of the business, or ?page_id=…
+    const inboxListMatch = endpoint.match(/^\/v1\/conversations(\/assigned)?(?:\?(.*))?$/);
     if (inboxListMatch && method === 'GET') {
       startMockLiveScript();
       const params = new URLSearchParams(inboxListMatch[2] || '');
-      let list = mockInbox;
+      if (params.get('page_id') && !mockData['/v1/business/pages'].some(page => page.page_id === params.get('page_id'))) {
+        const error = new Error('Access denied.');
+        error.status = 403;
+        throw error;
+      }
+      let list = params.get('page_id') ? mockInbox.filter(conversation => conversation.page_id === params.get('page_id')) : mockInbox;
+      list = [...list].sort((a, b) => Date.parse(b.updated_time) - Date.parse(a.updated_time));
       if (inboxListMatch[1] || params.get('assigned_to_me') === 'true') {
         const memberId = params.get('member_id') || MOCK_CURRENT_MEMBER_ID;
         if (memberId !== MOCK_CURRENT_MEMBER_ID && mockRole === 'member') {
@@ -1311,7 +1350,7 @@ const requestApi = async (endpoint, options = {}) => {
     const conversationInfoMatch = endpoint.match(/^\/v1\/conversations\/([^/]+)\/info$/);
     if (conversationInfoMatch) {
       const conversation = mockInbox.find(item => item.conversation_id === conversationInfoMatch[1]);
-      if (conversation) return { ...mockInboxItem(conversation), page_id: 'page_1' };
+      if (conversation) return mockInboxItem(conversation);
     }
     const pauseMatch = endpoint.match(/^\/v1\/agent\/page\/[^/]+\/conversation\/([^/]+)\/pause$/);
     if (pauseMatch && method === 'PATCH') {
@@ -1319,7 +1358,7 @@ const requestApi = async (endpoint, options = {}) => {
       mockInbox = mockInbox.map(item => (item.conversation_id === pauseMatch[1] ? { ...item, is_human_needed: Boolean(body.pause_status) } : item));
       return body;
     }
-    const shortThreadMatch = endpoint.match(/^\/v1\/page\/page_1\/conversation\/(conv_[2-46])(?:\?|$)/);
+    const shortThreadMatch = endpoint.match(/^\/v1\/page\/page_[13]\/conversation\/(conv_[2-4678])(?:\?|$)/);
     if (shortThreadMatch) {
       const conversation = mockInbox.find(item => item.conversation_id === shortThreadMatch[1]);
       const at = (minutesAfterCustomer) => new Date(conversation.last_customer_at + minutesAfterCustomer * 60000).toISOString();
@@ -1378,6 +1417,7 @@ const requestApi = async (endpoint, options = {}) => {
         throw error;
       }
       const form = requestOptions.body;
+      mockProductTextLimits({ description: form.get('description'), short_description: form.get('short_description') });
       const productId = `prod_${Date.now()}`;
       const options = JSON.parse(form.get('options') || '[]');
       const variants = JSON.parse(form.get('variants') || '[]').map((variant, index) => ({
@@ -1386,6 +1426,7 @@ const requestApi = async (endpoint, options = {}) => {
       const created = {
         product_id: productId, name: form.get('name'), code, product_type: form.get('product_type') || 'simple', category: form.get('category') || null,
         tags: String(form.get('tags') || '').split(',').map(tag => tag.trim()).filter(Boolean), description: form.get('description'),
+        short_description: form.get('short_description') || null,
         regular_price: mockMoney(form.get('regular_price')), sale_price: mockMoney(form.get('sale_price')), currency: 'BDT',
         stock_status: 'in_stock', stock_quantity: null, availability: form.get('availability') !== 'false', options, variants, assets: [], primary_assets: [],
       };
@@ -1408,6 +1449,22 @@ const requestApi = async (endpoint, options = {}) => {
     const agentUpdateMatch = endpoint.match(/^\/v1\/agent\/update\/([^/?#]+)$/);
     if (agentUpdateMatch && method === 'PATCH') {
       const body = JSON.parse(requestOptions.body || '{}');
+      const agentRole = (mockAgents.find(agent => agent.agent_id === agentUpdateMatch[1]) || {}).agent_role;
+      const fail422 = (message) => { const error = new Error(message); error.status = 422; throw error; };
+      if ('response_format' in body) {
+        if (typeof body.response_format === 'string' && body.response_format.length > 1200) fail422('body.response_format: String should have at most 1200 characters');
+        if (!body.response_format) body.response_format = MOCK_REPLY_STYLE_DEFAULTS.format;
+      }
+      if ('response_examples' in body) {
+        const examples = body.response_examples;
+        if (Array.isArray(examples) && examples.length > 6) fail422('body.response_examples: List should have at most 6 items');
+        if (Array.isArray(examples) && examples.filter(example => example.kind === 'image').length > 1) fail422('Only one image example is allowed.');
+        body.response_examples = !examples || examples.length === 0
+          ? mockDefaultExamples(agentRole)
+          : examples.map(example => (example.kind === 'image'
+            ? { kind: 'image', customer_message: MOCK_REPLY_STYLE_DEFAULTS.photo, agent_reply: example.agent_reply }
+            : { kind: 'text', customer_message: example.customer_message, agent_reply: example.agent_reply }));
+      }
       if ('human_handover_sign' in body) body.human_handover_sign = body.human_handover_sign || null;
       if (typeof body.comment_instruction === 'string' && body.comment_instruction.length > 1000) {
         const error = new Error('body.comment_instruction: String should have at most 1000 characters');
@@ -1693,6 +1750,14 @@ const STATIC_GETS = [
   { path: '/v1/user-required-actions', ttl: 2 * MINUTE_MS, invalidatedBy: ['/v1/user-required-actions', '/v1/business/pages', '/v1/subscription', '/v1/woocommerce', '/v1/pathao', '/v1/steadfast'] },
   { path: '/v1/pathao/stores', ttl: 10 * MINUTE_MS, invalidatedBy: ['/v1/pathao'] },
   { path: '/v1/pathao/locations', ttl: 60 * MINUTE_MS, invalidatedBy: [] },
+  // Connected pages and platforms change on connect/disconnect and agent assignment; the
+  // sync after a Facebook connect and "Check again" read them with bypassCache.
+  { path: '/v1/business/pages', ttl: 5 * MINUTE_MS, invalidatedBy: ['/v1/business/pages', '/v1/agent'] },
+  { path: '/v1/business/platforms', ttl: 5 * MINUTE_MS, invalidatedBy: ['/v1/business/pages', '/v1/woocommerce', '/v1/pathao', '/v1/steadfast'] },
+  { path: '/v1/businesses', ttl: 5 * MINUTE_MS, invalidatedBy: ['/v1/business'] },
+  { path: '/v1/agent/on-boarding/pre-questions', ttl: 60 * MINUTE_MS, invalidatedBy: [] },
+  { path: '/v1/woocommerce/status', ttl: 2 * MINUTE_MS, invalidatedBy: ['/v1/woocommerce'] },
+  { path: '/v1/woocommerce/settings', ttl: 5 * MINUTE_MS, invalidatedBy: ['/v1/woocommerce'] },
 ];
 // Writes that change which business (or session) the cached data belongs to.
 const CLEARS_ALL_STATIC = ['/v1/businesses'];
@@ -2289,12 +2354,14 @@ export const apiService = {
     body: JSON.stringify(profileData),
   }),
 
-  // Conversations
-  // `queue` picks the inbox: { assignedToMe } or { memberId } (another member's queue,
-  // admins and owners only) read /conversations/assigned; { unassigned } the chats no
-  // one owns yet. isHumanNeeded narrows any of them.
+  // Conversations of the active business: every page's, newest first, or one page's
+  // when `pageId` is given (GET /v1/conversations?page_id=…). `queue` picks the inbox:
+  // { assignedToMe } or { memberId } (another member's queue, admins and owners only)
+  // read /conversations/assigned; { unassigned } the chats no one owns yet.
+  // isHumanNeeded narrows any of them. Each row carries its page_id.
   getPageDetails: (pageId, cursor = null, page_size = 10, isHumanNeeded = null, queue = {}) => {
     const q = new URLSearchParams();
+    if (pageId) q.set('page_id', pageId);
     if (cursor) q.set('cursor', cursor);
     const size = page_size || 10;
     q.set('page_size', size);
@@ -2306,7 +2373,7 @@ export const apiService = {
     if (queue.memberId) q.set('member_id', queue.memberId);
     else if (queue.unassigned && !assigned) q.set('unassigned', 'true');
     const qs = `?${q.toString()}`;
-    return apiFetch(`/v1/page/${pageId}/conversations${assigned ? '/assigned' : ''}${qs}`);
+    return apiFetch(`/v1/conversations${assigned ? '/assigned' : ''}${qs}`);
   },
   getConversationDetails: (pageId, conversationId, cursor = null, page_size = 20) => {
     const q = new URLSearchParams();
