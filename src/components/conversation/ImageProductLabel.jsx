@@ -58,6 +58,7 @@ export default function ImageProductLabel({ conversationId, attachmentId, catalo
       onLabelChange({ product_id: product.product_id, name: product.name || product.code || 'Product' });
       setOpen(false);
     } catch (err) {
+      console.error(`Visual label failed (${err?.status}):`, err?.body ?? err?.message, { conversationId, attachmentId, productId: product.product_id });
       setError(labelErrorText(err));
     } finally {
       setBusy(false);
@@ -72,6 +73,7 @@ export default function ImageProductLabel({ conversationId, attachmentId, catalo
       await apiService.removeCustomerImageLabel(conversationId, attachmentId);
       onLabelChange(null);
     } catch (err) {
+      console.error(`Removing visual label failed (${err?.status}):`, err?.body ?? err?.message, { conversationId, attachmentId });
       // Already gone (removed elsewhere): the photo is unlabelled either way.
       if (err?.status === 404) onLabelChange(null);
       else setError(err?.status === 403 ? labelErrorText(err) : (err?.message || "The label wasn't removed. Try again."));

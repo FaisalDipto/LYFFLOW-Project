@@ -1702,8 +1702,10 @@ const requestApi = async (endpoint, options = {}) => {
         ? 'Too many requests. Please slow down and try again later.'
         : 'An error occurred while fetching data';
       let errorDetail = null;
+      let errorBody;
       try {
         const errorData = await response.json();
+        errorBody = errorData;
         if (Array.isArray(errorData.detail)) {
           errorMessage = errorData.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join(' | ');
         } else if (errorData.detail && typeof errorData.detail === 'object') {
@@ -1720,6 +1722,8 @@ const requestApi = async (endpoint, options = {}) => {
       }
       const error = new Error(errorMessage);
       error.status = response.status;
+      // The parsed response body, for debugging (undefined when it wasn't JSON).
+      error.body = errorBody;
       if (errorDetail?.code) error.code = errorDetail.code;
       if (errorDetail?.retry_after_seconds != null) error.retryAfterSeconds = Number(errorDetail.retry_after_seconds);
       // Session-level failures are handled once by the app shell rather than per screen:
