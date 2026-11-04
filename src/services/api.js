@@ -571,6 +571,13 @@ const mockProductTextLimits = (fields) => {
   error.status = 422;
   throw error;
 };
+// Customer photos in conv_1's thread (by message index) and the labels staff gave them.
+const MOCK_IMAGE_MESSAGES = {
+  8: { id: 'att_img_1', text: 'এটা আছে?', url: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=400&auto=format&fit=crop&q=70' },
+  14: { id: 'att_img_2', text: '', url: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&auto=format&fit=crop&q=70' },
+};
+const MOCK_IMAGE_ATTACHMENTS = { att_img_1: 'conv_1', att_img_2: 'conv_1' };
+const mockVisualLabels = new Map();
 let mockProducts = [
   {
     product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', product_type: 'simple', brand: 'Hidebound', category: 'Accessories',tags: ['leather', 'gift'],
@@ -1369,6 +1376,24 @@ const requestApi = async (endpoint, options = {}) => {
       ];
       return { messages, pagination: { has_more: false, next_cursor: null, page_size: messages.length, total: messages.length } };
     }
+    // Visual-match labels: att_img_2 is "not processed yet" (422) so that state shows too.
+    const visualLabelMatch = endpoint.match(/^\/v1\/conversations\/([^/]+)\/attachments\/([^/]+)\/visual-label$/);
+    if (visualLabelMatch && (method === 'POST' || method === 'DELETE')) {
+      const [, conversationId, attachmentId] = visualLabelMatch;
+      const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };
+      if (!MOCK_IMAGE_ATTACHMENTS[attachmentId] || MOCK_IMAGE_ATTACHMENTS[attachmentId] !== conversationId) fail(404, 'Attachment not found in this conversation');
+      const labelKey = `${conversationId}:${attachmentId}`;
+      if (method === 'DELETE') {
+        if (!mockVisualLabels.has(labelKey)) fail(404, 'No label on this image');
+        mockVisualLabels.delete(labelKey);
+        return {};
+      }
+      if (attachmentId === 'att_img_2') fail(422, 'The matcher has not processed this image yet');
+      const { product_id: productId } = JSON.parse(requestOptions.body || '{}');
+      if (!mockProducts.some(product => product.product_id === productId)) fail(404, 'Product not found');
+      mockVisualLabels.set(labelKey, productId);
+      return { success: true };
+    }
     // A long thread for conv_1, newest first and paged like the real endpoint, so
     // scrolling and "load older messages" can be exercised in mock mode.
     if (endpoint.startsWith('/v1/page/page_1/conversation/conv_1')) {
@@ -1385,6 +1410,12 @@ const requestApi = async (endpoint, options = {}) => {
             message: index === 0 ? 'Hello, I need help with my order.' : index === 6 ? 'এটা নিব (GOO47-2)' : `Customer message #${60 - index}: could you tell me more about this item?`,
             // One recalled message, as Messenger's unsend leaves it.
             ...(index === 4 ? { is_deleted: true, deleted_at: new Date(MOCK_LOADED_AT - 15 * 60000).toISOString() } : {}),
+            // Two customer photos to label (the matcher hasn't processed the older one yet).
+            ...(MOCK_IMAGE_MESSAGES[index] ? {
+              message: MOCK_IMAGE_MESSAGES[index].text,
+              has_attachment: true,
+              attachments: [{ attachment_id: MOCK_IMAGE_MESSAGES[index].id, attachment_type: 'image', attachment_size: 84213, attachment_key: `mock/${MOCK_IMAGE_MESSAGES[index].id}.jpg`, url: MOCK_IMAGE_MESSAGES[index].url }],
+            } : {}),
           };
         }
         // Newest reply is a teammate's and not read yet; the next one is the owner's.
@@ -2452,6 +2483,15 @@ export const apiService = {
   },
 
   // Returns basic info for a specific message (role, has_attachment, is_ai_msg, created_at)
+  // Staff label for a customer photo: "this image shows product X", for the visual matcher.
+  // 201 { success }; a second call replaces the label. DELETE answers 204 (404 when none).
+  labelCustomerImage: (conversationId, attachmentId, productId) => apiFetch(`/v1/conversations/${conversationId}/attachments/${attachmentId}/visual-label`, {
+    method: 'POST',
+    body: JSON.stringify({ product_id: productId }),
+  }),
+  removeCustomerImageLabel: (conversationId, attachmentId) => apiFetch(`/v1/conversations/${conversationId}/attachments/${attachmentId}/visual-label`, {
+    method: 'DELETE',
+  }),
   getMessageInfo: (conversationId, messageId) => apiFetch(`/v1/conversations/${conversationId}/messages/${messageId}/info`),
 
   setConversationPauseStatus: (pageId, conversationId, pauseStatus) => apiFetch(`/v1/agent/page/${pageId}/conversation/${conversationId}/pause`, {

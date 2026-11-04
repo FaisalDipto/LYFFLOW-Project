@@ -44,6 +44,7 @@ import { messagingWindowState } from '../utils/messagingWindow';
 import ReplyComposer from '../components/conversation/ReplyComposer';
 import ProductCardsMessage from '../components/conversation/ProductCardsMessage';
 import ConversationNote from '../components/conversation/ConversationNote';
+import ImageProductLabel from '../components/conversation/ImageProductLabel';
 import AgentReplyStyle from '../components/AgentReplyStyle';
 import { examplesToRows, exampleProblems, RESPONSE_FORMAT_MAX, rowsToExamples, sameExamples } from '../utils/agentReplyStyle';
 import PlatformMark from '../components/PlatformMark';
@@ -59,6 +60,8 @@ import ConversationAssignee from '../components/conversation/ConversationAssigne
 import './Dashboard.css';
 import '../styles/dashboard-theme.css';
 
+// Mock mode (?mock=true): mock attachments carry their own image URL.
+const MOCK_MODE = typeof window !== 'undefined' && window.location.search.includes('mock=true');
 const AgentAvatarModal = lazy(() => import('../components/AgentAvatarModal'));
 const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
 const ProductsTab = lazy(() => import('../components/ProductsTab'));
@@ -906,6 +909,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   }, [activeContact?.conversation_id, activeContact?.id]);
 
   const activeConversationId = activeContact?.conversation_id || activeContact?.id || null;
+  // Products staff said a customer photo shows, by `${conversationId}:${attachmentId}`. The
+  // API can't read labels back, so they're kept while the inbox is open (for Undo).
+  const [imageLabels, setImageLabels] = useState({});
   const windowStatus = useWindowStatus(activeContact?.page_id || (selectedPageId === ALL_PAGES ? '' : selectedPageId), activeConversationId, windowRefreshKey);
   const windowState = messagingWindowState(windowStatus.data);
   // Orders for the profile sidebar's list; reloads after a manual order is created.
@@ -1635,9 +1641,23 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
           const url = `${API_BASE}/v1/media/attachments?key=${encodeURIComponent(att.attachment_key)}`;
           const key = att.attachment_id || att.attachment_key;
           if (kind.startsWith('image')) {
+            // Mock attachments carry a viewable url; real ones resolve through the media endpoint.
+            const imageUrl = (MOCK_MODE && att.url) || url;
+            const labelKey = `${activeConversationId}:${att.attachment_id}`;
             return (
-              <div key={key} className="block cursor-pointer" onClick={() => setSelectedImage(url)}>
-                <img src={url} alt="Attachment" className={`max-h-[200px] max-w-[200px] rounded-lg border object-cover shadow-sm transition-opacity hover:opacity-90 ${isMe ? 'border-white/20' : 'border-slate-200'}`} />
+              <div key={key}>
+                <div className="block cursor-pointer" onClick={() => setSelectedImage(imageUrl)}>
+                  <img src={imageUrl} alt="Attachment" className={`max-h-[200px] max-w-[200px] rounded-lg border object-cover shadow-sm transition-opacity hover:opacity-90 ${isMe ? 'border-white/20' : 'border-slate-200'}`} />
+                </div>
+                {!isMe && att.attachment_id && activeConversationId && (
+                  <ImageProductLabel
+                    conversationId={activeConversationId}
+                    attachmentId={att.attachment_id}
+                    catalogId={pageCatalogId}
+                    label={imageLabels[labelKey] || null}
+                    onLabelChange={(label) => setImageLabels(current => ({ ...current, [labelKey]: label }))}
+                  />
+                )}
               </div>
             );
           }
