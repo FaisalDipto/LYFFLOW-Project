@@ -21,6 +21,11 @@ html[data-dashboard-theme="dark"],html[data-dashboard-theme="dark"] body{backgro
 .dashboard-layout.theme-dark .dashboard-theme-toggle{background:#1c1c1c;border-color:#383838;color:#b5b5b5}
 .dashboard-layout.theme-dark .dashboard-theme-toggle:hover{background:#242424;border-color:#494949;color:#f4f4f4}
 .dashboard-layout.theme-dark .profile-drawer,.dashboard-layout.theme-dark .pane-header,.dashboard-layout.theme-dark .conv-contacts-pane,.dashboard-layout.theme-dark .page-card-container,.dashboard-layout.theme-dark .stat-box,.dashboard-layout.theme-dark .knowledge-list,.dashboard-layout.theme-dark .modal-content{background-color:#141414!important;border-color:#343434!important;color:#ececec}
+/* Dialogs portaled to <body> sit outside .dashboard-layout, so the rule above misses them. */
+html[data-dashboard-theme="dark"] body>.modal-overlay .modal-content{background-color:#141414!important;border-color:#343434!important;color:#ececec}
+html[data-dashboard-theme="dark"] body>.modal-overlay{--text-primary:#f2f2f2}
+html[data-dashboard-theme="dark"] body>.modal-overlay :is(input,textarea,select){background-color:#1a1a1a!important;border-color:#393939!important;color:#ececec!important}
+html[data-dashboard-theme="dark"] body>.modal-overlay :is(input,textarea)::placeholder{color:#818181!important}
 .dashboard-layout.theme-dark .agent-assign-box select,.dashboard-layout.theme-dark .chat-input,.dashboard-layout.theme-dark input,.dashboard-layout.theme-dark textarea,.dashboard-layout.theme-dark select{background-color:#1a1a1a!important;border-color:#393939!important;color:#ececec!important}
 .dashboard-layout.theme-dark input::placeholder,.dashboard-layout.theme-dark textarea::placeholder{color:#818181!important}
 /* Reply composer: the text box sits inside the composer's own field; a disabled Send goes neutral. */

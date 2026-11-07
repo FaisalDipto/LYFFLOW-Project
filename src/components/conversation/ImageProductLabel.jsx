@@ -12,26 +12,30 @@ const labelErrorText = (error) => {
 
 /**
  * "This is product…" under a customer's photo: staff tell the visual matcher which catalog
- * product the photo shows, so later photos of it match directly. There's no endpoint to
- * read a label back, so the chosen product lives in the parent's state while the inbox is
- * open, which is what lets Undo remove it.
+ * products the photo shows, so later photos of them match directly. A photo can show
+ * several (an item sold as a 1-piece and a 2-piece pack gets both), one call per product.
+ * There's no endpoint to read labels back, so the chosen products live in the parent's
+ * state while the inbox is open; each chip's × removes just that product's label.
  * @param {{
  *   conversationId: string, attachmentId: string, catalogId?: string,
- *   label?: { product_id: string, name: string } | null,
- *   onLabelChange: (label: { product_id: string, name: string } | null) => void,
+ *   labels?: { product_id: string, name: string }[],
+ *   onLabelsChange: (update: (labels: { product_id: string, name: string }[]) => { product_id: string, name: string }[]) => void,
  * }} props
  */
-export default function ImageProductLabel({ conversationId, attachmentId, catalogId = '', label = null, onLabelChange }) {
+export default function ImageProductLabel({ conversationId, attachmentId, catalogId = '', labels = [], onLabelsChange }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(() => new Set());
   const [error, setError] = useState('');
   const [highlight, setHighlight] = useState(0);
   const rootRef = useRef(null);
   const inputRef = useRef(null);
   const listId = useId();
   const suggestions = useProductSuggestions(open ? catalogId : '', open ? query : '');
-  const products = suggestions.products;
+  const labelledIds = new Set(labels.map(item => item.product_id));
+  // Products already on the photo aren't offered again.
+  const products = suggestions.products.filter(product => !labelledIds.has(product.product_id));
 
   // Closes on a click outside or Escape.
   useEffect(() => {
@@ -50,35 +54,43 @@ export default function ImageProductLabel({ conversationId, attachmentId, catalo
   };
 
   const pick = async (product) => {
-    if (!product || busy) return;
-    setBusy(true);
+    if (!product || saving) return;
+    setSaving(true);
     setError('');
     try {
       await apiService.labelCustomerImage(conversationId, attachmentId, product.product_id);
-      onLabelChange({ product_id: product.product_id, name: product.name || product.code || 'Product' });
+      const label = { product_id: product.product_id, name: product.name || product.code || 'Product' };
+      onLabelsChange(current => (current.some(item => item.product_id === label.product_id) ? current : [...current, label]));
       setOpen(false);
     } catch (err) {
       console.error(`Visual label failed (${err?.status}):`, err?.body ?? err?.message, { conversationId, attachmentId, productId: product.product_id });
       setError(labelErrorText(err));
+      // Not processed yet: another product won't help, so close and show it under the photo.
+      if (err?.status === 422) setOpen(false);
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
-  const undo = async () => {
-    if (busy) return;
-    setBusy(true);
+  const remove = async (label) => {
+    if (removing.has(label.product_id)) return;
+    setRemoving(current => new Set(current).add(label.product_id));
     setError('');
+    const drop = () => onLabelsChange(current => current.filter(item => item.product_id !== label.product_id));
     try {
-      await apiService.removeCustomerImageLabel(conversationId, attachmentId);
-      onLabelChange(null);
+      await apiService.removeCustomerImageLabel(conversationId, attachmentId, label.product_id);
+      drop();
     } catch (err) {
-      console.error(`Removing visual label failed (${err?.status}):`, err?.body ?? err?.message, { conversationId, attachmentId });
-      // Already gone (removed elsewhere): the photo is unlabelled either way.
-      if (err?.status === 404) onLabelChange(null);
+      console.error(`Removing visual label failed (${err?.status}):`, err?.body ?? err?.message, { conversationId, attachmentId, productId: label.product_id });
+      // 404: that product isn't labelled on the photo any more, so the chip goes either way.
+      if (err?.status === 404) drop();
       else setError(err?.status === 403 ? labelErrorText(err) : (err?.message || "The label wasn't removed. Try again."));
     } finally {
-      setBusy(false);
+      setRemoving(current => {
+        const next = new Set(current);
+        next.delete(label.product_id);
+        return next;
+      });
     }
   };
 
@@ -92,30 +104,36 @@ export default function ImageProductLabel({ conversationId, attachmentId, catalo
 
   return (
     <div ref={rootRef} className="image-product-label relative mt-1.5 max-w-[260px] text-[11px]">
-      {label ? (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700" title="You labelled this photo">
+      <div className="flex flex-wrap items-center gap-1">
+        {labels.map(label => (
+          <span key={label.product_id} className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-emerald-50 py-0.5 pl-2 pr-0.5 font-semibold text-emerald-700" title="You labelled this photo with this product">
             <Check size={12} className="shrink-0" aria-hidden="true" />
             <span className="truncate">{label.name}</span>
+            <button
+              type="button"
+              onClick={() => remove(label)}
+              disabled={removing.has(label.product_id)}
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-emerald-600 hover:bg-emerald-100 hover:text-emerald-800 disabled:opacity-60"
+              aria-label={`Remove ${label.name}`}
+            >
+              {removing.has(label.product_id) ? <Loader2 size={10} className="animate-spin" /> : <X size={11} />}
+            </button>
           </span>
-          <button type="button" onClick={openPicker} disabled={busy} className="font-semibold text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline disabled:opacity-50">Change</button>
-          <button type="button" onClick={undo} disabled={busy} className="inline-flex items-center gap-1 font-semibold text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline disabled:opacity-50">
-            {busy && !open && <Loader2 size={11} className="animate-spin" aria-hidden="true" />}Undo
-          </button>
-        </div>
-      ) : (
+        ))}
         <button
           type="button"
           onClick={() => (open ? setOpen(false) : openPicker())}
           aria-expanded={open}
           className="inline-flex items-center gap-1 rounded-full border border-solid border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-900"
-          title="Tell the AI which product this photo shows"
+          title={labels.length ? 'Add another product this photo shows' : 'Tell the AI which product this photo shows'}
         >
-          <Tag size={12} aria-hidden="true" /> This is product…
+          <Tag size={12} aria-hidden="true" /> {labels.length ? 'Add product…' : 'This is product…'}
         </button>
-      )}
+      </div>
 
-      {error && !open && <p role="alert" className="mb-0 mt-1 font-semibold text-rose-600">{error}</p>}
+      {error && !open && (
+        <p role="alert" className="mb-0 mt-1.5 rounded-lg border border-solid border-amber-200 bg-amber-50 px-2 py-1 font-semibold text-amber-800">{error}</p>
+      )}
 
       {open && (
         <div className="image-product-label-picker absolute left-0 top-full z-30 mt-1 w-72 max-w-[80vw] rounded-xl border border-solid border-slate-200 bg-white p-2 shadow-lg">
@@ -140,7 +158,7 @@ export default function ImageProductLabel({ conversationId, attachmentId, catalo
             </button>
           </div>
 
-          {busy ? (
+          {saving ? (
             <p className="m-0 flex items-center gap-2 px-1 py-3 text-xs text-slate-500"><Loader2 size={13} className="animate-spin" aria-hidden="true" /> Saving…</p>
           ) : suggestions.status === 'idle' ? (
             <p className="m-0 px-1 py-3 text-xs text-slate-500">Search your catalog for the product in this photo.</p>

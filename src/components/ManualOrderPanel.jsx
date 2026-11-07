@@ -1,14 +1,49 @@
-import { useRef, useState } from 'react';
-import { ShoppingCart, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, Copy, ShoppingCart, X } from 'lucide-react';
 import { apiService } from '../services/api';
 import { useBusiness } from '../context/BusinessContext';
 import { formatOrderAmount } from './customerRecordUtils';
 import ManualOrderForm from './ManualOrderForm';
 import { EMPTY_ORDER_FORM } from './manualOrderUtils';
 
+// Copies text with its line breaks; falls back to a hidden textarea where the
+// Clipboard API is unavailable (non-secure origins, older browsers).
+const copyText = async (text) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  const ok = document.execCommand('copy');
+  area.remove();
+  if (!ok) throw new Error('copy failed');
+};
+
 const ManualOrderPanel = ({ conversationId, contactName = '', catalogId = '', onClose, onCreated }) => {
   const { business } = useBusiness();
   const [createdOrder, setCreatedOrder] = useState(null);
+  const [copyState, setCopyState] = useState('idle'); // idle | copied | failed
+  const copyTimerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(copyTimerRef.current), []);
+
+  const copySummary = async () => {
+    clearTimeout(copyTimerRef.current);
+    try {
+      await copyText(createdOrder.summary);
+      setCopyState('copied');
+    } catch (err) {
+      console.error('Copying the order summary failed:', err);
+      setCopyState('failed');
+    }
+    copyTimerRef.current = setTimeout(() => setCopyState('idle'), 2500);
+  };
   const panelRef = useRef(null);
 
   // The panel is non-modal, so Escape only closes it when focus is inside it;
@@ -97,6 +132,28 @@ const ManualOrderPanel = ({ conversationId, contactName = '', catalogId = '', on
                 </div>
               ))}
             </dl>
+            {createdOrder.summary && (
+              <div className="mt-4 w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-4 text-left">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="m-0 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Summary for the customer</p>
+                    <p className="m-0 mt-0.5 text-[11px] font-medium text-slate-500">Paste it into the chat.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={copySummary}
+                    className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-black transition-colors ${copyState === 'copied' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                  >
+                    {copyState === 'copied' ? <Check size={13} /> : <Copy size={13} />}
+                    {copyState === 'copied' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <pre className="m-0 max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-xl bg-slate-50 px-3 py-2.5 font-sans text-[12.5px] leading-5 text-slate-800">{createdOrder.summary}</pre>
+                {copyState === 'failed' && (
+                  <p role="alert" className="m-0 mt-2 text-[11px] font-semibold text-rose-600">Couldn't copy. Select the text above and copy it instead.</p>
+                )}
+              </div>
+            )}
             <button
               type="button"
               onClick={onClose}

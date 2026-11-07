@@ -139,6 +139,28 @@ export default function ReplyComposer({ disabled = false, disabledReason = '', p
     setRecording({ startedAt: Date.now(), elapsed: 0 });
   };
 
+  // A pasted image (a screenshot, or "Copy image" from a page or another conversation)
+  // becomes the attachment. Pastes that carry plain text too (Excel, Word) stay text.
+  const handlePaste = (event) => {
+    const clipboard = event.clipboardData;
+    if (!clipboard || disabled || sending) return;
+    if (clipboard.getData('text/plain').trim()) return;
+    const file = Array.from(clipboard.items || [])
+      .filter(item => item.kind === 'file')
+      .map(item => item.getAsFile())
+      .find(Boolean) || clipboard.files?.[0];
+    if (!file) return;
+    event.preventDefault();
+    const hasRealName = file.name && !/^image\.\w+$/i.test(file.name);
+    if (hasRealName) {
+      setAttachmentFile(file);
+      return;
+    }
+    const extension = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg').split('+')[0];
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    setAttachmentFile(new File([file], `pasted-${stamp}.${extension}`, { type: file.type }));
+  };
+
   const stopRecording = (cancel = false) => {
     const recorder = recorderRef.current;
     if (!recorder) return;
@@ -316,6 +338,7 @@ export default function ReplyComposer({ disabled = false, disabledReason = '', p
               maxLength={REPLY_TEXT_MAX}
               disabled={disabled}
               onChange={(event) => setText(event.target.value)}
+              onPaste={handlePaste}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();

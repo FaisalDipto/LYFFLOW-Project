@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -68,6 +68,7 @@ const ProductsTab = lazy(() => import('../components/ProductsTab'));
 const ManualOrderPanel = lazy(() => import('../components/ManualOrderPanel'));
 const ConversationOrders = lazy(() => import('../components/ConversationOrders'));
 const CommentReviewModal = lazy(() => import('../components/CommentReviewModal'));
+const CommentCleanup = lazy(() => import('../components/comments/CommentCleanup'));
 const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCourier'));
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 const AnalyticsHub = lazy(() => import('../components/dashboard/AnalyticsHub'));
@@ -909,8 +910,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   }, [activeContact?.conversation_id, activeContact?.id]);
 
   const activeConversationId = activeContact?.conversation_id || activeContact?.id || null;
-  // Products staff said a customer photo shows, by `${conversationId}:${attachmentId}`. The
-  // API can't read labels back, so they're kept while the inbox is open (for Undo).
+  // Products staff said a customer photo shows (several allowed), by
+  // `${conversationId}:${attachmentId}`. The API can't read labels back, so they're kept
+  // while the inbox is open, which is what lets each chip's × remove its label.
   const [imageLabels, setImageLabels] = useState({});
   const windowStatus = useWindowStatus(activeContact?.page_id || (selectedPageId === ALL_PAGES ? '' : selectedPageId), activeConversationId, windowRefreshKey);
   const windowState = messagingWindowState(windowStatus.data);
@@ -1654,8 +1656,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                     conversationId={activeConversationId}
                     attachmentId={att.attachment_id}
                     catalogId={pageCatalogId}
-                    label={imageLabels[labelKey] || null}
-                    onLabelChange={(label) => setImageLabels(current => ({ ...current, [labelKey]: label }))}
+                    labels={imageLabels[labelKey] || []}
+                    onLabelsChange={(update) => setImageLabels(current => ({ ...current, [labelKey]: update(current[labelKey] || []) }))}
                   />
                 )}
               </div>
@@ -2365,7 +2367,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                       {sidebarActivityDetail.response_time_ms != null && (
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Response Time</p>
-                          <p className="text-xs font-semibold text-slate-700">{sidebarActivityDetail.response_time_ms} ms</p>
+                          <p className="text-xs font-semibold text-slate-700">{(sidebarActivityDetail.response_time_ms / 1000).toFixed(2)} s</p>
                         </div>
                       )}
 
@@ -3829,7 +3831,7 @@ const AgentLog = ({ agents }) => {
                 </div>
                 {/* Response Time */}
                 <span className="text-sm font-semibold text-slate-700">
-                  {act.response_time_ms != null ? `${act.response_time_ms} ms` : '—'}
+                  {act.response_time_ms != null ? `${(act.response_time_ms / 1000).toFixed(2)} s` : '—'}
                 </span>
                 {/* Handover */}
                 <div>
@@ -3909,8 +3911,8 @@ const AgentLog = ({ agents }) => {
                       { label: 'Activity ID',    value: selectedActivity.activity_id, alwaysShow: true },
                       { label: 'Agent Name',     value: selectedActivity.agent_name },
                       { label: 'Status',         value: selectedActivity.status, alwaysShow: true },
-                      { label: 'Response Time',  value: selectedActivity.response_time_ms != null ? `${selectedActivity.response_time_ms} ms` : '—', alwaysShow: true },
-                      { label: 'Completion Time',value: selectedActivity.agent_completion_time_ms != null ? `${selectedActivity.agent_completion_time_ms} ms` : null },
+                      { label: 'Response Time',  value: selectedActivity.response_time_ms != null ? `${(selectedActivity.response_time_ms / 1000).toFixed(2)} s` : '—', alwaysShow: true },
+                      { label: 'Completion Time',value: selectedActivity.agent_completion_time_ms != null ? `${(selectedActivity.agent_completion_time_ms / 1000).toFixed(2)} s` : null },
                       { label: 'Total Tokens',   value: selectedActivity.total_tokens ?? (selectedActivity.input_tokens != null ? `${selectedActivity.input_tokens} in / ${selectedActivity.output_tokens || 0} out` : null) },
                       { label: 'Tools Used',     value: Array.isArray(selectedActivity.tools_used) ? selectedActivity.tools_used.join(', ') : selectedActivity.tools_used },
                       { label: 'Error Message',  value: selectedActivity.error_message },
@@ -6978,7 +6980,12 @@ export default function Dashboard() {
   const [notificationFocus, setNotificationFocus] = useState(null);
   // A flagged comment opened from its notification: { commentAnalysisId, canAction }.
   const [commentReview, setCommentReview] = useState(null);
-  const closeCommentReview = useCallback(() => setCommentReview(null), []);
+  // Bumped when the review modal closes, so lists showing that comment re-read it.
+  const [commentReviewClosedCount, setCommentReviewClosedCount] = useState(0);
+  const closeCommentReview = useCallback(() => {
+    setCommentReview(null);
+    setCommentReviewClosedCount(count => count + 1);
+  }, []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   // Expanded state per collapsible nav group, keyed by item id (e.g. { 'customer-records': true }).
@@ -7314,6 +7321,18 @@ export default function Dashboard() {
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
           <ConversationList pages={pages} user={user} focusRequest={notificationFocus} onNavigate={handleNotificationNavigate} />
         </div>}
+        {visitedTabsRef.current.has('comments') && <div style={{ display: activeTab === 'comments' ? 'contents' : 'none' }}>
+          <Suspense fallback={<AppLoadingScreen />}>
+            <CommentCleanup
+              pages={pages}
+              isActive={activeTab === 'comments'}
+              onNavigate={setActiveTab}
+              onReconnect={() => setPreReauthModal(true)}
+              onOpenComment={(commentAnalysisId) => handleNotificationNavigate({ commentAnalysisId, canAction: role === 'owner' || role === 'admin' })}
+              reviewReloadKey={commentReviewClosedCount}
+            />
+          </Suspense>
+        </div>}
         {(visitedTabsRef.current.has('knowledge-products') || visitedTabsRef.current.has('knowledge-documents')) && <div style={{ display: (activeTab === 'knowledge-products' || activeTab === 'knowledge-documents') ? 'contents' : 'none' }}>
           <Knowledge namespaces={namespaces} onUpdate={refreshNamespaces} activeSection={activeTab === 'knowledge-products' ? 'products' : 'documents'} />
         </div>}
@@ -7366,6 +7385,7 @@ export default function Dashboard() {
     { id: 'channels', icon: Inbox, label: 'Channels' },
     { id: 'platforms', icon: Plug, label: 'Platforms' },
     { id: 'conversation', icon: MessageSquare, label: 'Conversations' },
+    { id: 'comments', icon: MessageSquareText, label: 'Comments' },
     {
       id: 'customer-records',
       icon: ClipboardList,

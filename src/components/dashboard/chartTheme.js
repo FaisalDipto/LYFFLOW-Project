@@ -21,16 +21,26 @@ export const CHART_THEME = {
   },
 };
 
-// One-hue blue ramp for magnitude (heatmaps), steps 100 -> 700. Near zero recedes
-// toward the surface: light runs pale -> deep, dark runs deep -> pale.
-const BLUE_RAMP = ['#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b'];
+// One-hue blue ramp for magnitude (heatmaps), the same in both modes: fewer messages
+// are pale, more messages are deep navy. The stops span a wide lightness range so the
+// busiest cells stand well apart from quiet ones.
+const HEAT_RAMP = ['#e6f0fc', '#b7d3f6', '#6da7ec', '#2a78d6', '#184f95', '#0b2f63', '#061c40'];
+
+const hexToRgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
 
 /** The ramp colour for `value` out of `max`, and whether text on it should be light. */
 export function heatColor(value, max, isDark) {
-  const ramp = isDark ? [...BLUE_RAMP].reverse() : BLUE_RAMP;
   if (!max || !value) return { background: isDark ? '#141414' : '#f1f5f9', lightText: false };
-  const index = Math.min(ramp.length - 1, Math.round((value / max) * (ramp.length - 1)));
-  // Light surface: the deeper half needs white text. Dark surface: the paler half needs dark text.
-  const lightText = isDark ? index < ramp.length / 2 : index >= ramp.length / 2;
-  return { background: ramp[index], lightText };
+  const ramp = HEAT_RAMP;
+  // A gentle curve keeps quiet hours light and makes the peaks jump to the deep end.
+  const t = Math.pow(Math.min(1, Math.max(0, value / max)), 1.25);
+  const pos = t * (ramp.length - 1);
+  const i = Math.min(ramp.length - 2, Math.floor(pos));
+  const f = pos - i;
+  const a = hexToRgb(ramp[i]);
+  const b = hexToRgb(ramp[i + 1]);
+  const [r, g, bl] = a.map((c, k) => Math.round(c + (b[k] - c) * f));
+  // The deeper half needs white text.
+  const lightText = t >= 0.5;
+  return { background: `rgb(${r}, ${g}, ${bl})`, lightText };
 }

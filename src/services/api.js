@@ -189,10 +189,129 @@ mockComments.push(
   }),
   mockHandledComment('cmt_11', 24 * 40, { commenter_name: 'Old Commenter', comment_text: 'Do you have a blue one?', category: 'query', confidence: 0.9, reason: 'Asks about colour options', action: 'reply', comment_reply: 'Yes! Blue is in stock.', is_public_replied: true }),
 );
+// ── Comment cleanup (mock) ─────────────────────────────────────────────────────────
+// Posts per page, live from Meta in the real API. page_1 has two pages of posts (one an
+// ad), page_3 is Instagram, page_2 needs a reconnect (412) so that state shows too.
+const MOCK_POST_TEXTS = [
+  'Flash sale this weekend: 30% off every bottle.', 'New arrivals: canvas tote bags in four colours.', 'Customer of the month: thank you, Nadia!',
+  'Restocked: the brown leather wallet is back.', 'How to keep your bottle fresh: three quick tips.', 'Eid gift boxes are ready to order.',
+  'Behind the scenes at our Dhaka warehouse.', 'Free delivery inside Dhaka until Friday.', 'Which colour should we make next? Vote below.',
+];
+const MOCK_POST_PICTURES = [
+  'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=300&auto=format&fit=crop&q=60',
+  'https://images.unsplash.com/photo-1544816155-12df9643f363?w=300&auto=format&fit=crop&q=60',
+  null,
+  'https://images.unsplash.com/photo-1627123424574-724758594e93?w=300&auto=format&fit=crop&q=60',
+];
+const mockPagePosts = {
+  page_1: Array.from({ length: 32 }, (_, i) => ({
+    post_id: `1234_${5678 + i}`,
+    text: i === 2 ? 'Ad creative: stay cold for 24 hours. Shop now.' : MOCK_POST_TEXTS[i % MOCK_POST_TEXTS.length],
+    created_time: new Date(MOCK_LOADED_AT - (i * 2 + 1) * 24 * 3600000).toISOString(),
+    permalink_url: i === 2 ? null : `https://www.facebook.com/lyfflowdemo/posts/${5678 + i}`,
+    picture_url: MOCK_POST_PICTURES[i % MOCK_POST_PICTURES.length],
+    is_published: i !== 2,
+    comment_count: i === 0 ? 1300 : i === 9 ? null : Math.round(40 + ((i * 137) % 900)),
+  })),
+  page_3: Array.from({ length: 5 }, (_, i) => ({
+    post_id: `ig_9000${i}`,
+    text: MOCK_POST_TEXTS[(i + 3) % MOCK_POST_TEXTS.length],
+    created_time: new Date(MOCK_LOADED_AT - (i * 3 + 2) * 24 * 3600000).toISOString(),
+    permalink_url: `https://www.instagram.com/p/mock${i}/`,
+    picture_url: MOCK_POST_PICTURES[(i + 1) % MOCK_POST_PICTURES.length],
+    is_published: true,
+    comment_count: 25 + i * 60,
+  })),
+};
+// Per-post moderation switch, `${pageId}:${postId}` -> false (absent means on).
+const mockPostSwitchOff = new Set(['page_1:1234_5680']);
+const MOCK_CLEANUP_PRICE = 0.5;
+let mockCleanupCredits = 820;
+const mockRun = (id, pageId, post, fields) => ({
+  id, page_id: pageId, platform: pageId === 'page_3' ? 'instagram' : 'facebook', post_id: post.post_id, post_text: post.text,
+  status: 'queued', pause_reason: null, delete_support_issues: false, credits_per_comment: MOCK_CLEANUP_PRICE, credits_charged: 0,
+  estimated_comments: post.comment_count || 0, processed_count: 0, deleted_count: 0, review_count: 0, skipped_count: 0, failed_count: 0,
+  error_message: null, created_by_member_id: 'mem_1', started_at: null, finished_at: null,
+  created_at: new Date(MOCK_LOADED_AT - 3 * 3600000).toISOString(), updated_at: new Date(MOCK_LOADED_AT - 3600000).toISOString(),
+  ...fields,
+});
+let mockCleanupRuns = [
+  mockRun('run_running', 'page_1', mockPagePosts.page_1[0], {
+    status: 'running', started_at: new Date(MOCK_LOADED_AT - 2 * 3600000).toISOString(),
+    processed_count: 610, deleted_count: 74, review_count: 6, skipped_count: 102, failed_count: 1, credits_charged: 305,
+  }),
+  mockRun('run_paused', 'page_1', mockPagePosts.page_1[3], {
+    status: 'paused', pause_reason: 'credits_exhausted', started_at: new Date(MOCK_LOADED_AT - 30 * 3600000).toISOString(),
+    processed_count: 120, deleted_count: 18, review_count: 2, skipped_count: 9, credits_charged: 60,
+    created_at: new Date(MOCK_LOADED_AT - 31 * 3600000).toISOString(),
+  }),
+  mockRun('run_done', 'page_1', mockPagePosts.page_1[1], {
+    status: 'completed', delete_support_issues: true, estimated_comments: 340, started_at: new Date(MOCK_LOADED_AT - 50 * 3600000).toISOString(),
+    finished_at: new Date(MOCK_LOADED_AT - 48 * 3600000).toISOString(),
+    processed_count: 300, deleted_count: 41, review_count: 5, skipped_count: 31, failed_count: 1, credits_charged: 150,
+    created_at: new Date(MOCK_LOADED_AT - 51 * 3600000).toISOString(),
+  }),
+  mockRun('run_failed', 'page_1', mockPagePosts.page_1[5], {
+    status: 'failed', error_message: 'Meta stopped returning comments for this post.', started_at: new Date(MOCK_LOADED_AT - 80 * 3600000).toISOString(),
+    finished_at: new Date(MOCK_LOADED_AT - 79 * 3600000).toISOString(), processed_count: 40, deleted_count: 3, skipped_count: 4, credits_charged: 20,
+    created_at: new Date(MOCK_LOADED_AT - 81 * 3600000).toISOString(),
+  }),
+];
+// A run moves on whenever it is read: queued starts after ~15 s, running classifies a
+// slice per read until done, so polling shows progress without waiting an hour.
+const mockAdvanceRun = (run) => {
+  const now = Date.now();
+  if (run.status === 'queued' && now - Date.parse(run.created_at) > 15000) {
+    return { ...run, status: 'running', started_at: new Date(now).toISOString(), updated_at: new Date(now).toISOString() };
+  }
+  if (run.status !== 'running' || now - Date.parse(run.updated_at) < 8000) return run;
+  const remaining = Math.max(0, run.estimated_comments - run.processed_count - run.skipped_count);
+  const step = Math.min(remaining, Math.max(1, Math.round(run.estimated_comments * 0.12)));
+  const charged = step * run.credits_per_comment;
+  if (charged > mockCleanupCredits) {
+    return { ...run, status: 'paused', pause_reason: 'credits_exhausted', updated_at: new Date(now).toISOString() };
+  }
+  mockCleanupCredits -= charged;
+  const processed = run.processed_count + step;
+  const done = processed + run.skipped_count >= run.estimated_comments;
+  return {
+    ...run,
+    processed_count: processed,
+    deleted_count: run.deleted_count + Math.round(step * 0.12),
+    review_count: run.review_count + Math.round(step * 0.01),
+    credits_charged: run.credits_charged + charged,
+    status: done ? 'completed' : 'running',
+    finished_at: done ? new Date(now).toISOString() : null,
+    updated_at: new Date(now).toISOString(),
+  };
+};
+const mockAdvanceRuns = () => { mockCleanupRuns = mockCleanupRuns.map(mockAdvanceRun); };
+const mockLatestCleanup = (pageId, postId) => mockCleanupRuns
+  .filter(run => run.page_id === pageId && run.post_id === postId)
+  .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] || null;
+// Review items the finished run left (live moderation rows carry cleanup_run_id: null).
+mockComments.push(...[
+  ['Shapla Akter', 'Got the wrong size and nobody answers my messages.', 'support_issue', 'Customer reports a problem with their own order'],
+  ['Mahin', 'Is this original or a copy?', 'query', 'Question about authenticity the agent could not answer'],
+  ['Bulk Seller BD', 'Wholesale price? Need 200 pcs', 'query', 'Bulk order request'],
+  ['Rokeya', 'Quality was not as good as the photos.', 'negative_review', 'Complaint about quality'],
+  ['xyz_promo', 'Check my page for cheaper bags!!', 'competitor_promo', 'Possible competitor promotion, low confidence'],
+].map(([name, text, category, reason], index) => mockHandledComment(`cmt_run_${index + 1}`, 48 + index, {
+  post_id: mockPagePosts.page_1[1].post_id, post_content: mockPagePosts.page_1[1].text,
+  commenter_name: name, comment_text: text, category, reason, confidence: 0.6, action: 'review',
+  execution_status: 'pending_review', cleanup_run_id: 'run_done',
+})));
+const mockErrorWith = (status, detail) => { const error = new Error(detail); error.status = status; error.code = detail.split(':')[0]; throw error; };
+const mockCleanupPage = (pageId) => {
+  const page = mockData['/v1/business/pages'].find(item => item.page_id === pageId);
+  if (!page) mockErrorWith(404, 'page_not_found');
+  return page;
+};
+
 // Matches GET /v1/comments' filters: everything except the cursor and page size.
 const mockCommentMatches = (comment, params) => {
   const search = (params.get('search') || '').trim().toLowerCase();
-  return ['page_id', 'platform', 'category', 'action', 'execution_status', 'post_id'].every(key => !params.get(key) || comment[key] === params.get(key))
+  return ['page_id', 'platform', 'category', 'action', 'execution_status', 'post_id', 'cleanup_run_id'].every(key => !params.get(key) || comment[key] === params.get(key))
     && (!search || `${comment.comment_text} ${comment.commenter_name}`.toLowerCase().includes(search));
 };
 // GET /v1/comments/summary, computed from mockComments the way the backend aggregates.
@@ -1099,6 +1218,15 @@ const requestApi = async (endpoint, options = {}) => {
     if (endpoint === '/v1/knowledge/get-namespaces') {
       return { namespaces: MOCK_NAMESPACES };
     }
+    // One source's details, for the Knowledge Details window.
+    const knowledgeItemMatch = endpoint.match(/^\/v1\/knowledge\/ns_1\/(kn_\d+)$/);
+    if (knowledgeItemMatch && method === 'GET') {
+      const details = {
+        kn_1: { name: 'Return policy', title: 'Returns and exchanges', description: 'Customers can return unused items within 7 days of delivery.\nExchanges for a different size are free inside Dhaka; outside Dhaka the customer pays the courier charge.\nRefunds go back to the original payment method within 5 working days.' },
+        kn_2: { name: 'size-guide.pdf', title: 'Size guide', description: 'Chest and length measurements for every shirt size, S to XXL.' },
+      }[knowledgeItemMatch[1]];
+      if (details) return { knowledge_id: knowledgeItemMatch[1], knowledge_usage_id: knowledgeItemMatch[1], created_at: new Date(MOCK_LOADED_AT - 12 * 24 * 3600000).toISOString(), ...details };
+    }
     if (/^\/v1\/knowledge\/ns_1$/.test(endpoint)) {
       return [
         { knowledge_usage_id: 'kn_1', name: 'Return policy', knowledge_type: 'text' },
@@ -1195,6 +1323,114 @@ const requestApi = async (endpoint, options = {}) => {
         return { ...item, read_at: new Date().toISOString() };
       });
       return { updated, unread_count: mockUnreadCount() };
+    }
+    // ── Comment cleanup ── (writes need admin or owner)
+    const isCleanupWrite = method !== 'GET' && (/^\/v1\/business\/pages\/[^/]+\/posts\/settings$/.test(endpoint) || /^\/v1\/comments\/(cleanups|bulk-action)/.test(endpoint));
+    if (isCleanupWrite && mockRole === 'member') mockErrorWith(403, 'This action requires at least the admin role.');
+    const pagePostsMatch = endpoint.match(/^\/v1\/business\/pages\/([^/]+)\/posts(?:\?(.*))?$/);
+    if (pagePostsMatch && method === 'GET') {
+      const page = mockCleanupPage(pagePostsMatch[1]);
+      if (page.needs_reauth) mockErrorWith(412, 'page_reconnect_required');
+      const params = new URLSearchParams(pagePostsMatch[2] || '');
+      const limit = Math.min(50, Math.max(1, Number(params.get('limit')) || 25));
+      const start = Number(params.get('cursor')) || 0;
+      mockAdvanceRuns();
+      const all = mockPagePosts[page.page_id] || [];
+      const next = start + limit < all.length ? String(start + limit) : null;
+      return {
+        posts: all.slice(start, start + limit).map(post => ({
+          ...post,
+          is_comment_manage: !mockPostSwitchOff.has(`${page.page_id}:${post.post_id}`),
+          latest_cleanup: mockLatestCleanup(page.page_id, post.post_id),
+        })),
+        next_cursor: next,
+      };
+    }
+    const postSettingsMatch = endpoint.match(/^\/v1\/business\/pages\/([^/]+)\/posts\/settings$/);
+    if (postSettingsMatch && method === 'PATCH') {
+      const page = mockCleanupPage(postSettingsMatch[1]);
+      const { post_ids: postIds = [], is_comment_manage: on } = JSON.parse(requestOptions.body || '{}');
+      if (!postIds.length || postIds.length > 50) mockErrorWith(422, 'post_ids must hold 1 to 50 ids');
+      const settings = [...new Set(postIds)].map(postId => {
+        const key = `${page.page_id}:${postId}`;
+        if (on) mockPostSwitchOff.delete(key); else mockPostSwitchOff.add(key);
+        return { page_id: page.page_id, post_id: postId, is_comment_manage: Boolean(on), updated_at: new Date().toISOString() };
+      });
+      return { page_id: page.page_id, settings };
+    }
+    if ((endpoint === '/v1/comments/cleanups/estimate' || endpoint === '/v1/comments/cleanups') && method === 'POST') {
+      const { page_id: pageId, post_ids: postIds = [], delete_support_issues: deleteSupport = false } = JSON.parse(requestOptions.body || '{}');
+      const page = mockCleanupPage(pageId);
+      if (!postIds.length || postIds.length > 50) mockErrorWith(422, 'post_ids must hold 1 to 50 ids');
+      if (page.needs_reauth) mockErrorWith(412, 'page_reconnect_required');
+      const posts = postIds.map(postId => {
+        const post = (mockPagePosts[page.page_id] || []).find(item => item.post_id === postId);
+        if (!post) mockErrorWith(404, `post_not_found:${postId}`);
+        return post;
+      });
+      if (!page.agent_name) mockErrorWith(409, 'page_has_no_agent');
+      mockAdvanceRuns();
+      const queuedComments = mockCleanupRuns
+        .filter(run => run.page_id === page.page_id && ['queued', 'running', 'paused'].includes(run.status))
+        .reduce((sum, run) => sum + Math.max(0, run.estimated_comments - run.processed_count - run.skipped_count), 0);
+      const totalComments = posts.reduce((sum, post) => sum + (post.comment_count || 0), 0);
+      const finishAt = new Date(Date.now() + Math.max(1, Math.ceil((queuedComments + totalComments) / 1000)) * 3600000).toISOString();
+      if (endpoint.endsWith('/estimate')) {
+        return {
+          price_per_comment: MOCK_CLEANUP_PRICE,
+          credits_remaining: mockCleanupCredits,
+          posts: posts.map(post => ({ post_id: post.post_id, comment_count: post.comment_count || 0, estimated_credits: (post.comment_count || 0) * MOCK_CLEANUP_PRICE })),
+          total_comments: totalComments,
+          total_credits: totalComments * MOCK_CLEANUP_PRICE,
+          estimated_finish_at: finishAt,
+        };
+      }
+      const now = new Date().toISOString();
+      const runs = posts.map(post => {
+        const active = mockCleanupRuns.find(run => run.page_id === page.page_id && run.post_id === post.post_id && ['queued', 'running', 'paused'].includes(run.status));
+        if (active) return active;
+        const run = mockRun(`run_${Date.now().toString(36)}_${post.post_id}`, page.page_id, post, {
+          delete_support_issues: Boolean(deleteSupport), created_at: now, updated_at: now,
+        });
+        mockCleanupRuns = [run, ...mockCleanupRuns];
+        return run;
+      });
+      return { runs, estimated_finish_at: finishAt };
+    }
+    const cleanupListMatch = endpoint.match(/^\/v1\/comments\/cleanups(?:\?(.*))?$/);
+    if (cleanupListMatch && method === 'GET') {
+      mockAdvanceRuns();
+      const params = new URLSearchParams(cleanupListMatch[1] || '');
+      const matches = mockCleanupRuns
+        .filter(run => (!params.get('page_id') || run.page_id === params.get('page_id')) && (!params.get('status') || run.status === params.get('status')))
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+      const size = Math.min(100, Math.max(1, Number(params.get('page_size')) || 20));
+      const start = Number(params.get('cursor')) || 0;
+      const next = start + size < matches.length ? String(start + size) : null;
+      return { runs: matches.slice(start, start + size), pagination: { next_cursor: next, has_more: Boolean(next), page_size: size, total: matches.length } };
+    }
+    const cleanupRunMatch = endpoint.match(/^\/v1\/comments\/cleanups\/([^/?]+)(\/cancel)?$/);
+    if (cleanupRunMatch && cleanupRunMatch[1] !== 'estimate') {
+      mockAdvanceRuns();
+      const run = mockCleanupRuns.find(item => item.id === cleanupRunMatch[1]);
+      if (!run) mockErrorWith(404, 'run_not_found');
+      if (!cleanupRunMatch[2]) return run;
+      if (['completed', 'failed', 'cancelled'].includes(run.status)) mockErrorWith(409, 'run_not_cancellable');
+      const cancelled = { ...run, status: 'cancelled', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      mockCleanupRuns = mockCleanupRuns.map(item => (item.id === run.id ? cancelled : item));
+      return cancelled;
+    }
+    if (endpoint === '/v1/comments/bulk-action' && method === 'POST') {
+      const { comment_analysis_ids: ids = [], action } = JSON.parse(requestOptions.body || '{}');
+      if (!['delete_comment', 'dismiss'].includes(action)) mockErrorWith(422, 'action must be delete_comment or dismiss');
+      if (!ids.length || ids.length > 500) mockErrorWith(422, 'comment_analysis_ids must hold 1 to 500 ids');
+      // The real job runs in the background; the mock applies it a few seconds later.
+      setTimeout(() => {
+        const changes = action === 'delete_comment' ? { is_deleted: true, execution_status: 'resolved' } : { execution_status: 'dismissed' };
+        mockComments = mockComments.map(item => (ids.includes(item.id) && !(action === 'delete_comment' && item.is_deleted)
+          ? { ...item, ...changes, updated_at: new Date().toISOString() } : item));
+      }, 2500);
+      return { job_id: `job_${Date.now().toString(36)}`, accepted: ids.length };
     }
     const commentListMatch = endpoint.match(/^\/v1\/comments(\/summary)?(?:\?(.*))?$/);
     if (commentListMatch && method === 'GET') {
@@ -1377,21 +1613,24 @@ const requestApi = async (endpoint, options = {}) => {
       return { messages, pagination: { has_more: false, next_cursor: null, page_size: messages.length, total: messages.length } };
     }
     // Visual-match labels: att_img_2 is "not processed yet" (422) so that state shows too.
-    const visualLabelMatch = endpoint.match(/^\/v1\/conversations\/([^/]+)\/attachments\/([^/]+)\/visual-label$/);
-    if (visualLabelMatch && (method === 'POST' || method === 'DELETE')) {
-      const [, conversationId, attachmentId] = visualLabelMatch;
+    // An image can carry several products; DELETE names the one product to remove.
+    const visualLabelMatch = endpoint.match(/^\/v1\/conversations\/([^/]+)\/attachments\/([^/]+)\/visual-label(?:\/([^/]+))?$/);
+    if (visualLabelMatch && ((method === 'POST' && !visualLabelMatch[3]) || (method === 'DELETE' && visualLabelMatch[3]))) {
+      const [, conversationId, attachmentId, labelledProductId] = visualLabelMatch;
       const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };
       if (!MOCK_IMAGE_ATTACHMENTS[attachmentId] || MOCK_IMAGE_ATTACHMENTS[attachmentId] !== conversationId) fail(404, 'Attachment not found in this conversation');
       const labelKey = `${conversationId}:${attachmentId}`;
       if (method === 'DELETE') {
-        if (!mockVisualLabels.has(labelKey)) fail(404, 'No label on this image');
-        mockVisualLabels.delete(labelKey);
+        if (!mockVisualLabels.get(labelKey)?.has(labelledProductId)) fail(404, 'That product is not labelled on this image');
+        mockVisualLabels.get(labelKey).delete(labelledProductId);
         return {};
       }
       if (attachmentId === 'att_img_2') fail(422, 'The matcher has not processed this image yet');
       const { product_id: productId } = JSON.parse(requestOptions.body || '{}');
       if (!mockProducts.some(product => product.product_id === productId)) fail(404, 'Product not found');
-      mockVisualLabels.set(labelKey, productId);
+      // Labelling the same product again is a no-op that still answers 201.
+      if (!mockVisualLabels.has(labelKey)) mockVisualLabels.set(labelKey, new Set());
+      mockVisualLabels.get(labelKey).add(productId);
       return { success: true };
     }
     // A long thread for conv_1, newest first and paged like the real endpoint, so
@@ -1640,7 +1879,31 @@ const requestApi = async (endpoint, options = {}) => {
         total: body.total ?? (itemsTotal + Number(body.delivery_charge || 0)).toFixed(2),
       };
       mockConversationOrders[conversationId] = [created, ...(mockConversationOrders[conversationId] || [])];
-      return created;
+      // The order_created notification now reaches the admin who created it too.
+      const currency = mockBusiness.currency || 'BDT';
+      const notification = {
+        notification_id: `ntf_order_${Date.now()}`, business_id: 'biz_1', page_id: created.page_id || 'page_1', type: 'order_created',
+        category: 'order', severity: 'info', title: `New order ${created.order_id}`,
+        body: `${created.contact_name || 'Customer'} · ${created.total} ${currency}`, can_action: true, action_role: null, read_at: null,
+        created_at: now, payload: { customer_order_id: created.customer_order_id, order_id: created.order_id, conversation_id: conversationId },
+      };
+      mockNotifications = [notification, ...mockNotifications];
+      mockPush('notification', notification, 1500);
+      // `summary` is only on this create response: customer-ready text, lines without data left out.
+      const money = (value) => Number(value || 0).toFixed(2);
+      const items = created.order_items || [];
+      const summary = [
+        `Order ${created.order_id}`,
+        ...items.map((item, index) => `${index + 1}. ${item.name} x ${item.quantity} = ${money(item.quantity * item.price)}`),
+        ...(items.length ? [`Subtotal: ${money(itemsTotal)} ${currency}`] : []),
+        `Delivery charge: ${money(created.delivery_charge)} ${currency}`,
+        `Total: ${money(created.total)} ${currency}`,
+        '',
+        ...(created.contact_name ? [`Name: ${created.contact_name}`] : []),
+        ...(created.contact_phone ? [`Phone: ${created.contact_phone}`] : []),
+        ...(created.delivery_address ? [`Address: ${created.delivery_address}`] : []),
+      ].join('\n').trim();
+      return { ...created, summary };
     }
     const pageOrdersListMatch = endpoint.startsWith('/v1/pages/orders');
     const pageOrdersListMock = (pageOrdersListMatch && !pageOrderDetailMatch)
@@ -2488,12 +2751,13 @@ export const apiService = {
 
   // Returns basic info for a specific message (role, has_attachment, is_ai_msg, created_at)
   // Staff label for a customer photo: "this image shows product X", for the visual matcher.
-  // 201 { success }; a second call replaces the label. DELETE answers 204 (404 when none).
+  // 201 { success }. An image can carry several products: one call per product, and a
+  // repeat is a safe no-op. DELETE removes one product's label: 204, or 404 when it isn't on.
   labelCustomerImage: (conversationId, attachmentId, productId) => apiFetch(`/v1/conversations/${conversationId}/attachments/${attachmentId}/visual-label`, {
     method: 'POST',
     body: JSON.stringify({ product_id: productId }),
   }),
-  removeCustomerImageLabel: (conversationId, attachmentId) => apiFetch(`/v1/conversations/${conversationId}/attachments/${attachmentId}/visual-label`, {
+  removeCustomerImageLabel: (conversationId, attachmentId, productId) => apiFetch(`/v1/conversations/${conversationId}/attachments/${attachmentId}/visual-label/${encodeURIComponent(productId)}`, {
     method: 'DELETE',
   }),
   getMessageInfo: (conversationId, messageId) => apiFetch(`/v1/conversations/${conversationId}/messages/${messageId}/info`),
@@ -2836,7 +3100,7 @@ export const apiService = {
   /** @param {CommentListFilters} [filters] @returns {Promise<CommentListResponse>} */
   getComments: (filters = {}) => {
     const q = new URLSearchParams();
-    ['cursor', 'page_size', 'page_id', 'platform', 'category', 'action', 'execution_status', 'post_id', 'search'].forEach(key => {
+    ['cursor', 'page_size', 'page_id', 'platform', 'category', 'action', 'execution_status', 'post_id', 'cleanup_run_id', 'search'].forEach(key => {
       if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') q.set(key, filters[key]);
     });
     const qs = q.toString();
@@ -2856,6 +3120,46 @@ export const apiService = {
   executeCommentAction: (commentAnalysisId, action, customReply = null) => apiFetch(`/v1/comments/${encodeURIComponent(commentAnalysisId)}/action`, {
     method: 'POST',
     body: JSON.stringify(customReply ? { action, custom_reply: customReply } : { action }),
+  }),
+
+  // ── Comment cleanup and the per-post moderation switch ──
+  // Errors carry `code` (e.g. page_reconnect_required, post_not_found:<id>); see
+  // utils/commentCleanup.js for the copy. Writes need the admin or owner role.
+  /** Posts of a page, live from Meta, newest first, ads included. → { posts, next_cursor } */
+  getPagePosts: (pageId, { cursor = null, limit = 25 } = {}) => {
+    const q = new URLSearchParams({ limit: String(limit) });
+    if (cursor) q.set('cursor', cursor);
+    return apiFetch(`/v1/business/pages/${encodeURIComponent(pageId)}/posts?${q.toString()}`);
+  },
+  /** Turn the live moderation agent on or off for 1–50 posts. → { page_id, settings } */
+  setPostsCommentManage: (pageId, postIds, isCommentManage) => apiFetch(`/v1/business/pages/${encodeURIComponent(pageId)}/posts/settings`, {
+    method: 'PATCH',
+    body: JSON.stringify({ post_ids: postIds, is_comment_manage: isCommentManage }),
+  }),
+  /** Upper-bound cost and finish time of cleaning 1–50 posts. */
+  estimateCommentCleanup: (pageId, postIds) => apiFetch('/v1/comments/cleanups/estimate', {
+    method: 'POST',
+    body: JSON.stringify({ page_id: pageId, post_ids: postIds }),
+  }),
+  /** Start cleanup runs (a post with an active run returns that run). → { runs, estimated_finish_at } */
+  startCommentCleanup: (pageId, postIds, deleteSupportIssues) => apiFetch('/v1/comments/cleanups', {
+    method: 'POST',
+    body: JSON.stringify({ page_id: pageId, post_ids: postIds, delete_support_issues: Boolean(deleteSupportIssues) }),
+  }),
+  /** → { runs, pagination: { next_cursor, has_more, page_size, total } }, newest first. */
+  getCommentCleanups: ({ pageId, status, cursor, pageSize = 20 } = {}) => {
+    const q = new URLSearchParams({ page_size: String(pageSize) });
+    if (pageId) q.set('page_id', pageId);
+    if (status) q.set('status', status);
+    if (cursor) q.set('cursor', cursor);
+    return apiFetch(`/v1/comments/cleanups?${q.toString()}`);
+  },
+  getCommentCleanup: (runId) => apiFetch(`/v1/comments/cleanups/${encodeURIComponent(runId)}`),
+  cancelCommentCleanup: (runId) => apiFetch(`/v1/comments/cleanups/${encodeURIComponent(runId)}/cancel`, { method: 'POST' }),
+  /** Delete or dismiss up to 500 comments in the background. → { job_id, accepted } */
+  bulkCommentAction: (commentAnalysisIds, action) => apiFetch('/v1/comments/bulk-action', {
+    method: 'POST',
+    body: JSON.stringify({ comment_analysis_ids: commentAnalysisIds, action }),
   }),
 
   deleteNotification: (notificationId) => apiFetch(`/v1/notifications/${notificationId}`, {
