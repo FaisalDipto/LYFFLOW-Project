@@ -1,4 +1,4 @@
-import logoImg from '../assets/logo1.webp';
+import logoImg from '../assets/logo-mark.svg';
 import titleImg from '../assets/title.webp';
 import './AppLoadingScreen.css';
 
@@ -7,7 +7,7 @@ export default function AppLoadingScreen() {
     <main className="app-loading-screen" role="status" aria-live="polite" aria-label="Loading LYFFLOW">
       <div className="app-loading-frame">
         <div className="app-loading-brand" aria-hidden="true">
-          <img className="app-loading-mark" src={logoImg} alt="" width="52" height="30" />
+          <img className="app-loading-mark" src={logoImg} alt="" width="40" height="40" />
           <span className="app-loading-divider" />
           <img className="app-loading-wordmark" src={titleImg} alt="" width="137" height="31" />
         </div>

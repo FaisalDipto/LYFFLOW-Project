@@ -690,6 +690,9 @@ const mockProductTextLimits = (fields) => {
   error.status = 422;
   throw error;
 };
+// A long shared link with UTM parameters and no spaces, used in conv_1's thread.
+const MOCK_LONG_UTM_URL = 'https://demostore.example/products/led-acrylic-writing-board-goo47-2?utm_source=facebook&utm_medium=paid_social&utm_campaign=winter_sale_2026_bangladesh_retargeting&utm_content=carousel_ad_variant_b_led_board&utm_term=writing_board_led&fbclid=IwAR3xYz9KqLmNoPqRsTuVwXyZ0123456789abcdefGHIJ';
+
 // Customer photos in conv_1's thread (by message index) and the labels staff gave them.
 const MOCK_IMAGE_MESSAGES = {
   8: { id: 'att_img_1', text: 'এটা আছে?', url: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=400&auto=format&fit=crop&q=70' },
@@ -1646,7 +1649,8 @@ const requestApi = async (endpoint, options = {}) => {
           return {
             ...base, role: 'user', is_ai_msg: false,
             // index 6 is the customer tapping a product card's button.
-            message: index === 0 ? 'Hello, I need help with my order.' : index === 6 ? 'এটা নিব (GOO47-2)' : `Customer message #${60 - index}: could you tell me more about this item?`,
+            // index 2 is a pasted link with no spaces, to check long words wrap inside the bubble.
+            message: index === 0 ? 'Hello, I need help with my order.' : index === 2 ? `Saw this on Facebook: ${MOCK_LONG_UTM_URL}` : index === 6 ? 'এটা নিব (GOO47-2)' : `Customer message #${60 - index}: could you tell me more about this item?`,
             // One recalled message, as Messenger's unsend leaves it.
             ...(index === 4 ? { is_deleted: true, deleted_at: new Date(MOCK_LOADED_AT - 15 * 60000).toISOString() } : {}),
             // Two customer photos to label (the matcher hasn't processed the older one yet).
@@ -1662,6 +1666,7 @@ const requestApi = async (endpoint, options = {}) => {
         return {
           ...base, role: 'page', is_ai_msg: !sentBy, sent_by_member_id: sentBy,
           message: index === 1 ? "I've passed this to our delivery team; they'll confirm the time today."
+            : index === 5 ? `Here's the product page: ${MOCK_LONG_UTM_URL}`
             : index === 7 ? '[Product cards] LED Acrylic Writing Board (Code: GOO47-2) — ৳650 (Regular ৳1500) · Magical Water Floating Pens (Code: GOO69-1) — ৳550 · Mini Desk Organiser (Code: GOO12) — ৳420'
             : `Agent reply #${60 - index}: here are the details you asked about.`,
           // Card messages carry the cards too; image keys only resolve against the real API.

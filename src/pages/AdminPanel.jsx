@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
-import logoImg from '../assets/logo1.png';
+import logoImg from '../assets/logo-mark.svg';
 import titleImg from '../assets/title.png';
 import CheckpointerDebugModal from '../components/CheckpointerDebugModal';
 import { useDashboardTheme } from '../hooks/useDashboardTheme';

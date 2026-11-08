@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
 import './Navbar.css';
-import logoImg from '../assets/logo1.webp';
+import logoImg from '../assets/logo-mark.svg';
 import titleImg from '../assets/title.webp';
 
 export default function Navbar({ theme, onToggleTheme }) {
@@ -44,7 +44,7 @@ export default function Navbar({ theme, onToggleTheme }) {
       <nav className={`navbar ${isScrolled ? 'scrolled' : ''}`}>
         {/* Logo Section */}
         <Link to="/" className="nav-logo">
-          <img src={logoImg} alt="LYFFLOW Logo" className="brand-logo-img" width="56" height="32" />
+          <img src={logoImg} alt="LYFFLOW Logo" className="brand-logo-img" width="32" height="32" />
           <img src={titleImg} alt="LYFFLOW" className="brand-title-img" width="137" height="28" />
         </Link>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Mail, Moon, Sun } from 'lucide-react';
-import logoImg from '../assets/logo1.webp';
+import logoImg from '../assets/logo-mark.svg';
 import titleImg from '../assets/title.webp';
 import RoleBadge from '../components/RoleBadge';
 import { apiService } from '../services/api';
@@ -98,7 +98,7 @@ export default function Invite() {
     <div data-theme={theme} style={{ colorScheme: theme }} className="flex min-h-screen flex-col bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b0f17] dark:text-slate-100">
       <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-5 sm:px-6">
         <Link to="/" className="flex items-center gap-2">
-          <img src={logoImg} alt="LYFFLOW logo" style={{ height: '34px', width: 'auto' }} className="dark:invert" />
+          <img src={logoImg} alt="LYFFLOW logo" style={{ height: '34px', width: '34px' }} />
           <img src={titleImg} alt="LYFFLOW" style={{ height: '17px', width: 'auto' }} className="dark:invert" />
         </Link>
         <button

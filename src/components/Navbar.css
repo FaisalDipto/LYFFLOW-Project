@@ -53,10 +53,9 @@
 
 .brand-logo-img {
   height: 32px;
-  width: auto;
+  width: 32px;
   object-fit: contain;
   flex-shrink: 0;
-  filter: brightness(0) saturate(100%) invert(59%) sepia(72%) saturate(450%) hue-rotate(100deg) brightness(95%) contrast(90%);
 }
 
 .brand-title-img {
@@ -577,6 +576,7 @@
 
   .brand-logo-img {
     height: 30px;
+    width: 30px;
   }
 
   .brand-title-img {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ProductShowcase.css';
-import logoImg  from '../assets/logo1.webp';
+import logoImg from '../assets/logo-mark.svg';
 import titleImg from '../assets/title.webp';
 
 /* ── DATA ──────────────────────────────────────────────────── */
@@ -87,7 +87,7 @@ function MockSidebar({ activeNav }) {
   return (
     <div className="mock-sidebar">
       <div className="mock-logo">
-        <img src={logoImg}  alt="LYFFLOW" style={{ height: 26, width: 'auto', filter: 'brightness(0) saturate(100%) invert(59%) sepia(72%) saturate(450%) hue-rotate(100deg) brightness(95%) contrast(90%)' }} />
+        <img src={logoImg}  alt="LYFFLOW" style={{ height: 26, width: 26 }} />
         <img src={titleImg} alt="LYFFLOW" style={{ height: 14, width: 'auto', filter: 'brightness(0) saturate(100%) invert(59%) sepia(72%) saturate(450%) hue-rotate(100deg) brightness(95%) contrast(90%)' }} />
       </div>
       <div className="mock-new-agent-btn">

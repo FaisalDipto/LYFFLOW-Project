@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './Login.css';
-import logoImg from '../assets/logo1.png';
+import logoImg from '../assets/logo-mark.svg';
 import titleImg from '../assets/title.png';
 
 export default function Login() {
@@ -26,7 +26,7 @@ export default function Login() {
         {/* Header / Logo */}
         <div className="login-header">
           <Link to="/" className="login-logo-container">
-            <img src={logoImg} alt="LYFFLOW Logo" className="brand-logo-img-login" style={{ height: '50px', width: 'auto' }} />
+            <img src={logoImg} alt="LYFFLOW Logo" className="brand-logo-img-login" style={{ height: '44px', width: '44px' }} />
             <img src={titleImg} alt="LYFFLOW" className="brand-title-img-login" style={{ height: '28px', width: 'auto', marginLeft: '10px' }} />
           </Link>
           <h1 className="login-title">Welcome Back</h1>

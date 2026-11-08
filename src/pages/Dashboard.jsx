@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
 import '@fontsource-variable/archivo/wdth.css';
 import { useLocation, useNavigate } from 'react-router-dom';
-import logoImg from '../assets/logo1.webp';
+import logoImg from '../assets/logo-mark.svg';
 import titleImg from '../assets/title.webp';
 import AppLoadingScreen from '../components/AppLoadingScreen';
 import AgentAvatar from '../components/AgentAvatar';
@@ -1686,12 +1686,12 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     if (productCards) return <ProductCardsMessage cards={productCards} inverted={isMe} />;
     if (typeof body === 'object' && body !== null) {
       return (
-        <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
+        <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0, fontFamily: 'inherit' }}>
           {JSON.stringify(body, null, 2)}
         </pre>
       );
     }
-    return body ? <span style={{ whiteSpace: 'pre-wrap' }}>{body}</span> : null;
+    return body ? <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{body}</span> : null;
   };
 
   // Delivery for a sent message: sending, sent, delivered, then seen.
@@ -7494,7 +7494,7 @@ export default function Dashboard() {
         <div className="flex h-[76px] w-full shrink-0 items-center border-b border-white/8 px-3">
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 ring-1 ring-emerald-300/15">
-              <img src={logoImg} alt="" width="40" height="23" style={{ width: '40px', height: 'auto', filter: 'brightness(0) saturate(100%) invert(73%) sepia(52%) saturate(670%) hue-rotate(103deg) brightness(96%) contrast(92%)' }} />
+              <img src={logoImg} alt="" width="30" height="30" style={{ width: '30px', height: '30px' }} />
             </div>
             <div className="min-w-0">
               <img src={titleImg} alt="LYFFLOW" style={{ height: '16px', width: 'auto', filter: 'brightness(0) saturate(100%) invert(80%) sepia(12%) saturate(677%) hue-rotate(181deg) brightness(106%) contrast(94%)' }} />

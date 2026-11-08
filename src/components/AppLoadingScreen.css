@@ -53,10 +53,9 @@
 }
 
 .app-loading-mark {
-  width: 52px;
-  height: auto;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
-  filter: brightness(0) saturate(100%) invert(76%) sepia(52%) saturate(626%) hue-rotate(101deg) brightness(91%) contrast(92%);
 }
 
 .app-loading-divider {
@@ -204,7 +203,8 @@
 
 @media (max-width: 420px) {
   .app-loading-mark {
-    width: 46px;
+    width: 36px;
+    height: 36px;
   }
 
   .app-loading-wordmark {

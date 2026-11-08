@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { Moon, Sun } from 'lucide-react';
 import './GetStarted.css';
-import logoImg from '../assets/logo1.png';
+import logoImg from '../assets/logo-mark.svg';
 import titleImg from '../assets/title.png';
 import LegalCenter from '../components/LegalCenter';
 import catAnimationUrl from '../../animation/catLottieJSON.json?url';
@@ -67,7 +67,7 @@ export default function GetStarted() {
       <div className="left-panel">
         <div className="left-panel-header">
           <Link to="/" className="gs-logo-container">
-            <img src={logoImg} alt="LYFFLOW Logo" className="gs-brand-img" style={{ height: '40px', width: 'auto' }} />
+            <img src={logoImg} alt="LYFFLOW Logo" style={{ height: '40px', width: '40px' }} />
             <img src={titleImg} alt="LYFFLOW" className="gs-brand-img" style={{ height: '20px', width: 'auto', marginLeft: '8px' }} />
           </Link>
         </div>

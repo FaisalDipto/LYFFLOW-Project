@@ -4,8 +4,8 @@
 .admin-sidebar.collapsed{width:0;transform:translateX(-100%)}
 .admin-sidebar-logo{height:72px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex:0 0 72px;padding:0 17px;border-bottom:1px solid rgba(148,163,184,.11)}
 .admin-brand-lockup{display:flex;align-items:center;gap:9px;min-width:0}
-.admin-sidebar-logo img{height:27px;width:auto;filter:brightness(0) saturate(100%) invert(59%) sepia(72%) saturate(450%) hue-rotate(100deg) brightness(95%) contrast(90%)}
-.admin-sidebar-logo .title-img{height:13px;filter:brightness(0) invert(1);opacity:.88}
+.admin-sidebar-logo img{height:27px;width:27px}
+.admin-sidebar-logo .title-img{height:13px;width:auto;filter:brightness(0) invert(1);opacity:.88}
 .admin-console-chip{padding:4px 6px;border:1px solid rgba(45,212,191,.2);border-radius:6px;background:rgba(16,185,129,.09);color:#5eead4;font-size:7.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
 .admin-sidebar-subtitle{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3);padding:8px 20px 12px}
 .admin-nav{display:flex;flex-direction:column;gap:11px;min-height:0;padding:13px 10px 16px;flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.22) transparent}
