@@ -1,0 +1,62 @@
+/* Event motion: things move once when something changes, or while work is in progress.
+   Nothing here loops at rest, and all of it is off with "reduce motion". */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* A new notification: the bell swings once and the badge pops. */
+  .lf-bell-ring svg { animation: lf-bell-ring 0.9s cubic-bezier(0.36, 0.07, 0.19, 0.97); transform-origin: 50% 2px; }
+  .lf-bell-ring .lf-bell-badge { animation: lf-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  /* "Needs you now": a count that went up, and a row that just arrived. */
+  .lf-count-bump { animation: lf-count-bump 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .lf-card-flash { animation: lf-card-flash 2.4s ease-out; }
+  .lf-row-new { animation: lf-row-new 2.8s ease-out; }
+
+  /* Saved confirmation. */
+  .lf-saved-check { animation: lf-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  /* Work in progress: only rendered while it is happening. */
+  .lf-dots span { animation: lf-dot 1.2s ease-in-out infinite; }
+  .lf-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .lf-dots span:nth-child(3) { animation-delay: 0.3s; }
+}
+
+.lf-dots { display: inline-flex; align-items: center; gap: 2px; }
+.lf-dots span { width: 4px; height: 4px; border-radius: 999px; background: currentColor; opacity: 0.45; }
+
+@keyframes lf-bell-ring {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-5deg); }
+  75% { transform: rotate(2deg); }
+  100% { transform: rotate(0); }
+}
+
+@keyframes lf-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@keyframes lf-count-bump {
+  0% { transform: translateY(0); color: inherit; }
+  35% { transform: translateY(-3px) scale(1.12); color: #d97706; }
+  100% { transform: none; }
+}
+
+@keyframes lf-card-flash {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  15% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.28); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+@keyframes lf-row-new {
+  0%, 30% { background-color: rgba(245, 158, 11, 0.16); }
+  100% { background-color: transparent; }
+}
+
+@keyframes lf-dot {
+  0%, 80%, 100% { opacity: 0.35; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}

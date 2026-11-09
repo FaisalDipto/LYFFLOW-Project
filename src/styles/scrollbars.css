@@ -1,0 +1,44 @@
+/* Dashboard scrollbars: thin, no track, a soft thumb that darkens while hovered or
+   dragged. Covers the layout and dialogs portalled to <body> (body.dashboard-route).
+   Phones keep their own overlay scrollbars (pointer: coarse). */
+
+@media (pointer: fine) {
+  body.dashboard-route {
+    --lf-scroll-thumb: rgba(100, 116, 139, 0.28);
+    --lf-scroll-thumb-hover: rgba(100, 116, 139, 0.5);
+  }
+  html[data-dashboard-theme='dark'] body.dashboard-route {
+    --lf-scroll-thumb: rgba(255, 255, 255, 0.16);
+    --lf-scroll-thumb-hover: rgba(255, 255, 255, 0.3);
+  }
+
+  /* Chrome, Edge, Safari. */
+  body.dashboard-route ::-webkit-scrollbar { width: 10px; height: 10px; }
+  body.dashboard-route ::-webkit-scrollbar-track,
+  body.dashboard-route ::-webkit-scrollbar-corner { background: transparent; }
+  body.dashboard-route ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  /* The transparent border keeps the visible thumb about 6px wide inside a 10px grab area. */
+  body.dashboard-route ::-webkit-scrollbar-thumb {
+    background-color: var(--lf-scroll-thumb);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    min-height: 32px;
+  }
+  body.dashboard-route ::-webkit-scrollbar-thumb:hover,
+  body.dashboard-route ::-webkit-scrollbar-thumb:active { background-color: var(--lf-scroll-thumb-hover); }
+
+  /* Firefox (Chrome would drop the rules above if these applied to it). */
+  @supports (-moz-appearance: none) {
+    body.dashboard-route,
+    body.dashboard-route * { scrollbar-width: thin; scrollbar-color: var(--lf-scroll-thumb) transparent; }
+  }
+
+  /* The page doesn't shift sideways when it becomes long enough to scroll. */
+  .dashboard-content-wrapper { scrollbar-gutter: stable; }
+}
+
+/* The dark sidebar keeps its own lighter thumb. */
+body.dashboard-route .lf-scroll::-webkit-scrollbar { width: 8px; }
+body.dashboard-route .lf-scroll::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.12); }
+body.dashboard-route .lf-scroll::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.24); }

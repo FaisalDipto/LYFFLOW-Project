@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, LogOut, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, ChartColumnIncreasing, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -13,7 +13,7 @@ import RequiredActionsBanner from '../components/RequiredActionsBanner';
 import RoleBadge from '../components/RoleBadge';
 import { BusinessDetailsSettings, BusinessMembersSettings } from '../components/BusinessSettings';
 import { NotificationsProvider } from '../context/NotificationsContext';
-import { BusinessProvider, useBusiness } from '../context/BusinessContext';
+import { BusinessProvider, ROLE_LABELS, useBusiness } from '../context/BusinessContext';
 import { PlanGateProvider, usePlanGate } from '../context/PlanGateContext';
 import UpgradeRequiredModal from '../components/UpgradeRequiredModal';
 import Toast from '../components/Toast';
@@ -42,6 +42,7 @@ import { useWindowStatus } from '../hooks/useWindowStatus';
 import { memberShortName, useTeamMembers } from '../hooks/useTeamMembers';
 import { messagingWindowState } from '../utils/messagingWindow';
 import ReplyComposer from '../components/conversation/ReplyComposer';
+import LinkPreview, { LinkifiedText } from '../components/conversation/LinkPreview';
 import ProductCardsMessage from '../components/conversation/ProductCardsMessage';
 import ConversationNote from '../components/conversation/ConversationNote';
 import ImageProductLabel from '../components/conversation/ImageProductLabel';
@@ -59,8 +60,10 @@ import MessagingWindowNotice from '../components/conversation/MessagingWindowNot
 import ConversationAssignee from '../components/conversation/ConversationAssignee';
 import './Dashboard.css';
 import '../styles/dashboard-theme.css';
+import '../styles/scrollbars.css';
 
 // Mock mode (?mock=true): mock attachments carry their own image URL.
+const SIDEBAR_COLLAPSED_KEY = 'lyfflow-sidebar-collapsed';
 const MOCK_MODE = typeof window !== 'undefined' && window.location.search.includes('mock=true');
 const AgentAvatarModal = lazy(() => import('../components/AgentAvatarModal'));
 const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
@@ -73,6 +76,10 @@ const SteadfastCourier = lazy(() => import('../components/courier/SteadfastCouri
 const PathaoCourier = lazy(() => import('../components/courier/PathaoCourier'));
 const AnalyticsHub = lazy(() => import('../components/dashboard/AnalyticsHub'));
 const OwnerDashboard = lazy(() => import('../components/dashboard/OwnerDashboard'));
+import DashboardSidebar from '../components/dashboard/DashboardSidebar';
+import ProfilePanel from '../components/dashboard/ProfilePanel';
+import SavedBadge from '../components/SavedBadge';
+const ProductSalesStatistics = lazy(() => import('../components/dashboard/ProductSalesStatistics'));
 const PlatformsCatalog = lazy(() => import('../components/dashboard/PlatformsCatalog'));
 
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
@@ -587,7 +594,7 @@ const Channels = ({ user, pages, onNavigate, onAddPage, onUpdate, syncStatus = '
               <div className="mt-3 border-t border-slate-100 pt-3">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-600">Assigned agent</span>
-                  {success[page.page_id] && <span className="text-[10px] font-bold text-emerald-600">Saved</span>}
+                  {success[page.page_id] && <SavedBadge className="text-[10px]" />}
                 </div>
 
                 <div className="custom-dropdown-container relative mx-auto w-[88%] min-w-0">
@@ -1691,13 +1698,19 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
         </pre>
       );
     }
-    return body ? <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{body}</span> : null;
+    if (!body) return null;
+    return (
+      <>
+        <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}><LinkifiedText text={body} inverted={isMe} /></span>
+        <LinkPreview text={body} inverted={isMe} />
+      </>
+    );
   };
 
   // Delivery for a sent message: sending, sent, delivered, then seen.
   const renderDeliveryStatus = (msg) => {
     if (msg._pending) {
-      return <Clock3 size={12} className="text-slate-400" aria-label="Sending" />;
+      return <span className="lf-dots text-slate-400" role="img" aria-label="Sending"><span /><span /><span /></span>;
     }
     if (msg._unconfirmed) {
       return <TriangleAlert size={12} className="text-amber-500" aria-label="Not confirmed" />;
@@ -5891,7 +5904,7 @@ const SettingsPanel = ({ user, onUpdate, onBusinessDeleted, focusRequest }) => {
               disabled={profileSaving}
               style={{ marginTop: '16px', backgroundColor: profileSaved ? '#22c55e' : 'var(--text-primary)', color: 'var(--dashboard-on-primary, #fff)', border: 'none', borderRadius: '8px', padding: '12px 28px', fontWeight: 700, fontSize: '14px', cursor: profileSaving ? 'not-allowed' : 'pointer', transition: 'background-color 0.25s' }}
             >
-              {profileSaving ? 'Saving...' : profileSaved ? '✓ Profile Updated!' : 'Save Changes'}
+              {profileSaving ? 'Saving…' : profileSaved ? <span className="inline-flex items-center gap-1.5"><span className="lf-saved-check inline-flex"><Check size={16} strokeWidth={2.75} aria-hidden="true" /></span>Saved</span> : 'Save Changes'}
             </button>
           </form>
         )}
@@ -6975,6 +6988,8 @@ export default function Dashboard() {
   const visitedTabsRef = useRef(new Set(['dashboard']));
   visitedTabsRef.current.add(activeTab);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileButtonRef = useRef(null);
+  const closeProfile = useCallback(() => setIsProfileOpen(false), []);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   // Set when a notification is clicked, so the destination tab can open the record it points at.
   const [notificationFocus, setNotificationFocus] = useState(null);
@@ -6987,9 +7002,13 @@ export default function Dashboard() {
     setCommentReviewClosedCount(count => count + 1);
   }, []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  // Expanded state per collapsible nav group, keyed by item id (e.g. { 'customer-records': true }).
-  const [expandedNavGroups, setExpandedNavGroups] = useState({});
+  // The desktop rail (icons only) is remembered on this browser.
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    try { return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isSidebarCollapsed)); } catch { /* storage blocked */ }
+  }, [isSidebarCollapsed]);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -7300,6 +7319,11 @@ export default function Dashboard() {
             )}
           </Suspense>
         </div>}
+        {visitedTabsRef.current.has('product-sales') && <div style={{ display: activeTab === 'product-sales' ? 'contents' : 'none' }}>
+          <Suspense fallback={<AppLoadingScreen />}>
+            <ProductSalesStatistics pages={pages} isActive={activeTab === 'product-sales'} />
+          </Suspense>
+        </div>}
         {visitedTabsRef.current.has('channels') && <div style={{ display: activeTab === 'channels' ? 'contents' : 'none' }}>
           <Channels user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={(options) => setPreReauthModal(options?.includeInstagram ? { includeInstagram: true } : true)} syncStatus={pageSync.status} onRetrySync={retryPageSync} />
         </div>}
@@ -7382,6 +7406,8 @@ export default function Dashboard() {
 
   const primaryNavItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    // Every member can see product sales; the dashboard itself is owners and admins.
+    { id: 'product-sales', icon: ChartColumnIncreasing, label: 'Product Sales' },
     { id: 'channels', icon: Inbox, label: 'Channels' },
     { id: 'platforms', icon: Plug, label: 'Platforms' },
     { id: 'conversation', icon: MessageSquare, label: 'Conversations' },
@@ -7419,7 +7445,7 @@ export default function Dashboard() {
     // Subscription endpoints are owner-only, so the tab is too.
     ...(role === 'owner' ? [{ id: 'subscription', icon: CreditCard, label: 'Subscription' }] : []),
     { id: 'feedback', icon: MessageCircleWarning, label: 'Feedback' },
-    { id: 'tutorial', icon: Headphones, label: 'Tutorial' }
+    { id: 'tutorial', icon: GraduationCap, label: 'Tutorial' }
   ];
   const allNavItems = [
     ...primaryNavItems.flatMap(item => item.children || [item]),
@@ -7431,7 +7457,11 @@ export default function Dashboard() {
   const workspaceName = business?.name || 'My Workspace';
   const displayUserName = user?.display_name || user?.email || 'User';
   const userInitial = displayUserName.charAt(0).toUpperCase();
-  const currentPlanName = user?.subscription?.plan?.plan_name || null;
+  const rawPlanName = user?.subscription?.plan?.plan_name || null;
+  // Plan names come back in capitals ("GROWTH"); shown as "Growth".
+  const currentPlanName = rawPlanName && rawPlanName === rawPlanName.toUpperCase()
+    ? rawPlanName.charAt(0) + rawPlanName.slice(1).toLowerCase()
+    : rawPlanName;
 
   if (loading) {
     return <AppLoadingScreen />;
@@ -7439,8 +7469,10 @@ export default function Dashboard() {
 
   if (loadError) {
     return (
-      <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center px-6">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      // Shown before the dashboard (and its theme toggle) loads, so it follows the
+      // browser's light/dark setting; see .dashboard-load-error in dashboard-theme.css.
+      <div className="dashboard-load-error min-h-screen w-full bg-slate-50 flex items-center justify-center px-6">
+        <div className="dashboard-load-error-card w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="m-0 text-xl font-bold text-slate-900">Unable to open the dashboard</h1>
           <p className="mt-3 mb-6 text-sm text-slate-600">{loadError}</p>
           <button
@@ -7487,124 +7519,19 @@ export default function Dashboard() {
         />
       )}
 
-      <aside className={`dashboard-shell-sidebar flex h-full shrink-0 flex-col font-['Epilogue'] transition-all duration-300
-        fixed top-0 left-0 w-[280px] z-[10000] overflow-x-hidden overflow-y-auto
-        ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
-        ${isSidebarCollapsed ? 'md:-translate-x-full md:w-0 md:px-0 md:border-none md:overflow-hidden' : 'md:translate-x-0 md:relative md:w-56 md:px-3 xl:w-64 xl:px-4 md:z-auto md:shadow-none'}`}>
-        <div className="flex h-[76px] w-full shrink-0 items-center border-b border-white/8 px-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 ring-1 ring-emerald-300/15">
-              <img src={logoImg} alt="" width="30" height="30" style={{ width: '30px', height: '30px' }} />
-            </div>
-            <div className="min-w-0">
-              <img src={titleImg} alt="LYFFLOW" style={{ height: '16px', width: 'auto', filter: 'brightness(0) saturate(100%) invert(80%) sepia(12%) saturate(677%) hue-rotate(181deg) brightness(106%) contrast(94%)' }} />
-              <p className="mt-1 text-[8px] font-black uppercase tracking-[0.2em] text-emerald-400/80">AI workspace</p>
-            </div>
-          </div>
-          <button className="ml-auto flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/10 hover:text-white md:hidden" onClick={() => setIsSidebarOpen(false)} aria-label="Close navigation">
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Switching business lives in the profile menu (top bar). */}
-        <div className="flex-1 px-1 pb-5 pt-4">
-          <p className="mb-2 px-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Workspace</p>
-          <nav className="space-y-1">
-          {primaryNavItems.map(item => {
-            const hasChildren = Array.isArray(item.children) && item.children.length > 0;
-            const hasActiveChild = hasChildren && item.children.some(child => child.id === activeTab);
-            const isExpanded = Boolean(expandedNavGroups[item.id]);
-
-            if (hasChildren) {
-              return (
-                <div key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => setExpandedNavGroups(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
-                    aria-expanded={isExpanded}
-                    className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${hasActiveChild
-                      ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
-                      : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
-                    }`}
-                  >
-                    {hasActiveChild && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${hasActiveChild ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}>
-                      <item.icon size={17} strokeWidth={2.2} />
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    <ChevronDown size={15} className={`shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {isExpanded && (
-                    <div className="ml-5 mt-1 space-y-1 border-l border-white/[0.1] pl-3">
-                      {item.children.map(child => (
-                        <button
-                          type="button"
-                          key={child.id}
-                          onClick={() => { setActiveTab(child.id); setIsSidebarOpen(false); }}
-                          aria-current={activeTab === child.id ? 'page' : undefined}
-                          className={`group flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[12px] font-bold transition-all ${activeTab === child.id
-                            ? 'bg-emerald-400/10 text-emerald-300'
-                            : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-200'
-                          }`}
-                        >
-                          <child.icon size={15} strokeWidth={2.2} />
-                          <span className="truncate">{child.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <button
-                type="button"
-                key={item.id}
-                onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-                className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id
-                  ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
-                  : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
-                }`}
-              >
-                {activeTab === item.id && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}><item.icon size={17} strokeWidth={2.2} /></span>
-                <span className="truncate">{item.label}</span>
-              </button>
-            );
-          })}
-          </nav>
-
-          <div className="my-5 h-px bg-white/[0.07]" />
-          <p className="mb-2 px-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Manage</p>
-          <nav className="space-y-1">
-            {secondaryNavItems.map(item => (
-              <button key={item.id} onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }} className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === item.id ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}>
-                {activeTab === item.id && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}>
-                  {item.id === 'tutorial' ? <span className="material-symbols-outlined text-[18px]">school</span> : <item.icon size={17} strokeWidth={2.2} />}
-                </span>
-                <span className="truncate">{item.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="mt-auto border-t border-white/[0.08] px-1 py-4">
-          <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-3">
-            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.65)]" /><span className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-300">Workspace online</span></div>
-            <p className="mt-2 truncate text-[11px] font-medium text-slate-500">{pages.length} pages {'\u00B7'} {(user?.agents || []).length} agents</p>
-          </div>
-          <button onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
-            className={`group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-bold transition-all ${activeTab === 'settings' ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.2)]' : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'}`}
-          >
-            {activeTab === 'settings' && <span className="absolute -left-1 h-5 w-1 rounded-r-full bg-emerald-400" />}
-            <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${activeTab === 'settings' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 group-hover:text-slate-300'}`}><Settings size={17} strokeWidth={2.2} /></span>
-            <span>Settings</span>
-          </button>
-        </div>
-      </aside>
+      <DashboardSidebar
+        primaryItems={primaryNavItems}
+        secondaryItems={secondaryNavItems}
+        activeTab={activeTab}
+        onSelect={(id) => { setActiveTab(id); setIsSidebarOpen(false); }}
+        collapsed={isSidebarCollapsed}
+        mobileOpen={isSidebarOpen}
+        onMobileClose={() => setIsSidebarOpen(false)}
+        logoSrc={logoImg}
+        titleSrc={titleImg}
+        pagesCount={pages.length}
+        agentsCount={(user?.agents || []).length}
+      />
 
       {/* Main Content Area */}
       <main className="dashboard-main">
@@ -7619,10 +7546,13 @@ export default function Dashboard() {
                   setIsSidebarCollapsed(!isSidebarCollapsed);
                 }
               }}
-              title="Toggle Sidebar"
+              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-label="Toggle sidebar"
             >
-              <Menu size={20} />
+              <Menu size={20} className="md:hidden" />
+              {isSidebarCollapsed
+                ? <PanelLeftOpen size={19} strokeWidth={1.75} className="hidden md:block" />
+                : <PanelLeftClose size={19} strokeWidth={1.75} className="hidden md:block" />}
             </button>
             <div className="hidden h-8 w-px bg-slate-200 sm:block" />
             <div className="min-w-0">
@@ -7656,9 +7586,13 @@ export default function Dashboard() {
               All systems ready
             </div>
             <button
+              ref={profileButtonRef}
+              type="button"
               className={`flex h-11 min-w-0 items-center gap-2 rounded-xl border px-2 transition sm:px-3 ${isProfileOpen ? 'border-slate-300 bg-slate-100' : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'}`}
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               aria-expanded={isProfileOpen}
+              aria-haspopup="dialog"
+              aria-label="Account"
             >
               <div className="contact-avatar very-small overflow-hidden relative ring-2 ring-white shadow-sm" style={{ backgroundColor: 'var(--dashboard-avatar, #10b981)', color: 'white' }}>
                 {user?.profile_pic_url && (
@@ -7667,8 +7601,8 @@ export default function Dashboard() {
                 <span className="relative z-0">{userInitial}</span>
               </div>
               <span className="hidden min-w-0 text-left sm:block">
-                <span className="block max-w-[160px] truncate text-xs font-extrabold text-slate-900">{displayUserName}</span>
-                <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-wider text-slate-600">{currentPlanName || role || 'Workspace'}</span>
+                <span className="block max-w-[160px] truncate text-[13px] font-semibold text-slate-900">{displayUserName}</span>
+                <span className="mt-0.5 block text-[11px] font-medium text-slate-500">{currentPlanName ? `${currentPlanName} plan` : (ROLE_LABELS[role] || 'Workspace')}</span>
               </span>
               <ChevronDown size={15} className={`shrink-0 text-slate-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -7684,52 +7618,21 @@ export default function Dashboard() {
           )}
           {renderContent()}
 
-          {/* Profile Slideout Drawer */}
-          <div className={`profile-drawer ${isProfileOpen ? 'open' : ''}`}>
-            <div className="drawer-header">
-              <h3>Profile</h3>
-            </div>
-            <div className="drawer-content">
-              <div className="drawer-user-info">
-                <div className="contact-avatar large overflow-hidden relative" style={{ backgroundColor: 'var(--dashboard-avatar-alt, #0ea5e9)', color: 'white', margin: '0 auto 16px auto' }}>
-                  {user?.profile_pic_url && (
-                    <img src={user.profile_pic_url} alt="Profile" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover z-10" onError={(e) => e.target.style.display = 'none'} />
-                  )}
-                  <span className="relative z-0">{userInitial}</span>
-                </div>
-                <h4>{displayUserName}</h4>
-                <p>{user?.email}</p>
-                {business && (
-                  <div className="mt-2 flex items-center justify-center gap-2 text-xs font-semibold text-slate-500">
-                    <Building2 size={13} /> {business.name} {role && <RoleBadge role={role} />}
-                  </div>
-                )}
-                {user?.subscription?.plan?.plan_name && (
-                  <div className="mt-3 px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full text-[11px] font-black uppercase tracking-widest shadow-sm">
-                    {user.subscription.plan.plan_name} Plan
-                  </div>
-                )}
-              </div>
-
-              <div className="drawer-menu">
-                <button className="drawer-menu-item" onClick={() => {
-                  setActiveTab('settings');
-                  setIsProfileOpen(false);
-                }}>
-                  <User size={18} /> Account Settings
-                </button>
-                <button className="drawer-menu-item" onClick={() => navigate('/businesses')}>
-                  <ArrowLeftRight size={18} /> Switch Business
-                </button>
-                <button className="drawer-menu-item" onClick={() => {
-                  setIsLogoutModalOpen(true);
-                  setIsProfileOpen(false);
-                }}>
-                  <LogOut size={18} /> Log Out
-                </button>
-              </div>
-            </div>
-          </div>
+          <ProfilePanel
+            open={isProfileOpen}
+            onClose={closeProfile}
+            anchorRef={profileButtonRef}
+            user={user}
+            business={business}
+            role={role}
+            planName={currentPlanName}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+            onOpenSettings={(settingsTab) => handleNotificationNavigate({ tab: 'settings', settingsTab })}
+            onOpenSubscription={role === 'owner' ? () => setActiveTab('subscription') : null}
+            onSwitchBusiness={() => navigate('/businesses')}
+            onLogout={() => setIsLogoutModalOpen(true)}
+          />
 
           {/* ── Revoked Pages Warning Modal (post-reauth) ── */}
           {revokedPagesModal && (

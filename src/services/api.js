@@ -432,6 +432,69 @@ const MOCK_DASHBOARD_MODE = MOCK_LOAD_PARAMS.get('mockDashboard') || '';
 const MOCK_DASHBOARD_TZ = 'Asia/Dhaka';
 const mockTodayDhaka = () => new Intl.DateTimeFormat('en-CA', { timeZone: MOCK_DASHBOARD_TZ }).format(new Date());
 const mockDayShift = (day, days) => new Date(Date.parse(`${day}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
+// GET /v1/statistics/product-sales. Every member may call it. ?mockDashboard=empty gives
+// an empty period and =error a 500. page_2 sold nothing in the comparison period, so its
+// totals show no comparison and every product is "New".
+const MOCK_PRODUCT_SALES = [
+  // name, code, pieces, previous pieces, orders, previous orders, unit price
+  ['LED Acrylic Writing Board', 'GOO47-2', 170, 151, 96, 90, 650],
+  ['Magical Water Floating Pens', 'GOO69-1', 130, 120, 88, 81, 550],
+  ['Mini Desk Organiser', 'GOO12', 95, 100, 60, 63, 420],
+  ['Canvas Tote Bag', null, 55, 0, 45, 0, 250],
+  ['Brown Leather Wallet', 'WAL-03', 38, 38, 36, 35, 1170],
+  ['Insulated Steel Bottle', 'BTL-750', 21, 30, 19, 27, 1250],
+];
+const mockProductSales = (endpoint) => {
+  const params = new URLSearchParams(endpoint.split('?')[1] || '');
+  const period = params.get('period') || 'last_7_days';
+  const pageId = params.get('page_id');
+  const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };
+  if (!['today', 'last_7_days', 'last_30_days'].includes(period)) fail(422, 'period: Input should be today, last_7_days or last_30_days');
+  if (pageId && !mockData['/v1/business/pages'].some(page => page.page_id === pageId)) fail(404, 'Page not found');
+  if (MOCK_DASHBOARD_MODE === 'error') fail(500, 'The product sales figures could not be computed.');
+
+  const days = period === 'today' ? 1 : period === 'last_7_days' ? 7 : 30;
+  const day = (offset) => new Date(Date.parse(`${mockTodayDhaka()}T00:00:00Z`) - offset * 86400000).toISOString().slice(0, 10);
+  const range = {
+    start_date: day(days - 1), end_date: day(0), timezone: 'Asia/Dhaka', currency: 'BDT',
+    previous: { start_date: day(2 * days - 1), end_date: day(days) },
+  };
+  const scale = (period === 'today' ? 0.14 : period === 'last_7_days' ? 1 : 4.1) * (pageId === 'page_2' ? 0.3 : pageId === 'page_1' ? 0.7 : 1);
+  const noComparison = pageId === 'page_2';
+  const figure = (value, previous, money = false) => {
+    const prev = noComparison ? 0 : previous;
+    const change = prev > 0 ? Math.round(((value - prev) / prev) * 1000) / 10 : null;
+    return money
+      ? { value: value.toFixed(2), previous: prev.toFixed(2), change_pct: change }
+      : { value, previous: prev, change_pct: change };
+  };
+  const products = MOCK_DASHBOARD_MODE === 'empty' ? [] : MOCK_PRODUCT_SALES
+    .map(([name, code, pieces, prevPieces, orders, prevOrders, price]) => {
+      const p = Math.max(1, Math.round(pieces * scale));
+      const pp = Math.round(prevPieces * scale);
+      const o = Math.max(1, Math.min(p, Math.round(orders * scale)));
+      const po = Math.min(pp, Math.round(prevOrders * scale));
+      return { code, name, pieces: figure(p, pp), orders: figure(o, po), sales_value: figure(p * price, pp * price, true) };
+    })
+    .sort((a, b) => b.pieces.value - a.pieces.value || Number(b.sales_value.value) - Number(a.sales_value.value) || a.name.localeCompare(b.name));
+  const sum = (key, field) => products.reduce((total, row) => total + Number(row[key][field]), 0);
+  // An order with two products counts once in the total, so totals.orders is below the row sum.
+  const orders = Math.round(sum('orders', 'value') * 0.86);
+  const prevOrders = Math.round(sum('orders', 'previous') * 0.86);
+  const totalsFigure = (value, previous, money) => {
+    if (noComparison || products.length === 0) return money ? { value: value.toFixed(2), previous: null, change_pct: null } : { value, previous: null, change_pct: null };
+    return figure(value, previous, money);
+  };
+  return {
+    range,
+    totals: {
+      pieces: totalsFigure(sum('pieces', 'value'), sum('pieces', 'previous')),
+      orders: totalsFigure(orders, prevOrders),
+      sales_value: totalsFigure(sum('sales_value', 'value'), sum('sales_value', 'previous'), true),
+    },
+    products,
+  };
+};
 const mockDashboardError = (status, message) => { const error = new Error(message); error.status = status; throw error; };
 // Resolves start_date/end_date the way the API does: default 30 days to today, max 30 days.
 const mockDashboardPeriod = (endpoint) => {
@@ -584,9 +647,36 @@ const mockAttentionRows = () => {
       customer_order_id: order.customer_order_id, order_id: order.order_id, customer_name: order.contact_name, total: order.total,
       created_at: order.created_at, age_hours: Math.floor((Date.now() - Date.parse(order.created_at)) / 3600000), missing_contact: index % 3 === 0,
     }));
-  return { waiting, handovers, orders };
+  return { waiting: [...waiting, ...mockLiveAttention.waiting], handovers: [...handovers, ...mockLiveAttention.handovers], orders };
+};
+// ?mockLive=true on the dashboard: a customer starts waiting (8 s), a notification
+// arrives (11 s) and a chat is handed over (14 s), each with its live event, so the
+// "Needs you now" highlights, the bell and the tab title can be watched.
+const mockLiveAttention = { waiting: [], handovers: [] };
+let mockDashboardLiveStarted = !(MOCK_MODE && MOCK_LOAD_PARAMS.get('mockLive') === 'true');
+const startMockDashboardLive = () => {
+  if (mockDashboardLiveStarted) return;
+  mockDashboardLiveStarted = true;
+  setTimeout(() => {
+    mockLiveAttention.waiting.push({ conversation_id: 'conv_w9', customer_name: 'Sumon Das', page_id: 'page_1', wait_started_at: new Date(Date.now() - 60000).toISOString(), waiting_minutes: 1 });
+    window.dispatchEvent(new CustomEvent('lyfflow-mock-stream', { detail: { event: 'inbox_message', data: { conversation_id: 'conv_w9', page_id: 'page_1', message: mockMessage({ message: 'Is cash on delivery available?' }) } } }));
+  }, 8000);
+  setTimeout(() => {
+    const notification = {
+      notification_id: `ntf_live_${Date.now()}`, business_id: 'biz_1', page_id: 'page_1', type: 'handover', category: 'handover', severity: 'warning',
+      title: 'Sumon Das needs a person', body: 'Asked about cash on delivery outside Dhaka', can_action: true, action_role: null, read_at: null,
+      created_at: new Date().toISOString(), payload: { conversation_id: 'conv_w9' },
+    };
+    mockNotifications = [notification, ...mockNotifications];
+    window.dispatchEvent(new CustomEvent('lyfflow-mock-stream', { detail: { event: 'notification', data: notification } }));
+  }, 11000);
+  setTimeout(() => {
+    mockLiveAttention.handovers.push({ conversation_id: 'conv_h9', customer_name: 'Sumon Das', page_id: 'page_1', category: 'customer_asked_human', assigned_to_member_id: null, assigned_to_name: null, wait_started_at: new Date().toISOString(), waiting_minutes: 0 });
+    window.dispatchEvent(new CustomEvent('lyfflow-mock-stream', { detail: { event: 'conversation_update', data: { conversation_id: 'conv_h9', page_id: 'page_1', fields: { is_human_needed: true } } } }));
+  }, 14000);
 };
 const mockAttention = () => {
+  startMockDashboardLive();
   const { waiting, handovers, orders } = mockAttentionRows();
   const card = (rows, extra) => ({ count: rows.length, ...extra, preview: rows.slice(0, 5), preview_truncated: rows.length > 5 });
   const empty = MOCK_DASHBOARD_MODE === 'empty';
@@ -1192,6 +1282,12 @@ const requestApi = async (endpoint, options = {}) => {
     // ?mockSync=delay keeps the page list empty for ~9s after load (a background
     // Facebook sync landing); ?mockSync=never keeps it empty to reach the timeout.
     if (endpoint === '/v1/business/pages' && method === 'GET') {
+      // ?mockLoadError=true: the workspace fails to load, showing "Unable to open the dashboard".
+      if (MOCK_LOAD_PARAMS.get('mockLoadError') === 'true') {
+        const error = new Error('Internal Server Error');
+        error.status = 500;
+        throw error;
+      }
       const mockSync = MOCK_LOAD_PARAMS.get('mockSync');
       if (mockSync === 'never') return { pages: [] };
       if (mockSync === 'delay' && Date.now() - MOCK_LOADED_AT < 9000) return { pages: [] };
@@ -1470,6 +1566,7 @@ const requestApi = async (endpoint, options = {}) => {
       mockComments = mockComments.map(item => (item.id === comment.id ? { ...item, ...changes, updated_at: new Date().toISOString() } : item));
       return mockComments.find(item => item.id === comment.id);
     }
+    if (endpoint.startsWith('/v1/statistics/product-sales')) return mockProductSales(endpoint);
     // Owner dashboard: owners and admins only.
     if (endpoint.startsWith('/v1/dashboard/')) {
       if (mockRole === 'member') mockDashboardError(403, 'This action requires at least the admin role.');
@@ -1650,7 +1747,7 @@ const requestApi = async (endpoint, options = {}) => {
             ...base, role: 'user', is_ai_msg: false,
             // index 6 is the customer tapping a product card's button.
             // index 2 is a pasted link with no spaces, to check long words wrap inside the bubble.
-            message: index === 0 ? 'Hello, I need help with my order.' : index === 2 ? `Saw this on Facebook: ${MOCK_LONG_UTM_URL}` : index === 6 ? 'এটা নিব (GOO47-2)' : `Customer message #${60 - index}: could you tell me more about this item?`,
+            message: index === 0 ? 'Hello, I need help with my order.' : index === 2 ? `Saw this on Facebook: ${MOCK_LONG_UTM_URL}` : index === 10 ? 'Is it the one in this video? https://www.youtube.com/watch?v=lyfflowDemo1' : index === 6 ? 'এটা নিব (GOO47-2)' : `Customer message #${60 - index}: could you tell me more about this item?`,
             // One recalled message, as Messenger's unsend leaves it.
             ...(index === 4 ? { is_deleted: true, deleted_at: new Date(MOCK_LOADED_AT - 15 * 60000).toISOString() } : {}),
             // Two customer photos to label (the matcher hasn't processed the older one yet).
@@ -2343,7 +2440,48 @@ const dashboardPeriodQuery = ({ start_date: startDate, end_date: endDate } = {})
   return qs ? `?${qs}` : '';
 };
 
+// Rich previews for links in messages, from the site's own /api/link-preview function
+// (api/link-preview.js), not the Lyfflow API. Resolves to the preview, or null when the
+// page has nothing to show; each URL is fetched once per page load.
+const MOCK_LINK_PREVIEWS = {
+  'demostore.example': {
+    title: 'LED Acrylic Writing Board – Glow Notes, 7 Colours',
+    description: 'Write messages that light up. Rechargeable LED acrylic board with 7 colour modes and 2 erasable markers. Cash on delivery across Bangladesh.',
+    image: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=600&auto=format&fit=crop&q=60',
+    site_name: 'Demo Store',
+  },
+  'www.youtube.com': {
+    title: 'How to set up your LED writing board in 2 minutes',
+    description: 'Unboxing, charging and switching colour modes on the LED acrylic board.',
+    image: 'https://images.unsplash.com/photo-1611162616475-46b635cb6868?w=600&auto=format&fit=crop&q=60',
+    site_name: 'YouTube',
+  },
+};
+const linkPreviewCache = new Map();
+
+const getLinkPreview = (url) => {
+  if (linkPreviewCache.has(url)) return linkPreviewCache.get(url);
+  let request;
+  if (MOCK_MODE) {
+    let host = '';
+    try { host = new URL(url).hostname; } catch { /* not a URL */ }
+    const preview = MOCK_LINK_PREVIEWS[host];
+    request = new Promise(resolve => setTimeout(resolve, 400 + MOCK_DELAY_MS)).then(() => (preview
+      ? { url, domain: host.replace(/^www\./, ''), favicon: null, ...preview }
+      : null));
+  } else {
+    request = fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
+      .then(response => (response.ok ? response.json() : null))
+      .catch(() => null);
+  }
+  linkPreviewCache.set(url, request);
+  return request;
+};
+
 export const apiService = {
+  // Rich preview (title, description, image) for a link in a message, or null.
+  getLinkPreview,
+
   // Returns current logged-in user detailsincluding profile_pic_url
   getUserProfile: () => apiFetch('/v1/user/profile', { cacheTtl: 5000 }),
 
@@ -2743,6 +2881,13 @@ export const apiService = {
   getDashboardOverview: (period = {}, { signal } = {}) => apiFetch(`/v1/dashboard/overview${dashboardPeriodQuery(period)}`, { signal }),
   getDashboardAi: (period = {}, { signal } = {}) => apiFetch(`/v1/dashboard/ai${dashboardPeriodQuery(period)}`, { signal }),
   getDashboardGrowth: (period = {}, { signal } = {}) => apiFetch(`/v1/dashboard/growth${dashboardPeriodQuery(period)}`, { signal }),
+  // Product sales statistics (every member). period: today | last_7_days | last_30_days;
+  // page_id narrows it to one page (404 when the page isn't this business's).
+  getProductSales: ({ period = 'last_7_days', pageId = null } = {}, { signal } = {}) => {
+    const q = new URLSearchParams({ period });
+    if (pageId) q.set('page_id', pageId);
+    return apiFetch(`/v1/statistics/product-sales?${q}`, { signal });
+  },
   // Always live: what needs a person right now (DashboardAttentionResponse).
   getDashboardAttention: ({ signal } = {}) => apiFetch('/v1/dashboard/attention', { signal }),
   // The full list behind an attention card: waiting-for-reply | unanswered-handovers |

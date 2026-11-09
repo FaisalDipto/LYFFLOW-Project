@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CountUp, GrowBar, RevealOnView } from './Animated';
 import { Activity, CalendarDays, Check, ChevronDown, MessageCircle, MessagesSquare, RefreshCw, ShoppingCart, Users } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import DateRangeCalendar from '../DateRangeCalendar';
@@ -81,7 +82,7 @@ const ChartTooltip = ({ active, payload, label }) => {
         <p key={entry.dataKey} className="m-0 flex items-center gap-2 text-slate-500">
           <span className="h-2 w-2 rounded-sm" style={{ background: entry.color }} />
           <span>{entry.name}</span>
-          <span className="ml-auto pl-3 font-semibold tabular-nums text-slate-900">{formatNumber(entry.value)}</span>
+          <span className="ml-auto pl-3 font-semibold tabular-nums text-slate-900"><CountUp text={formatNumber(entry.value)} /></span>
         </p>
       ))}
     </div>
@@ -105,7 +106,7 @@ const SeriesLegend = ({ series, palette }) => (
 
 const ColumnChart = ({ data, series, palette, height = 240, showLegend = series.length > 1, xKey = 'label' }) => (
   <div style={{ height }}>
-    <ResponsiveContainer width="100%" height="100%">
+    <RevealOnView className="h-full"><ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} barGap={1} barCategoryGap="8%" margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} stroke={palette.grid} />
         <XAxis dataKey={xKey} tickLine={false} axisLine={{ stroke: palette.grid }} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 600 }} interval="preserveStartEnd" />
@@ -116,7 +117,7 @@ const ColumnChart = ({ data, series, palette, height = 240, showLegend = series.
           <Bar key={key} dataKey={key} name={label} fill={palette.series[index]} radius={[4, 4, 0, 0]} maxBarSize={44} />
         ))}
       </BarChart>
-    </ResponsiveContainer>
+    </ResponsiveContainer></RevealOnView>
   </div>
 );
 
@@ -136,10 +137,10 @@ const ContactsCard = ({ pageCounts, loading, palette }) => {
         <ChartSkeleton height={96} />
       ) : (
         <>
-          <p className="dashboard-display m-0 text-5xl leading-none text-slate-900">{formatNumber(total)}</p>
+          <p className="dashboard-display m-0 text-5xl leading-none text-slate-900"><CountUp text={formatNumber(total)} /></p>
           <div className="mt-5 flex h-2.5 w-full gap-[2px] overflow-hidden rounded-full bg-slate-100" role="img" aria-label={bySource.map(segment => `${segment.label} ${formatNumber(segment.value)}`).join(', ')}>
             {visibleSegments.map(segment => (
-              <span key={segment.source} style={{ width: `${(segment.value / total) * 100}%`, background: segment.color }} />
+              <GrowBar key={segment.source} width={`${(segment.value / total) * 100}%`} style={{ background: segment.color }} />
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
@@ -147,7 +148,7 @@ const ContactsCard = ({ pageCounts, loading, palette }) => {
               <span key={segment.source} className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
                 <span className="h-2.5 w-2.5 rounded-sm" style={{ background: segment.color }} />
                 {segment.label}
-                <span className="font-semibold tabular-nums text-slate-900">{formatNumber(segment.value)}</span>
+                <span className="font-semibold tabular-nums text-slate-900"><CountUp text={formatNumber(segment.value)} /></span>
               </span>
             ))}
           </div>
@@ -172,7 +173,7 @@ const UsageCard = ({ usage, error, loading, isOwner, palette }) => {
       <>
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-xs font-medium text-slate-500">Conversations this month</span>
-          <span className="text-sm font-semibold tabular-nums text-slate-900">{formatNumber(usage.used)}</span>
+          <span className="text-sm font-semibold tabular-nums text-slate-900"><CountUp text={formatNumber(usage.used)} /></span>
         </div>
         <p className="mb-0 mt-2 text-[11px] font-semibold text-slate-500">
           {usage.unlimited ? 'Your plan has no monthly conversation limit.' : 'Your plan does not report a monthly conversation limit.'}
@@ -200,7 +201,7 @@ const UsageCard = ({ usage, error, loading, isOwner, palette }) => {
           aria-valuenow={usage.used}
           aria-label="Conversations used this month"
         >
-          <span className="block h-full rounded-full" style={{ width: `${ratio * 100}%`, background: fill }} />
+          <GrowBar className="block h-full rounded-full" width={`${ratio * 100}%`} style={{ background: fill }} />
         </div>
         <p className="mb-0 mt-2 text-[11px] font-semibold text-slate-500">
           {tone === 'critical' ? 'Limit almost reached. ' : tone === 'warning' ? 'Approaching your limit. ' : ''}
@@ -241,9 +242,9 @@ const OrdersCard = ({ data, loading, error, truncated, isDark, onViewOrders }) =
   } else {
     body = (
       <>
-        <p className={`dashboard-display mb-0 mt-3 text-4xl leading-none ${valueClass}`}>{formatNumber(total)}</p>
+        <p className={`dashboard-display mb-0 mt-3 text-4xl leading-none ${valueClass}`}><CountUp text={formatNumber(total)} /></p>
         <div className="mt-auto h-32 pt-4">
-          <ResponsiveContainer width="100%" height="100%">
+          <RevealOnView className="h-full"><ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
@@ -271,7 +272,7 @@ const OrdersCard = ({ data, loading, error, truncated, isDark, onViewOrders }) =
                 activeDot={{ r: 4, fill: stroke, stroke: isDark ? '#141414' : '#ffffff', strokeWidth: 2 }}
               />
             </AreaChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></RevealOnView>
         </div>
         {truncated && <TruncatedNote />}
       </>

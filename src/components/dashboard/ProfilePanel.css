@@ -1,0 +1,146 @@
+/* Account panel under the profile button. Same quiet style as the sidebar; follows the
+   dashboard's light/dark theme through data-theme. Plain classes so the dashboard's
+   dark overrides of Tailwind colours don't reach it. */
+
+.pp-panel {
+  --pp-bg: #ffffff;
+  --pp-card: #f7f8f9;
+  --pp-line: #e8eaed;
+  --pp-text: #0f172a;
+  --pp-text-2: #475569;
+  --pp-muted: #8a94a3;
+  --pp-hover: #f3f4f6;
+  --pp-seg: #f1f2f4;
+  --pp-seg-active: #ffffff;
+  --pp-accent: #059669;
+  --pp-danger: #be123c;
+  --pp-danger-hover: #fff1f2;
+  --pp-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 48px -12px rgba(15, 23, 42, 0.18);
+
+  position: fixed;
+  top: 74px;
+  right: 16px;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--pp-line);
+  border-radius: 16px;
+  background: var(--pp-bg);
+  box-shadow: var(--pp-shadow);
+  color: var(--pp-text);
+  font-family: var(--dashboard-font-ui);
+  outline: none;
+  transform-origin: top right;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px) scale(0.98);
+  transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.22s;
+}
+.pp-panel[data-open='true'] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
+}
+.pp-panel[data-theme='dark'] {
+  --pp-bg: #141414;
+  --pp-card: #1b1b1b;
+  --pp-line: #2a2a2a;
+  --pp-text: #f2f2f2;
+  --pp-text-2: #c4c4c4;
+  --pp-muted: #8c8c8c;
+  --pp-hover: #212121;
+  --pp-seg: #1f1f1f;
+  --pp-seg-active: #2e2e2e;
+  --pp-accent: #34d399;
+  --pp-danger: #fb7185;
+  --pp-danger-hover: rgba(251, 113, 133, 0.08);
+  --pp-shadow: 0 18px 48px -12px rgba(0, 0, 0, 0.6);
+}
+@media (max-width: 640px) {
+  .pp-panel { top: 68px; right: 12px; left: 12px; width: auto; max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-panel, .pp-panel[data-open='true'] { transition-duration: 0.01ms; transform: none; }
+}
+
+.pp-panel p { margin: 0; }
+.pp-panel button { font: inherit; }
+.pp-panel :focus-visible { outline: 2px solid color-mix(in srgb, var(--pp-accent) 60%, transparent); outline-offset: 1px; }
+
+/* Who */
+.pp-head { display: flex; align-items: center; gap: 12px; padding: 10px 6px 14px 10px; }
+.pp-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #10b981;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 0 1px var(--pp-line);
+}
+.pp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.pp-who { min-width: 0; flex: 1; }
+.pp-name { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; color: var(--pp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-email { margin-top: 2px !important; font-size: 12.5px; color: var(--pp-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-icon-button {
+  align-self: flex-start;
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex-shrink: 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--pp-muted); cursor: pointer;
+}
+.pp-icon-button:hover { background: var(--pp-hover); color: var(--pp-text); }
+
+/* Business and plan */
+.pp-card { display: flex; flex-direction: column; border: 1px solid var(--pp-line); border-radius: 12px; background: var(--pp-card); }
+.pp-row { display: flex; align-items: center; gap: 12px; padding: 11px 12px; }
+.pp-row + .pp-row { border-top: 1px solid var(--pp-line); }
+.pp-row-icon { display: flex; align-items: center; justify-content: center; width: 16px; flex-shrink: 0; color: var(--pp-muted); }
+.pp-plan-dot::before { content: ''; width: 8px; height: 8px; border-radius: 999px; background: var(--pp-accent); }
+.pp-row-text { min-width: 0; flex: 1; }
+.pp-row-title { font-size: 13px; font-weight: 600; color: var(--pp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-row-meta { margin-top: 1px !important; font-size: 12px; color: var(--pp-muted); }
+.pp-link {
+  flex-shrink: 0; padding: 4px 8px; border: 0; border-radius: 6px; background: transparent;
+  color: var(--pp-accent); font-size: 12.5px !important; font-weight: 600; cursor: pointer;
+}
+.pp-link:hover { background: var(--pp-hover); }
+
+/* Appearance */
+.pp-appearance { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 10px 10px; }
+.pp-section-label { font-size: 12.5px; font-weight: 500; color: var(--pp-text-2); }
+.pp-segmented { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--pp-seg); }
+.pp-segmented button {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
+  border: 0; border-radius: 7px; background: transparent; color: var(--pp-muted);
+  font-size: 12.5px !important; font-weight: 500; cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease;
+}
+.pp-segmented button[aria-checked='true'] { background: var(--pp-seg-active); color: var(--pp-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+
+/* Menu */
+.pp-menu { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; border-top: 1px solid var(--pp-line); margin-top: 4px; padding-top: 6px; }
+.pp-menu-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; height: 38px; padding: 0 10px;
+  border: 0; border-radius: 9px; background: transparent; color: var(--pp-text-2);
+  font-size: 13.5px !important; font-weight: 500; text-align: left; cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.pp-menu-item svg { flex-shrink: 0; color: var(--pp-muted); transition: color 0.15s ease; }
+.pp-menu-item:hover { background: var(--pp-hover); color: var(--pp-text); }
+.pp-menu-item:hover svg { color: var(--pp-text); }
+.pp-chevron { margin-left: auto; opacity: 0; transform: translateX(-3px); transition: opacity 0.15s ease, transform 0.15s ease; }
+.pp-menu-item:hover .pp-chevron, .pp-menu-item:focus-visible .pp-chevron { opacity: 1; transform: none; }
+
+.pp-footer { border-top: 1px solid var(--pp-line); padding-top: 6px; margin-top: 2px; }
+.pp-logout { color: var(--pp-danger); }
+.pp-logout svg { color: var(--pp-danger); }
+.pp-logout:hover { background: var(--pp-danger-hover); color: var(--pp-danger); }
+.pp-logout:hover svg { color: var(--pp-danger); }

@@ -75,26 +75,6 @@ body.dashboard-route > .fixed .font-black {
   font-family: var(--dashboard-font-ui) !important;
 }
 
-.dashboard-shell-sidebar {
-  background: #0a0a0a;
-  color: #ffffff;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.08);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
-  overflow-x: hidden;
-  overscroll-behavior-x: none;
-}
-
-.dashboard-shell-sidebar::-webkit-scrollbar {
-  width: 5px;
-}
-
-.dashboard-shell-sidebar::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.22);
-  border-radius: 999px;
-}
-
 /* --- Sidebar --- */
 .dashboard-sidebar {
   width: 260px;

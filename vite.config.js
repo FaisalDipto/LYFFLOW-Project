@@ -1,6 +1,18 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { execSync } from 'child_process'
+import linkPreviewHandler from './api/link-preview.js'
+
+// Serves the Vercel function api/link-preview.js during `vite dev` too.
+const linkPreviewDevServer = () => ({
+  name: 'lyfflow-link-preview',
+  configureServer(server) {
+    server.middlewares.use('/api/link-preview', (req, res) => {
+      // The middleware strips the mount path; the handler only needs the query string.
+      linkPreviewHandler(req, res).catch(() => { res.statusCode = 500; res.end('{}'); });
+    });
+  },
+})
 
 // ============================================================================
 // AUTOMATIC BRANCH DETECTION: Never manually edit after merging!
@@ -19,7 +31,7 @@ const API_HOST = IS_DEV_BRANCH ? 'api.meharaz733.com' : 'api.lyfflow.com';
 const SITE_HOST = IS_DEV_BRANCH ? 'www.meharaz733.com' : 'www.lyfflow.com';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), linkPreviewDevServer()],
   server: {
     host: '127.0.0.1',
     port: PORT,

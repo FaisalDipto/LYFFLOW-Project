@@ -1,0 +1,385 @@
+/* Dashboard sidebar: quiet, near-black, the same in light and dark themes.
+   Icons sit at a fixed x (12px padding + 15px), so they don't move while the sidebar
+   narrows to the 72px rail. Plain classes, not Tailwind, so the dashboard's dark-theme
+   overrides of .bg-white / .text-slate-* don't reach it. */
+
+.lf-sidebar {
+  --lf-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --lf-text: rgba(255, 255, 255, 0.64);
+  --lf-text-strong: #f5f5f5;
+  --lf-muted: rgba(255, 255, 255, 0.36);
+  --lf-icon: rgba(255, 255, 255, 0.48);
+  --lf-hover: rgba(255, 255, 255, 0.045);
+  --lf-active: rgba(255, 255, 255, 0.075);
+  --lf-line: rgba(255, 255, 255, 0.07);
+  --lf-accent: #34d399;
+
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  height: 100%;
+  flex-shrink: 0;
+  padding: 0 12px;
+  background: #0a0a0a;
+  border-right: 1px solid var(--lf-line);
+  box-shadow: none;
+  color: var(--lf-text);
+  font-family: var(--dashboard-font-ui);
+  overflow: hidden;
+  transform: translateX(-100%);
+  transition: transform 0.32s var(--lf-ease), width 0.32s var(--lf-ease), box-shadow 0.32s ease;
+}
+
+.lf-sidebar[data-mobile-open='true'] {
+  transform: none;
+  box-shadow: 24px 0 60px rgba(0, 0, 0, 0.35);
+}
+
+@media (min-width: 768px) {
+  .lf-sidebar {
+    position: relative;
+    inset: auto;
+    z-index: auto;
+    width: 232px;
+    transform: none;
+    box-shadow: none;
+  }
+  .lf-sidebar[data-rail='true'] { width: 72px; }
+  .lf-close { display: none !important; }
+}
+
+@media (min-width: 1280px) {
+  .lf-sidebar { width: 256px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lf-sidebar, .lf-sidebar * { transition-duration: 0.01ms !important; }
+}
+
+/* Labels fade out before the width closes, and back in after it opens. */
+.lf-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 1;
+  transition: opacity 0.2s ease 0.1s;
+}
+.lf-sidebar[data-rail='true'] .lf-label {
+  opacity: 0;
+  pointer-events: none;
+  transition-delay: 0s;
+  transition-duration: 0.12s;
+}
+
+/* Brand */
+.lf-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 68px;
+  flex-shrink: 0;
+  padding-left: 8px;
+  border-bottom: 1px solid var(--lf-line);
+}
+.lf-brand-mark { width: 32px; height: 32px; flex-shrink: 0; }
+.lf-brand-text { display: flex; flex-direction: column; gap: 5px; }
+.lf-brand-title {
+  height: 14px;
+  width: auto;
+  align-self: flex-start;
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+.lf-brand-sub { font-size: 11px; color: var(--lf-muted); letter-spacing: 0.01em; }
+.lf-close {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--lf-icon);
+  cursor: pointer;
+}
+.lf-close:hover { background: var(--lf-hover); color: var(--lf-text-strong); }
+
+/* Scrolling middle */
+.lf-scroll {
+  flex: 1;
+  min-height: 0;
+  margin: 0 -12px;
+  padding: 8px 12px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.lf-sidebar[data-rail='true'] .lf-scroll { scrollbar-width: none; }
+
+.lf-section {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  margin: 12px 0 2px;
+  padding: 0 15px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--lf-muted);
+}
+.lf-section:first-child { margin-top: 4px; }
+/* In the rail the heading becomes a short hairline. */
+.lf-section::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  width: 18px;
+  height: 1px;
+  background: var(--lf-line);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.lf-sidebar[data-rail='true'] .lf-section::after { opacity: 1; transition-delay: 0.12s; }
+
+.lf-nav { display: flex; flex-direction: column; gap: 2px; }
+
+/* Items */
+.lf-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px 0 15px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--lf-text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.lf-item:hover { background: var(--lf-hover); color: var(--lf-text-strong); }
+.lf-item:focus-visible,
+.lf-child:focus-visible,
+.lf-status:focus-visible,
+.lf-rail-menu-item:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, 0.6);
+  outline-offset: -2px;
+}
+.lf-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--lf-icon);
+  transition: color 0.15s ease;
+}
+.lf-item:hover .lf-item-icon { color: var(--lf-text-strong); }
+
+.lf-item[aria-current='page'],
+.lf-item[data-active-group='true'] {
+  background: var(--lf-active);
+  color: var(--lf-text-strong);
+}
+.lf-item[aria-current='page'] .lf-item-icon,
+.lf-item[data-active-group='true'] .lf-item-icon { color: var(--lf-accent); }
+/* A thin accent at the sidebar's edge marks the current page. */
+.lf-item[aria-current='page']::before,
+.lf-item[data-active-group='true']::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 3px;
+  height: 18px;
+  border-radius: 0 3px 3px 0;
+  background: var(--lf-accent);
+  transform: translateY(-50%);
+}
+/* An open group whose page is showing keeps the highlight on the page, not the group. */
+.lf-sidebar:not([data-rail='true']) .lf-group[data-open='true'] .lf-item[data-active-group='true'] {
+  background: transparent;
+}
+.lf-sidebar:not([data-rail='true']) .lf-group[data-open='true'] .lf-item[data-active-group='true']::before { display: none; }
+.lf-item[data-menu-open='true'] { background: var(--lf-hover); color: var(--lf-text-strong); }
+
+.lf-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--lf-muted);
+  transition: transform 0.25s var(--lf-ease), opacity 0.15s ease;
+}
+.lf-group[data-open='true'] .lf-chevron { transform: rotate(180deg); }
+.lf-sidebar[data-rail='true'] .lf-chevron { opacity: 0; }
+
+/* Sub-pages open and close by animating the row height (0fr to 1fr). */
+.lf-children {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s var(--lf-ease);
+}
+.lf-group[data-open='true'] .lf-children { grid-template-rows: 1fr; }
+.lf-sidebar[data-rail='true'] .lf-children { grid-template-rows: 0fr; }
+.lf-children-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow: hidden;
+  margin-left: 24px;
+  padding-left: 10px;
+  border-left: 1px solid var(--lf-line);
+}
+.lf-group[data-open='true'] .lf-children-inner { padding: 2px 0 4px 10px; }
+.lf-sidebar[data-rail='true'] .lf-children-inner { padding-top: 0; padding-bottom: 0; border-left-color: transparent; }
+
+.lf-child {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--lf-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.lf-child svg { flex-shrink: 0; color: var(--lf-icon); }
+.lf-child:hover { background: var(--lf-hover); color: var(--lf-text-strong); }
+.lf-child[aria-current='page'] { background: var(--lf-active); color: var(--lf-text-strong); }
+.lf-child[aria-current='page'] svg { color: var(--lf-accent); }
+.lf-child[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  width: 1px;
+  height: 18px;
+  background: var(--lf-accent);
+  transform: translateY(-50%);
+}
+
+/* Footer */
+.lf-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 10px 0 14px;
+  border-top: 1px solid var(--lf-line);
+}
+.lf-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px 0 15px;
+  border-radius: 10px;
+}
+.lf-status .lf-label { display: flex; flex-direction: column; gap: 1px; }
+.lf-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--lf-accent);
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.14);
+}
+.lf-status-title { font-size: 12px; font-weight: 500; color: var(--lf-text-strong); }
+.lf-status-meta { font-size: 11.5px; color: var(--lf-muted); }
+
+/* Rail tooltip and flyout (portalled to <body>). */
+.lf-rail-tooltip {
+  position: fixed;
+  z-index: 10050;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #1c1c1c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  color: #f5f5f5;
+  font-family: var(--dashboard-font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: lf-pop-in 0.14s ease-out;
+}
+
+.lf-rail-menu {
+  position: fixed;
+  z-index: 10050;
+  min-width: 196px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #161616;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  font-family: var(--dashboard-font-ui);
+  animation: lf-pop-in 0.16s ease-out;
+}
+/* Bridges the gap to the rail so moving the pointer across doesn't close the menu. */
+.lf-rail-menu::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -12px;
+  width: 12px;
+}
+.lf-rail-menu-title {
+  margin: 0;
+  padding: 6px 10px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.4);
+}
+.lf-rail-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.lf-rail-menu-item svg { flex-shrink: 0; color: rgba(255, 255, 255, 0.48); }
+.lf-rail-menu-item:hover { background: rgba(255, 255, 255, 0.06); color: #f5f5f5; }
+.lf-rail-menu-item[aria-current='page'] { color: #f5f5f5; background: rgba(255, 255, 255, 0.075); }
+.lf-rail-menu-item[aria-current='page'] svg { color: #34d399; }
+
+@keyframes lf-pop-in {
+  from { opacity: 0; translate: -4px 0; }
+  to { opacity: 1; translate: 0 0; }
+}

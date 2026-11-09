@@ -714,3 +714,11 @@ html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixe
 /* Bright fills that carry dark text keep it dark (the slate text flip would wash it out) */
 html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-emerald-300"],[class~="bg-emerald-400"],[class~="bg-green-300"],[class~="bg-green-400"],[class~="bg-teal-300"],[class~="bg-teal-400"],[class~="bg-amber-300"],[class~="bg-amber-400"],[class~="bg-yellow-300"],[class~="bg-yellow-400"],[class~="bg-lime-300"],[class~="bg-lime-400"],[class~="bg-sky-300"],[class~="bg-sky-400"],[class~="bg-cyan-300"],[class~="bg-cyan-400"]):is(.text-slate-950,.text-slate-900,.text-slate-800),
 html[data-dashboard-theme="dark"] :is(.dashboard-layout,.admin-layout,body>.fixed) :is([class~="bg-emerald-300"],[class~="bg-emerald-400"],[class~="bg-green-300"],[class~="bg-green-400"],[class~="bg-teal-300"],[class~="bg-teal-400"],[class~="bg-amber-300"],[class~="bg-amber-400"],[class~="bg-yellow-300"],[class~="bg-yellow-400"],[class~="bg-lime-300"],[class~="bg-lime-400"],[class~="bg-sky-300"],[class~="bg-sky-400"],[class~="bg-cyan-300"],[class~="bg-cyan-400"]) :is(.text-slate-950,.text-slate-900,.text-slate-800){color:#06110d!important}
+
+/* "Unable to open the dashboard": shown before the theme toggle exists, so it follows the browser setting. */
+@media (prefers-color-scheme: dark) {
+  .dashboard-load-error { background-color: #0a0a0a !important; color-scheme: dark; }
+  .dashboard-load-error-card { background-color: #141414 !important; border-color: #262626 !important; box-shadow: none !important; }
+  .dashboard-load-error-card h1 { color: #f5f5f5 !important; }
+  .dashboard-load-error-card p { color: #a3a3a3 !important; }
+}

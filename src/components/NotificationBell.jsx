@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useNotifications } from '../context/NotificationsContext';
+import { playOnce } from '../utils/motion';
 
 // The six category values the inbox endpoint accepts, plus an unfiltered view.
 const NOTIFICATION_CATEGORIES = [
@@ -176,6 +177,23 @@ export default function NotificationBell({ isOpen, onOpenChange, onNavigate }) {
   } = useNotifications();
 
   const listRef = useRef(null);
+  const bellRef = useRef(null);
+  const previousUnreadRef = useRef(null);
+
+  // A new unread notification: the bell swings once and the badge pops. The first
+  // count after loading only sets the baseline.
+  useEffect(() => {
+    const previous = previousUnreadRef.current;
+    previousUnreadRef.current = unreadCount;
+    if (previous !== null && unreadCount > previous) playOnce(bellRef.current, 'lf-bell-ring');
+  }, [unreadCount]);
+
+  // The unread count in the browser tab, so it shows while the tab is in the background.
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\+?\) /, '');
+    document.title = unreadCount > 0 ? `(${unreadCount > 99 ? '99+' : unreadCount}) ${base}` : base;
+  }, [unreadCount]);
+  useEffect(() => () => { document.title = document.title.replace(/^\(\d+\+?\) /, ''); }, []);
 
   useEffect(() => {
     if (isOpen) ensureLoaded();
@@ -220,6 +238,7 @@ export default function NotificationBell({ isOpen, onOpenChange, onNavigate }) {
   return (
     <div className="notifications-popover-container relative">
       <button
+        ref={bellRef}
         type="button"
         className={`notifications-bell relative flex h-[38px] w-[38px] items-center justify-center rounded-[11px] border transition ${isOpen ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900'}`}
         onClick={() => onOpenChange(!isOpen)}
@@ -230,7 +249,7 @@ export default function NotificationBell({ isOpen, onOpenChange, onNavigate }) {
       >
         <Bell size={18} strokeWidth={2.1} />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-white">
+          <span className="lf-bell-badge absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-white">
             {badgeLabel}
           </span>
         )}

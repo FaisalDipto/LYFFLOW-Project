@@ -5,6 +5,9 @@ import {
   Hand, Info, MessageCircle, PackageOpen, RefreshCw, Sparkles, Target, TrendingUp, Users,
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
+import { CountUp, GrowBar, RevealOnView } from './Animated';
+import { subscribeToNotificationStream } from '../../services/notificationStream';
+import { playOnce } from '../../utils/motion';
 import { apiService } from '../../services/api';
 import DateRangeCalendar from '../DateRangeCalendar';
 import { CHART_THEME, heatColor } from './chartTheme';
@@ -37,6 +40,30 @@ import {
 const AttentionListModal = lazy(() => import('./AttentionListModal'));
 
 const ATTENTION_POLL_MS = 60000;
+// After a live event (a message, a handover, a notification) "Needs you now" refreshes,
+// at most every few seconds so a busy inbox doesn't spend the request limit.
+const ATTENTION_LIVE_DELAY_MS = 1500;
+const ATTENTION_LIVE_MIN_GAP_MS = 6000;
+const ATTENTION_CARDS = [
+  ['waiting', 'waiting_for_reply', 'conversation_id'],
+  ['handovers', 'unanswered_handovers', 'conversation_id'],
+  ['orders', 'new_orders_unprocessed', 'customer_order_id'],
+];
+
+/** What changed between two attention snapshots: cards whose count rose, rows that are new. */
+const diffAttention = (previous, next) => {
+  const cards = new Set();
+  const rows = new Set();
+  ATTENTION_CARDS.forEach(([card, field, idKey]) => {
+    const before = previous?.[field];
+    const after = next?.[field];
+    if (!before || !after) return;
+    if ((after.count || 0) > (before.count || 0)) cards.add(card);
+    const seen = new Set((before.preview || []).map(row => row[idKey]));
+    (after.preview || []).forEach(row => { if (!seen.has(row[idKey])) rows.add(`${card}:${row[idKey]}`); });
+  });
+  return { cards, rows };
+};
 const PERIOD_CACHE_MS = 60000;
 const PERIOD_DEBOUNCE_MS = 300;
 const PERIOD_VIEWS = {
@@ -125,7 +152,7 @@ const Stat = ({ label, hint, value, compared, field, size = 'lg' }) => (
       <span className="truncate">{label}</span>
       {hint && <InfoHint text={hint} />}
     </p>
-    <p className={`m-0 mt-1 font-semibold tabular-nums text-slate-900 ${size === 'lg' ? 'text-[22px] leading-7' : 'text-[16px] leading-6'}`}>{value}</p>
+    <p className={`m-0 mt-1 font-semibold tabular-nums text-slate-900 ${size === 'lg' ? 'text-[22px] leading-7' : 'text-[16px] leading-6'}`}><CountUp text={value} /></p>
     {compared && <Delta compared={compared} field={field} />}
   </div>
 );
@@ -134,10 +161,10 @@ const Meter = ({ label, value, color, track }) => (
   <div>
     <div className="flex items-baseline justify-between gap-2 text-[12.5px]">
       <span className="text-slate-600">{label}</span>
-      <span className="font-semibold tabular-nums text-slate-900">{formatPct(value)}</span>
+      <span className="font-semibold tabular-nums text-slate-900"><CountUp text={formatPct(value)} /></span>
     </div>
     <div className="mt-1.5 h-2 overflow-hidden rounded-full" style={{ background: track }}>
-      <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, Number(value) || 0))}%`, background: color }} />
+      <GrowBar className="h-full rounded-full" width={`${Math.max(0, Math.min(100, Number(value) || 0))}%`} style={{ background: color }} />
     </div>
   </div>
 );
@@ -254,8 +281,17 @@ const PeriodPicker = ({ period, timeZone, onChange }) => {
 // ---------------------------------------------------------------------------
 // Attention: what needs a person right now.
 
-const AttentionCard = ({ icon: Icon, title, count, facts, children, onSeeAll, seeAllLabel }) => (
-  <div className={`flex min-w-0 flex-col rounded-2xl border bg-white p-4 shadow-sm ${count > 0 ? 'border-amber-200' : 'border-slate-200'}`}>
+const AttentionCard = ({ icon: Icon, title, count, facts, children, onSeeAll, seeAllLabel, bumpToken }) => {
+  const cardRef = useRef(null);
+  const countRef = useRef(null);
+  // The count went up since the last refresh: the number bumps and the card flashes once.
+  useEffect(() => {
+    if (!bumpToken) return;
+    playOnce(cardRef.current, 'lf-card-flash');
+    playOnce(countRef.current, 'lf-count-bump');
+  }, [bumpToken]);
+  return (
+  <div ref={cardRef} className={`flex min-w-0 flex-col rounded-2xl border bg-white p-4 shadow-sm ${count > 0 ? 'border-amber-200' : 'border-slate-200'}`}>
     <div className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2">
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${count > 0 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
@@ -263,7 +299,7 @@ const AttentionCard = ({ icon: Icon, title, count, facts, children, onSeeAll, se
         </span>
         <h3 className="m-0 truncate text-[14px] font-semibold text-slate-900">{title}</h3>
       </div>
-      <span className="text-[24px] font-semibold leading-7 tabular-nums text-slate-900">{count}</span>
+      <span ref={countRef} className="inline-block text-[24px] font-semibold leading-7 tabular-nums text-slate-900"><CountUp text={count} /></span>
     </div>
     {facts && <p className="mb-0 mt-2 text-[12px] text-slate-500">{facts}</p>}
     {children}
@@ -273,11 +309,12 @@ const AttentionCard = ({ icon: Icon, title, count, facts, children, onSeeAll, se
       </button>
     )}
   </div>
-);
+  );
+};
 
-const PreviewRow = ({ onClick, primary, secondary, trailing }) => (
+const PreviewRow = ({ onClick, primary, secondary, trailing, isNew = false }) => (
   <li>
-    <button type="button" onClick={onClick} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-50">
+    <button type="button" onClick={onClick} className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-50 ${isNew ? 'lf-row-new' : ''}`}>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-medium text-slate-900">{primary}</span>
         {secondary && <span className="block truncate text-[11.5px] text-slate-500">{secondary}</span>}
@@ -289,6 +326,9 @@ const PreviewRow = ({ onClick, primary, secondary, trailing }) => (
 
 const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOpenOrder, onOpenLeads, onOpenList }) => {
   const data = state.data;
+  const fresh = state.fresh;
+  const bump = (card) => (fresh?.cards.has(card) ? state.freshAt : 0);
+  const isNew = (card, id) => Boolean(fresh?.rows.has(`${card}:${id}`));
   if (!data && state.error) return <SectionError error={state.error} onRetry={onRetry} />;
   if (!data) {
     return (
@@ -322,6 +362,7 @@ const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOp
           icon={Clock3}
           title="Waiting for a reply"
           count={waiting.count}
+          bumpToken={bump('waiting')}
           facts={[
             waiting.count ? `Longest wait ${formatMinutes(waiting.oldest_minutes)}` : 'Nobody is waiting',
             waiting.ai_decided_no_reply ? `${waiting.ai_decided_no_reply} left by the AI as needing no reply` : null,
@@ -331,7 +372,7 @@ const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOp
           {waiting.preview.length > 0 && (
             <ul className="-mx-2 mb-0 mt-2 list-none p-0">
               {waiting.preview.map(row => (
-                <PreviewRow key={row.conversation_id} onClick={() => onOpenChat(row)} primary={customerName(row.customer_name)} trailing={formatMinutes(row.waiting_minutes)} />
+                <PreviewRow key={row.conversation_id} isNew={isNew('waiting', row.conversation_id)} onClick={() => onOpenChat(row)} primary={customerName(row.customer_name)} trailing={formatMinutes(row.waiting_minutes)} />
               ))}
             </ul>
           )}
@@ -340,6 +381,7 @@ const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOp
           icon={Hand}
           title="Unanswered handovers"
           count={handovers.count}
+          bumpToken={bump('handovers')}
           facts={handovers.count
             ? `${handovers.unassigned} unassigned · longest wait ${formatMinutes(handovers.oldest_minutes)}`
             : 'Every handover has an answer'}
@@ -350,6 +392,7 @@ const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOp
               {handovers.preview.map(row => (
                 <PreviewRow
                   key={row.conversation_id}
+                  isNew={isNew('handovers', row.conversation_id)}
                   onClick={() => onOpenChat(row)}
                   primary={customerName(row.customer_name)}
                   secondary={`${handoverCategoryLabel(row.category) || 'Paused or no category'} · ${row.assigned_to_name || 'Unassigned'}`}
@@ -363,6 +406,7 @@ const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOp
           icon={PackageOpen}
           title="Unprocessed orders"
           count={orders.count}
+          bumpToken={bump('orders')}
           facts={orders.count
             ? [`Oldest ${formatHours(orders.oldest_hours)}`, orders.missing_contact ? `${orders.missing_contact} missing a phone or address` : null].filter(Boolean).join(' · ')
             : 'Every order has been picked up'}
@@ -373,6 +417,7 @@ const AttentionSection = ({ state, timeZone, currency, onRetry, onOpenChat, onOp
               {orders.preview.map(row => (
                 <PreviewRow
                   key={row.customer_order_id}
+                  isNew={isNew('orders', row.customer_order_id)}
                   onClick={() => onOpenOrder(row)}
                   primary={`${row.order_id} · ${customerName(row.customer_name)}`}
                   secondary={[formatMoney(row.total, currency), row.missing_contact ? 'No phone or address' : null].filter(Boolean).join(' · ')}
@@ -457,7 +502,7 @@ const OverviewSection = ({ data, palette, currency }) => {
             </div>
           </div>
           <div className="h-[240px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <RevealOnView className="h-full"><ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
                 <CartesianGrid vertical={false} stroke={palette.grid} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: palette.axis, fontSize: 11 }} minTickGap={12} />
@@ -466,7 +511,7 @@ const OverviewSection = ({ data, palette, currency }) => {
                 <Tooltip cursor={{ fill: palette.cursor }} content={<ChartTooltip format={format} />} />
                 <Bar dataKey="value" name={metricLabel} fill={palette.series[0]} radius={[4, 4, 0, 0]} maxBarSize={36} />
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></RevealOnView>
           </div>
         </Card>
 
@@ -499,7 +544,7 @@ const MetricLine = ({ label, hint, value, compared, field }) => (
       {hint && <InfoHint text={hint} />}
     </dt>
     <dd className="m-0 flex shrink-0 flex-col items-end">
-      <span className="font-semibold tabular-nums text-slate-900">{value}</span>
+      <span className="font-semibold tabular-nums text-slate-900"><CountUp text={value} /></span>
       {compared && <Delta compared={compared} field={field} />}
     </dd>
   </div>
@@ -545,7 +590,7 @@ const AiSection = ({ data, palette, timeZone, onOpenChat }) => {
                     <span className="shrink-0 tabular-nums text-slate-500"><strong className="font-semibold text-slate-900">{item.count}</strong> · {formatPct(item.pct)}</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full" style={{ width: `${(item.count / maxCategory) * 100}%`, background: palette.series[1] }} />
+                    <GrowBar className="h-full rounded-full" width={`${(item.count / maxCategory) * 100}%`} style={{ background: palette.series[1] }} />
                   </div>
                 </li>
               ))}
@@ -710,7 +755,7 @@ const CommentsSection = ({ data, period, today, palette, onReview }) => {
                 <span className="shrink-0 tabular-nums text-slate-500"><strong className="font-semibold text-slate-900">{formatCount(item.count)}</strong> · {formatPct(share(item.count))}</span>
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full rounded-full" style={{ width: `${(item.count / maxCategory) * 100}%`, background: palette.series[2] }} />
+                <GrowBar className="h-full rounded-full" width={`${(item.count / maxCategory) * 100}%`} style={{ background: palette.series[2] }} />
               </div>
             </li>
           ))}
@@ -730,7 +775,7 @@ const CommentsSection = ({ data, period, today, palette, onReview }) => {
           </select>
         </div>
         <div className="h-[200px]">
-          <ResponsiveContainer width="100%" height="100%">
+          <RevealOnView className="h-full"><ResponsiveContainer width="100%" height="100%">
             <BarChart data={trends.map(day => ({ label: formatDay(day.date), value: Number(day[metric]) || 0 }))} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
               <CartesianGrid vertical={false} stroke={palette.grid} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: palette.axis, fontSize: 10 }} minTickGap={12} />
@@ -738,7 +783,7 @@ const CommentsSection = ({ data, period, today, palette, onReview }) => {
               <Tooltip cursor={{ fill: palette.cursor }} content={<ChartTooltip format={value => `${formatCount(value)} ${metricLabel === 'All' ? 'comments' : metricLabel.toLowerCase()}`} />} />
               <Bar dataKey="value" name={metricLabel} fill={palette.series[2]} radius={[4, 4, 0, 0]} maxBarSize={32} />
             </BarChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer></RevealOnView>
         </div>
       </Card>
     </div>
@@ -799,7 +844,7 @@ const BusyHours = ({ busyHours, isDark }) => {
   );
 };
 
-const GrowthSection = ({ data, palette, currency, isDark }) => {
+const GrowthSection = ({ data, palette, currency, isDark, onViewProductSales }) => {
   const { pages, busy_hours: busyHours, handovers_by_hour: handoversByHour, top_products: products, new_vs_returning: newVsReturning } = data;
   const hourData = handoversByHour.map((count, hour) => ({ label: `${String(hour).padStart(2, '0')}:00`, value: count }));
   return (
@@ -844,7 +889,7 @@ const GrowthSection = ({ data, palette, currency, isDark }) => {
         </Card>
         <Card className="xl:col-span-2" title="Handovers by hour" hint="Handovers the AI decided, per hour of the day. The peaks show when your team is needed most.">
           <div className="h-[180px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <RevealOnView className="h-full"><ResponsiveContainer width="100%" height="100%">
               <BarChart data={hourData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} barCategoryGap="18%">
                 <CartesianGrid vertical={false} stroke={palette.grid} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: palette.axis, fontSize: 10 }} interval={5} />
@@ -852,7 +897,7 @@ const GrowthSection = ({ data, palette, currency, isDark }) => {
                 <Tooltip cursor={{ fill: palette.cursor }} content={<ChartTooltip format={value => `${formatCount(value)} handovers`} />} />
                 <Bar dataKey="value" name="Handovers" fill={palette.series[1]} radius={[3, 3, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></RevealOnView>
           </div>
         </Card>
       </div>
@@ -871,18 +916,28 @@ const GrowthSection = ({ data, palette, currency, isDark }) => {
                       {product.code && <span className="ml-1.5 font-normal uppercase text-slate-400">{product.code}</span>}
                     </span>
                     <span className="shrink-0 tabular-nums text-slate-600">
-                      {formatCount(product.quantity)} sold · {formatMoney(product.revenue, currency)}
+                      <CountUp text={`${formatCount(product.quantity)} sold · ${formatMoney(product.revenue, currency)}`} />
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full" style={{ width: `${Math.min(100, Number(product.revenue_share_pct) || 0)}%`, background: palette.series[0] }} />
+                      <GrowBar className="h-full rounded-full" width={`${Math.min(100, Number(product.revenue_share_pct) || 0)}%`} style={{ background: palette.series[0] }} />
                     </div>
-                    <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-slate-500">{formatPct(product.revenue_share_pct)}</span>
+                    <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-slate-500"><CountUp text={formatPct(product.revenue_share_pct)} /></span>
                   </div>
                 </li>
               ))}
             </ol>
+          )}
+          {onViewProductSales && (
+            <button
+              type="button"
+              onClick={onViewProductSales}
+              className="mt-3 inline-flex items-center gap-0.5 border-0 bg-transparent p-0 text-[12.5px] font-semibold text-emerald-700 hover:underline"
+            >
+              View more
+              <ChevronRight size={14} aria-hidden="true" />
+            </button>
           )}
         </Card>
 
@@ -891,7 +946,7 @@ const GrowthSection = ({ data, palette, currency, isDark }) => {
             {[['New', newVsReturning.new], ['Returning', newVsReturning.returning]].map(([label, group]) => (
               <div key={label} className="rounded-xl bg-slate-50 p-3">
                 <p className="m-0 text-[12px] font-medium text-slate-500">{label}</p>
-                <p className="m-0 mt-1 text-[20px] font-semibold tabular-nums text-slate-900">{formatPct(group.conversion_pct)}</p>
+                <p className="m-0 mt-1 text-[20px] font-semibold tabular-nums text-slate-900"><CountUp text={formatPct(group.conversion_pct)} /></p>
                 <p className="m-0 text-[12px] text-slate-500">{formatCount(group.ordered)} of {formatCount(group.conversations)} ordered</p>
               </div>
             ))}
@@ -938,6 +993,8 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
   const [attention, setAttention] = useState({ data: null, error: '' });
   const [openList, setOpenList] = useState(null);
   const attentionRequestRef = useRef(0);
+  const attentionDataRef = useRef(null);
+  const attentionLoadedAtRef = useRef(0);
 
   const loadView = useCallback(async (view, target, signal, { force = false } = {}) => {
     const today = todayInZone(timeZone);
@@ -980,16 +1037,19 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
   const loadAttention = useCallback(async () => {
     const requestId = ++attentionRequestRef.current;
     try {
+      attentionLoadedAtRef.current = Date.now();
       const data = await apiService.getDashboardAttention();
       if (requestId !== attentionRequestRef.current) return;
-      setAttention({ data, error: '' });
+      const previous = attentionDataRef.current;
+      attentionDataRef.current = data;
+      setAttention({ data, error: '', fresh: previous ? diffAttention(previous, data) : null, freshAt: Date.now() });
     } catch (error) {
       if (requestId !== attentionRequestRef.current) return;
       if (isDashboardMissing('attention', error)) {
         onUnavailable?.();
         return;
       }
-      setAttention(current => ({ data: current.data, error: dashboardErrorMessage(error) }));
+      setAttention(current => ({ data: current.data, error: dashboardErrorMessage(error), fresh: null, freshAt: 0 }));
     }
   }, [onUnavailable]);
 
@@ -1014,6 +1074,22 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
     };
   }, [isActive, loadAttention, reloadKey]);
 
+  // Live events refresh "Needs you now" straight away instead of at the next minute.
+  useEffect(() => {
+    if (!isActive) return undefined;
+    let timer = null;
+    const schedule = () => {
+      clearTimeout(timer);
+      const wait = Math.max(ATTENTION_LIVE_DELAY_MS, attentionLoadedAtRef.current + ATTENTION_LIVE_MIN_GAP_MS - Date.now());
+      timer = setTimeout(loadAttention, wait);
+    };
+    const unsubscribe = subscribeToNotificationStream({ onInboxMessage: schedule, onConversationUpdate: schedule, onNotification: schedule });
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [isActive, loadAttention]);
+
   const retryView = (view) => {
     const controller = new AbortController();
     loadView(view, period, controller.signal, { force: true });
@@ -1035,6 +1111,7 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
     else if (kind === 'comments') onNavigate?.({ commentAnalysisId: row.id, pageId: row.page_id, canAction: true });
     else openChat(row);
   }, [onNavigate, openChat, openList, openOrder]);
+  const openProductSales = useCallback(() => onNavigate?.({ tab: 'product-sales' }), [onNavigate]);
   const closeList = useCallback(() => {
     setOpenList(null);
     // Whatever was done from the list shows up in the counts straight away.
@@ -1119,7 +1196,7 @@ export default function OwnerDashboard({ isDark = false, isActive = true, onNavi
 
         <Section title="Growth" icon={Users}>
           {renderView('growth', <Skeleton className="h-[420px]" />, data => (
-            <GrowthSection data={data} palette={palette} currency={data.range?.currency || currency} isDark={isDark} />
+            <GrowthSection data={data} palette={palette} currency={data.range?.currency || currency} isDark={isDark} onViewProductSales={openProductSales} />
           ))}
         </Section>
       </div>

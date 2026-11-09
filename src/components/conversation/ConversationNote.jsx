@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { apiService } from '../../services/api';
+import SavedBadge from '../SavedBadge';
 
 const NOTE_MAX = 500;
 // The backend trims, then counts Unicode characters; `.length` counts an emoji as 2.
@@ -68,7 +69,7 @@ export default function ConversationNote({ pageId, conversationId, note, onSaved
       <div id="conversation-note-help" className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
         <span className={tooLong ? 'font-semibold text-rose-600' : 'text-slate-400'}>{length}/{NOTE_MAX}</span>
         <span className="flex items-center gap-2">
-          {status === 'saved' && !isDirty && <span className="font-semibold text-emerald-700">Saved</span>}
+          {status === 'saved' && !isDirty && <SavedBadge />}
           {saved && (
             <button type="button" onClick={() => save(null)} disabled={status === 'saving'} className="font-semibold text-slate-500 hover:text-slate-800 disabled:opacity-50">
               Clear
