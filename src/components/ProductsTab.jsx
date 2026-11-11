@@ -26,16 +26,17 @@ const emptyProductForm = () => ({
 
 const amountText = (value) => (toAmount(value) === null ? '' : String(toAmount(value)));
 
-// Backend limits (422 above them). Some older products' descriptions are already over,
-// so the counter says why their save fails until the text is shortened.
-const DESCRIPTION_MAX = 1000;
+// Backend limits (422 above them). If a product's text is ever over, the counter says why
+// its save fails until the text is shortened.
+const DESCRIPTION_MAX = 1500;
 const SHORT_DESCRIPTION_MAX = 600;
 const TEXT_LIMITS = { description: DESCRIPTION_MAX, short_description: SHORT_DESCRIPTION_MAX };
 
-// "body.short_description: String should have at most 600 characters" → the field.
+// "body.short_description: String should have at most 600 characters" (update) or
+// "description: String should have at most 1500 characters" (create's multipart form) → the field.
 const tooLongField = (err) => {
   if (err?.status !== 422) return null;
-  const match = /body\.(short_description|description):/.exec(err.message || '');
+  const match = /(?:^|[\s|.])(short_description|description):/.exec(err.message || '');
   return match ? match[1] : null;
 };
 
@@ -1335,6 +1336,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                 <div className="text-xs text-slate-500">
                   <p className="font-semibold mb-1">Required CSV Columns:</p>
                   <p>name, code, description, price</p>
+                  <p className="mt-1">Descriptions longer than {DESCRIPTION_MAX.toLocaleString()} characters are cut to {DESCRIPTION_MAX.toLocaleString()}.</p>
                   <p className="font-semibold mb-1 mt-3">Optional negotiation limit:</p>
                   <p>negotiation_discount_kind (amount or percent), negotiation_first_offer, negotiation_max_discount. Fill all three or none; a row with only some fails like a bad price.</p>
                 </div>

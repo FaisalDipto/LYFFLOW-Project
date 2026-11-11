@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, ChartColumnIncreasing, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug, Tag } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, ChartColumnIncreasing, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug, Tag, Megaphone, ExternalLink, ShoppingBag } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -17,6 +17,8 @@ import { BusinessProvider, ROLE_LABELS, useBusiness } from '../context/BusinessC
 import { PlanGateProvider, usePlanGate } from '../context/PlanGateContext';
 import UpgradeRequiredModal from '../components/UpgradeRequiredModal';
 import Toast from '../components/Toast';
+import HoverTip from '../components/HoverTip';
+import { playOnce } from '../utils/motion';
 import TimezoneSelect from '../components/TimezoneSelect';
 import { browserTimezone } from '../utils/timezones';
 import { useWidget } from '../context/WidgetContext';
@@ -66,6 +68,17 @@ import '../styles/scrollbars.css';
 // Mock mode (?mock=true): mock attachments carry their own image URL.
 const SIDEBAR_COLLAPSED_KEY = 'lyfflow-sidebar-collapsed';
 const MOCK_MODE = typeof window !== 'undefined' && window.location.search.includes('mock=true');
+
+// The Facebook post of the ad a conversation came from. Meta sends the post id alone
+// (no page id in front); facebook.com/<page id>_<post id> opens it. Instagram ids aren't
+// links, so those get none.
+const adPostUrl = (contact, page) => {
+  const postId = contact?.ad_post_id;
+  if (!postId || isInstagram(page?.platform)) return null;
+  if (String(postId).includes('_')) return `https://www.facebook.com/${postId}`;
+  const pageId = contact.page_id || page?.page_id;
+  return pageId ? `https://www.facebook.com/${pageId}_${postId}` : `https://www.facebook.com/${postId}`;
+};
 const AgentAvatarModal = lazy(() => import('../components/AgentAvatarModal'));
 const CustomerRecords = lazy(() => import('../components/CustomerRecords'));
 const ProductsTab = lazy(() => import('../components/ProductsTab'));
@@ -81,6 +94,7 @@ import DashboardSidebar from '../components/dashboard/DashboardSidebar';
 import ProfilePanel from '../components/dashboard/ProfilePanel';
 import SavedBadge from '../components/SavedBadge';
 const ProductSalesStatistics = lazy(() => import('../components/dashboard/ProductSalesStatistics'));
+const AdsStatistics = lazy(() => import('../components/dashboard/AdsStatistics'));
 const PlatformsCatalog = lazy(() => import('../components/dashboard/PlatformsCatalog'));
 
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
@@ -1515,6 +1529,10 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       }
       setMessages(prev => prev.filter(m => m.id !== tempId));
       if (err?.code === 'outside_window' || err?.status === 422) setWindowRefreshKey(key => key + 1);
+      // A quoted message that isn't in this conversation: 404 and nothing is sent.
+      if (err?.status === 404 && preview.reply_to) {
+        throw new Error("The message you're replying to isn't part of this conversation any more, so nothing was sent. Remove the quote and send again.");
+      }
       throw new Error(replyErrorMessage(err));
     }
   };
@@ -1532,8 +1550,16 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       .catch(err => setInboxNotice({ tone: 'error', text: err.message }));
   };
 
+  // The quote as the backend returns it (reply_to), for the bubble shown while sending.
+  const pendingQuote = () => (replyTo ? {
+    reply_to: {
+      message_id: replyTo.id, role: replyTo.fromCustomer ? 'user' : 'page',
+      message: replyTo.preview || null, attachments: replyTo.attachments || [], is_deleted: false,
+    },
+  } : {});
+
   const handleSendText = ({ message, quickReplies }) => sendReply(
-    { message },
+    { message, ...pendingQuote() },
     () => apiService.replyToConversation(activePageId, activeConversationId, {
       message,
       reply_to_message_id: replyTo?.id || null,
@@ -1542,7 +1568,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   );
 
   const handleSendFile = ({ file, attachmentType, message }) => sendReply(
-    { message: message || '', _localAttachment: { attachmentType, name: file.name } },
+    { message: message || '', _localAttachment: { attachmentType, name: file.name }, ...pendingQuote() },
     () => apiService.replyToConversationWithFile(activePageId, activeConversationId, {
       file, attachmentType, message, replyToMessageId: replyTo?.id || null,
     }),
@@ -1688,6 +1714,76 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     );
   };
 
+  // Scrolls to a quoted message and flashes it; says so when it isn't loaded yet.
+  const scrollToMessage = (messageId) => {
+    const container = messagesContainerRef.current;
+    const target = container && [...container.querySelectorAll('[data-message-id]')].find(node => node.dataset.messageId === String(messageId));
+    if (!target) {
+      setInboxNotice({ tone: 'info', text: 'That message is further back. Scroll up to load older messages.' });
+      return;
+    }
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    playOnce(target.querySelector('.message-bubble') || target, 'message-flash');
+  };
+
+  // The message this one replies to (reply_to), Messenger-style above the text. One level
+  // only. Unsent: "Message unsent"; not stored (before the page was connected): "Replied to a message".
+  const renderQuote = (msg, isMe) => {
+    const quote = msg.reply_to;
+    if (!quote) return null;
+    const attachments = Array.isArray(quote.attachments) ? quote.attachments : [];
+    const notStored = !quote.message_id && !quote.message && attachments.length === 0 && !quote.is_deleted;
+    const who = quote.role === 'user'
+      ? (resolveContactName(activeContact, '') || 'Customer')
+      : quote.role === 'page' ? 'your page' : null;
+    const image = attachments.find(att => String(att.attachment_type || '').toLowerCase().startsWith('image') && (att.attachment_key || att.url));
+    const imageUrl = image ? ((MOCK_MODE && image.url) || `${API_BASE}/v1/media/attachments?key=${encodeURIComponent(image.attachment_key)}`) : null;
+    const firstKind = String(attachments[0]?.attachment_type || '').toLowerCase();
+    const attachmentLabel = firstKind.startsWith('image') ? 'Photo' : firstKind.startsWith('audio') ? 'Voice note' : firstKind.startsWith('video') ? 'Video' : 'Attachment';
+    const AttachmentIcon = firstKind.startsWith('image') ? ImageIcon : firstKind.startsWith('audio') ? Mic : firstKind.startsWith('video') ? Film : Paperclip;
+    const canJump = Boolean(quote.message_id) && !notStored;
+    const tone = isMe
+      ? 'border-white/40 bg-white/10 text-white/80 hover:bg-white/15'
+      : 'border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200/70';
+    const body = notStored ? <span className="italic">Replied to a message</span>
+      : quote.is_deleted ? <span className="italic">Message unsent</span>
+        : (
+          <span className="flex min-w-0 items-center gap-2">
+            {imageUrl && <img src={imageUrl} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />}
+            {quote.message
+              ? <span className="line-clamp-2 min-w-0 [overflow-wrap:anywhere]">{quote.message}</span>
+              : attachments.length > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  {!imageUrl && <AttachmentIcon size={13} className="shrink-0" aria-hidden="true" />}
+                  {attachmentLabel}
+                </span>
+              )}
+          </span>
+        );
+    const content = (
+      <>
+        {who && (
+          <span className="mb-0.5 flex items-center gap-1 text-[11px] font-semibold opacity-90">
+            <Reply size={11} aria-hidden="true" />
+            Replied to {who}
+          </span>
+        )}
+        <span className="flex items-center gap-1 text-[12.5px] leading-snug">
+          {!who && <Reply size={12} className="shrink-0" aria-hidden="true" />}
+          {body}
+        </span>
+      </>
+    );
+    const className = `message-quote mb-2 block w-full min-w-[9rem] rounded-lg border-l-[3px] px-2.5 py-1.5 text-left transition-colors ${tone}`;
+    return canJump ? (
+      <button type="button" className={className} onClick={() => scrollToMessage(quote.message_id)} title="Show the original message">
+        {content}
+      </button>
+    ) : (
+      <div className={className}>{content}</div>
+    );
+  };
+
   const renderMessageText = (msg, isMe = false) => {
     const body = msg.message || msg.text;
     const productCards = messageProductCards(msg);
@@ -1773,7 +1869,12 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     const quoteButton = canQuote && (
       <button
         type="button"
-        onClick={() => setReplyTo({ id: msgId, fromCustomer: !isMe, preview: typeof (msg.message || msg.text) === 'string' ? (msg.message || msg.text) : '' })}
+        onClick={() => setReplyTo({
+          id: msgId,
+          fromCustomer: !isMe,
+          preview: typeof (msg.message || msg.text) === 'string' ? (msg.message || msg.text) : '',
+          attachments: Array.isArray(msg.attachments) ? msg.attachments : [],
+        })}
         className="message-quote-button flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-full text-slate-400 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 group-hover:opacity-100"
         aria-label="Reply to this message"
         title="Reply"
@@ -1790,11 +1891,12 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     if (isMe) {
       // Sent message (AI or agent)
       return (
-        <div key={msgId || Math.random()} className="group ml-auto flex max-w-[min(78%,42rem)] flex-row-reverse gap-2">
+        <div key={msgId || Math.random()} data-message-id={msgId || undefined} className="group ml-auto flex max-w-[min(78%,42rem)] flex-row-reverse gap-2">
           <div className="flex min-w-0 flex-col items-end gap-1.5">
-            <div className={`relative max-w-full rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border border-dashed border-slate-300 bg-white text-slate-400 italic' : 'bg-slate-900 text-white'} ${msg._pending || msg._unconfirmed ? 'opacity-70' : ''} ${reaction ? 'mb-1.5' : ''}`}>
+            <div className={`message-bubble relative max-w-full rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border border-dashed border-slate-300 bg-white text-slate-400 italic' : 'bg-slate-900 text-white'} ${msg._pending || msg._unconfirmed ? 'opacity-70' : ''} ${reaction ? 'mb-1.5' : ''}`}>
               {isDeleted ? 'Message unsent' : (
                 <>
+                  {renderQuote(msg, true)}
                   {renderMessageText(msg, true)}
                   {renderAttachments(msg, true)}
                 </>
@@ -1843,12 +1945,13 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     } else {
       // Received message (customer)
       return (
-        <div key={msgId || Math.random()} className="group flex max-w-[min(78%,42rem)] gap-2.5">
+        <div key={msgId || Math.random()} data-message-id={msgId || undefined} className="group flex max-w-[min(78%,42rem)] gap-2.5">
           {renderAvatar(activeContact, "w-7 h-7 rounded-full self-end ring-2 ring-white")}
           <div className="min-w-0 space-y-1.5">
-            <div className={`relative rounded-2xl rounded-bl-md border px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border-dashed border-slate-300 bg-white text-slate-400 italic' : 'border-slate-200 bg-white text-slate-900'} ${reaction ? 'mb-1.5' : ''}`}>
+            <div className={`message-bubble relative rounded-2xl rounded-bl-md border px-4 py-3 text-[14px] leading-relaxed shadow-sm ${isDeleted ? 'message-unsent border-dashed border-slate-300 bg-white text-slate-400 italic' : 'border-slate-200 bg-white text-slate-900'} ${reaction ? 'mb-1.5' : ''}`}>
               {isDeleted ? 'This message was unsent' : (
                 <>
+                  {renderQuote(msg, false)}
                   {renderMessageText(msg)}
                   {renderAttachments(msg, false)}
                 </>
@@ -2136,6 +2239,14 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                       <div className="flex min-w-0 flex-1 items-center gap-1.5">
                         <h3 className="conversation-contact-name truncate text-sm font-black text-slate-900">{contactName}</h3>
                         {contact.is_human_needed && <span title={handoverCategoryLabel(contact.handover_category) || 'Needs a person'} className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-rose-600">Human</span>}
+                        {contact.ad_id && (
+                          <HoverTip
+                            text={contact.ad_title ? `Came from the ad "${contact.ad_title}"` : 'Came from an ad'}
+                            className="conversation-ad-chip inline-flex shrink-0 items-center gap-0.5 rounded bg-violet-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-violet-700"
+                          >
+                            <Megaphone size={9} strokeWidth={2.5} aria-hidden="true" />Ad
+                          </HoverTip>
+                        )}
                       </div>
                       <span className={`mr-3 shrink-0 text-[10px] ${unread ? 'font-black text-emerald-600' : 'font-semibold text-slate-400'}`}>{updated}</span>
                     </div>
@@ -2447,6 +2558,26 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               </div>
 
               <div className="space-y-8">
+                {activeContact?.ad_id && (() => {
+                  const postUrl = adPostUrl(activeContact, pages?.find(p => p.page_id === (activeContact.page_id || activePageId)));
+                  return (
+                    <section className="conversation-ad rounded-xl border border-violet-100 bg-violet-50/60 p-3.5" aria-label="Ad referral">
+                      <p className="m-0 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-violet-700">
+                        <Megaphone size={12} strokeWidth={2.25} aria-hidden="true" />
+                        Came from an ad
+                      </p>
+                      <p className="m-0 mt-1.5 text-sm font-bold leading-snug text-slate-900 [overflow-wrap:anywhere]">
+                        {activeContact.ad_title || 'Ad without a headline'}
+                      </p>
+                      <p className="m-0 mt-0.5 truncate font-mono text-[10px] text-slate-400" title={`Ad ID ${activeContact.ad_id}`}>Ad ID {activeContact.ad_id}</p>
+                      {postUrl && (
+                        <a href={postUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-violet-700 hover:text-violet-900 hover:underline">
+                          View the ad post <ExternalLink size={12} aria-hidden="true" />
+                        </a>
+                      )}
+                    </section>
+                  );
+                })()}
                 {activeConversationId && activePageId && (
                   <ConversationNote
                     key={activeConversationId}
@@ -7294,7 +7425,7 @@ export default function Dashboard() {
     if (!target?.tab) return;
     visitedTabsRef.current.add(target.tab);
     setActiveTab(target.tab);
-    if (target.conversationId || target.recordId || target.status || target.settingsTab) {
+    if (target.conversationId || target.recordId || target.status || target.settingsTab || target.adId) {
       setNotificationFocus({ ...target, nonce: Date.now() });
     }
   }, [setActiveTab]);
@@ -7359,6 +7490,20 @@ export default function Dashboard() {
             <ProductSalesStatistics pages={pages} isActive={activeTab === 'product-sales'} />
           </Suspense>
         </div>}
+        {visitedTabsRef.current.has('ads') && (role === 'owner' || role === 'admin') && <div style={{ display: activeTab === 'ads' ? 'contents' : 'none' }}>
+          <Suspense fallback={<AppLoadingScreen />}>
+            <AdsStatistics
+              pages={pages}
+              isDark={isDark}
+              isOwner={role === 'owner'}
+              isActive={activeTab === 'ads'}
+              onNavigate={handleNotificationNavigate}
+              focusRequest={notificationFocus}
+              onPagesChanged={refreshPages}
+              onReconnect={() => setPreReauthModal(true)}
+            />
+          </Suspense>
+        </div>}
         {visitedTabsRef.current.has('channels') && <div style={{ display: activeTab === 'channels' ? 'contents' : 'none' }}>
           <Channels user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={(options) => setPreReauthModal(options?.includeInstagram ? { includeInstagram: true } : true)} syncStatus={pageSync.status} onRetrySync={retryPageSync} />
         </div>}
@@ -7374,7 +7519,7 @@ export default function Dashboard() {
         </div>}
         {visitedTabsRef.current.has('customer-orders') && <div style={{ display: activeTab === 'customer-orders' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
-            <CustomerRecords pages={pages} recordType="order" focusRequest={notificationFocus} />
+            <CustomerRecords pages={pages} recordType="order" focusRequest={notificationFocus} onOpenAd={(role === 'owner' || role === 'admin') ? (adId) => handleNotificationNavigate({ tab: 'ads', adId }) : null} />
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
@@ -7441,8 +7586,19 @@ export default function Dashboard() {
 
   const primaryNavItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    // Every member can see product sales; the dashboard itself is owners and admins.
-    { id: 'product-sales', icon: ChartColumnIncreasing, label: 'Product Sales' },
+    // Reports: pages that dig into one thing. Every member can see product sales; Ads is
+    // owners and admins (members get 403), so a member gets Product Sales on its own.
+    ...((role === 'owner' || role === 'admin')
+      ? [{
+        id: 'reports',
+        icon: ChartColumnIncreasing,
+        label: 'Reports',
+        children: [
+          { id: 'product-sales', icon: ShoppingBag, label: 'Product Sales' },
+          { id: 'ads', icon: Megaphone, label: 'Ads' },
+        ],
+      }]
+      : [{ id: 'product-sales', icon: ChartColumnIncreasing, label: 'Product Sales' }]),
     { id: 'channels', icon: Inbox, label: 'Channels' },
     { id: 'platforms', icon: Plug, label: 'Platforms' },
     { id: 'conversation', icon: MessageSquare, label: 'Conversations' },

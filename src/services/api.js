@@ -24,8 +24,10 @@ export const facebookConnectUrl = () => `${API_BASE}/v1/auth/facebook/connect`;
 // professional account linked to them when `includeInstagram` is set. The endpoint
 // either redirects straight to Facebook or answers JSON { auth_url }; this handles
 // both (a manual-redirect fetch tells them apart) and ends in a full-page navigation.
-export const startFacebookConnect = async ({ includeInstagram = false } = {}) => {
-  const url = `${facebookConnectUrl()}?include_instagram=${includeInstagram ? 'true' : 'false'}`;
+// `includeAds` also asks for page_events ("Connect ads", owner only), so the page's
+// orders can be sent to Meta as purchases.
+export const startFacebookConnect = async ({ includeInstagram = false, includeAds = false } = {}) => {
+  const url = `${facebookConnectUrl()}?include_instagram=${includeInstagram ? 'true' : 'false'}${includeAds ? '&include_ads=true' : ''}`;
   if (MOCK_MODE) {
     // No Facebook round trip in mock mode: land back as the backend would on success.
     window.location.href = `${window.location.pathname}?mock=true&reauth=success`;
@@ -88,6 +90,40 @@ const MOCK_ORDERS = (() => {
   }
   return orders;
 })();
+
+// Send-message ads for mock mode (GET /v1/statistics/ads). chatsPerDay drives the chats;
+// weight is each ad's share of its page's ad orders. The first ad turns chats into orders
+// far better than the rest, the second far worse, so every verdict shows in 7 days.
+const MOCK_ADS = [
+  { ad_id: '120212345678901234', title: 'This week only', post_id: '9876543210', page_id: 'page_1', chatsPerDay: 7, weight: 6 },
+  { ad_id: '120212345678905678', title: null, post_id: null, page_id: 'page_1', chatsPerDay: 16, weight: 1 },
+  { ad_id: '120219988776655443', title: 'Eid Collection: Panjabi from 1,490', post_id: '9876543299', page_id: 'page_1', chatsPerDay: 8, weight: 3 },
+  { ad_id: '120214433221100998', title: 'Free delivery inside Dhaka', post_id: '5544332211', page_id: 'page_2', chatsPerDay: 4, weight: 1 },
+];
+const MOCK_AD_CONVERSATIONS = ['conv_2', 'conv_3', 'conv_1', 'conv_4', 'conv_6'];
+// Two in five orders that aren't cancelled belong to an ad of their page; some came from
+// a comment on the ad's post rather than a tap on the ad.
+MOCK_ORDERS.forEach((order, n) => {
+  const pageAds = MOCK_ADS.filter(ad => ad.page_id === order.page_id);
+  if (order.status === 'cancelled' || (n % 5 !== 0 && n % 5 !== 3) || pageAds.length === 0) {
+    Object.assign(order, { ad_id: null, ad_source: null });
+    return;
+  }
+  const slots = pageAds.flatMap(ad => Array(ad.weight).fill(ad));
+  const ad = slots[(n * 7 + Math.floor(n / 5) * 3) % slots.length];
+  Object.assign(order, { ad_id: ad.ad_id, ad_source: n % 6 === 0 ? 'ad_comment' : 'message_ad', conversation_id: MOCK_AD_CONVERSATIONS[n % MOCK_AD_CONVERSATIONS.length] });
+});
+// Purchases sent to Meta (page_1 shares them unless ?mockAdsConnect=required): sent 30
+// minutes after the order, pending before that, and a few refused or not sent.
+MOCK_ORDERS.forEach((order, n) => {
+  const none = { meta_purchase_status: null, meta_purchase_sent_at: null, meta_purchase_error: null };
+  if (order.page_id !== 'page_1' || MOCK_LOAD_PARAMS.get('mockAdsConnect') === 'required') { Object.assign(order, none); return; }
+  const sendAt = Date.parse(order.created_at) + 30 * 60000;
+  if (sendAt > MOCK_LOADED_AT) Object.assign(order, { ...none, meta_purchase_status: n % 2 ? 'sending' : 'pending' });
+  else if (n % 23 === 7) Object.assign(order, { ...none, meta_purchase_status: 'failed', meta_purchase_error: 'Meta refused the purchase: the page no longer allows sending events. Use "Connect ads" again.' });
+  else if (n % 29 === 11) Object.assign(order, { ...none, meta_purchase_status: 'not_sent', meta_purchase_error: "The customer has no Messenger id for this page, so Meta can't match the purchase." });
+  else Object.assign(order, { ...none, meta_purchase_status: 'sent', meta_purchase_sent_at: new Date(sendAt + 4000).toISOString() });
+});
 
 // Σ (price − discount) × quantity; a missing discount is 0.
 const mockItemsTotal = (items = []) => items.reduce((sum, item) => sum + item.quantity * (item.price - (Number(item.discount) || 0)), 0);
@@ -380,6 +416,14 @@ const mockUnreadCount = () => mockNotifications.filter(item => !item.read_at).le
 const MOCK_CURRENT_MEMBER_ID = 'mem_1';
 // page_1's inbox. last_customer_at drives each reply window: inside 24h, 24h-7d, past 7d.
 const MOCK_HOUR = 3600000;
+// Ad referrals (ad_id, ad_post_id, ad_title): Jane came from a Facebook ad, Tasnim from an
+// Instagram one, and the unnamed customer's ad has no headline. Everyone else is organic (null).
+const MOCK_AD_REFERRALS = {
+  conv_2: { ad_id: '120212345678901234', ad_post_id: '9876543210', ad_title: '50% Off Leather Bags' },
+  conv_7: { ad_id: '120219876543210987', ad_post_id: '18034567890123456', ad_title: 'New Tote Colours: Black & Sand' },
+  conv_6: { ad_id: '120215555555555555', ad_post_id: null, ad_title: null },
+};
+const MOCK_NO_AD = { ad_id: null, ad_post_id: null, ad_title: null };
 let mockInbox = [
   { conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', is_human_needed: false, human_needed_reason: null, assigned_to_member_id: MOCK_CURRENT_MEMBER_ID, last_customer_at: MOCK_LOADED_AT },
   { conversation_id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', profile_pic_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', is_human_needed: true, human_needed_reason: 'Asked for a bulk discount', handover_category: 'bulk_custom_or_pricing', assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 30 * MOCK_HOUR },
@@ -390,7 +434,7 @@ let mockInbox = [
   // The Instagram account (page_3), so the all-pages inbox mixes pages.
   { conversation_id: 'conv_7', page_id: 'page_3', name: 'Tasnim Rahman', snippet: 'Is the tote available in black?', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 35 * 60000 },
   { conversation_id: 'conv_8', page_id: 'page_3', name: 'Rafsan Chowdhury', snippet: 'Can I pay on delivery?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Asked about payment options', handover_category: 'order_status_or_delivery', assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 5 * MOCK_HOUR },
-].map(conversation => ({ page_id: 'page_1', ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString() }));
+].map(conversation => ({ page_id: 'page_1', ...MOCK_NO_AD, ...MOCK_AD_REFERRALS[conversation.conversation_id], ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString() }));
 // As the API returns it (last_customer_at is mock bookkeeping).
 const mockInboxItem = (conversation) => {
   const item = { ...conversation };
@@ -407,6 +451,7 @@ const mockMessage = (fields) => ({
   message_id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, message: null, role: 'user', has_attachment: false,
   attachments: [], is_ai_msg: false, created_at: new Date().toISOString(), agent_activity_id: null, sent_by_member_id: null,
   is_delivered: false, delivered_at: null, is_read: false, read_at: null, is_deleted: false, deleted_at: null, reaction: null,
+  reply_to: null,
   ...fields,
 });
 // A customer who writes in for the first time while the dashboard is open (?mockLive=true).
@@ -498,7 +543,14 @@ const mockProductSales = (endpoint) => {
       ? { value: value.toFixed(2), previous: prev.toFixed(2), change_pct: change }
       : { value, previous: prev, change_pct: change };
   };
-  const products = MOCK_DASHBOARD_MODE === 'empty' ? [] : MOCK_PRODUCT_SALES
+  const limitParam = params.get('limit');
+  const limit = limitParam === null ? 100 : Number(limitParam);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) fail(422, 'limit: Input should be between 1 and 100');
+  // ?mockSalesProducts=many adds a long tail of small sellers, to page through.
+  const longTail = MOCK_LOAD_PARAMS.get('mockSalesProducts') === 'many'
+    ? Array.from({ length: 140 }, (_, n) => [`Accessory item ${String(n + 1).padStart(3, '0')}`, `ACC-${n + 1}`, 18 - Math.floor(n / 9), n % 3 ? 14 - Math.floor(n / 11) : 0, 12 - Math.floor(n / 13), n % 3 ? 9 : 0, 180 + (n % 7) * 40])
+    : [];
+  const products = MOCK_DASHBOARD_MODE === 'empty' ? [] : [...MOCK_PRODUCT_SALES, ...longTail]
     .map(([name, code, pieces, prevPieces, orders, prevOrders, price]) => {
       const p = Math.max(1, Math.round(pieces * scale));
       const pp = Math.round(prevPieces * scale);
@@ -515,6 +567,9 @@ const mockProductSales = (endpoint) => {
     if (noComparison || products.length === 0) return money ? { value: value.toFixed(2), previous: null, change_pct: null } : { value, previous: null, change_pct: null };
     return figure(value, previous, money);
   };
+  // An unreadable cursor gives the first page, like the API.
+  const offset = /^\d+$/.test(params.get('cursor') || '') ? Number(params.get('cursor')) : 0;
+  const hasMore = offset + limit < products.length;
   return {
     range,
     totals: {
@@ -522,7 +577,154 @@ const mockProductSales = (endpoint) => {
       orders: totalsFigure(orders, prevOrders),
       sales_value: totalsFigure(sum('sales_value', 'value'), sum('sales_value', 'previous'), true),
     },
-    products,
+    products: products.slice(offset, offset + limit),
+    pagination: { next_cursor: hasMore ? String(offset + limit) : null, has_more: hasMore, page_size: limit, total: products.length },
+  };
+};
+// GET /v1/statistics/ads and /ads/orders (owners and admins). ?mockDashboard=empty is a
+// business with no ad data yet, =error a 500; ?mockRole=member gets 403.
+const mockDhakaDate = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: MOCK_DASHBOARD_TZ }).format(new Date(iso));
+const mockAdsRange = (params, { defaultToday = false } = {}) => {
+  const fail = (status, message) => mockDashboardError(status, message);
+  const startParam = params.get('start_date');
+  const endParam = params.get('end_date');
+  const hasDates = Boolean(startParam || endParam);
+  if (hasDates && params.get('period')) fail(422, 'Send either period or start_date and end_date, not both.');
+  if (hasDates && !(startParam && endParam)) fail(422, 'Send both start_date and end_date.');
+  const today = mockTodayDhaka();
+  if (!hasDates) {
+    if (defaultToday) return { start: today, end: today, days: 1 };
+    const period = params.get('period') || 'last_7_days';
+    const days = { today: 1, last_7_days: 7, last_30_days: 30 }[period];
+    if (!days) fail(422, 'period: Input should be today, last_7_days or last_30_days');
+    return { start: mockDayShift(today, -(days - 1)), end: today, days };
+  }
+  const days = Math.round((Date.parse(endParam) - Date.parse(startParam)) / 86400000) + 1;
+  if (days < 1) fail(422, 'end_date must not be before start_date.');
+  if (endParam > today) fail(422, 'end_date must not be in the future.');
+  if (days > 30) fail(422, 'The range may be at most 30 days, counting both the first and last day.');
+  return { start: startParam, end: endParam, days };
+};
+const mockAdsGuard = (params) => {
+  if (new URLSearchParams(window.location.search).get('mockRole') === 'member') mockDashboardError(403, 'This needs the owner or admin role.');
+  const pageId = params.get('page_id');
+  if (pageId && !mockData['/v1/business/pages'].some(page => page.page_id === pageId)) mockDashboardError(404, 'Page not found');
+  if (MOCK_DASHBOARD_MODE === 'error') mockDashboardError(500, 'The ad figures could not be computed.');
+  return pageId;
+};
+// Ad orders in [start, end] (business days), newest first.
+const mockAdOrders = (start, end, pageId, adId = null) => (MOCK_DASHBOARD_MODE === 'empty' ? [] : MOCK_ORDERS
+  .filter(order => order.ad_id && (!pageId || order.page_id === pageId) && (!adId || order.ad_id === adId))
+  .filter(order => { const day = mockDhakaDate(order.created_at); return day >= start && day <= end; }));
+// The ads figures for one range (no comparison). Mock data covers the last 31 days.
+const mockAdsFigures = (start, end, pageId) => {
+  const days = Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1;
+  const dayList = Array.from({ length: days }, (_, i) => mockDayShift(start, i));
+  const dataStart = mockDayShift(mockTodayDhaka(), -30);
+  const empty = MOCK_DASHBOARD_MODE === 'empty';
+  const adOrders = mockAdOrders(start, end, pageId);
+  const inRange = MOCK_ORDERS.filter(order => (!pageId || order.page_id === pageId))
+    .filter(order => { const day = mockDhakaDate(order.created_at); return day >= start && day <= end; });
+  const allOrders = inRange.filter(order => order.status !== 'cancelled');
+  // A purchase sent before its order was cancelled still counts: Meta has it.
+  const sentOrders = empty ? [] : inRange.filter(order => order.meta_purchase_status === 'sent');
+  // Chats per ad and day: the ad's rate with a little day-to-day wobble; none before the data starts.
+  const chatsOn = (ad, adIndex, day, dayIndex) => (empty || day < dataStart ? 0 : Math.max(0, ad.chatsPerDay + ((dayIndex * 7 + adIndex * 3) % 5) - 2));
+  const ads = MOCK_ADS.filter(ad => !pageId || ad.page_id === pageId).map((ad) => {
+    const adIndex = MOCK_ADS.indexOf(ad);
+    const mine = adOrders.filter(order => order.ad_id === ad.ad_id);
+    const chats = dayList.reduce((sum, day, i) => sum + chatsOn(ad, adIndex, day, i), 0);
+    return {
+      ad_id: ad.ad_id, title: ad.title,
+      // <page id>_<post id> for a Facebook page, as comment rows have it.
+      post_id: ad.post_id ? `${ad.page_id}_${ad.post_id}` : null,
+      chats, orders: mine.length,
+      orders_after_comment: mine.filter(order => order.ad_source === 'ad_comment').length,
+      sales: mine.reduce((sum, order) => sum + Number(order.total), 0).toFixed(2),
+      chat_to_order_rate: chats ? Math.round((mine.length / chats) * 1000) / 10 : null,
+      purchases_sent: sentOrders.filter(order => order.ad_id === ad.ad_id).length,
+    };
+  }).filter(ad => ad.chats > 0 || ad.orders > 0);
+  const chatSum = ads.reduce((sum, ad) => sum + ad.chats, 0);
+  const orderSum = ads.reduce((sum, ad) => sum + ad.orders, 0);
+  ads.forEach((ad) => {
+    ad.expected_orders = chatSum ? Math.round((orderSum * ad.chats / chatSum) * 10) / 10 : 0;
+    ad.verdict = ad.expected_orders < 3 ? 'not_enough_data'
+      : ad.orders <= ad.expected_orders / 2 ? 'below_usual'
+        : ad.orders >= ad.expected_orders * 1.5 ? 'above_usual' : 'usual';
+  });
+  ads.sort((a, b) => b.chats - a.chats || b.orders - a.orders);
+  const daily = dayList.map((day, i) => {
+    const onDay = adOrders.filter(order => mockDhakaDate(order.created_at) === day);
+    return {
+      date: day,
+      chats: MOCK_ADS.filter(ad => !pageId || ad.page_id === pageId).reduce((sum, ad) => sum + chatsOn(ad, MOCK_ADS.indexOf(ad), day, i), 0),
+      orders: onDay.length,
+      sales: onDay.reduce((sum, order) => sum + Number(order.total), 0).toFixed(2),
+    };
+  });
+  return {
+    // A chat that came from two ads counts once in the total.
+    chats: Math.round(chatSum * 0.96),
+    orders: orderSum,
+    sales: adOrders.reduce((sum, order) => sum + Number(order.total), 0),
+    orders_after_comment: adOrders.filter(order => order.ad_source === 'ad_comment').length,
+    all_orders: allOrders.length,
+    purchases_sent: sentOrders.length,
+    purchases_failed: empty ? 0 : inRange.filter(order => order.meta_purchase_status === 'failed').length,
+    ad_purchases_sent: sentOrders.filter(order => order.ad_id).length,
+    hasData: !empty && end >= dataStart,
+    ads, daily,
+  };
+};
+const mockAdsStatistics = (endpoint) => {
+  const params = new URLSearchParams(endpoint.split('?')[1] || '');
+  const pageId = mockAdsGuard(params);
+  const { start, end, days } = mockAdsRange(params);
+  const current = mockAdsFigures(start, end, pageId);
+  const previousRange = { start_date: mockDayShift(start, -days), end_date: mockDayShift(start, -1) };
+  const previous = mockAdsFigures(previousRange.start_date, previousRange.end_date, pageId);
+  const figure = (value, prev, money = false) => {
+    if (!previous.hasData) return { value: money ? value.toFixed(2) : value, previous: null, change_pct: null };
+    const change = prev > 0 ? Math.round(((value - prev) / prev) * 1000) / 10 : null;
+    return money ? { value: value.toFixed(2), previous: prev.toFixed(2), change_pct: change } : { value, previous: prev, change_pct: change };
+  };
+  return {
+    range: { start_date: start, end_date: end, timezone: MOCK_DASHBOARD_TZ, currency: 'BDT', previous: previousRange },
+    totals: {
+      chats: figure(current.chats, previous.chats),
+      orders: figure(current.orders, previous.orders),
+      sales: figure(current.sales, previous.sales, true),
+      orders_after_comment: current.orders_after_comment,
+      chat_to_order_rate: current.chats ? Math.round((current.orders / current.chats) * 1000) / 10 : null,
+      all_orders: current.all_orders,
+      purchases_sent: current.purchases_sent,
+      purchases_failed: current.purchases_failed,
+      ad_purchases_sent: current.ad_purchases_sent,
+    },
+    ads: current.ads,
+    daily: current.daily,
+  };
+};
+const mockAdsOrders = (endpoint) => {
+  const params = new URLSearchParams(endpoint.split('?')[1] || '');
+  const pageId = mockAdsGuard(params);
+  const { start, end } = mockAdsRange(params, { defaultToday: true });
+  const limitParam = params.get('limit');
+  const limit = limitParam === null ? 20 : Number(limitParam);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) mockDashboardError(422, 'limit: Input should be between 1 and 50');
+  const offset = /^\d+$/.test(params.get('cursor') || '') ? Number(params.get('cursor')) : 0;
+  const matching = mockAdOrders(start, end, pageId, params.get('ad_id'));
+  const hasMore = offset + limit < matching.length;
+  return {
+    orders: matching.slice(offset, offset + limit).map(order => ({
+      customer_order_id: order.customer_order_id, order_id: order.order_id, created_at: order.created_at,
+      local_date: mockDhakaDate(order.created_at), contact_name: order.contact_name, total: order.total,
+      status: order.status, created_by: order.created_by, conversation_id: order.conversation_id, page_id: order.page_id,
+      ad_id: order.ad_id, ad_title: MOCK_ADS.find(ad => ad.ad_id === order.ad_id)?.title ?? null, ad_source: order.ad_source,
+      meta_purchase_status: order.meta_purchase_status, meta_purchase_sent_at: order.meta_purchase_sent_at, meta_purchase_error: order.meta_purchase_error,
+    })),
+    pagination: { next_cursor: hasMore ? String(offset + limit) : null, has_more: hasMore, page_size: limit, total: matching.length },
   };
 };
 const mockDashboardError = (status, message) => { const error = new Error(message); error.status = status; throw error; };
@@ -802,11 +1004,12 @@ const mockVariant = (productId, n, sku, title, optionValues, regular, sale, qty,
   weight: null, image_asset_id: null, position: n, is_active: true, created_at: '2026-10-01T10:00:00Z', updated_at: '2026-10-01T10:00:00Z',
 });
 // The backend's 422 for product text over its limit, in FastAPI's shape as apiFetch flattens it.
-const mockProductTextLimits = (fields) => {
-  const limits = { short_description: 600, description: 1000 };
+// Update (JSON) reports loc ["body", field]; create (multipart form) reports loc [field].
+const mockProductTextLimits = (fields, { form = false } = {}) => {
+  const limits = { short_description: 600, description: 1500 };
   const over = Object.entries(limits).find(([field, max]) => typeof fields[field] === 'string' && fields[field].length > max);
   if (!over) return;
-  const error = new Error(`body.${over[0]}: String should have at most ${over[1]} characters`);
+  const error = new Error(`${form ? '' : 'body.'}${over[0]}: String should have at most ${over[1]} characters`);
   error.status = 422;
   throw error;
 };
@@ -820,6 +1023,65 @@ const MOCK_IMAGE_MESSAGES = {
 };
 const MOCK_IMAGE_ATTACHMENTS = { att_img_1: 'conv_1', att_img_2: 'conv_1' };
 const mockVisualLabels = new Map();
+// conv_1's thread, newest first. Some messages quote an older one (reply_to), covering
+// each case the inbox shows: text, a photo with text, a photo alone, an unsent message,
+// and one too old to be stored.
+const MOCK_QUOTES = { 0: 5, 1: 8, 3: 4, 9: 14, 12: null };
+// The quoted message as the backend returns it: one level, unsent content hidden.
+const mockQuoteOf = (message) => (message
+  ? {
+    message_id: message.message_id, role: message.role,
+    message: message.is_deleted ? null : (message.message || null),
+    attachments: message.is_deleted ? [] : (message.attachments || []),
+    is_deleted: Boolean(message.is_deleted),
+  }
+  : { message_id: null, role: null, message: null, attachments: [], is_deleted: false });
+const mockConv1Thread = () => {
+  const thread = Array.from({ length: 60 }, (_, index) => {
+    const createdAt = new Date(MOCK_LOADED_AT - index * 5 * 60000).toISOString();
+    const base = { id: `m1_${index}`, message_id: `m1_${index}`, created_at: createdAt, has_attachment: false, attachments: [], agent_activity_id: null };
+    if (index % 2 === 0) {
+      return {
+        ...base, role: 'user', is_ai_msg: false,
+        // index 6 is the customer tapping a product card's button.
+        // index 2 is a pasted link with no spaces, to check long words wrap inside the bubble.
+        message: index === 0 ? 'Hello, I need help with my order.' : index === 2 ? `Saw this on Facebook: ${MOCK_LONG_UTM_URL}` : index === 10 ? 'Is it the one in this video? https://www.youtube.com/watch?v=lyfflowDemo1' : index === 6 ? 'এটা নিব (GOO47-2)' : `Customer message #${60 - index}: could you tell me more about this item?`,
+        // One recalled message, as Messenger's unsend leaves it.
+        ...(index === 4 ? { is_deleted: true, deleted_at: new Date(MOCK_LOADED_AT - 15 * 60000).toISOString() } : {}),
+        // Two customer photos to label (the matcher hasn't processed the older one yet).
+        ...(MOCK_IMAGE_MESSAGES[index] ? {
+          message: MOCK_IMAGE_MESSAGES[index].text,
+          has_attachment: true,
+          attachments: [{ attachment_id: MOCK_IMAGE_MESSAGES[index].id, attachment_type: 'image', attachment_size: 84213, attachment_key: `mock/${MOCK_IMAGE_MESSAGES[index].id}.jpg`, url: MOCK_IMAGE_MESSAGES[index].url }],
+        } : {}),
+      };
+    }
+    // Newest reply is a teammate's and not read yet; the next one is the owner's.
+    const sentBy = index === 1 ? 'mem_2' : index === 3 ? MOCK_CURRENT_MEMBER_ID : null;
+    return {
+      ...base, role: 'page', is_ai_msg: !sentBy, sent_by_member_id: sentBy,
+      message: index === 1 ? "I've passed this to our delivery team; they'll confirm the time today."
+        : index === 5 ? `Here's the product page: ${MOCK_LONG_UTM_URL}`
+        : index === 7 ? '[Product cards] LED Acrylic Writing Board (Code: GOO47-2) — ৳650 (Regular ৳1500) · Magical Water Floating Pens (Code: GOO69-1) — ৳550 · Mini Desk Organiser (Code: GOO12) — ৳420'
+        : `Agent reply #${60 - index}: here are the details you asked about.`,
+      // Card messages carry the cards too; image keys only resolve against the real API.
+      product_cards: index === 7 ? [
+        { code: 'GOO47-2', title: 'LED Acrylic Writing Board', subtitle: '৳650 (Regular ৳1500)', image_key: 'mock-card-1' },
+        { code: 'GOO69-1', title: 'Magical Water Floating Pens', subtitle: '৳550', image_key: 'mock-card-2' },
+        { code: 'GOO12', title: 'Mini Desk Organiser', subtitle: '৳420', image_key: null },
+      ] : null,
+      is_delivered: true, delivered_at: createdAt,
+      is_read: index !== 1, read_at: index !== 1 ? createdAt : null,
+      reaction: index === 3 ? '❤️' : index === 9 ? '👍' : null,
+    };
+  });
+  return thread.map((message, index) => ({
+    ...message,
+    reply_to: index in MOCK_QUOTES ? mockQuoteOf(MOCK_QUOTES[index] === null ? null : thread[MOCK_QUOTES[index]]) : null,
+  }));
+};
+// Replies sent in this mock session, so they can be quoted too: message_id -> { conversationId, message }.
+const mockSentMessages = new Map();
 let mockProducts = [
   {
     product_id: 'prod_1', name: 'Premium Leather Wallet', code: 'WAL-01', product_type: 'simple', brand: 'Hidebound', category: 'Accessories',tags: ['leather', 'gift'],
@@ -836,8 +1098,8 @@ let mockProducts = [
   },
   {
     product_id: 'prod_3', name: 'Linen Summer Shirt', code: 'SHI-03', product_type: 'variable', brand: 'Loomhouse', category: 'Clothing',tags: ['linen', 'summer'],
-    // Over the 1,000-character limit, like some older products: saving it unchanged gets 422.
-    description: 'Breathable linen shirt in two colours, cut for hot and humid days. The fabric is a mid-weight European flax linen that softens with every wash and keeps air moving close to the skin. It has a relaxed fit through the chest and waist, a classic point collar, a single chest pocket and mother-of-pearl buttons. The back has a box pleat for movement and a locker loop. Side seams are flat-felled so they stay neat after many washes, and the hem is curved so it can be worn tucked or untucked. Sizes run true; if you are between sizes we suggest the larger one for a looser drape. Care: machine wash cold on a gentle cycle with similar colours, do not bleach, hang to dry in the shade and iron while slightly damp for a crisp finish. Linen creases naturally; that relaxed texture is part of its character. Made in small batches, so the colour can vary slightly between lots. Every shirt is checked by hand before it is packed and shipped from our Dhaka studio, with a spare button sewn inside the placket for later repairs.', short_description: null, regular_price: '1450.00', sale_price: null, currency: 'BDT',
+    // Close to the 1,500-character limit, to check long descriptions in the list, detail and edit form.
+    description: 'Breathable linen shirt in two colours, cut for hot and humid days. The fabric is a mid-weight European flax linen that softens with every wash and keeps air moving close to the skin. It has a relaxed fit through the chest and waist, a classic point collar, a single chest pocket and mother-of-pearl buttons. The back has a box pleat for movement and a locker loop. Side seams are flat-felled so they stay neat after many washes, and the hem is curved so it can be worn tucked or untucked. Sizes run true; if you are between sizes we suggest the larger one for a looser drape. Care: machine wash cold on a gentle cycle with similar colours, do not bleach, hang to dry in the shade and iron while slightly damp for a crisp finish. Linen creases naturally; that relaxed texture is part of its character. Made in small batches, so the colour can vary slightly between lots. Every shirt is checked by hand before it is packed and shipped from our Dhaka studio, with a spare button sewn inside the placket for later repairs. Pair it with chinos or linen trousers for the office, or wear it open over a T-shirt on the weekend; the sky blue colour is dyed with low-impact dyes that keep their tone after repeated washing. For gifting, every order can be wrapped in our recycled paper with a handwritten note. Exchanges are free within 7 days if the size is not right, as long as the shirt is unworn with its tags on. Questions? Message us anytime.', short_description: null, regular_price: '1450.00', sale_price: null, currency: 'BDT',
     stock_status: 'out_of_stock', stock_quantity: 0, availability: false,
     options: [{ name: 'Color', values: ['White', 'Sky Blue'] }, { name: 'Size', values: ['M', 'L'] }],
     variants: [
@@ -1025,11 +1287,14 @@ const mockData = {
     { member_id: 'mem_3', invited_email: 'bob@example.com', role: 'member', status: 'invited', joined_at: null },
   ],
   '/v1/business/pages': [
-    { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot', profile_pic_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null },
+    // page_1 sends its orders to Meta as purchases (?mockAdsConnect=required: not yet, and
+    // turning it on asks for "Connect ads").
+    { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot', profile_pic_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null,
+      is_conversion_sharing_enabled: MOCK_LOAD_PARAMS.get('mockAdsConnect') !== 'required', meta_dataset_id: MOCK_LOAD_PARAMS.get('mockAdsConnect') !== 'required' ? '1789012345678901' : null },
     // Second page is deliberately in the expired-token state so the reconnect UI is testable.
-    { page_id: 'page_2', name: 'Lyfflow Support Page', category: 'Software', followers: 430, agent_name: 'SupportBot', profile_pic_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: false, needs_reauth: true, token_invalid_at: '2026-09-23T05:14:40.906Z' },
+    { page_id: 'page_2', name: 'Lyfflow Support Page', category: 'Software', followers: 430, agent_name: 'SupportBot', profile_pic_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: false, needs_reauth: true, token_invalid_at: '2026-09-23T05:14:40.906Z', is_conversion_sharing_enabled: false, meta_dataset_id: null },
     // The Instagram account linked to page_1 (platform `ig`, no picture: shows the logo fallbacks).
-    { page_id: 'page_3', name: 'lyfflow.store', category: 'Shopping & retail', followers: 2180, agent_name: 'SalesBot', profile_pic_url: null, platform: 'ig', linked_page_id: 'page_1', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null },
+    { page_id: 'page_3', name: 'lyfflow.store', category: 'Shopping & retail', followers: 2180, agent_name: 'SalesBot', profile_pic_url: null, platform: 'ig', linked_page_id: 'page_1', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null, is_conversion_sharing_enabled: false, meta_dataset_id: null },
   ],
   '/v1/user-required-actions': { actions: [] },
 '/v1/agent/on-boarding/pre-questions': [
@@ -1716,6 +1981,26 @@ const requestApi = async (endpoint, options = {}) => {
       return mockComments.find(item => item.id === comment.id);
     }
     if (endpoint.startsWith('/v1/statistics/product-sales')) return mockProductSales(endpoint);
+    const sharingMatch = endpoint.match(/^\/v1\/business\/pages\/([^/]+)\/conversion-sharing$/);
+    if (sharingMatch && method === 'PATCH') {
+      const page = mockData['/v1/business/pages'].find(item => item.page_id === decodeURIComponent(sharingMatch[1]));
+      const fail = (status, detail) => { const error = new Error(detail); error.status = status; error.code = detail; throw error; };
+      if (new URLSearchParams(window.location.search).get('mockRole') === 'member') fail(403, 'This needs the owner or admin role.');
+      if (!page) fail(404, 'page_not_found');
+      const { is_enabled: isEnabled } = JSON.parse(requestOptions.body || '{}');
+      // Turning it off always works.
+      if (isEnabled) {
+        if (page.platform === 'ig') fail(422, 'Instagram accounts cannot send purchases to Meta.');
+        if (page.needs_reauth) fail(412, 'page_reconnect_required');
+        if (MOCK_LOAD_PARAMS.get('mockAdsConnect') === 'required' && !page.meta_dataset_id) fail(412, 'ads_connect_required');
+        if (MOCK_LOAD_PARAMS.get('mockAdsConnect') === 'meta_down') fail(502, 'facebook_api_error');
+      }
+      page.is_conversion_sharing_enabled = Boolean(isEnabled);
+      if (isEnabled && !page.meta_dataset_id) page.meta_dataset_id = '1789012345678901';
+      return { page_id: page.page_id, is_conversion_sharing_enabled: page.is_conversion_sharing_enabled };
+    }
+    if (endpoint.startsWith('/v1/statistics/ads/orders')) return mockAdsOrders(endpoint);
+    if (endpoint.startsWith('/v1/statistics/ads')) return mockAdsStatistics(endpoint);
     // Owner dashboard: owners and admins only.
     if (endpoint.startsWith('/v1/dashboard/')) {
       if (mockRole === 'member') mockDashboardError(403, 'This action requires at least the admin role.');
@@ -1808,11 +2093,27 @@ const requestApi = async (endpoint, options = {}) => {
       }
       const failure = MOCK_LOAD_PARAMS.get('mockReplyError');
       const isFile = Boolean(replyMatch[2]);
-      const text = isFile ? (requestOptions.body?.get?.('message') || null) : (JSON.parse(requestOptions.body || '{}').message || null);
+      const jsonBody = isFile ? {} : JSON.parse(requestOptions.body || '{}');
+      const text = isFile ? (requestOptions.body?.get?.('message') || null) : (jsonBody.message || null);
+      // Our message id of the quoted message; 404 (nothing sent) unless it is in this conversation.
+      // ?mockQuote=missing makes every quote unknown, to see the 404.
+      const quoteId = isFile ? requestOptions.body?.get?.('reply_to_message_id') : jsonBody.reply_to_message_id;
+      let replyTo = null;
+      if (quoteId) {
+        const sent = mockSentMessages.get(quoteId);
+        const quoted = MOCK_LOAD_PARAMS.get('mockQuote') === 'missing' ? null
+          : sent?.conversationId === replyMatch[1] ? sent.message
+            : replyMatch[1] === 'conv_1' ? mockConv1Thread().find(message => message.message_id === quoteId)
+              // Other mock conversations have no stored thread here: accept the id.
+              : sent ? null : { message_id: quoteId, role: 'user', message: null, attachments: [], is_deleted: false };
+        if (!quoted) mockErrorWith(404, 'reply_to_message_id is not a message of this conversation.');
+        replyTo = mockQuoteOf(quoted);
+      }
       const stored = mockMessage({
         role: 'page', message: text, has_attachment: isFile, sent_by_member_id: MOCK_CURRENT_MEMBER_ID,
-        attachments: [],
+        attachments: [], reply_to: replyTo,
       });
+      mockSentMessages.set(stored.message_id, { conversationId: replyMatch[1], message: stored });
       const frame = { conversation_id: replyMatch[1], page_id: 'page_1', message: stored };
       if (failure) {
         const [status, message] = {
@@ -1888,44 +2189,7 @@ const requestApi = async (endpoint, options = {}) => {
       const params = new URLSearchParams(endpoint.split('?')[1] || '');
       const size = Number(params.get('page_size')) || 20;
       const offset = Number(params.get('cursor')) || 0;
-      const thread = Array.from({ length: 60 }, (_, index) => {
-        const createdAt = new Date(MOCK_LOADED_AT - index * 5 * 60000).toISOString();
-        const base = { id: `m1_${index}`, message_id: `m1_${index}`, created_at: createdAt, has_attachment: false, attachments: [], agent_activity_id: null };
-        if (index % 2 === 0) {
-          return {
-            ...base, role: 'user', is_ai_msg: false,
-            // index 6 is the customer tapping a product card's button.
-            // index 2 is a pasted link with no spaces, to check long words wrap inside the bubble.
-            message: index === 0 ? 'Hello, I need help with my order.' : index === 2 ? `Saw this on Facebook: ${MOCK_LONG_UTM_URL}` : index === 10 ? 'Is it the one in this video? https://www.youtube.com/watch?v=lyfflowDemo1' : index === 6 ? 'এটা নিব (GOO47-2)' : `Customer message #${60 - index}: could you tell me more about this item?`,
-            // One recalled message, as Messenger's unsend leaves it.
-            ...(index === 4 ? { is_deleted: true, deleted_at: new Date(MOCK_LOADED_AT - 15 * 60000).toISOString() } : {}),
-            // Two customer photos to label (the matcher hasn't processed the older one yet).
-            ...(MOCK_IMAGE_MESSAGES[index] ? {
-              message: MOCK_IMAGE_MESSAGES[index].text,
-              has_attachment: true,
-              attachments: [{ attachment_id: MOCK_IMAGE_MESSAGES[index].id, attachment_type: 'image', attachment_size: 84213, attachment_key: `mock/${MOCK_IMAGE_MESSAGES[index].id}.jpg`, url: MOCK_IMAGE_MESSAGES[index].url }],
-            } : {}),
-          };
-        }
-        // Newest reply is a teammate's and not read yet; the next one is the owner's.
-        const sentBy = index === 1 ? 'mem_2' : index === 3 ? MOCK_CURRENT_MEMBER_ID : null;
-        return {
-          ...base, role: 'page', is_ai_msg: !sentBy, sent_by_member_id: sentBy,
-          message: index === 1 ? "I've passed this to our delivery team; they'll confirm the time today."
-            : index === 5 ? `Here's the product page: ${MOCK_LONG_UTM_URL}`
-            : index === 7 ? '[Product cards] LED Acrylic Writing Board (Code: GOO47-2) — ৳650 (Regular ৳1500) · Magical Water Floating Pens (Code: GOO69-1) — ৳550 · Mini Desk Organiser (Code: GOO12) — ৳420'
-            : `Agent reply #${60 - index}: here are the details you asked about.`,
-          // Card messages carry the cards too; image keys only resolve against the real API.
-          product_cards: index === 7 ? [
-            { code: 'GOO47-2', title: 'LED Acrylic Writing Board', subtitle: '৳650 (Regular ৳1500)', image_key: 'mock-card-1' },
-            { code: 'GOO69-1', title: 'Magical Water Floating Pens', subtitle: '৳550', image_key: 'mock-card-2' },
-            { code: 'GOO12', title: 'Mini Desk Organiser', subtitle: '৳420', image_key: null },
-          ] : null,
-          is_delivered: true, delivered_at: createdAt,
-          is_read: index !== 1, read_at: index !== 1 ? createdAt : null,
-          reaction: index === 3 ? '❤️' : index === 9 ? '👍' : null,
-        };
-      });
+      const thread = mockConv1Thread();
       const hasMore = offset + size < thread.length;
       return { messages: thread.slice(offset, offset + size), pagination: { has_more: hasMore, next_cursor: hasMore ? String(offset + size) : null } };
     }
@@ -1938,7 +2202,7 @@ const requestApi = async (endpoint, options = {}) => {
         throw error;
       }
       const form = requestOptions.body;
-      mockProductTextLimits({ description: form.get('description'), short_description: form.get('short_description') });
+      mockProductTextLimits({ description: form.get('description'), short_description: form.get('short_description') }, { form: true });
       const productId = `prod_${Date.now()}`;
       const options = JSON.parse(form.get('options') || '[]');
       const variants = JSON.parse(form.get('variants') || '[]').map((variant, index) => ({
@@ -3056,10 +3320,41 @@ export const apiService = {
   // or startDate + endDate (YYYY-MM-DD, both included, at most 30 days, not after today in
   // the business timezone; never together with period). page_id narrows it to one page
   // (404 when the page isn't this business's).
-  getProductSales: ({ period = 'last_7_days', startDate = null, endDate = null, pageId = null } = {}, { signal } = {}) => {
+  // Sends every new order of the page to Meta as a purchase, 30 minutes after it's created
+  // (owners and admins). 412 ads_connect_required: run "Connect ads" first;
+  // 412 page_reconnect_required: reconnect the page; 422: Instagram pages can't.
+  setConversionSharing: (pageId, isEnabled) => apiFetch(`/v1/business/pages/${encodeURIComponent(pageId)}/conversion-sharing`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_enabled: Boolean(isEnabled) }),
+  }),
+  // Ads statistics (owners and admins; 403 for members): per Send-message ad the chats it
+  // opened, the orders that followed, sales and a verdict. Same period rules as product sales.
+  getAdsStatistics: ({ period = 'last_7_days', startDate = null, endDate = null, pageId = null } = {}, { signal } = {}) => {
     const q = startDate && endDate
       ? new URLSearchParams({ start_date: startDate, end_date: endDate })
       : new URLSearchParams({ period });
+    if (pageId) q.set('page_id', pageId);
+    return apiFetch(`/v1/statistics/ads?${q}`, { signal });
+  },
+  // The orders that belong to an ad (or every ad), newest first. Dates default to today;
+  // limit 1-50 (default 20); cursor = pagination.next_cursor.
+  getAdOrders: ({ startDate = null, endDate = null, pageId = null, adId = null, limit = null, cursor = null } = {}, { signal } = {}) => {
+    const q = new URLSearchParams();
+    if (startDate && endDate) { q.set('start_date', startDate); q.set('end_date', endDate); }
+    if (pageId) q.set('page_id', pageId);
+    if (adId) q.set('ad_id', adId);
+    if (limit) q.set('limit', String(limit));
+    if (cursor) q.set('cursor', cursor);
+    const qs = q.toString();
+    return apiFetch(`/v1/statistics/ads/orders${qs ? `?${qs}` : ''}`, { signal });
+  },
+  // Products come in pages: limit 1-100 (default 100), cursor = pagination.next_cursor.
+  getProductSales: ({ period = 'last_7_days', startDate = null, endDate = null, pageId = null, limit = null, cursor = null } = {}, { signal } = {}) => {
+    const q = startDate && endDate
+      ? new URLSearchParams({ start_date: startDate, end_date: endDate })
+      : new URLSearchParams({ period });
+    if (limit) q.set('limit', String(limit));
+    if (cursor) q.set('cursor', cursor);
     if (pageId) q.set('page_id', pageId);
     return apiFetch(`/v1/statistics/product-sales?${q}`, { signal });
   },

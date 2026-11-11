@@ -1,0 +1,47 @@
+// An order's purchase as sent to Meta (meta_purchase_status, _sent_at, _error). The system
+// sends it 30 minutes after the order; null means the page wasn't sending purchases then.
+
+const time = (iso) => {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+};
+
+/**
+ * { short, long, tone, error } for an order, or null when there's nothing to show.
+ * `short` fits a list row; `long` is the full sentence for a detail view.
+ */
+export function metaPurchaseLabel(order) {
+  const status = order?.meta_purchase_status;
+  const error = order?.meta_purchase_error || null;
+  switch (status) {
+    case 'pending':
+    case 'sending':
+      return { short: 'To Meta soon', long: 'Will be sent to Meta 30 minutes after the order', tone: 'muted', error: null };
+    case 'sent': {
+      const at = time(order.meta_purchase_sent_at);
+      return { short: 'Sent to Meta', long: at ? `Sent to Meta ${at}` : 'Sent to Meta', tone: 'good', error: null, at };
+    }
+    case 'not_sent':
+      return { short: 'Not sent to Meta', long: 'Not sent to Meta', tone: 'warn', error };
+    case 'failed':
+      return { short: 'Meta: failed', long: 'Failed to send to Meta', tone: 'bad', error };
+    default:
+      return null;
+  }
+}
+
+/** What the owner can do about a purchase error, from its wording: 'connect_ads', 'reconnect' or null. */
+export function metaPurchaseFix(error) {
+  if (!error) return null;
+  if (/connect ads/i.test(error)) return 'connect_ads';
+  if (/reconnect the page/i.test(error)) return 'reconnect';
+  return null;
+}
+
+export const META_PURCHASE_TONES = {
+  good: 'text-emerald-700',
+  muted: 'text-slate-500',
+  warn: 'text-amber-700',
+  bad: 'text-rose-700',
+};

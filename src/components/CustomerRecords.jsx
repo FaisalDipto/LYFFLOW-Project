@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { itemDiscount, orderDiscountTotal } from '../utils/discounts';
+import { META_PURCHASE_TONES, metaPurchaseLabel } from '../utils/metaPurchase';
 import { Users, Phone, Mail, Calendar, Eye, Pencil, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download, Trash2 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { saveBlob } from '../utils/download';
@@ -49,7 +50,8 @@ const normalizeRecord = (record, type) => ({
   type,
 });
 
-const CustomerRecords = ({ pages, recordType, focusRequest }) => {
+// onOpenAd(adId): opens the Ads section on that ad's orders (owners and admins only).
+const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null }) => {
   // Empty means every page: page_id is an optional filter on both leads and orders.
   const [selectedPageId, setSelectedPageId] = useState('');
   const [records, setRecords] = useState([]);
@@ -814,6 +816,40 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                   )}
                 </div>
               )}
+
+              {/* The ad the order belongs to (ad_id, ad_source), set once after it was created. */}
+              {selectedRecord.type === 'order' && selectedRecord.ad_id && (
+                <div className="order-ad flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-violet-50/60 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="m-0 text-xs font-black uppercase tracking-wider text-violet-700">Came from an ad</p>
+                    <p className="m-0 mt-1 text-sm text-slate-700">
+                      {selectedRecord.ad_source === 'ad_comment' ? "The customer commented on the ad's post, then ordered in the chat." : 'The customer opened the chat from the ad.'}
+                    </p>
+                    <p className="m-0 mt-0.5 font-mono text-[11px] text-slate-400">Ad ID {selectedRecord.ad_id}</p>
+                  </div>
+                  {onOpenAd && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenAd(selectedRecord.ad_id)}
+                      className="shrink-0 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-50"
+                    >
+                      See this ad's results
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* The purchase sent to Meta for this order (nothing when the page wasn't sending them). */}
+              {selectedRecord.type === 'order' && metaPurchaseLabel(selectedRecord) && (() => {
+                const purchase = metaPurchaseLabel(selectedRecord);
+                return (
+                  <div className="order-meta-purchase rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                    <p className="m-0 text-xs font-black uppercase tracking-wider text-slate-400">Purchase sent to Meta</p>
+                    <p className={`m-0 mt-1 text-sm font-semibold ${META_PURCHASE_TONES[purchase.tone]}`}>{purchase.long}</p>
+                    {purchase.error && <p className="m-0 mt-0.5 text-[13px] text-slate-600">{purchase.error}</p>}
+                  </div>
+                );
+              })()}
 
               {/* Order Items (If order) */}
               {selectedRecord.type === 'order' && selectedRecord.order_items && selectedRecord.order_items.length > 0 && (

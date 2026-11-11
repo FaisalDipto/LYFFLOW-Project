@@ -1,0 +1,25 @@
+/* Same look as the sidebar rail's tooltips, in both themes. */
+.lf-hovertip {
+  position: fixed;
+  z-index: 10050;
+  max-width: 320px;
+  transform: translate(-50%, -100%);
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: #1c1c1c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  color: #f5f5f5;
+  font-family: var(--dashboard-font-ui, inherit);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+  animation: lf-hovertip-in 0.12s ease-out;
+}
+.lf-hovertip.is-below { transform: translate(-50%, 0); }
+@keyframes lf-hovertip-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .lf-hovertip { animation: none; }
+}

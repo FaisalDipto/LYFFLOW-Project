@@ -102,6 +102,14 @@ export default function DashboardSidebar({
   const [expanded, setExpanded] = useState(() => Object.fromEntries(
     primaryItems.filter(item => item.children?.some(child => child.id === activeTab)).map(item => [item.id, true]),
   ));
+  // Reaching a page from elsewhere (a "View more" link, an order's ad) opens its group,
+  // so the current page is always visible in the sidebar.
+  const [seenTab, setSeenTab] = useState(activeTab);
+  if (seenTab !== activeTab) {
+    setSeenTab(activeTab);
+    const group = primaryItems.find(item => item.children?.some(child => child.id === activeTab));
+    if (group && !expanded[group.id]) setExpanded(current => ({ ...current, [group.id]: true }));
+  }
   const [popover, setPopover] = useState(null);
   const closeTimerRef = useRef(null);
   const menuTriggerRef = useRef(null);
