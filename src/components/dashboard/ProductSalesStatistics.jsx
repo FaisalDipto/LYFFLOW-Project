@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronDown, Info, PackageOpen, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CalendarDays, ChevronDown, Info, PackageOpen, RefreshCw } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { apiService } from '../../services/api';
-import { formatCount, formatDayRange, formatMoney } from '../../utils/ownerDashboard';
+import { MAX_PERIOD_DAYS, formatCount, formatDay, formatDayRange, formatMoney, periodDays, todayInZone } from '../../utils/ownerDashboard';
+import DateRangeCalendar from '../DateRangeCalendar';
 import { CountUp, GrowBar } from './Animated';
 
 const PERIODS = [
@@ -11,6 +12,22 @@ const PERIODS = [
   { id: 'last_30_days', label: '30 days', phrase: 'last 30 days', compare: 'the 30 days before' },
 ];
 const CACHE_MS = 60000;
+
+// A custom range (start_date..end_date, both included) as the PERIODS entries read.
+// Ending today, the comparison's last day is cut at the current time of day.
+const customPeriod = (start, end, today) => {
+  const days = periodDays(start, end);
+  const single = start === end;
+  const label = formatDayRange(start, end);
+  return {
+    id: 'custom',
+    label,
+    phrase: single ? formatDay(start) : label,
+    compare: single
+      ? `the day before${end === today ? ' up to this time' : ''}`
+      : `the ${days} days before${end === today ? ', up to this time on the last day' : ''}`,
+  };
+};
 
 // Results by business, period and page for about a minute, so flipping between
 // filters doesn't spend the 30-a-minute limit.
@@ -49,7 +66,12 @@ const Change = ({ figure, allowNew = false, className = '' }) => {
 const errorMessage = (error) => {
   if (error?.status === 403) return 'Choose a business first: product sales are shown for the active business.';
   if (error?.status === 404) return 'That page is no longer part of this business.';
-  if (error?.status === 422) return 'That filter is not valid. Choose another period or page.';
+  // 422 detail is a message for a bad range; a list (bad date format) has no usable text.
+  if (error?.status === 422) {
+    const text = typeof error?.message === 'string' ? error.message.trim() : '';
+    const isFieldList = /^[[{]/.test(text) || /^(query|body|path)\./.test(text);
+    return text && !isFieldList ? text : 'That filter is not valid. Choose another period or page.';
+  }
   if (error?.status === 429) return 'Too many requests. Wait a minute, then try again.';
   if (error?.status === 500) return 'The figures could not be worked out right now. Try again in a moment.';
   return error?.message || 'Could not load product sales.';
@@ -69,6 +91,74 @@ const PageSelect = ({ pages, value, onChange }) => (
     <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
   </label>
 );
+
+// Custom range: a calendar of past days and today (in the business timezone), at most
+// 30 days counting both ends. One click and Apply is a single day.
+const CustomRange = ({ active, range, today, onApply }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [draft, setDraft] = useState({ start_date: '', end_date: '' });
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handlePointerDown = (event) => { if (!containerRef.current?.contains(event.target)) setIsOpen(false); };
+    const handleKeyDown = (event) => { if (event.key === 'Escape') setIsOpen(false); };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const toggle = () => {
+    if (!isOpen) setDraft(active ? { start_date: range.start_date, end_date: range.end_date } : { start_date: '', end_date: '' });
+    setIsOpen(current => !current);
+  };
+  const draftEnd = draft.end_date || draft.start_date;
+  const draftDays = draft.start_date ? periodDays(draft.start_date, draftEnd) : 0;
+  const tooLong = draftDays > MAX_PERIOD_DAYS;
+  const inFuture = Boolean(draftEnd) && draftEnd > today;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        className={`inline-flex h-9 items-center gap-1.5 rounded-lg border border-solid px-3 text-[13px] font-medium transition ${active
+          ? 'product-sales-custom-active border-emerald-500/70 bg-emerald-50 text-emerald-800'
+          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}
+      >
+        <CalendarDays size={15} className="shrink-0" aria-hidden="true" />
+        {active ? formatDayRange(range.start_date, range.end_date) : 'Custom'}
+      </button>
+      {isOpen && (
+        <div role="dialog" aria-label="Choose days" className="absolute right-0 top-[calc(100%+6px)] z-[1100] w-[272px] rounded-xl border border-solid border-slate-200 bg-white p-2 text-left shadow-xl">
+          <DateRangeCalendar startDate={draft.start_date} endDate={draft.end_date} maxDate={today} onChange={setDraft} />
+          <p className={`mb-2 mt-2 text-[11.5px] font-medium ${tooLong || inFuture ? 'text-rose-600' : 'text-slate-500'}`}>
+            {tooLong
+              ? `Pick ${MAX_PERIOD_DAYS} days or fewer (this is ${draftDays}).`
+              : inFuture
+                ? 'Pick today or an earlier day.'
+                : draft.start_date
+                  ? `${formatDayRange(draft.start_date, draftEnd)} · ${draftDays} ${draftDays === 1 ? 'day' : 'days'}`
+                  : `Pick one day, or a first and last day (up to ${MAX_PERIOD_DAYS} days).`}
+          </p>
+          <button
+            type="button"
+            onClick={() => { onApply({ start_date: draft.start_date, end_date: draftEnd }); setIsOpen(false); }}
+            disabled={!draft.start_date || tooLong || inFuture}
+            className="h-9 w-full rounded-lg bg-emerald-600 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {draft.start_date && draftDays === 1 ? 'Show this day' : 'Apply range'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const PeriodTabs = ({ value, onChange }) => (
   <div role="radiogroup" aria-label="Period" className="inline-flex h-9 items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
@@ -163,18 +253,27 @@ export default function ProductSalesStatistics({ pages = [], isActive = true }) 
   const { business } = useBusiness();
   const businessId = business?.business_id || '';
   const [periodId, setPeriodId] = useState('last_7_days');
+  // The custom days, used while periodId is 'custom'.
+  const [customRange, setCustomRange] = useState({ start_date: '', end_date: '' });
   const [pageId, setPageId] = useState('');
   const [result, setResult] = useState({ key: null, data: null, error: '' });
   const [reloadKey, setReloadKey] = useState(0);
   const forceRef = useRef(false);
-  const period = PERIODS.find(item => item.id === periodId) || PERIODS[1];
+  // "Today" is the business's day: range.timezone once figures arrive, else the profile's.
+  const timeZone = result.data?.range?.timezone || business?.timezone || undefined;
+  const today = todayInZone(timeZone);
+  const isCustom = periodId === 'custom' && Boolean(customRange.start_date);
+  const period = isCustom
+    ? customPeriod(customRange.start_date, customRange.end_date, today)
+    : PERIODS.find(item => item.id === periodId) || PERIODS[1];
+  const periodKey = isCustom ? `${customRange.start_date}..${customRange.end_date}` : period.id;
   // A page removed from the business falls back to all pages.
   const selectedPageId = pageId && pages.some(page => page.page_id === pageId) ? pageId : '';
-  const requestKey = `${businessId}|${periodId}|${selectedPageId}|${reloadKey}`;
+  const requestKey = `${businessId}|${periodKey}|${selectedPageId}|${reloadKey}`;
 
   useEffect(() => {
     if (!isActive) return undefined;
-    const cacheKey = `${businessId}|${periodId}|${selectedPageId}`;
+    const cacheKey = `${businessId}|${periodKey}|${selectedPageId}`;
     const cached = cache.get(cacheKey);
     const force = forceRef.current;
     forceRef.current = false;
@@ -182,7 +281,10 @@ export default function ProductSalesStatistics({ pages = [], isActive = true }) 
     const controller = new AbortController();
     const request = fresh
       ? Promise.resolve(cached.data)
-      : apiService.getProductSales({ period: periodId, pageId: selectedPageId || null }, { signal: controller.signal });
+      : apiService.getProductSales({
+        ...(isCustom ? { startDate: customRange.start_date, endDate: customRange.end_date } : { period: period.id }),
+        pageId: selectedPageId || null,
+      }, { signal: controller.signal });
     request
       .then((data) => {
         if (controller.signal.aborted) return;
@@ -195,7 +297,9 @@ export default function ProductSalesStatistics({ pages = [], isActive = true }) 
         setResult(current => ({ key: requestKey, data: current.data, error: errorMessage(error) }));
       });
     return () => controller.abort();
-  }, [businessId, isActive, periodId, requestKey, selectedPageId]);
+  // requestKey and periodKey carry the period, custom days and page.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, isActive, periodKey, requestKey, selectedPageId]);
 
   const reload = useCallback(() => {
     forceRef.current = true;
@@ -215,6 +319,10 @@ export default function ProductSalesStatistics({ pages = [], isActive = true }) 
   const comparison = data?.range?.previous
     ? `Arrows compare with ${period.compare} (${formatDayRange(data.range.previous.start_date, data.range.previous.end_date)}).`
     : '';
+  const applyCustom = (range) => {
+    setCustomRange(range);
+    setPeriodId('custom');
+  };
 
   return (
     <div className="product-sales dashboard-content-area w-full flex-1 bg-surface-bright text-left">
@@ -224,7 +332,8 @@ export default function ProductSalesStatistics({ pages = [], isActive = true }) 
             <h1 className="m-0 text-[18px] font-semibold text-slate-900">Product sales</h1>
             <div className="flex flex-wrap items-center gap-2">
               {pages.length > 1 && <PageSelect pages={pages} value={selectedPageId} onChange={setPageId} />}
-              <PeriodTabs value={periodId} onChange={setPeriodId} />
+              <PeriodTabs value={isCustom ? null : periodId} onChange={setPeriodId} />
+              <CustomRange active={isCustom} range={customRange} today={today} onApply={applyCustom} />
               <button
                 type="button"
                 onClick={reload}
@@ -255,7 +364,7 @@ export default function ProductSalesStatistics({ pages = [], isActive = true }) 
                   <PackageOpen size={28} className="text-slate-400" aria-hidden="true" />
                   <p className="m-0 mt-3 text-[14px] font-semibold text-slate-900">No products sold {period.phrase}</p>
                   <p className="m-0 mt-1 max-w-sm text-[12.5px] text-slate-500">
-                    Pieces show up here as soon as they are on an order. Try a longer period{selectedPageId ? ' or all pages' : ''}.
+                    Pieces show up here as soon as they are on an order. Try {isCustom ? 'other days' : 'a longer period'}{selectedPageId ? ' or all pages' : ''}.
                   </p>
                 </div>
               ) : (

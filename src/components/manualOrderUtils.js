@@ -16,8 +16,9 @@ export const LIMITS = {
   item_code: 100,
 };
 
-// `code` is the product code / SKU, optional (sent as null when blank).
-export const EMPTY_ITEM = { name: '', code: '', quantity: '1', price: '' };
+// `code` is the product code / SKU, optional (sent as null when blank). `discount` is
+// per piece and comes off `price` (the catalog unit price, never reduced); blank is 0.
+export const EMPTY_ITEM = { name: '', code: '', quantity: '1', price: '', discount: '' };
 
 export const EMPTY_ORDER_FORM = {
   contact_name: '',
@@ -51,6 +52,8 @@ export const orderToFormState = (order = {}) => ({
         code: item.code || '',
         quantity: String(item.quantity ?? 1),
         price: item.price === null || item.price === undefined ? '' : String(item.price),
+        // Older orders have no discount key: that's 0.
+        discount: Number(item.discount) > 0 ? String(item.discount) : '',
       }))
     : [{ ...EMPTY_ITEM }],
 });
@@ -73,5 +76,6 @@ export const normalizeOrderValues = (form, items) => ({
       code: (item.code || '').trim() || null,
       quantity: Number(item.quantity),
       price: Number(item.price),
+      discount: toAmount(item.discount),
     })),
 });

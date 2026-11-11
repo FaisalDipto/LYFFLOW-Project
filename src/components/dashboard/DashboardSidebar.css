@@ -148,6 +148,7 @@
 .lf-sidebar[data-rail='true'] .lf-section::after { opacity: 1; transition-delay: 0.12s; }
 
 .lf-nav { display: flex; flex-direction: column; gap: 2px; }
+.lf-nav-first { margin-top: 4px; }
 
 /* Items */
 .lf-item {

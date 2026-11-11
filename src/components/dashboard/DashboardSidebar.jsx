@@ -223,8 +223,8 @@ export default function DashboardSidebar({
         </div>
 
         <div className="lf-scroll">
-          <p className="lf-section"><span className="lf-label">Workspace</span></p>
-          <nav className="lf-nav" aria-label="Workspace">
+          {/* No "Workspace" heading: the brand above already says "AI workspace". */}
+          <nav className="lf-nav lf-nav-first" aria-label="Workspace">
             {primaryItems.map(item => (item.children?.length ? renderGroup(item) : renderItem(item)))}
           </nav>
 

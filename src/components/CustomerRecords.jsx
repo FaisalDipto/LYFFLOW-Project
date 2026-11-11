@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { itemDiscount, orderDiscountTotal } from '../utils/discounts';
 import { Users, Phone, Mail, Calendar, Eye, Pencil, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download, Trash2 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { saveBlob } from '../utils/download';
@@ -837,7 +838,15 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                             </td>
                             <td className="px-4 py-3 text-center text-slate-600">{item.quantity}</td>
                             <td className="px-4 py-3 text-right font-bold text-slate-800">
-                              {formatOrderAmount(item.price || 0, currency)}
+                              {itemDiscount(item) > 0 ? (
+                                <>
+                                  {formatOrderAmount(Number(item.price || 0) - itemDiscount(item), currency)}
+                                  <div className="mt-0.5 text-xs font-medium text-slate-400">
+                                    <span className="line-through">{formatOrderAmount(item.price || 0, currency)}</span>
+                                    <span className="ml-1 text-emerald-600">−{formatOrderAmount(itemDiscount(item), currency)} each</span>
+                                  </div>
+                                </>
+                              ) : formatOrderAmount(item.price || 0, currency)}
                             </td>
                           </tr>
                         ))}
@@ -857,6 +866,14 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                         <span>Items Subtotal</span>
                         <span className="font-semibold text-slate-700">
                           {formatOrderAmount(selectedRecord.order_items.reduce((sum, it) => sum + (Number(it.price || 0) * (Number(it.quantity) || 1)), 0), currency)}
+                        </span>
+                      </div>
+                    )}
+                    {orderDiscountTotal(selectedRecord.order_items) > 0 && (
+                      <div className="flex justify-between text-slate-600">
+                        <span>Discount</span>
+                        <span className="font-semibold text-emerald-700">
+                          −{formatOrderAmount(orderDiscountTotal(selectedRecord.order_items), currency)}
                         </span>
                       </div>
                     )}

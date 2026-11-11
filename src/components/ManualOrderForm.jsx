@@ -49,9 +49,10 @@ const ManualOrderForm = ({
   }, []);
 
   const itemsSubtotal = useMemo(
-    () => items.reduce((sum, item) => sum + toAmount(item.quantity) * toAmount(item.price), 0),
+    () => items.reduce((sum, item) => sum + toAmount(item.quantity) * (toAmount(item.price) - toAmount(item.discount)), 0),
     [items]
   );
+  const itemsDiscount = items.reduce((sum, item) => sum + toAmount(item.quantity) * toAmount(item.discount), 0);
   const computedTotal = itemsSubtotal + toAmount(form.delivery_charge);
 
   const setField = (key, value) => {
@@ -209,6 +210,9 @@ const ManualOrderForm = ({
       return !item.name.trim() || !Number.isInteger(qty) || qty < 1 || !(price >= 0) || item.price === '';
     });
     if (badItem) next.items = 'Each item needs a name, a whole quantity of 1 or more, and a price of 0 or more.';
+    else if (filledItems.some(item => item.discount !== '' && !(Number(item.discount) >= 0 && Number(item.discount) <= Number(item.price)))) {
+      next.items = 'A discount is per piece: 0 up to the item\'s price.';
+    }
 
     if (overrideTotal && !(Number(totalInput) >= 0)) next.total = 'Enter 0 or more.';
 
@@ -305,12 +309,13 @@ const ManualOrderForm = ({
             </button>
           </div>
 
-          <p className="-mt-2 mb-3 text-[11px] font-medium text-slate-400">Type a product name or code to fill it in from your catalog.</p>
+          <p className="-mt-2 mb-3 text-[11px] font-medium text-slate-400">Type a product name or code to fill it in from your catalog. Discount is per piece, off the price.</p>
           <div className="space-y-3">
             {items.map((item, index) => {
               const stockStatus = item.stock ? normalizeStockStatus(item.stock.status) : null;
               const stockQuantity = item.stock?.quantity;
               const overStock = stockQuantity !== null && stockQuantity !== undefined && Number(item.quantity) > stockQuantity;
+              const discountTooBig = item.discount !== '' && item.discount !== undefined && item.price !== '' && Number(item.discount) > Number(item.price);
               return (
               <div key={index} className="relative">
               <div className="grid grid-cols-[minmax(0,1fr)_72px_100px_36px] items-center gap-x-2 gap-y-1.5">
@@ -360,8 +365,27 @@ const ManualOrderForm = ({
                   placeholder="Product code / SKU (optional)"
                   aria-label={`Item ${index + 1} product code`}
                   spellCheck={false}
-                  className="col-span-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs font-medium text-slate-700 outline-none transition-colors placeholder:font-sans placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 focus:ring-offset-1"
+                  className="col-span-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs font-medium text-slate-700 outline-none transition-colors placeholder:font-sans placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 focus:ring-offset-1"
                 />
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400" aria-hidden="true">Off</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={item.discount || ''}
+                    onChange={(e) => setItemField(index, 'discount', e.target.value)}
+                    placeholder="0"
+                    title="Discount per piece, taken off the price"
+                    aria-label={`Item ${index + 1} discount per piece`}
+                    aria-invalid={discountTooBig ? 'true' : undefined}
+                    className={`w-full rounded-lg border bg-white py-1.5 pl-9 pr-2 text-xs font-medium text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:ring-2 focus:ring-offset-1 ${discountTooBig ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200' : 'border-slate-200 focus:border-emerald-400 focus:ring-emerald-200'}`}
+                  />
+                </div>
+                <span aria-hidden="true" />
+                {discountTooBig && (
+                  <p className="col-span-3 text-[11px] font-bold text-rose-600">The discount is per piece and can't be more than the price.</p>
+                )}
                 {item.stock && (
                   <p className="col-span-3 flex flex-wrap items-center gap-x-2 text-[11px] font-semibold">
                     <span className="text-slate-400">From catalog ·</span>
@@ -463,7 +487,7 @@ const ManualOrderForm = ({
               </div>
             ) : (
               <p className="mt-2 text-[11px] font-medium text-slate-400">
-                Items {formatOrderAmount(itemsSubtotal, currency)} + delivery {formatOrderAmount(toAmount(form.delivery_charge), currency)}
+                Items {formatOrderAmount(itemsSubtotal, currency)}{itemsDiscount > 0 ? ` (after ${formatOrderAmount(itemsDiscount, currency)} discount)` : ''} + delivery {formatOrderAmount(toAmount(form.delivery_charge), currency)}
                 {!allowTotalOverride && ' · recalculated on save'}
               </p>
             )}

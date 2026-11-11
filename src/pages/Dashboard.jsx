@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, ChartColumnIncreasing, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, ChartColumnIncreasing, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug, Tag } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -47,6 +47,7 @@ import ProductCardsMessage from '../components/conversation/ProductCardsMessage'
 import ConversationNote from '../components/conversation/ConversationNote';
 import ImageProductLabel from '../components/conversation/ImageProductLabel';
 import AgentReplyStyle from '../components/AgentReplyStyle';
+import AgentDiscounts from '../components/dashboard/AgentDiscounts';
 import { examplesToRows, exampleProblems, RESPONSE_FORMAT_MAX, rowsToExamples, sameExamples } from '../utils/agentReplyStyle';
 import PlatformMark from '../components/PlatformMark';
 import { isInstagram } from '../utils/platforms';
@@ -4144,6 +4145,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [assigningPageId, setAssigningPageId] = useState(null);
   const [customizingAvatarAgent, setCustomizingAvatarAgent] = useState(null);
   const [commentRulesAgent, setCommentRulesAgent] = useState(null);
+  const [discountsAgent, setDiscountsAgent] = useState(null);
   const [commentRulesDraft, setCommentRulesDraft] = useState(null);
   const [commentInstructionDraft, setCommentInstructionDraft] = useState('');
   const [savingCommentRules, setSavingCommentRules] = useState(false);
@@ -4284,6 +4286,18 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     } finally {
       setSavingCommentRules(false);
     }
+  };
+
+  // Saves the lists that changed; the response echoes both (as [] when unset).
+  const saveAgentDiscounts = async (changes) => {
+    const agent = discountsAgent;
+    const response = await apiService.updateAgent(agent.agent_id, changes);
+    const saved = {
+      negotiation_rules: response?.negotiation_rules ?? changes.negotiation_rules ?? agent.negotiation_rules ?? [],
+      coupons: response?.coupons ?? changes.coupons ?? agent.coupons ?? [],
+    };
+    if (onAgentEdited) onAgentEdited(agent.agent_id, saved);
+    addToast('Discounts saved', 'success');
   };
 
   const handleUnassignNamespace = async (agentId) => {
@@ -5187,6 +5201,7 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
               const isAssigned = !!agent.namespace_id;
               const isAssignedToPage = assignedPagesForThisAgent.length > 0;
               const enabledCommentRules = COMMENT_RULE_FIELDS.filter(field => agent[field.key] === true).length;
+              const discountSettingsCount = (agent.negotiation_rules?.length || 0) + (agent.coupons?.length || 0);
               const isStatusGreen = isAssignedToPage || isAssigned;
               const totalDialog = agent.total_dialog || 0;
               return (
@@ -5320,8 +5335,19 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       )}
                     </button>
                     <button
+                      onClick={(e) => { e.stopPropagation(); setDiscountsAgent(agent); }}
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-200"
+                      title="Negotiation rules and coupons"
+                    >
+                      <Tag size={14} strokeWidth={2.2} aria-hidden="true" />
+                      Discounts
+                      {discountSettingsCount > 0 && (
+                        <span className="rounded-full bg-emerald-100 px-1.5 text-[9px] font-black text-emerald-700">{discountSettingsCount}</span>
+                      )}
+                    </button>
+                    <button
                       onClick={() => handleEditClick(agent)}
-                      className="col-span-2 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-2 text-[11px] font-bold text-white transition hover:bg-slate-800"
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-2 text-[11px] font-bold text-white transition hover:bg-slate-800"
                     >
                       Configure <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </button>
@@ -5338,6 +5364,15 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
         </div>
         {overlays}
         {commentRulesPortal}
+        {discountsAgent && (
+          <AgentDiscounts
+            key={discountsAgent.agent_id}
+            agent={discountsAgent}
+            currency={business?.currency || 'BDT'}
+            onClose={() => setDiscountsAgent(null)}
+            onSave={saveAgentDiscounts}
+          />
+        )}
         {assignNamespacePortal}
         {assignPagePortal}
         {avatarModalPortal}

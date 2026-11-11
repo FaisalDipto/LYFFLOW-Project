@@ -89,16 +89,24 @@ const MOCK_ORDERS = (() => {
   return orders;
 })();
 
+// Σ (price − discount) × quantity; a missing discount is 0.
+const mockItemsTotal = (items = []) => items.reduce((sum, item) => sum + item.quantity * (item.price - (Number(item.discount) || 0)), 0);
+// Manual orders: no rule check for staff, but a discount can't exceed the price.
+const mockCheckItemDiscounts = (items = []) => items.forEach((item, index) => {
+  if ((Number(item.discount) || 0) > Number(item.price)) mockErrorWith(422, `body.order_items.${index}.discount: discount must not exceed price`);
+});
+
 // Orders per conversation for mock mode, newest first. John Doe (conv_1) has two and
 // Jane Smith (conv_2) none; manual create adds to the list until reload.
 const mockConversationOrders = {
   conv_1: [
-    { ...MOCK_ORDERS[0], notes: 'Call before delivery', order_items: [{ name: 'Cotton T-Shirt (Black - L)', code: 'TSH-BLK-L', quantity: 2, price: 500 }, { name: 'Gift wrap', code: null, quantity: 1, price: 0 }] },
+    // The newest was bargained down (BDT 40 off each shirt); the older one predates discounts (no key).
+    { ...MOCK_ORDERS[0], notes: 'Call before delivery', order_items: [{ name: 'Cotton T-Shirt (Black - L)', code: 'TSH-BLK-L', quantity: 2, price: 500, discount: 40 }, { name: 'Gift wrap', code: null, quantity: 1, price: 0, discount: 0 }] },
     { ...MOCK_ORDERS[9], order_items: [{ name: 'Premium Leather Wallet', code: 'WAL-01', quantity: 1, price: 1170 }] },
   ].map(order => ({
     ...order, page_id: 'page_1', conversation_id: 'conv_1', contact_name: 'John Doe', delivery_charge: '60.00',
     contact_phone: '01700000000', delivery_address: 'House 12, Road 5, Dhanmondi, Dhaka',
-    total: (order.order_items.reduce((sum, item) => sum + item.quantity * item.price, 0) + 60).toFixed(2),
+    total: (mockItemsTotal(order.order_items) + 60).toFixed(2),
   })),
 };
 
@@ -446,20 +454,42 @@ const MOCK_PRODUCT_SALES = [
 ];
 const mockProductSales = (endpoint) => {
   const params = new URLSearchParams(endpoint.split('?')[1] || '');
-  const period = params.get('period') || 'last_7_days';
   const pageId = params.get('page_id');
   const fail = (status, message) => { const error = new Error(message); error.status = status; throw error; };
-  if (!['today', 'last_7_days', 'last_30_days'].includes(period)) fail(422, 'period: Input should be today, last_7_days or last_30_days');
+  const startParam = params.get('start_date');
+  const endParam = params.get('end_date');
+  const hasDates = Boolean(startParam || endParam);
+  if (hasDates && params.get('period')) fail(422, 'Send either period or start_date and end_date, not both.');
+  if (hasDates && !(startParam && endParam)) fail(422, 'Send both start_date and end_date.');
+  const isDay = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+  if (hasDates && (!isDay(startParam) || !isDay(endParam))) {
+    // Pydantic's list detail, as the real API sends for a malformed date.
+    fail(422, JSON.stringify([{ loc: ['query', isDay(startParam) ? 'end_date' : 'start_date'], msg: 'Input should be a valid date', type: 'date_from_datetime_parsing' }]));
+  }
+  const period = hasDates ? 'custom' : (params.get('period') || 'last_7_days');
+  if (!['today', 'last_7_days', 'last_30_days', 'custom'].includes(period)) fail(422, 'period: Input should be today, last_7_days or last_30_days');
   if (pageId && !mockData['/v1/business/pages'].some(page => page.page_id === pageId)) fail(404, 'Page not found');
   if (MOCK_DASHBOARD_MODE === 'error') fail(500, 'The product sales figures could not be computed.');
 
-  const days = period === 'today' ? 1 : period === 'last_7_days' ? 7 : 30;
-  const day = (offset) => new Date(Date.parse(`${mockTodayDhaka()}T00:00:00Z`) - offset * 86400000).toISOString().slice(0, 10);
+  const todayDhaka = mockTodayDhaka();
+  const endDay = hasDates ? endParam : todayDhaka;
+  const days = hasDates
+    ? Math.round((Date.parse(endParam) - Date.parse(startParam)) / 86400000) + 1
+    : period === 'today' ? 1 : period === 'last_7_days' ? 7 : 30;
+  if (hasDates) {
+    if (days < 1) fail(422, 'end_date must not be before start_date.');
+    if (endParam > todayDhaka) fail(422, 'end_date must not be in the future.');
+    if (days > 30) fail(422, 'The range may be at most 30 days, counting both the first and last day.');
+  }
+  const day = (offset) => mockDayShift(endDay, -offset);
   const range = {
     start_date: day(days - 1), end_date: day(0), timezone: 'Asia/Dhaka', currency: 'BDT',
     previous: { start_date: day(2 * days - 1), end_date: day(days) },
   };
-  const scale = (period === 'today' ? 0.14 : period === 'last_7_days' ? 1 : 4.1) * (pageId === 'page_2' ? 0.3 : pageId === 'page_1' ? 0.7 : 1);
+  // Custom ranges scale with their length, and vary a little by end day so they differ.
+  const customScale = (days / 7) * (0.85 + (Number(endDay.slice(-2)) % 5) * 0.06);
+  const scale = (period === 'today' ? 0.14 : period === 'last_7_days' ? 1 : period === 'last_30_days' ? 4.1 : Math.max(0.12, customScale))
+    * (pageId === 'page_2' ? 0.3 : pageId === 'page_1' ? 0.7 : 1);
   const noComparison = pageId === 'page_2';
   const figure = (value, previous, money = false) => {
     const prev = noComparison ? 0 : previous;
@@ -796,6 +826,7 @@ let mockProducts = [
     description: 'Full-grain leather bifold with six card slots.', regular_price: '1170.00', sale_price: '990.00', currency: 'BDT',
     short_description: 'Slim bifold in full-grain leather. Fits six cards and folded notes.',
     stock_status: 'in_stock', stock_quantity: 42, availability: true, options: [], variants: [], assets: [],
+    negotiation_discount_kind: 'amount', negotiation_first_offer: '50.00', negotiation_max_discount: '100.00',
     primary_assets: [{ id: 'asset_wal_1', url: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=200&auto=format&fit=crop&q=70', file_type: 'image', original_filename: 'wallet.jpg', is_primary: true }],
   },
   {
@@ -842,8 +873,96 @@ let mockAgents = [
   { agent_id: 'agent_1', name: 'SalesBot', agent_name: 'SalesBot', role: 'Sales', agent_role: 'Sales', agent_tone: 'Friendly', agent_language: 'Mimic User Language', agent_timezone: 'Asia/Dhaka', human_handover_sign: '#pause', namespace_id: 'ns_1', is_comment_manage: true, is_reply_comment: true, comment_instruction: 'Mention free delivery inside Dhaka on orders over ৳2000.', response_format: 'Short sentences. No emoji. One call to action per reply.' },
   { agent_id: 'agent_2', name: 'SupportBot', agent_name: 'SupportBot', role: 'Support', agent_role: 'Support', agent_tone: 'Professional', agent_language: 'English', agent_timezone: 'Asia/Dhaka', human_handover_sign: null, comment_instruction: null },
 ];
+// SalesBot has the spec's example discounts, with coupon dates around today so the
+// Active, Scheduled and Ended states all show; SupportBot has none.
+const mockDhakaDay = (offset) => new Date(MOCK_LOADED_AT + 6 * 3600000 + offset * 86400000).toISOString().slice(0, 10);
+const MOCK_DISCOUNT_CONDITIONS = { product_codes: [], categories: [], tags: [], min_unit_price: null, max_unit_price: null, min_quantity: 1, min_order_subtotal: null };
+const MOCK_AGENT_DISCOUNTS = {
+  agent_1: {
+    negotiation_rules: [
+      { ...MOCK_DISCOUNT_CONDITIONS, name: 'Under 350', scope: 'all_products', min_unit_price: '0', max_unit_price: '350', discount_kind: 'amount', first_offer: '20', max_discount: '30', max_discount_amount: null },
+      { ...MOCK_DISCOUNT_CONDITIONS, name: 'Sarees', scope: 'categories', categories: ['saree'], discount_kind: 'percent', first_offer: '5', max_discount: '10', max_discount_amount: '300' },
+      { ...MOCK_DISCOUNT_CONDITIONS, name: 'Big carts', scope: 'whole_order', min_order_subtotal: '2000', discount_kind: 'percent', first_offer: '3', max_discount: '5', max_discount_amount: null },
+    ],
+    coupons: [
+      { ...MOCK_DISCOUNT_CONDITIONS, name: 'Eid 10%', scope: 'listed_products', product_codes: ['wal-01', 'tot-02'], starts_on: mockDhakaDay(-1), ends_on: mockDhakaDay(5), discount_kind: 'percent', discount_value: '10', max_discount_amount: '200' },
+      { ...MOCK_DISCOUNT_CONDITIONS, name: 'Free delivery over 1500', scope: 'whole_order', min_order_subtotal: '1500', starts_on: mockDhakaDay(3), ends_on: mockDhakaDay(20), discount_kind: 'free_delivery', discount_value: null, max_discount_amount: null },
+      { ...MOCK_DISCOUNT_CONDITIONS, name: '100 off over 1000', scope: 'whole_order', min_order_subtotal: '1000', starts_on: mockDhakaDay(-14), ends_on: mockDhakaDay(-2), discount_kind: 'amount', discount_value: '100', max_discount_amount: null },
+    ],
+  },
+};
+// Mirrors the backend's checks on negotiation_rules and coupons (422 with its message).
+const mockCheckDiscounts = (body, fail422) => {
+  const listFor = { categories: 'categories', tags: 'tags', listed_products: 'product_codes' };
+  const checkConditions = (item, where) => {
+    ['product_codes', 'categories', 'tags'].forEach(field => {
+      const values = item[field] || [];
+      if (values.length > 50) fail422(`${where}.${field}: List should have at most 50 items`);
+      if (values.length && listFor[item.scope] !== field) fail422(`${where}: ${field} is not allowed with scope '${item.scope}'`);
+    });
+    if (listFor[item.scope] && !(item[listFor[item.scope]] || []).length) fail422(`${where}: ${listFor[item.scope]} must not be empty for scope '${item.scope}'`);
+    if (item.scope === 'whole_order' && (item.min_unit_price != null || item.max_unit_price != null || Number(item.min_quantity || 1) > 1)) fail422(`${where}: price band and min_quantity are not allowed with whole_order`);
+  };
+  const lower = (item) => ({ ...MOCK_DISCOUNT_CONDITIONS, ...item, ...Object.fromEntries(['product_codes', 'categories', 'tags'].map(field => [field, (item[field] || []).map(value => String(value).toLowerCase())])) });
+  if ('negotiation_rules' in body) {
+    const rules = body.negotiation_rules || [];
+    if (rules.length > 20) fail422('body.negotiation_rules: List should have at most 20 items');
+    rules.forEach((rule, index) => {
+      const where = `body.negotiation_rules.${index}`;
+      checkConditions(rule, where);
+      if (Number(rule.first_offer) > Number(rule.max_discount)) fail422(`${where}: first_offer must not be above max_discount`);
+      if (rule.discount_kind === 'percent' && Number(rule.max_discount) > 100) fail422(`${where}: a percent discount can't be above 100`);
+      if (rule.discount_kind === 'amount' && rule.max_discount_amount != null) fail422(`${where}: max_discount_amount is only allowed on percent rules`);
+      if (rule.min_order_subtotal != null && rule.scope !== 'whole_order') fail422(`${where}: min_order_subtotal is only allowed with whole_order`);
+    });
+    body.negotiation_rules = rules.map(lower);
+  }
+  if ('coupons' in body) {
+    const coupons = body.coupons || [];
+    if (coupons.length > 10) fail422('body.coupons: List should have at most 10 items');
+    coupons.forEach((coupon, index) => {
+      const where = `body.coupons.${index}`;
+      checkConditions(coupon, where);
+      if (coupon.ends_on < coupon.starts_on) fail422(`${where}: ends_on must not be before starts_on`);
+      if (coupon.discount_kind === 'free_delivery' && coupon.scope !== 'whole_order') fail422(`${where}: free_delivery needs scope whole_order`);
+      if (coupon.discount_kind !== 'free_delivery' && !(Number(coupon.discount_value) > 0)) fail422(`${where}: discount_value is required`);
+      if (coupon.discount_kind === 'percent' && Number(coupon.discount_value) > 100) fail422(`${where}: a percent discount can't be above 100`);
+    });
+    body.coupons = coupons.map(lower);
+  }
+};
+// A short stand-in for the backend's prompt, with the ## Discounts section built the
+// way the spec describes: the negotiation flag line, one line per coupon active today,
+// or the past-offers line when only ended coupons remain.
+const mockPromptPreview = (agent) => {
+  const currency = 'BDT';
+  const today = mockDhakaDay(0);
+  const off = (coupon) => (coupon.discount_kind === 'free_delivery' ? 'free delivery'
+    : coupon.discount_kind === 'percent' ? `${Number(coupon.discount_value)}% off${coupon.max_discount_amount ? ` (at most ${Number(coupon.max_discount_amount)} ${currency})` : ''}`
+      : `${Number(coupon.discount_value)} ${currency} off`);
+  const covers = (coupon) => {
+    const list = coupon.product_codes?.length ? `products ${coupon.product_codes.join(', ')}` : coupon.categories?.length ? `category ${coupon.categories.join(', ')}` : coupon.tags?.length ? `tag ${coupon.tags.join(', ')}` : coupon.scope === 'whole_order' ? 'the whole order' : 'all products';
+    return `${list}${coupon.min_order_subtotal ? ` on orders of ${Number(coupon.min_order_subtotal)} ${currency} or more` : ''}`;
+  };
+  const coupons = agent.coupons || [];
+  const active = coupons.filter(coupon => coupon.starts_on <= today && coupon.ends_on >= today);
+  const ended = coupons.filter(coupon => coupon.ends_on < today);
+  const discountLines = [];
+  if ((agent.negotiation_rules || []).length) discountLines.push('Negotiation: allowed. Give the price first. Only when the customer asks for a lower price, check the discount limits for the items and open at or below the first offer; move toward the maximum only after one push-back. Never reveal the limits.');
+  active.forEach(coupon => discountLines.push(`Coupon "${coupon.name}" until ${coupon.ends_on}: ${off(coupon)} on ${covers(coupon)}. You may mention it before the customer asks.`));
+  if (!active.length && ended.length) discountLines.push(`Past offers (never apply them; if the customer mentions one, say it ended): ${ended.map(coupon => `"${coupon.name}" ended ${coupon.ends_on}`).join('; ')}.`);
+  const sections = [
+    `## Role\nYou are ${agent.name}, the ${String(agent.agent_role || 'sales').toLowerCase()} assistant for Demo Store. Tone: ${agent.agent_tone || 'Friendly'}. Language: ${agent.agent_language || 'Mimic User Language'}.`,
+    `## Reply style\n${agent.response_format || MOCK_REPLY_STYLE_DEFAULTS.format}`,
+    ...(discountLines.length ? [`## Discounts\n${discountLines.join('\n')}\nMoney is in ${currency}. Discounts apply to the current selling price and never go below cost.`] : []),
+    '## Orders\nConfirm the items, quantity, name, phone and address before creating an order.',
+  ];
+  return sections.join('\n\n');
+};
 mockAgents = mockAgents.map(agent => ({
   ...agent,
+  negotiation_rules: MOCK_AGENT_DISCOUNTS[agent.agent_id]?.negotiation_rules || [],
+  coupons: MOCK_AGENT_DISCOUNTS[agent.agent_id]?.coupons || [],
   response_format: agent.response_format || MOCK_REPLY_STYLE_DEFAULTS.format,
   response_examples: agent.response_examples || mockDefaultExamples(agent.agent_role),
 }));
@@ -1350,9 +1469,39 @@ const requestApi = async (endpoint, options = {}) => {
       const product = mockProducts.find(item => item.product_id === productDetailMatch[1]);
       if (product) return product;
     }
+    // The negotiation limit is a trio: all three set (update) or all null (bulk clear).
+    const NEGOTIATION_FIELDS = ['negotiation_discount_kind', 'negotiation_first_offer', 'negotiation_max_discount'];
+    const checkNegotiationTrio = (body, allowNull) => {
+      const present = NEGOTIATION_FIELDS.filter(field => field in body);
+      if (present.length === 0) return;
+      const fail = (message) => { const error = new Error(message); error.status = 422; throw error; };
+      if (present.length !== 3) fail('Set negotiation_discount_kind, negotiation_first_offer and negotiation_max_discount together.');
+      const values = NEGOTIATION_FIELDS.map(field => body[field]);
+      if (values.every(value => value === null)) { if (!allowNull) fail('Use the negotiation-override endpoint to clear the limit.'); return; }
+      if (values.some(value => value === null)) fail('Set all three negotiation fields, or all to null.');
+      if (Number(body.negotiation_first_offer) > Number(body.negotiation_max_discount)) fail('negotiation_first_offer must not be above negotiation_max_discount');
+      if (body.negotiation_discount_kind === 'percent' && Number(body.negotiation_max_discount) > 100) fail("A percent discount can't be above 100");
+      body.negotiation_first_offer = mockMoney(body.negotiation_first_offer);
+      body.negotiation_max_discount = mockMoney(body.negotiation_max_discount);
+    };
+    const negotiationOverrideMatch = endpoint.match(/^\/v1\/products\/[^/]+\/negotiation-override$/);
+    if (negotiationOverrideMatch && method === 'PATCH') {
+      if (mockRole === 'member') mockErrorWith(403, 'This action requires at least the admin role.');
+      const { product_ids: ids = [], ...limit } = JSON.parse(requestOptions.body || '{}');
+      checkNegotiationTrio(limit, true);
+      const wanted = new Set(ids);
+      let updatedCount = 0;
+      mockProducts = mockProducts.map(item => {
+        if (!wanted.has(item.product_id)) return item;
+        updatedCount += 1;
+        return { ...item, ...Object.fromEntries(NEGOTIATION_FIELDS.map(field => [field, limit[field] ?? null])) };
+      });
+      return { updated_count: updatedCount };
+    }
     const productUpdateMatch = endpoint.match(/^\/v1\/products\/[^/]+\/update\/([^/?]+)$/);
     if (productUpdateMatch && method === 'PATCH') {
       const changes = JSON.parse(requestOptions.body || '{}');
+      checkNegotiationTrio(changes, false);
       mockProductTextLimits(changes);
       if (changes.short_description === '') changes.short_description = null;
       ['regular_price', 'sale_price'].forEach(field => { if (field in changes) changes[field] = mockMoney(changes[field]); });
@@ -1806,6 +1955,12 @@ const requestApi = async (endpoint, options = {}) => {
       return created;
     }
     if (endpoint === '/v1/agents' && method === 'GET') return mockAgents;
+    const promptPreviewMatch = endpoint.match(/^\/v1\/agent\/([^/?#]+)\/prompt-preview$/);
+    if (promptPreviewMatch && method === 'GET') {
+      const agent = mockAgents.find(item => item.agent_id === promptPreviewMatch[1]);
+      if (!agent) mockErrorWith(404, 'Agent not found');
+      return { agent_id: agent.agent_id, prompt: mockPromptPreview(agent) };
+    }
     if (endpoint === '/v1/agent/create' && method === 'POST') {
       const body = JSON.parse(requestOptions.body || '{}');
       const now = new Date().toISOString();
@@ -1838,6 +1993,7 @@ const requestApi = async (endpoint, options = {}) => {
             : { kind: 'text', customer_message: example.customer_message, agent_reply: example.agent_reply }));
       }
       if ('human_handover_sign' in body) body.human_handover_sign = body.human_handover_sign || null;
+      mockCheckDiscounts(body, fail422);
       if (typeof body.comment_instruction === 'string' && body.comment_instruction.length > 1000) {
         const error = new Error('body.comment_instruction: String should have at most 1000 characters');
         error.status = 422;
@@ -1953,8 +2109,10 @@ const requestApi = async (endpoint, options = {}) => {
         error.status = 409;
         throw error;
       }
+      mockCheckItemDiscounts(changes.order_items);
       const updated = { ...pageOrderDetailMock, ...changes };
-      const itemsTotal = (updated.order_items || []).reduce((sum, item) => sum + item.quantity * item.price, 0);
+      updated.order_items = (updated.order_items || []).map(item => ({ ...item, discount: Number(item.discount) || 0 }));
+      const itemsTotal = mockItemsTotal(updated.order_items);
       updated.total = (itemsTotal + Number(updated.delivery_charge || 0)).toFixed(2);
       updated.updated_at = new Date().toISOString();
       return updated;
@@ -1970,7 +2128,10 @@ const requestApi = async (endpoint, options = {}) => {
     const manualOrderCreateMatch = endpoint.match(/^\/v1\/pages\/orders\/create\/([^/?#]+)$/);
     if (manualOrderCreateMatch) {
       const body = JSON.parse(requestOptions.body || '{}');
-      const itemsTotal = (body.order_items || []).reduce((sum, item) => sum + item.quantity * item.price, 0);
+      mockCheckItemDiscounts(body.order_items);
+      body.order_items = (body.order_items || []).map(item => ({ ...item, discount: Number(item.discount) || 0 }));
+      const itemsTotal = mockItemsTotal(body.order_items);
+      const itemsDiscount = body.order_items.reduce((sum, item) => sum + item.quantity * item.discount, 0);
       const conversationId = manualOrderCreateMatch[1];
       const now = new Date().toISOString();
       const created = {
@@ -1997,7 +2158,8 @@ const requestApi = async (endpoint, options = {}) => {
       const summary = [
         `Order ${created.order_id}`,
         ...items.map((item, index) => `${index + 1}. ${item.name} x ${item.quantity} = ${money(item.quantity * item.price)}`),
-        ...(items.length ? [`Subtotal: ${money(itemsTotal)} ${currency}`] : []),
+        ...(items.length ? [`Subtotal: ${money(itemsTotal + itemsDiscount)} ${currency}`] : []),
+        ...(itemsDiscount > 0 ? [`Discount: -${money(itemsDiscount)} ${currency}`] : []),
         `Delivery charge: ${money(created.delivery_charge)} ${currency}`,
         `Total: ${money(created.total)} ${currency}`,
         '',
@@ -2693,6 +2855,12 @@ export const apiService = {
     method: 'PATCH',
     body: JSON.stringify(updateData),
   }),
+  // One negotiation limit for many products (up to 500 ids; admins and owners). All
+  // three values null clears it. Answers { updated_count }.
+  setProductsNegotiationLimit: (namespaceId, productIds, limit) => apiFetch(`/v1/products/${namespaceId}/negotiation-override`, {
+    method: 'PATCH',
+    body: JSON.stringify({ product_ids: productIds, ...limit }),
+  }),
   // Variants of a variable product.
   getProductVariants: (namespaceId, productId) => apiFetch(`/v1/products/${namespaceId}/${productId}/variants`),
   createProductVariant: (namespaceId, productId, variant) => apiFetch(`/v1/products/${namespaceId}/${productId}/variants`, {
@@ -2764,6 +2932,9 @@ export const apiService = {
     body: JSON.stringify(answers),
     preserveGetCache: true,
   }),
+
+  // The agent's system prompt as it is built from its saved settings (incl. ## Discounts).
+  getAgentPromptPreview: (agentId) => apiFetch(`/v1/agent/${agentId}/prompt-preview`),
 
   // Partial update. human_handover_sign: a new sign, or null to turn it off.
   updateAgent: (agentId, agentData) => apiFetch(`/v1/agent/update/${agentId}`, {
@@ -2881,10 +3052,14 @@ export const apiService = {
   getDashboardOverview: (period = {}, { signal } = {}) => apiFetch(`/v1/dashboard/overview${dashboardPeriodQuery(period)}`, { signal }),
   getDashboardAi: (period = {}, { signal } = {}) => apiFetch(`/v1/dashboard/ai${dashboardPeriodQuery(period)}`, { signal }),
   getDashboardGrowth: (period = {}, { signal } = {}) => apiFetch(`/v1/dashboard/growth${dashboardPeriodQuery(period)}`, { signal }),
-  // Product sales statistics (every member). period: today | last_7_days | last_30_days;
-  // page_id narrows it to one page (404 when the page isn't this business's).
-  getProductSales: ({ period = 'last_7_days', pageId = null } = {}, { signal } = {}) => {
-    const q = new URLSearchParams({ period });
+  // Product sales statistics (every member). period: today | last_7_days | last_30_days,
+  // or startDate + endDate (YYYY-MM-DD, both included, at most 30 days, not after today in
+  // the business timezone; never together with period). page_id narrows it to one page
+  // (404 when the page isn't this business's).
+  getProductSales: ({ period = 'last_7_days', startDate = null, endDate = null, pageId = null } = {}, { signal } = {}) => {
+    const q = startDate && endDate
+      ? new URLSearchParams({ start_date: startDate, end_date: endDate })
+      : new URLSearchParams({ period });
     if (pageId) q.set('page_id', pageId);
     return apiFetch(`/v1/statistics/product-sales?${q}`, { signal });
   },

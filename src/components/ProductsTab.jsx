@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom';
 import { apiService } from '../services/api';
 import { API_BASE } from '../config/env';
 import { useBusiness } from '../context/BusinessContext';
-import { Upload, Plus, Trash2, Edit3, Image as ImageIcon, FileText, Video, ExternalLink, Search, X } from 'lucide-react';
+import { Upload, Plus, Trash2, Edit3, Image as ImageIcon, FileText, Video, ExternalLink, Search, Tag, X } from 'lucide-react';
 import ProductPrice from './products/ProductPrice';
 import VariantEditor from './products/VariantEditor';
+import NegotiationLimitFields from './products/NegotiationLimitFields';
+import { describeProductLimit, productLimitErrors, productLimitFromProduct, productLimitPayload } from '../utils/discounts';
 import {
   PRODUCT_TYPES, STOCK_STATUSES, isOnSale, newRowKey, normalizeStockStatus, parseOptionValues, stockLabel, toAmount, variantTitle,
 } from '../utils/productPricing';
@@ -108,6 +110,28 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
   // Variants as loaded for the product being edited, to work out what changed on save.
   const originalVariantsRef = useRef([]);
   const [priceError, setPriceError] = useState('');
+  // The product's own negotiation limit (detail-only fields), and as loaded for editing.
+  const [negotiationLimit, setNegotiationLimit] = useState(productLimitFromProduct);
+  const [limitErrors, setLimitErrors] = useState({});
+  const originalLimitRef = useRef(productLimitFromProduct());
+  // Rows ticked for a bulk negotiation limit; cleared when the list reloads.
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkLimit, setBulkLimit] = useState(null);
+  const [bulkLimitErrors, setBulkLimitErrors] = useState({});
+  const [bulkSaving, setBulkSaving] = useState(false);
+  // The list endpoint has no negotiation fields, so the list marks the limits this
+  // session has seen: from a product's detail, an edit, or a bulk call. id -> trio.
+  const [knownLimits, setKnownLimits] = useState(() => new Map());
+  const rememberLimits = (ids, trio) => setKnownLimits(prev => {
+    const next = new Map(prev);
+    ids.forEach(productId => next.set(productId, trio));
+    return next;
+  });
+  const limitTrio = (product) => ({
+    negotiation_discount_kind: product?.negotiation_discount_kind ?? null,
+    negotiation_first_offer: product?.negotiation_first_offer ?? null,
+    negotiation_max_discount: product?.negotiation_max_discount ?? null,
+  });
   // The text field the backend (or the limit check) rejected as too long.
   const [textError, setTextError] = useState(null);
   const [products, setProducts] = useState([]);
@@ -180,6 +204,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       const availability = availabilityFilter === 'all' ? null : availabilityFilter === 'available';
       const data = await apiService.getProducts(selectedNamespaceId, cursor, PAGE_SIZE, availability, sourceFilter, searchQuery);
       setProducts(data.items || []);
+      setSelectedIds(new Set());
       setHasMore(data.pagination?.has_more || false);
       setNextCursor(data.pagination?.next_cursor || null);
     } catch (err) {
@@ -246,6 +271,9 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
   const handleEditProductClick = async (product) => {
     setEditingProductId(product.product_id);
     originalVariantsRef.current = [];
+    originalLimitRef.current = productLimitFromProduct();
+    setNegotiationLimit(productLimitFromProduct());
+    setLimitErrors({});
     // List fields first so the form opens at once; the detail fills in the rest.
     setFormData({
       ...emptyProductForm(),
@@ -269,6 +297,9 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       const detail = await apiService.getProductDetail(selectedNamespaceId, product.product_id);
       const variants = Array.isArray(detail.variants) ? detail.variants : [];
       originalVariantsRef.current = variants;
+      originalLimitRef.current = productLimitFromProduct(detail);
+      setNegotiationLimit(productLimitFromProduct(detail));
+      rememberLimits([product.product_id], limitTrio(detail));
       setFormData(prev => ({
         ...prev,
         description: detail.description || prev.description,
@@ -345,6 +376,14 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       setPriceError('The sale price must be lower than the regular price.');
       return;
     }
+    const nextLimitErrors = productLimitErrors(negotiationLimit);
+    setLimitErrors(nextLimitErrors);
+    if (Object.keys(nextLimitErrors).length > 0) {
+      document.getElementById(`product-limit-${Object.keys(nextLimitErrors)[0]}`)?.focus();
+      return;
+    }
+    const limitPayload = productLimitPayload(negotiationLimit);
+    const limitChanged = JSON.stringify(limitPayload) !== JSON.stringify(productLimitPayload(originalLimitRef.current));
     const isVariable = formData.product_type === 'variable';
     const options = isVariable
       ? formData.options.map(option => ({ name: option.name.trim(), values: parseOptionValues(option.valuesText) })).filter(option => option.name && option.values.length)
@@ -378,7 +417,11 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
           ...stockFields,
         };
 
+        // The update endpoint sets the limit but can't clear it; clearing goes through the bulk call.
+        if (limitChanged && negotiationLimit.enabled) Object.assign(updateData, limitPayload);
         await apiService.updateProduct(selectedNamespaceId, editingProductId, updateData);
+        if (limitChanged && !negotiationLimit.enabled) await apiService.setProductsNegotiationLimit(selectedNamespaceId, [editingProductId], limitPayload);
+        if (limitChanged) rememberLimits([editingProductId], limitPayload);
         if (isVariable) variantErrors = await syncVariants(editingProductId, variantRows, options);
 
         // Optimistic UI Update to make it instantly appear on the table
@@ -415,10 +458,15 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
         const newProduct = await apiService.createProduct(selectedNamespaceId, createData);
         const newProductId = newProduct.product_id || newProduct.id;
 
-        // Create can't take stock fields; set them straight after when they're not the defaults.
-        if (newProductId && !isVariable && (stockFields.stock_quantity !== null || stockFields.stock_status !== 'in_stock')) {
-          await apiService.updateProduct(selectedNamespaceId, newProductId, stockFields);
+        // Create can't take stock fields or the negotiation limit; set them straight after.
+        const afterCreate = {
+          ...(!isVariable && (stockFields.stock_quantity !== null || stockFields.stock_status !== 'in_stock') ? stockFields : {}),
+          ...(negotiationLimit.enabled ? limitPayload : {}),
+        };
+        if (newProductId && Object.keys(afterCreate).length > 0) {
+          await apiService.updateProduct(selectedNamespaceId, newProductId, afterCreate);
         }
+        if (newProductId && negotiationLimit.enabled) rememberLimits([newProductId], limitPayload);
 
         // Optimistic UI Update for creation
         setProducts(prevProducts => [{ ...createData, sale_price: salePrice, ...stockFields, product_id: newProductId || Date.now().toString() }, ...prevProducts]);
@@ -496,6 +544,7 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       setShowDetailModal(true);
       const detail = await apiService.getProductDetail(selectedNamespaceId, productId);
       setSelectedProductDetail(detail);
+      rememberLimits([productId], limitTrio(detail));
     } catch (err) {
       addToast('Failed to fetch product details: ' + err.message, 'error');
       setShowDetailModal(false);
@@ -575,6 +624,45 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       addToast('Failed to delete asset: ' + err.message, 'error');
     }
   };
+
+  const toggleSelected = (productId) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(productId)) next.delete(productId); else next.add(productId);
+    return next;
+  });
+  const allSelected = products.length > 0 && products.every(product => selectedIds.has(product.product_id));
+  const toggleAllSelected = () => setSelectedIds(allSelected ? new Set() : new Set(products.map(product => product.product_id)));
+
+  const openBulkLimit = () => {
+    setBulkLimit({ ...productLimitFromProduct(), enabled: true });
+    setBulkLimitErrors({});
+  };
+  // One call for every ticked row: the limit, or nulls to clear it.
+  const applyBulkLimit = async (clear = false) => {
+    const errors = clear ? {} : productLimitErrors(bulkLimit);
+    setBulkLimitErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    if (clear && !window.confirm(`Remove the negotiation limit from ${selectedIds.size} product${selectedIds.size === 1 ? '' : 's'}? The agent's discount rules will apply to them instead.`)) return;
+    setBulkSaving(true);
+    try {
+      const payload = productLimitPayload(clear ? { enabled: false } : bulkLimit);
+      const result = await apiService.setProductsNegotiationLimit(selectedNamespaceId, [...selectedIds], payload);
+      rememberLimits([...selectedIds], payload);
+      const count = result?.updated_count ?? selectedIds.size;
+      addToast(clear
+        ? `Negotiation limit removed from ${count} product${count === 1 ? '' : 's'}`
+        : `Negotiation limit set on ${count} product${count === 1 ? '' : 's'}`, 'success');
+      setBulkLimit(null);
+      setSelectedIds(new Set());
+    } catch (err) {
+      addToast('Could not update the negotiation limit: ' + err.message, 'error');
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+  const gridCols = canManage
+    ? 'grid-cols-[44px_2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px]'
+    : 'grid-cols-[2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px]';
 
   return (
     <>
@@ -664,6 +752,9 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                 setCodeError('');
                 setPriceError('');
                 originalVariantsRef.current = [];
+                originalLimitRef.current = productLimitFromProduct();
+                setNegotiationLimit(productLimitFromProduct());
+                setLimitErrors({});
                 setShowCreateModal(true);
               }}
               className="page-stats-action inline-flex h-10 items-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 text-sm font-bold text-white transition-colors hover:border-emerald-600 hover:bg-emerald-600"
@@ -673,12 +764,35 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
           </div>
         </div>
 
+        {canManage && selectedIds.size > 0 && (
+          <div className="products-selection-bar mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5" role="region" aria-label="Selected products">
+            <span className="text-sm font-bold text-emerald-900">{selectedIds.size} selected</span>
+            <span className="text-xs font-medium text-emerald-800/70">on this page</span>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <button type="button" onClick={openBulkLimit} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white transition-colors hover:bg-emerald-600">
+                <Tag size={14} strokeWidth={2.2} aria-hidden="true" /> Set negotiation limit
+              </button>
+              <button type="button" onClick={() => applyBulkLimit(true)} disabled={bulkSaving} className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50">
+                Remove limit
+              </button>
+              <button type="button" onClick={() => setSelectedIds(new Set())} aria-label="Clear selection" className="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-900/60 transition-colors hover:bg-emerald-100 hover:text-emerald-900">
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Data Table */}
         <div className="products-table animate-fade-in-up overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto w-full no-scrollbar">
             <div className="min-w-[1040px] w-full">
-              <div className="products-table-header grid grid-cols-[2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px] gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm">
-                <div className="pl-6 flex items-center">Product Name</div>
+              <div className={`products-table-header grid ${gridCols} gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm`}>
+                {canManage && (
+                  <div className="flex items-center justify-center">
+                    <input type="checkbox" checked={allSelected} onChange={toggleAllSelected} disabled={products.length === 0} aria-label="Select all products on this page" className="h-4 w-4 cursor-pointer rounded border-slate-300 text-emerald-600 focus:ring-emerald-400" />
+                  </div>
+                )}
+                <div className={`${canManage ? '' : 'pl-6 '}flex items-center`}>Product Name</div>
                 <div className="flex items-center">Code</div>
                 <div className="flex items-center">Type</div>
                 <div className="flex items-center">Price</div>
@@ -707,9 +821,24 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
             </div>
           ) : (
             products.map((product) => (
-              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className="products-table-row grid grid-cols-[2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px] gap-4 p-5items-center hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer">
-                <div className="pl-6 font-bold text-sm text-slate-800 truncate pr-4 group-hover:text-emerald-700 transition-colors">
-                  {product.name}
+              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className={`products-table-row grid ${gridCols} gap-4 p-5 items-center hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer ${selectedIds.has(product.product_id) ? 'bg-emerald-50/50' : ''}`}>
+                {canManage && (
+                  <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedIds.has(product.product_id)} onChange={() => toggleSelected(product.product_id)} aria-label={`Select ${product.name}`} className="h-4 w-4 cursor-pointer rounded border-slate-300 text-emerald-600 focus:ring-emerald-400" />
+                  </div>
+                )}
+                <div className={`${canManage ? '' : 'pl-6 '}flex min-w-0 items-center gap-2 pr-4 text-sm font-bold text-slate-800 group-hover:text-emerald-700 transition-colors`}>
+                  <span className="truncate">{product.name}</span>
+                  {describeProductLimit(knownLimits.get(product.product_id), currency) && (
+                    <span
+                      className="products-limit-chip inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-700"
+                      title={`Negotiation limit: ${describeProductLimit(knownLimits.get(product.product_id), currency)}`}
+                      aria-label={`Negotiation limit: ${describeProductLimit(knownLimits.get(product.product_id), currency)}`}
+                      role="img"
+                    >
+                      <Tag size={12} strokeWidth={2.4} aria-hidden="true" />
+                    </span>
+                  )}
                 </div>
                 <div className="text-sm text-slate-500 font-mono text-xs bg-slate-100 px-2 py-1 rounded-md inline-block w-fit border border-slate-200 shadow-sm">
                   {product.code || 'N/A'}
@@ -977,6 +1106,16 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                   </div>
                 </div>
 
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <NegotiationLimitFields
+                    value={negotiationLimit}
+                    onChange={(next) => { setNegotiationLimit(next); if (Object.keys(limitErrors).length) setLimitErrors({}); }}
+                    errors={limitErrors}
+                    currency={currency}
+                    sellingPrice={toAmount(formData.sale_price) ?? toAmount(formData.regular_price)}
+                  />
+                </div>
+
                 <div className="space-y-2 pt-2">
                   <label className="text-xs font-bold tracking-[0.1em] text-slate-500 uppercase flex justify-between">
                     <span>Product Assets (Max 3)</span>
@@ -1108,6 +1247,41 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
         </div>
       )}
 
+      {bulkLimit && createPortal(
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget && !bulkSaving) setBulkLimit(null); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="bulk-limit-title" className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6">
+              <div>
+                <h3 id="bulk-limit-title" className="m-0 text-lg font-black text-slate-900">Negotiation limit</h3>
+                <p className="m-0 mt-1 text-xs leading-relaxed text-slate-500">
+                  For the {selectedIds.size} selected product{selectedIds.size === 1 ? '' : 's'}. Replaces any limit they have and wins over the agent's discount rules. Variants use the same limit.
+                </p>
+              </div>
+              <button type="button" onClick={() => setBulkLimit(null)} disabled={bulkSaving} aria-label="Close" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6">
+              <NegotiationLimitFields
+                value={bulkLimit}
+                onChange={(next) => { setBulkLimit(next); if (Object.keys(bulkLimitErrors).length) setBulkLimitErrors({}); }}
+                errors={bulkLimitErrors}
+                currency={currency}
+                toggle={false}
+                idPrefix="bulk-limit"
+              />
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50/50 p-5">
+              <button type="button" onClick={() => setBulkLimit(null)} disabled={bulkSaving} className="rounded-xl px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-200">Cancel</button>
+              <button type="button" onClick={() => applyBulkLimit(false)} disabled={bulkSaving} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-60">
+                {bulkSaving ? 'Saving…' : `Apply to ${selectedIds.size}`}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
       {/* Import CSV Modal */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1161,6 +1335,8 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                 <div className="text-xs text-slate-500">
                   <p className="font-semibold mb-1">Required CSV Columns:</p>
                   <p>name, code, description, price</p>
+                  <p className="font-semibold mb-1 mt-3">Optional negotiation limit:</p>
+                  <p>negotiation_discount_kind (amount or percent), negotiation_first_offer, negotiation_max_discount. Fill all three or none; a row with only some fails like a bad price.</p>
                 </div>
               </form>
             </div>
@@ -1302,6 +1478,12 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                           <span className="text-sm font-mono font-bold text-slate-800 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">{selectedProductDetail.code || 'NO CODE'}</span>
                         </div>
                       </div>
+                      {describeProductLimit(selectedProductDetail, selectedProductDetail.currency || currency) && (
+                        <p className="-mt-3 mb-6 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                          <Tag size={14} strokeWidth={2.2} className="text-emerald-600" aria-hidden="true" />
+                          Negotiation limit: {describeProductLimit(selectedProductDetail, selectedProductDetail.currency || currency)}
+                        </p>
+                      )}
                       
                       {selectedProductDetail.short_description && (
                         <div className="mb-4">
