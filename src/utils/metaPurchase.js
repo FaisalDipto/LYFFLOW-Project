@@ -1,5 +1,16 @@
 // An order's purchase as sent to Meta (meta_purchase_status, _sent_at, _error). The system
 // sends it 30 minutes after the order; null means the page wasn't sending purchases then.
+import { startFacebookConnect } from '../services/api';
+import { META_ADS_CONNECT_ENABLED } from '../config/env';
+import { isInstagram } from './platforms';
+
+const MOCK_MODE = typeof window !== 'undefined' && window.location.search.includes('mock=true');
+
+/** "Connect ads" exists only where the Meta app has page_events (always in mock). Owner only. */
+export const ADS_CONNECT_AVAILABLE = META_ADS_CONNECT_ENABLED || MOCK_MODE;
+
+/** The owner's "Connect ads": the normal connect redirect plus page_events. */
+export const connectAds = (pages = []) => startFacebookConnect({ includeInstagram: pages.some(page => isInstagram(page.platform)), includeAds: true });
 
 const time = (iso) => {
   if (!iso) return '';
@@ -16,8 +27,13 @@ export function metaPurchaseLabel(order) {
   const error = order?.meta_purchase_error || null;
   switch (status) {
     case 'pending':
-    case 'sending':
-      return { short: 'To Meta soon', long: 'Will be sent to Meta 30 minutes after the order', tone: 'muted', error: null };
+    case 'sending': {
+      // Still pending well after the 30 minutes: Meta can't be reached and the system keeps trying.
+      const late = Date.now() - Date.parse(order.created_at || '') > 45 * 60000;
+      return late
+        ? { short: 'Waiting for Meta', long: "Not sent yet: Meta couldn't be reached. LyfFlow tries again every hour for 7 days", tone: 'muted', error: null }
+        : { short: 'To Meta soon', long: 'Will be sent to Meta 30 minutes after the order', tone: 'muted', error: null };
+    }
     case 'sent': {
       const at = time(order.meta_purchase_sent_at);
       return { short: 'Sent to Meta', long: at ? `Sent to Meta ${at}` : 'Sent to Meta', tone: 'good', error: null, at };

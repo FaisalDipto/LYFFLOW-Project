@@ -7660,7 +7660,7 @@ export default function Dashboard() {
         </div>}
         {visitedTabsRef.current.has('customer-orders') && <div style={{ display: activeTab === 'customer-orders' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
-            <CustomerRecords pages={pages} recordType="order" focusRequest={notificationFocus} onOpenAd={(role === 'owner' || role === 'admin') ? (adId) => handleNotificationNavigate({ tab: 'ads', adId }) : null} />
+            <CustomerRecords pages={pages} recordType="order" focusRequest={notificationFocus} onOpenAd={(role === 'owner' || role === 'admin') ? (adId) => handleNotificationNavigate({ tab: 'ads', adId }) : null} onReconnect={() => setPreReauthModal(true)} />
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>

@@ -95,10 +95,11 @@ const MOCK_ORDERS = (() => {
 // weight is each ad's share of its page's ad orders. The first ad turns chats into orders
 // far better than the rest, the second far worse, so every verdict shows in 7 days.
 const MOCK_ADS = [
-  { ad_id: '120212345678901234', title: 'This week only', post_id: '9876543210', page_id: 'page_1', chatsPerDay: 7, weight: 6 },
+  // post_id as Meta sends it for a Facebook page: <page id>_<post id>.
+  { ad_id: '120212345678901234', title: 'This week only', post_id: '104857600123456_9876543210', page_id: 'page_1', chatsPerDay: 7, weight: 6 },
   { ad_id: '120212345678905678', title: null, post_id: null, page_id: 'page_1', chatsPerDay: 16, weight: 1 },
-  { ad_id: '120219988776655443', title: 'Eid Collection: Panjabi from 1,490', post_id: '9876543299', page_id: 'page_1', chatsPerDay: 8, weight: 3 },
-  { ad_id: '120214433221100998', title: 'Free delivery inside Dhaka', post_id: '5544332211', page_id: 'page_2', chatsPerDay: 4, weight: 1 },
+  { ad_id: '120219988776655443', title: 'Eid Collection: Panjabi from 1,490', post_id: '104857600123456_9876543299', page_id: 'page_1', chatsPerDay: 8, weight: 3 },
+  { ad_id: '120214433221100998', title: 'Free delivery inside Dhaka', post_id: '104857600654321_5544332211', page_id: 'page_2', chatsPerDay: 4, weight: 1 },
 ];
 const MOCK_AD_CONVERSATIONS = ['conv_2', 'conv_3', 'conv_1', 'conv_4', 'conv_6'];
 // Two in five orders that aren't cancelled belong to an ad of their page; some came from
@@ -658,7 +659,7 @@ const mockAdsFigures = (start, end, pageId) => {
     return {
       ad_id: ad.ad_id, title: ad.title,
       // <page id>_<post id> for a Facebook page, as comment rows have it.
-      post_id: ad.post_id ? `${ad.page_id}_${ad.post_id}` : null,
+      post_id: ad.post_id,
       chats, orders: mine.length,
       orders_after_comment: mine.filter(order => order.ad_source === 'ad_comment').length,
       sales: mine.reduce((sum, order) => sum + Number(order.total), 0).toFixed(2),

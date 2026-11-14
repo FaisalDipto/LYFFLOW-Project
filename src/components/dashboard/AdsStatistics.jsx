@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertTriangle, ExternalLink, Info, Megaphone, MessageCircle, MessageSquareText, RefreshCw, Send, X } from 'lucide-react';
-import { startFacebookConnect } from '../../services/api';
-import { META_PURCHASE_TONES, metaPurchaseFix, metaPurchaseLabel } from '../../utils/metaPurchase';
+import { META_PURCHASE_TONES, metaPurchaseLabel } from '../../utils/metaPurchase';
 import HoverTip from '../HoverTip';
+import MetaPurchaseFix from '../MetaPurchaseFix';
 import ConversionSharing from './ConversionSharing';
+import { isInstagram } from '../../utils/platforms';
 import { useBusiness } from '../../context/BusinessContext';
 import { apiService } from '../../services/api';
 import { formatCount, formatDay, formatDayRange, formatMoney, formatPct, todayInZone } from '../../utils/ownerDashboard';
@@ -44,7 +45,9 @@ const METRICS = [
 ];
 
 // A Facebook post for a post_id of the form <page id>_<post id>.
-const postUrl = (postId) => (postId ? `https://www.facebook.com/${postId}` : null);
+// A Facebook page's ad post comes as `<page id>_<post id>`, which facebook.com opens; any
+// other form (an Instagram ad's post) has no link to build.
+const postUrl = (postId) => (typeof postId === 'string' && /^\d+_\d+$/.test(postId) ? `https://www.facebook.com/${postId}` : null);
 const adName = (ad) => ad?.title || ad?.ad_title || `Ad ${ad?.ad_id || ''}`.trim();
 
 const Card = ({ title, hint, action, children, className = '' }) => (
@@ -204,8 +207,24 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
     return groups;
   }, []);
   // Until a Facebook page sends purchases, the switch sits near the top so the owner sees it.
-  const sharingSetUp = pages.some(page => page.platform !== 'ig' && page.platform !== 'instagram' && page.is_conversion_sharing_enabled);
+  const sharingSetUp = pages.some(page => !isInstagram(page.platform) && page.is_conversion_sharing_enabled);
   const sharingCard = <ConversionSharing pages={pages} isOwner={isOwner} onPagesChanged={onPagesChanged} onReconnect={onReconnect} />;
+  // Purchases count every order of the page, with or without an ad, so the line shows
+  // even in a period without ad chats.
+  const purchasesLine = totals && (Number(totals.purchases_sent) > 0 || Number(totals.purchases_failed) > 0) ? (
+    <p className="ads-purchases m-0 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-solid border-slate-200 bg-white px-3.5 py-2.5 text-[12.5px] text-slate-600">
+      <Send size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
+      <span>
+        {formatCount(totals.purchases_sent)} {Number(totals.purchases_sent) === 1 ? 'purchase' : 'purchases'} sent to Meta, {formatCount(totals.ad_purchases_sent)} of them from ads.
+      </span>
+      {Number(totals.purchases_failed) > 0 && (
+        <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
+          <AlertTriangle size={13} aria-hidden="true" />
+          {formatCount(totals.purchases_failed)} failed.{hasAds ? ' The orders below say why.' : ''}
+        </span>
+      )}
+    </p>
+  ) : null;
   const showAdOrders = (adId) => {
     setAdFilter(adId);
     requestAnimationFrame(() => ordersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -260,6 +279,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
             </div>
           </Card>
         ) : null}
+        {data && !hasAds && purchasesLine}
         {data && !hasAds && sharingCard}
         {data && hasAds && (
           <div className={`space-y-4 transition-opacity ${isLoading ? 'opacity-60' : ''}`} aria-busy={isLoading}>
@@ -279,20 +299,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
               />
             </div>
             {comparison && <p className="m-0 -mt-1 text-[12px] text-slate-500">{comparison}</p>}
-            {(Number(totals.purchases_sent) > 0 || Number(totals.purchases_failed) > 0) && (
-              <p className="ads-purchases m-0 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-solid border-slate-200 bg-white px-3.5 py-2.5 text-[12.5px] text-slate-600">
-                <Send size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
-                <span>
-                  {formatCount(totals.purchases_sent)} {totals.purchases_sent === 1 ? 'purchase' : 'purchases'} sent to Meta, {formatCount(totals.ad_purchases_sent)} of them from ads.
-                </span>
-                {Number(totals.purchases_failed) > 0 && (
-                  <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
-                    <AlertTriangle size={13} aria-hidden="true" />
-                    {formatCount(totals.purchases_failed)} failed. The orders below say why.
-                  </span>
-                )}
-              </p>
-            )}
+            {purchasesLine}
 
             {!sharingSetUp && sharingCard}
 
@@ -420,7 +427,6 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
                           {group.rows.map((order) => {
                             const source = SOURCES[order.ad_source] || SOURCES.message_ad;
                             const purchase = metaPurchaseLabel(order);
-                            const fix = purchase?.error ? metaPurchaseFix(purchase.error) : null;
                             return (
                               <li key={order.customer_order_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-[13px]">
                                 <button
@@ -443,12 +449,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
                                     <Send size={11} aria-hidden="true" />{purchase.short}
                                   </HoverTip>
                                 )}
-                                {fix === 'connect_ads' && isOwner && (
-                                  <button type="button" onClick={() => startFacebookConnect({ includeInstagram: pages.some(page => page.platform === 'ig' || page.platform === 'instagram'), includeAds: true })} className="text-[11.5px] font-semibold text-emerald-700 hover:underline">Connect ads</button>
-                                )}
-                                {fix === 'reconnect' && onReconnect && (
-                                  <button type="button" onClick={onReconnect} className="text-[11.5px] font-semibold text-emerald-700 hover:underline">Reconnect</button>
-                                )}
+                                {purchase?.error && <MetaPurchaseFix error={purchase.error} isOwner={isOwner} pages={pages} onReconnect={onReconnect} className="text-[11.5px]" />}
                                 <span className={`rounded-md border border-solid px-1.5 py-0.5 text-[10.5px] font-semibold capitalize ${recordStatusClass(order.status)}`}>{String(order.status || '').replace(/_/g, ' ')}</span>
                                 <span className="w-24 text-right font-semibold tabular-nums text-slate-900">{formatMoney(order.total, currency)}</span>
                                 {order.conversation_id && (
@@ -489,7 +490,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
               <summary className="cursor-pointer font-semibold text-slate-800">How ads are counted</summary>
               <ul className="m-0 mt-2 list-disc space-y-1 pl-5 leading-relaxed">
                 <li>An order belongs to the ad the customer last tapped in the 7 days before ordering, or, if they tapped none, the ad whose post they commented on. Cancelled and deleted orders are left out.</li>
-                <li>A customer who tapped an ad three times is one chat.</li>
+                <li>A customer who tapped an ad three times is one chat. A chat that came from two ads counts once in "Chats from ads", so the ad rows can add up to more.</li>
                 <li>An ad is listed once a customer has opened a chat from it. An ad that brought no chat isn't known to LyfFlow.</li>
                 <li>A customer who saw an ad and wrote to the page on their own counts as a customer without an ad.</li>
                 <li>Orders after a comment are counted for Facebook pages only, while the comment agent is on for the page.</li>

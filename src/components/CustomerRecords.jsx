@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { itemDiscount, orderDiscountTotal } from '../utils/discounts';
 import { META_PURCHASE_TONES, metaPurchaseLabel } from '../utils/metaPurchase';
+import MetaPurchaseFix from './MetaPurchaseFix';
 import { Users, Phone, Mail, Calendar, Eye, Pencil, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download, Trash2 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { saveBlob } from '../utils/download';
@@ -51,7 +52,7 @@ const normalizeRecord = (record, type) => ({
 });
 
 // onOpenAd(adId): opens the Ads section on that ad's orders (owners and admins only).
-const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null }) => {
+const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null, onReconnect = null }) => {
   // Empty means every page: page_id is an optional filter on both leads and orders.
   const [selectedPageId, setSelectedPageId] = useState('');
   const [records, setRecords] = useState([]);
@@ -847,6 +848,11 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                     <p className="m-0 text-xs font-black uppercase tracking-wider text-slate-400">Purchase sent to Meta</p>
                     <p className={`m-0 mt-1 text-sm font-semibold ${META_PURCHASE_TONES[purchase.tone]}`}>{purchase.long}</p>
                     {purchase.error && <p className="m-0 mt-0.5 text-[13px] text-slate-600">{purchase.error}</p>}
+                    {purchase.error && (
+                      <p className="m-0 mt-1.5 text-[13px]">
+                        <MetaPurchaseFix error={purchase.error} isOwner={isOwner} pages={pages} onReconnect={onReconnect} />
+                      </p>
+                    )}
                   </div>
                 );
               })()}

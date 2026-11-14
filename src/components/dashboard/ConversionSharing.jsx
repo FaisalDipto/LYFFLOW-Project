@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { Link2, Loader2, RefreshCw, Send } from 'lucide-react';
-import { apiService, startFacebookConnect } from '../../services/api';
-import { META_ADS_CONNECT_ENABLED } from '../../config/env';
+import { apiService } from '../../services/api';
+import { ADS_CONNECT_AVAILABLE, connectAds as startConnectAds } from '../../utils/metaPurchase';
 import { isInstagram } from '../../utils/platforms';
-
-const MOCK_MODE = typeof window !== 'undefined' && window.location.search.includes('mock=true');
 
 // What a failed switch means, from the endpoint's `detail` (a code or a sentence).
 const switchError = (error) => {
@@ -28,8 +26,8 @@ const switchError = (error) => {
 export default function ConversionSharing({ pages = [], isOwner = false, onPagesChanged, onReconnect }) {
   const [state, setState] = useState({});
   const facebookPages = pages.filter(page => !isInstagram(page.platform));
-  const canConnectAds = isOwner && (META_ADS_CONNECT_ENABLED || MOCK_MODE);
-  const connectAds = () => startFacebookConnect({ includeInstagram: pages.some(page => isInstagram(page.platform)), includeAds: true });
+  const canConnectAds = isOwner && ADS_CONNECT_AVAILABLE;
+  const connectAds = () => startConnectAds(pages);
 
   const toggle = async (page, next) => {
     setState(current => ({ ...current, [page.page_id]: { saving: true, enabled: next, error: null } }));
@@ -49,8 +47,10 @@ export default function ConversionSharing({ pages = [], isOwner = false, onPages
         ? <button type="button" onClick={connectAds} className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline">Connect ads</button>
         : <span className="text-slate-500">{isOwner ? 'Connect ads isn\'t available on this app yet.' : 'Ask the owner to use "Connect ads".'}</span>;
     }
-    if (kind === 'reconnect' && onReconnect) {
-      return <button type="button" onClick={onReconnect} className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline">Reconnect the page</button>;
+    // Reconnecting is the owner's, as everywhere else.
+    if (kind === 'reconnect') {
+      if (!isOwner) return <span className="text-slate-500">Ask the owner to reconnect the page.</span>;
+      if (onReconnect) return <button type="button" onClick={onReconnect} className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline">Reconnect the page</button>;
     }
     return null;
   };
