@@ -24,10 +24,10 @@ export const facebookConnectUrl = () => `${API_BASE}/v1/auth/facebook/connect`;
 // professional account linked to them when `includeInstagram` is set. The endpoint
 // either redirects straight to Facebook or answers JSON { auth_url }; this handles
 // both (a manual-redirect fetch tells them apart) and ends in a full-page navigation.
-// `includeAds` also asks for page_events ("Connect ads", owner only), so the page's
-// orders can be sent to Meta as purchases.
-export const startFacebookConnect = async ({ includeInstagram = false, includeAds = false } = {}) => {
-  const url = `${facebookConnectUrl()}?include_instagram=${includeInstagram ? 'true' : 'false'}${includeAds ? '&include_ads=true' : ''}`;
+// The connect also asks for page_events (sending purchases to Meta) and ads_read (ad
+// spend) by default; a page connected before 2026-11-13 needs one reconnect for them.
+export const startFacebookConnect = async ({ includeInstagram = false } = {}) => {
+  const url = `${facebookConnectUrl()}?include_instagram=${includeInstagram ? 'true' : 'false'}`;
   if (MOCK_MODE) {
     // No Facebook round trip in mock mode: land back as the backend would on success.
     window.location.href = `${window.location.pathname}?mock=true&reauth=success`;
@@ -99,12 +99,23 @@ const MOCK_ORDERS = (() => {
 // Send-message ads for mock mode (GET /v1/statistics/ads). chatsPerDay drives the chats;
 // weight is each ad's share of its page's ad orders. The first ad turns chats into orders
 // far better than the rest, the second far worse, so every verdict shows in 7 days.
+// Campaigns and ad sets (Ads Manager). "Winter sale" has ads of both pages, so with a page
+// filter its spend is hidden ("shared with another page"); "Website: New arrivals" mostly
+// sells on the website. cpc is the mock's spend per chat, in USD.
+const MOCK_CAMPAIGN_NAMES = { '120210000000000001': 'Winter sale', '120210000000000002': 'Website: New arrivals' };
+const MOCK_AD_SET_NAMES = { '120210000000000011': 'Dhaka women 25-40', '120210000000000012': 'Chattogram men 18-35', '120210000000000021': 'Lookalike 1%' };
 const MOCK_ADS = [
   // post_id as Meta sends it for a Facebook page: <page id>_<post id>.
-  { ad_id: '120212345678901234', title: 'This week only', post_id: '104857600123456_9876543210', page_id: 'page_1', chatsPerDay: 7, weight: 6 },
-  { ad_id: '120212345678905678', title: null, post_id: null, page_id: 'page_1', chatsPerDay: 16, weight: 1 },
-  { ad_id: '120219988776655443', title: 'Eid Collection: Panjabi from 1,490', post_id: '104857600123456_9876543299', page_id: 'page_1', chatsPerDay: 8, weight: 3 },
-  { ad_id: '120214433221100998', title: 'Free delivery inside Dhaka', post_id: '104857600654321_5544332211', page_id: 'page_2', chatsPerDay: 4, weight: 1 },
+  { ad_id: '120212345678901234', title: 'This week only', name: 'This week only - video', post_id: '104857600123456_9876543210', page_id: 'page_1', campaign_id: '120210000000000001', ad_set_id: '120210000000000011', chatsPerDay: 7, weight: 6, cpc: 0.045 },
+  { ad_id: '120212345678905678', title: null, name: 'Retargeting - plain text', post_id: null, page_id: 'page_1', campaign_id: '120210000000000001', ad_set_id: '120210000000000011', chatsPerDay: 16, weight: 1, cpc: 0.03 },
+  { ad_id: '120219988776655443', title: 'Eid Collection: Panjabi from 1,490', name: 'Eid panjabi - image', post_id: '104857600123456_9876543299', page_id: 'page_1', campaign_id: '120210000000000001', ad_set_id: '120210000000000012', chatsPerDay: 8, weight: 3, cpc: 0.06 },
+  { ad_id: '120214433221100998', title: 'Free delivery inside Dhaka', name: 'Free delivery - carousel', post_id: '104857600654321_5544332211', page_id: 'page_2', campaign_id: '120210000000000002', ad_set_id: '120210000000000021', chatsPerDay: 4, weight: 1, cpc: 0.08 },
+  { ad_id: '120213131313131313', title: 'Free delivery this week', name: 'Free delivery - story', post_id: null, page_id: 'page_2', campaign_id: '120210000000000001', ad_set_id: '120210000000000012', chatsPerDay: 2, weight: 1, cpc: 0.07 },
+];
+// Ads Meta reports that never opened a chat in LyfFlow: in the tree only, with 0 chats.
+const MOCK_META_ONLY_ADS = [
+  { ad_id: '120215151515151515', name: 'Carousel - 3 bags', campaign_id: '120210000000000001', ad_set_id: '120210000000000011', spendPerDay: 0.6, websitePerDay: 0.1 },
+  { ad_id: '120216161616161616', name: 'New arrivals - collection', campaign_id: '120210000000000002', ad_set_id: '120210000000000021', spendPerDay: 1.9, websitePerDay: 1.3 },
 ];
 const MOCK_AD_CONVERSATIONS = ['conv_2', 'conv_3', 'conv_1', 'conv_4', 'conv_6'];
 // Two in five orders that aren't cancelled belong to an ad of their page; some came from
@@ -126,7 +137,8 @@ MOCK_ORDERS.forEach((order, n) => {
   if (order.page_id !== 'page_1' || MOCK_LOAD_PARAMS.get('mockAdsConnect') === 'required') { Object.assign(order, none); return; }
   const sendAt = Date.parse(order.created_at) + 30 * 60000;
   if (sendAt > MOCK_LOADED_AT) Object.assign(order, { ...none, meta_purchase_status: n % 2 ? 'sending' : 'pending' });
-  else if (n % 23 === 7) Object.assign(order, { ...none, meta_purchase_status: 'failed', meta_purchase_error: 'Meta refused the purchase: the page no longer allows sending events. Use "Connect ads" again.' });
+  // Failures before 2026-11-12 still say "Connect ads"; newer ones say "Reconnect the page". Both mean a reconnect.
+  else if (n % 23 === 7) Object.assign(order, { ...none, meta_purchase_status: 'failed', meta_purchase_error: n % 2 ? 'Meta refused the purchase: the page no longer allows sending events. Use "Connect ads" again.' : 'Meta refused the purchase: the page no longer allows sending events. Reconnect the page.' });
   else if (n % 29 === 11) Object.assign(order, { ...none, meta_purchase_status: 'not_sent', meta_purchase_error: "The customer has no Messenger id for this page, so Meta can't match the purchase." });
   else Object.assign(order, { ...none, meta_purchase_status: 'sent', meta_purchase_sent_at: new Date(sendAt + 4000).toISOString() });
 });
@@ -738,8 +750,15 @@ const mockAdsGuard = (params) => {
   return pageId;
 };
 // Ad orders in [start, end] (business days), newest first.
-const mockAdOrders = (start, end, pageId, adId = null) => (MOCK_DASHBOARD_MODE === 'empty' ? [] : MOCK_ORDERS
+// An ad's stored campaign and ad set (none for an ad whose campaign isn't read yet, in ?mockAdsSpend=partial).
+const mockAdPlacement = (adId) => {
+  const ad = MOCK_ADS.find(item => item.ad_id === adId);
+  if (!ad || (MOCK_ADS_SPEND === 'partial' && adId === '120212345678905678')) return { campaign_id: null, ad_set_id: null, name: null };
+  return { campaign_id: ad.campaign_id, ad_set_id: ad.ad_set_id, name: ad.name };
+};
+const mockAdOrders = (start, end, pageId, adId = null, campaignId = null, adSetId = null) => (MOCK_DASHBOARD_MODE === 'empty' ? [] : MOCK_ORDERS
   .filter(order => order.ad_id && (!pageId || order.page_id === pageId) && (!adId || order.ad_id === adId))
+  .filter(order => (!campaignId || mockAdPlacement(order.ad_id).campaign_id === campaignId) && (!adSetId || mockAdPlacement(order.ad_id).ad_set_id === adSetId))
   .filter(order => { const day = mockDhakaDate(order.created_at); return day >= start && day <= end; }));
 // The ads figures for one range (no comparison). Mock data covers the last 31 days.
 const mockAdsFigures = (start, end, pageId) => {
@@ -779,6 +798,24 @@ const mockAdsFigures = (start, end, pageId) => {
         : ad.orders >= ad.expected_orders * 1.5 ? 'above_usual' : 'usual';
   });
   ads.sort((a, b) => b.chats - a.chats || b.orders - a.orders);
+  // Meta's figures for the chat ads (spend by chats, Meta's purchase counts); the tree adds
+  // the ads Meta reports without a chat and the spend of archived ads.
+  const liveDays = empty ? 0 : dayList.filter(day => day >= dataStart).length;
+  const isWebsite = (campaignId) => campaignId === '120210000000000002';
+  ads.forEach((ad) => {
+    const source = MOCK_ADS.find(item => item.ad_id === ad.ad_id);
+    Object.assign(ad, {
+      name: source.name, campaign_id: source.campaign_id, ad_set_id: source.ad_set_id, page_id: source.page_id,
+      metaSpend: Math.round(ad.chats * source.cpc * 100) / 100,
+      metaPurchases: Math.max(0, Math.round(ad.orders * 0.9) + (ad.orders > 3 ? 1 : 0)),
+      metaWebsite: isWebsite(source.campaign_id) ? Math.round(liveDays * 0.5) : Math.round(liveDays * 0.05),
+    });
+  });
+  const metaOnly = MOCK_META_ONLY_ADS.map(ad => ({
+    ad_id: ad.ad_id, title: null, name: ad.name, post_id: null, campaign_id: ad.campaign_id, ad_set_id: ad.ad_set_id, page_id: null,
+    chats: 0, orders: 0, orders_after_comment: 0, sales: '0.00', chat_to_order_rate: null, expected_orders: 0, verdict: 'not_enough_data', purchases_sent: 0,
+    metaSpend: Math.round(ad.spendPerDay * liveDays * 100) / 100, metaPurchases: 0, metaWebsite: Math.round(ad.websitePerDay * liveDays),
+  })).filter(ad => ad.metaSpend > 0);
   const daily = dayList.map((day, i) => {
     const onDay = adOrders.filter(order => mockDhakaDate(order.created_at) === day);
     return {
@@ -799,7 +836,123 @@ const mockAdsFigures = (start, end, pageId) => {
     purchases_failed: empty ? 0 : inRange.filter(order => order.meta_purchase_status === 'failed').length,
     ad_purchases_sent: sentOrders.filter(order => order.ad_id).length,
     hasData: !empty && end >= dataStart,
-    ads, daily,
+    ads, daily, metaOnly, liveDays,
+  };
+};
+// Meta's side of GET /v1/statistics/ads. ?mockAdsSpend=partial (one ad account unreadable,
+// and one ad's campaign not read yet) | mixed (two currencies) | reconnect_required |
+// no_ad_account_access | unavailable | slow (the first call per range waits 8 s, as when
+// Meta's 15-minute cache is cold). Default: available, in USD.
+const MOCK_ADS_SPEND = MOCK_LOAD_PARAMS.get('mockAdsSpend') || 'available';
+const mockAdsSpendRead = new Map();
+// `everything` is the same days without a page filter: Meta's spend for a campaign or ad
+// set doesn't depend on the page.
+const mockAdsTree = (current, pageId, everything = current) => {
+  const mode = MOCK_ADS_SPEND;
+  const status = ['reconnect_required', 'no_ad_account_access', 'unavailable'].includes(mode) ? mode : 'available';
+  const showMeta = status === 'available';
+  const money = (value) => (value === null || value === undefined ? null : (Math.round(value * 100) / 100).toFixed(2));
+  const perOrder = (spend, orders) => (spend === null || !orders ? null : money(spend / orders));
+  const unreadable = (campaignId) => mode === 'partial' && campaignId === '120210000000000002';
+  const notReadYet = (adId) => mode === 'partial' && adId === '120212345678905678';
+  const currencyOf = (campaignId) => (mode === 'mixed' && campaignId === '120210000000000002' ? 'EUR' : 'USD');
+  // Ads known for another page make a campaign or ad set "shared": no spend with a page filter.
+  const sharedWithOtherPage = (key, id) => Boolean(pageId) && MOCK_ADS.some(ad => ad[key] === id && ad.page_id !== pageId);
+  let hidden = false;
+  const adRow = (ad) => {
+    const meta = showMeta && !unreadable(ad.campaign_id);
+    const spend = meta ? ad.metaSpend : null;
+    return {
+      ...ad,
+      ad_spend: money(spend), cost_per_order: perOrder(spend, ad.orders),
+      meta_purchases: meta ? ad.metaPurchases : null, meta_website_purchases: meta ? ad.metaWebsite : null,
+    };
+  };
+  // Mock bookkeeping that isn't part of the response.
+  const strip = (row) => {
+    const copy = { ...row };
+    ['metaSpend', 'metaPurchases', 'metaWebsite', 'page_id'].forEach(key => delete copy[key]);
+    return copy;
+  };
+  // Chat ads of the shown page(s), plus Meta-only ads when no page filter is on.
+  const rows = [...current.ads, ...(pageId ? [] : current.metaOnly)].map(adRow);
+  const flat = current.ads.map(ad => strip(adRow(ad)));
+  const sumRows = (list) => ({
+    chats: (() => { const sum = list.reduce((total, row) => total + row.chats, 0); return list.filter(row => row.chats > 0).length > 1 ? Math.round(sum * 0.97) : sum; })(),
+    orders: list.reduce((total, row) => total + row.orders, 0),
+    orders_after_comment: list.reduce((total, row) => total + row.orders_after_comment, 0),
+    sales: list.reduce((total, row) => total + Number(row.sales), 0).toFixed(2),
+    purchases_sent: list.reduce((total, row) => total + row.purchases_sent, 0),
+  });
+  // Meta's own figure for a campaign or ad set: every ad of it Meta knows (with or without
+  // a chat, on any page) plus archived ads, whatever rows are shown.
+  const allMetaRows = [...everything.ads, ...everything.metaOnly];
+  const metaFor = (list, campaignId, shared, extraSpend = 0, key = 'campaign_id', id = campaignId) => {
+    if (!showMeta || unreadable(campaignId) || shared) {
+      if ((shared || unreadable(campaignId)) && list.some(row => row.chats > 0 || row.orders > 0)) hidden = true;
+      return { ad_spend: null, cost_per_order: null, meta_purchases: null, meta_website_purchases: null };
+    }
+    const metaRows = allMetaRows.filter(row => row[key] === id);
+    const spend = metaRows.reduce((total, row) => total + row.metaSpend, 0) + extraSpend;
+    const orders = list.reduce((total, row) => total + row.orders, 0);
+    return {
+      ad_spend: money(spend), cost_per_order: perOrder(spend, orders),
+      meta_purchases: metaRows.reduce((total, row) => total + row.metaPurchases, 0),
+      meta_website_purchases: metaRows.reduce((total, row) => total + row.metaWebsite, 0),
+    };
+  };
+  const byKey = (key) => (a, b) => b.chats - a.chats || b.orders - a.orders || String(a[key]).localeCompare(String(b[key]));
+  const placed = rows.filter(row => row.campaign_id && !notReadYet(row.ad_id));
+  const campaigns = [...new Set(placed.map(row => row.campaign_id))].map((campaignId) => {
+    const mine = placed.filter(row => row.campaign_id === campaignId);
+    const adSets = [...new Set(mine.map(row => row.ad_set_id))].map((adSetId) => {
+      const setRows = mine.filter(row => row.ad_set_id === adSetId);
+      // Archived ads still cost money: Meta's ad set figure covers them, the rows shown don't.
+      const archived = adSetId === '120210000000000011' ? Math.round(current.liveDays * 0.25 * 100) / 100 : 0;
+      return {
+        ad_set_id: adSetId, name: MOCK_AD_SET_NAMES[adSetId] || null, ...sumRows(setRows),
+        ...metaFor(setRows, campaignId, sharedWithOtherPage('ad_set_id', adSetId), archived, 'ad_set_id', adSetId),
+        ads: setRows.map(strip).sort(byKey('ad_id')),
+      };
+    });
+    const archivedAll = adSets.some(set => set.ad_set_id === '120210000000000011') ? Math.round(current.liveDays * 0.25 * 100) / 100 : 0;
+    const totals = sumRows(mine);
+    return {
+      campaign_id: campaignId, name: MOCK_CAMPAIGN_NAMES[campaignId] || null, currency: showMeta && !unreadable(campaignId) ? currencyOf(campaignId) : null,
+      ...totals, ...metaFor(mine, campaignId, sharedWithOtherPage('campaign_id', campaignId), archivedAll),
+      chat_to_order_rate: totals.chats ? Math.round((totals.orders / totals.chats) * 1000) / 10 : null,
+      ad_sets: adSets.map(set => ({ ...set, chat_to_order_rate: set.chats ? Math.round((set.orders / set.chats) * 1000) / 10 : null })).sort(byKey('ad_set_id')),
+    };
+  }).sort(byKey('campaign_id'));
+  // Ads whose campaign hasn't been read from Meta yet: one last group with no campaign.
+  const loose = rows.filter(row => !row.campaign_id || notReadYet(row.ad_id));
+  if (loose.length) {
+    if (loose.some(row => row.chats > 0 || row.orders > 0)) hidden = true;
+    const totals = sumRows(loose);
+    const none = { ad_spend: null, cost_per_order: null, meta_purchases: null, meta_website_purchases: null };
+    const rate = totals.chats ? Math.round((totals.orders / totals.chats) * 1000) / 10 : null;
+    campaigns.push({
+      campaign_id: null, name: null, currency: null, ...totals, ...none, chat_to_order_rate: rate,
+      ad_sets: [{ ad_set_id: null, name: null, ...totals, ...none, chat_to_order_rate: rate, ads: loose.map(strip) }],
+    });
+  }
+  if (notReadYet('120212345678905678')) flat.forEach(ad => { if (ad.ad_id === '120212345678905678') ad.name = null; });
+  const spendStatus = status !== 'available' ? status : hidden ? 'partial' : 'available';
+  const withFigure = campaigns.filter(row => row.ad_spend !== null);
+  const currencies = [...new Set(withFigure.map(row => row.currency))];
+  const oneCurrency = currencies.length <= 1;
+  const totalSpend = withFigure.length && oneCurrency ? withFigure.reduce((sum, row) => sum + Number(row.ad_spend), 0) : null;
+  const sum = (key) => (withFigure.length ? withFigure.reduce((total, row) => total + row[key], 0) : null);
+  return {
+    spend: { status: spendStatus, currency: showMeta && oneCurrency ? (currencies[0] || 'USD') : null, read_at: showMeta ? new Date(Date.now() - 4 * 60000).toISOString() : null },
+    campaigns,
+    ads: flat,
+    totals: {
+      ad_spend: money(totalSpend),
+      cost_per_order: spendStatus === 'partial' || totalSpend === null ? null : perOrder(totalSpend, current.orders),
+      meta_purchases: sum('meta_purchases'),
+      meta_website_purchases: sum('meta_website_purchases'),
+    },
   };
 };
 const mockAdsStatistics = (endpoint) => {
@@ -814,9 +967,13 @@ const mockAdsStatistics = (endpoint) => {
     const change = prev > 0 ? Math.round(((value - prev) / prev) * 1000) / 10 : null;
     return money ? { value: value.toFixed(2), previous: prev.toFixed(2), change_pct: change } : { value, previous: prev, change_pct: change };
   };
-  return {
+  const meta = mockAdsTree(current, pageId, pageId ? mockAdsFigures(start, end, null) : current);
+  const response = {
     range: { start_date: start, end_date: end, timezone: MOCK_DASHBOARD_TZ, currency: 'BDT', previous: previousRange },
+    spend: meta.spend,
+    campaigns: meta.campaigns,
     totals: {
+      ...meta.totals,
       chats: figure(current.chats, previous.chats),
       orders: figure(current.orders, previous.orders),
       sales: figure(current.sales, previous.sales, true),
@@ -827,9 +984,16 @@ const mockAdsStatistics = (endpoint) => {
       purchases_failed: current.purchases_failed,
       ad_purchases_sent: current.ad_purchases_sent,
     },
-    ads: current.ads,
+    ads: meta.ads,
     daily: current.daily,
   };
+  // A cold Meta cache: the first call for these days waits, later ones answer at once.
+  const readKey = `${start}|${end}|${pageId || ''}`;
+  if (MOCK_ADS_SPEND === 'slow' && !mockAdsSpendRead.has(readKey)) {
+    mockAdsSpendRead.set(readKey, true);
+    return new Promise(resolve => setTimeout(() => resolve(response), 8000));
+  }
+  return response;
 };
 const mockAdsOrders = (endpoint) => {
   const params = new URLSearchParams(endpoint.split('?')[1] || '');
@@ -839,7 +1003,8 @@ const mockAdsOrders = (endpoint) => {
   const limit = limitParam === null ? 20 : Number(limitParam);
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) mockDashboardError(422, 'limit: Input should be between 1 and 50');
   const offset = /^\d+$/.test(params.get('cursor') || '') ? Number(params.get('cursor')) : 0;
-  const matching = mockAdOrders(start, end, pageId, params.get('ad_id'));
+  ['campaign_id', 'ad_set_id'].forEach(key => { if ((params.get(key) || '').length > 100) mockDashboardError(422, `${key}: String should have at most 100 characters`); });
+  const matching = mockAdOrders(start, end, pageId, params.get('ad_id'), params.get('campaign_id'), params.get('ad_set_id'));
   const hasMore = offset + limit < matching.length;
   return {
     orders: matching.slice(offset, offset + limit).map(order => ({
@@ -847,6 +1012,13 @@ const mockAdsOrders = (endpoint) => {
       local_date: mockDhakaDate(order.created_at), contact_name: order.contact_name, total: order.total,
       status: order.status, created_by: order.created_by, conversation_id: order.conversation_id, page_id: order.page_id,
       ad_id: order.ad_id, ad_title: MOCK_ADS.find(ad => ad.ad_id === order.ad_id)?.title ?? null, ad_source: order.ad_source,
+      ...(() => {
+        const placement = mockAdPlacement(order.ad_id);
+        return {
+          ad_name: placement.name, ad_set_id: placement.ad_set_id, ad_set_name: MOCK_AD_SET_NAMES[placement.ad_set_id] ?? null,
+          campaign_id: placement.campaign_id, campaign_name: MOCK_CAMPAIGN_NAMES[placement.campaign_id] ?? null,
+        };
+      })(),
       meta_purchase_status: order.meta_purchase_status, meta_purchase_sent_at: order.meta_purchase_sent_at, meta_purchase_error: order.meta_purchase_error,
     })),
     pagination: { next_cursor: hasMore ? String(offset + limit) : null, has_more: hasMore, page_size: limit, total: matching.length },
@@ -1462,7 +1634,7 @@ const mockData = {
   ],
   '/v1/business/pages': [
     // page_1 sends its orders to Meta as purchases (?mockAdsConnect=required: not yet, and
-    // turning it on asks for "Connect ads").
+    // turning it on asks for a reconnect).
     { page_id: 'page_1', name: 'Lyfflow Demo Page', category: 'Software', followers: 1250, agent_name: 'SalesBot', profile_pic_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80', is_active: true, is_token_active: true, needs_reauth: false, token_invalid_at: null,
       is_conversion_sharing_enabled: MOCK_LOAD_PARAMS.get('mockAdsConnect') !== 'required', meta_dataset_id: MOCK_LOAD_PARAMS.get('mockAdsConnect') !== 'required' ? '1789012345678901' : null },
     // Second page is deliberately in the expired-token state so the reconnect UI is testable.
@@ -3578,7 +3750,8 @@ export const apiService = {
   // the business timezone; never together with period). page_id narrows it to one page
   // (404 when the page isn't this business's).
   // Sends every new order of the page to Meta as a purchase, 30 minutes after it's created
-  // (owners and admins). 412 ads_connect_required: run "Connect ads" first;
+  // (owners and admins). 412 ads_connect_required: the page was connected before it could
+  // (or the permission was unticked): reconnect it;
   // 412 page_reconnect_required: reconnect the page; 422: Instagram pages can't.
   setConversionSharing: (pageId, isEnabled) => apiFetch(`/v1/business/pages/${encodeURIComponent(pageId)}/conversion-sharing`, {
     method: 'PATCH',
@@ -3595,11 +3768,13 @@ export const apiService = {
   },
   // The orders that belong to an ad (or every ad), newest first. Dates default to today;
   // limit 1-50 (default 20); cursor = pagination.next_cursor.
-  getAdOrders: ({ startDate = null, endDate = null, pageId = null, adId = null, limit = null, cursor = null } = {}, { signal } = {}) => {
+  getAdOrders: ({ startDate = null, endDate = null, pageId = null, adId = null, campaignId = null, adSetId = null, limit = null, cursor = null } = {}, { signal } = {}) => {
     const q = new URLSearchParams();
     if (startDate && endDate) { q.set('start_date', startDate); q.set('end_date', endDate); }
     if (pageId) q.set('page_id', pageId);
     if (adId) q.set('ad_id', adId);
+    if (campaignId) q.set('campaign_id', campaignId);
+    if (adSetId) q.set('ad_set_id', adSetId);
     if (limit) q.set('limit', String(limit));
     if (cursor) q.set('cursor', cursor);
     const qs = q.toString();

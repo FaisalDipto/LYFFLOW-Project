@@ -16,10 +16,6 @@ export const API_BASE = IS_DEV_ENV
   ? 'https://api.meharaz733.com'
   : 'https://api.lyfflow.com';
 
-// "Connect ads" asks Meta for page_events, which only some Meta apps have. Set
-// VITE_META_ADS_CONNECT=true for an environment whose app has it (ask the backend team).
-export const META_ADS_CONNECT_ENABLED = import.meta.env.VITE_META_ADS_CONNECT === 'true';
-
 // Base URL for Frontend site navigation / redirects
 export const SITE_BASE = IS_DEV_ENV
   ? 'https://www.meharaz733.com'

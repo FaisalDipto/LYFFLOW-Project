@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { Link2, Loader2, RefreshCw, Send } from 'lucide-react';
+import { Loader2, RefreshCw, Send } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { ADS_CONNECT_AVAILABLE, connectAds as startConnectAds } from '../../utils/metaPurchase';
 import { isInstagram } from '../../utils/platforms';
 
-// What a failed switch means, from the endpoint's `detail` (a code or a sentence).
+// What a failed switch means, from the endpoint's `detail` (a code or a sentence). Both
+// 412s are fixed by a normal reconnect: the connect asks for page_events since 2026-11-12.
 const switchError = (error) => {
   const code = error?.code || error?.message || '';
-  if (error?.status === 412 && code.includes('ads_connect_required')) return { kind: 'connect_ads', text: 'This page hasn\'t allowed LyfFlow to send events to Meta yet. Use "Connect ads" first; a normal reconnect doesn\'t add it.' };
+  if (error?.status === 412 && code.includes('ads_connect_required')) return { kind: 'reconnect', text: "This page hasn't allowed LyfFlow to send purchases to Meta yet (it was connected before this could be asked, or the permission was unticked). Reconnect the page and keep that permission." };
   if (error?.status === 412 && code.includes('page_reconnect_required')) return { kind: 'reconnect', text: "The page's connection to Meta has expired. Reconnect the page, then turn this on." };
   if (error?.status === 422) return { kind: null, text: "Instagram accounts can't send purchases to Meta." };
   if (error?.status === 404) return { kind: null, text: 'This page is no longer part of this business.' };
@@ -19,15 +19,13 @@ const switchError = (error) => {
 /**
  * Send purchases to Meta: one switch per Facebook page (owners and admins). With it on,
  * every new order of the page goes to Meta as a purchase 30 minutes after it's created,
- * so Meta can show the page's Send-message ads to people likelier to buy. "Connect ads"
- * (owner only) grants the page_events permission the switch needs.
+ * so Meta can show the page's Send-message ads to people likelier to buy. The permission it
+ * needs comes with the normal connect; a page connected before needs one reconnect.
  * @param {{ pages: object[], isOwner: boolean, onPagesChanged?: () => void, onReconnect?: () => void }} props
  */
 export default function ConversionSharing({ pages = [], isOwner = false, onPagesChanged, onReconnect }) {
   const [state, setState] = useState({});
   const facebookPages = pages.filter(page => !isInstagram(page.platform));
-  const canConnectAds = isOwner && ADS_CONNECT_AVAILABLE;
-  const connectAds = () => startConnectAds(pages);
 
   const toggle = async (page, next) => {
     setState(current => ({ ...current, [page.page_id]: { saving: true, enabled: next, error: null } }));
@@ -41,43 +39,26 @@ export default function ConversionSharing({ pages = [], isOwner = false, onPages
     }
   };
 
+  // Reconnecting is the owner's, as everywhere else.
   const fixButton = (kind) => {
-    if (kind === 'connect_ads') {
-      return canConnectAds
-        ? <button type="button" onClick={connectAds} className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline">Connect ads</button>
-        : <span className="text-slate-500">{isOwner ? 'Connect ads isn\'t available on this app yet.' : 'Ask the owner to use "Connect ads".'}</span>;
-    }
-    // Reconnecting is the owner's, as everywhere else.
-    if (kind === 'reconnect') {
-      if (!isOwner) return <span className="text-slate-500">Ask the owner to reconnect the page.</span>;
-      if (onReconnect) return <button type="button" onClick={onReconnect} className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline">Reconnect the page</button>;
-    }
-    return null;
+    if (kind !== 'reconnect') return null;
+    if (!isOwner) return <span className="text-slate-500">Ask the owner to reconnect the page.</span>;
+    return onReconnect
+      ? <button type="button" onClick={onReconnect} className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline">Reconnect the page</button>
+      : null;
   };
 
   return (
     <section className="conversion-sharing rounded-2xl border border-solid border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="conversion-sharing-title">
-      <header className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id="conversion-sharing-title" className="m-0 flex items-center gap-2 text-[15px] font-semibold text-slate-900">
-            <Send size={15} className="text-slate-500" aria-hidden="true" />
-            Send purchases to Meta
-          </h2>
-          <p className="m-0 mt-0.5 max-w-xl text-[12.5px] leading-relaxed text-slate-500">
-            Meta only knows that an ad opened a chat. Telling it which chats ended in an order lets it show your Send-message ads to people likelier to buy.
-            Once a page is on, each new order is sent 30 minutes after it's placed; an order cancelled before then isn't.
-          </p>
-        </div>
-        {canConnectAds && (
-          <button
-            type="button"
-            onClick={connectAds}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-solid border-slate-200 bg-white px-3 text-[13px] font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
-            title="Lets LyfFlow send events for your pages to Meta. Needed once per page."
-          >
-            <Link2 size={15} aria-hidden="true" /> Connect ads
-          </button>
-        )}
+      <header className="mb-3">
+        <h2 id="conversion-sharing-title" className="m-0 flex items-center gap-2 text-[15px] font-semibold text-slate-900">
+          <Send size={15} className="text-slate-500" aria-hidden="true" />
+          Send purchases to Meta
+        </h2>
+        <p className="m-0 mt-0.5 max-w-xl text-[12.5px] leading-relaxed text-slate-500">
+          Meta only knows that an ad opened a chat. Telling it which chats ended in an order lets it show your Send-message ads to people likelier to buy.
+          Once a page is on, each new order is sent 30 minutes after it's placed; an order cancelled before then isn't.
+        </p>
       </header>
 
       {facebookPages.length === 0 ? (
@@ -135,6 +116,7 @@ export default function ConversionSharing({ pages = [], isOwner = false, onPages
         <li>Every order of the page is sent, not only orders from an ad. Meta matches each one to its own ads.</li>
         <li>Meta gets the order's value and currency and the customer's Messenger id for this page. No name, phone or address.</li>
         <li>It changes who sees an ad only when the ad set's performance goal in Ads Manager is set to purchases.</li>
+        <li>A page connected before 12 November 2026 needs one reconnect before it can send purchases or show its ad spend.</li>
       </ul>
     </section>
   );

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AlertTriangle, ExternalLink, Info, Megaphone, MessageCircle, MessageSquareText, RefreshCw, Send, X } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Info, Loader2, Megaphone, MessageCircle, MessageSquareText, RefreshCw, Send, X } from 'lucide-react';
 import { META_PURCHASE_TONES, metaPurchaseLabel } from '../../utils/metaPurchase';
 import HoverTip from '../HoverTip';
 import MetaPurchaseFix from '../MetaPurchaseFix';
 import ConversionSharing from './ConversionSharing';
+import AdsCampaignTree from './AdsCampaignTree';
+import { VERDICTS, adLabel, postUrl, spendMoney } from '../../utils/adsFigures';
 import { isInstagram } from '../../utils/platforms';
 import { useBusiness } from '../../context/BusinessContext';
 import { apiService } from '../../services/api';
@@ -24,15 +26,6 @@ const errorMessage = (error) => (error?.status === 403 && error?.message && !/bu
   ? 'Only the owner and admins can see ad results.'
   : statsErrorMessage(error, 'ad results'));
 
-// The verdict compares how well ads turn chats into orders; it knows nothing about cost,
-// so it points the owner at an ad to look at, never tells them to stop one.
-const VERDICTS = {
-  above_usual: { dot: 'bg-emerald-500', tone: 'text-emerald-700', text: (ad) => `Better than your other ads: ${formatCount(ad.orders)} ${ad.orders === 1 ? 'order' : 'orders'}, about ${formatCount(Math.round(ad.expected_orders))} expected` },
-  usual: { dot: 'bg-slate-400', tone: 'text-slate-600', text: () => 'In line with your other ads' },
-  below_usual: { dot: 'bg-amber-500', tone: 'text-amber-700', text: (ad) => `Worse than your other ads: ${formatCount(ad.orders)} ${ad.orders === 1 ? 'order' : 'orders'}, about ${formatCount(Math.round(ad.expected_orders))} expected` },
-  not_enough_data: { dot: 'bg-slate-300', tone: 'text-slate-500', text: () => 'Too few orders to judge yet' },
-};
-
 const SOURCES = {
   message_ad: { label: 'Chat from ad', icon: MessageCircle },
   ad_comment: { label: 'Comment on ad', icon: MessageSquareText },
@@ -44,11 +37,8 @@ const METRICS = [
   { id: 'sales', label: 'Sales' },
 ];
 
-// A Facebook post for a post_id of the form <page id>_<post id>.
-// A Facebook page's ad post comes as `<page id>_<post id>`, which facebook.com opens; any
-// other form (an Instagram ad's post) has no link to build.
-const postUrl = (postId) => (typeof postId === 'string' && /^\d+_\d+$/.test(postId) ? `https://www.facebook.com/${postId}` : null);
-const adName = (ad) => ad?.title || ad?.ad_title || `Ad ${ad?.ad_id || ''}`.trim();
+// The filter chip of the orders list: an ad, an ad set or a campaign.
+const FILTER_KINDS = { ad: 'Ad', ad_set: 'Ad set', campaign: 'Campaign' };
 
 const Card = ({ title, hint, action, children, className = '' }) => (
   <section className={`rounded-2xl border border-solid border-slate-200 bg-white p-4 shadow-sm sm:p-5 ${className}`}>
@@ -86,10 +76,20 @@ const ChartTooltip = ({ active, payload, label, format }) => {
   );
 };
 
+// What to tell the owner when Meta's figures (spend, cost per order, Meta's purchases)
+// are missing. `fix` is what fixes it: a reconnect (owner) or trying again.
+const SPEND_NOTICES = {
+  partial: { tone: 'info', text: 'Ad spend is missing for some ads. The rows without a figure show which.' },
+  reconnect_required: { tone: 'warn', fix: 'reconnect', text: "LyfFlow can't read your ad spend: the page's Facebook login has expired or didn't allow access to ads. Reconnect the page and allow access to ads." },
+  no_ad_account_access: { tone: 'warn', fix: 'reconnect', text: "The Facebook account that connected the page can't see the ad account, so there's no ad spend here. Reconnect with an account that can see it in Ads Manager." },
+  unavailable: { tone: 'warn', fix: 'retry', text: "Ad spend isn't available right now: Meta didn't answer in time. Chats, orders and sales are up to date. Try again in a minute." },
+};
+
 /**
- * Ads (GET /v1/statistics/ads and /ads/orders): per Send-message ad, the chats it opened,
- * the orders that followed, sales and a verdict, plus the orders themselves. Owners and
- * admins only. Ad spend isn't known here; the ad ID finds it in Ads Manager.
+ * Ads (GET /v1/statistics/ads and /ads/orders): per campaign, ad set and Send-message ad,
+ * the chats it opened, the orders that followed and sales (LyfFlow's), next to Meta's spend,
+ * cost per order and purchase counts, read live from Meta; plus the orders themselves.
+ * Owners and admins only.
  * @param {{ pages?: object[], isActive?: boolean, isDark?: boolean, isOwner?: boolean,
  *   onNavigate?: (target: object) => void, focusRequest?: { adId?: string, nonce?: number } | null,
  *   onPagesChanged?: () => void, onReconnect?: () => void }} props
@@ -101,7 +101,10 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
   const [customRange, setCustomRange] = useState({ start_date: '', end_date: '' });
   const [pageId, setPageId] = useState('');
   const [metric, setMetric] = useState('chats');
-  const [adFilter, setAdFilter] = useState(null);
+  // Orders list filter from a row's Orders number: { kind: 'ad' | 'ad_set' | 'campaign', id, label }.
+  const [orderFilter, setOrderFilter] = useState(null);
+  // Set when the figures take long (Meta's 15-minute cache was cold): say why it waits.
+  const [slowKey, setSlowKey] = useState(null);
   const [result, setResult] = useState({ key: null, data: null, error: '' });
   const [orders, setOrders] = useState({ key: null, rows: [], pagination: null, loading: false, error: '' });
   const [reloadKey, setReloadKey] = useState(0);
@@ -119,7 +122,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
   // "Came from an ad" on an order opens this section on that ad's orders.
   useEffect(() => {
     if (!focusRequest?.adId) return;
-    setAdFilter(focusRequest.adId);
+    setOrderFilter({ kind: 'ad', id: focusRequest.adId, label: null });
     requestAnimationFrame(() => ordersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }, [focusRequest?.adId, focusRequest?.nonce]);
 
@@ -131,6 +134,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
     forceRef.current = false;
     const fresh = !force && cached && Date.now() - cached.at < CACHE_MS;
     const controller = new AbortController();
+    const slowTimer = fresh ? null : setTimeout(() => setSlowKey(requestKey), 2500);
     const request = fresh
       ? Promise.resolve(cached.data)
       : apiService.getAdsStatistics({
@@ -148,20 +152,26 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
         if (error?.status === 404 && selectedPageId) setPageId('');
         setResult(current => ({ key: requestKey, data: error?.status === 403 ? null : current.data, error: errorMessage(error) }));
       });
-    return () => controller.abort();
+    request.finally(() => clearTimeout(slowTimer)).catch(() => {});
+    return () => { controller.abort(); clearTimeout(slowTimer); };
   // requestKey and periodKey carry the period, custom days and page.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId, isActive, periodKey, requestKey, selectedPageId]);
 
   // The orders list follows the figures' days (range), the page and the ad filter.
   const range = result.key === requestKey ? result.data?.range : null;
-  const ordersKey = range ? `${requestKey}|${range.start_date}|${range.end_date}|${adFilter || ''}` : null;
+  const filterKey = orderFilter ? `${orderFilter.kind}:${orderFilter.id}` : '';
+  const ordersKey = range ? `${requestKey}|${range.start_date}|${range.end_date}|${filterKey}` : null;
   const loadOrders = useCallback((cursor = null) => {
     if (!ordersKey) return;
     const key = ordersKey;
     setOrders(current => ({ ...(cursor && current.key === key ? current : { rows: [], pagination: null }), key, loading: true, error: '' }));
     apiService.getAdOrders({
-      startDate: range.start_date, endDate: range.end_date, pageId: selectedPageId || null, adId: adFilter, limit: ORDERS_LIMIT, cursor,
+      startDate: range.start_date, endDate: range.end_date, pageId: selectedPageId || null,
+      adId: orderFilter?.kind === 'ad' ? orderFilter.id : null,
+      adSetId: orderFilter?.kind === 'ad_set' ? orderFilter.id : null,
+      campaignId: orderFilter?.kind === 'campaign' ? orderFilter.id : null,
+      limit: ORDERS_LIMIT, cursor,
     })
       .then(page => setOrders(current => (current.key !== key ? current : {
         key, rows: [...(cursor ? current.rows : []), ...(page?.orders || [])], pagination: page?.pagination || null, loading: false, error: '',
@@ -196,7 +206,19 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
   const formatMetric = metric === 'sales'
     ? value => formatMoney(value, currency)
     : value => `${formatCount(value)} ${metric === 'chats' ? (value === 1 ? 'chat' : 'chats') : (value === 1 ? 'order' : 'orders')}`;
-  const filteredAd = adFilter ? ads.find(ad => ad.ad_id === adFilter) || { ad_id: adFilter } : null;
+  const campaigns = Array.isArray(data?.campaigns) ? data.campaigns : null;
+  const spend = data?.spend || null;
+  // Meta's figures are shown for `available` and `partial`; otherwise they're all null.
+  const metaShown = Boolean(spend) && (spend.status === 'available' || spend.status === 'partial');
+  const spendNotice = spend ? SPEND_NOTICES[spend.status] : null;
+  const filterLabel = (() => {
+    if (!orderFilter) return '';
+    if (orderFilter.label) return orderFilter.label;
+    const ad = ads.find(item => item.ad_id === orderFilter.id);
+    return ad ? adLabel(ad) : `${FILTER_KINDS[orderFilter.kind] || 'Ad'} ${orderFilter.id}`;
+  })();
+  const filteredAd = orderFilter;
+  const isSlow = isLoading && slowKey === requestKey;
   const orderRows = orders.key === ordersKey ? orders.rows : [];
   const ordersPagination = orders.key === ordersKey ? orders.pagination : null;
   const ordersLoading = orders.key !== ordersKey || orders.loading;
@@ -225,8 +247,8 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
       )}
     </p>
   ) : null;
-  const showAdOrders = (adId) => {
-    setAdFilter(adId);
+  const showOrders = (filter) => {
+    setOrderFilter(filter);
     requestAnimationFrame(() => ordersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
@@ -259,6 +281,28 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-solid border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-800" role="alert">
             <span className="flex items-center gap-2"><AlertTriangle size={15} aria-hidden="true" />{result.error}</span>
             <button type="button" onClick={reload} className="h-8 rounded-lg border border-solid border-rose-200 bg-white px-3 text-[12px] font-semibold text-rose-800 hover:bg-rose-100">Try again</button>
+          </div>
+        )}
+
+        {isSlow && (
+          <div className="ads-slow flex items-center gap-2.5 rounded-xl border border-solid border-sky-200 bg-sky-50 px-4 py-2.5 text-[13px] text-sky-800" role="status">
+            <Loader2 size={15} className="shrink-0 animate-spin" aria-hidden="true" />
+            <span>Reading ad spend from Meta. The first look can take up to a minute; after that it's quick for 15 minutes.</span>
+          </div>
+        )}
+
+        {data && spendNotice && !isLoading && (
+          <div className={`ads-spend-notice flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-solid px-4 py-2.5 text-[13px] ${spendNotice.tone === 'warn' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-600'}`} role="status">
+            <span className="flex min-w-0 items-start gap-2">
+              {spendNotice.tone === 'warn' ? <AlertTriangle size={15} className="mt-0.5 shrink-0" aria-hidden="true" /> : <Info size={15} className="mt-0.5 shrink-0 text-slate-400" aria-hidden="true" />}
+              <span>{spendNotice.text}</span>
+            </span>
+            {spendNotice.fix === 'retry' && (
+              <button type="button" onClick={reload} className="h-8 shrink-0 rounded-lg border border-solid border-amber-200 bg-white px-3 text-[12px] font-semibold text-amber-900 hover:bg-amber-100">Try again</button>
+            )}
+            {spendNotice.fix === 'reconnect' && (isOwner && onReconnect
+              ? <button type="button" onClick={onReconnect} className="h-8 shrink-0 rounded-lg border border-solid border-amber-200 bg-white px-3 text-[12px] font-semibold text-amber-900 hover:bg-amber-100">Reconnect the page</button>
+              : <span className="shrink-0 text-[12px] font-semibold">Ask the owner to reconnect the page.</span>)}
           </div>
         )}
 
@@ -299,6 +343,29 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
               />
             </div>
             {comparison && <p className="m-0 -mt-1 text-[12px] text-slate-500">{comparison}</p>}
+            {metaShown && (
+              <section className="ads-meta-figures" aria-labelledby="ads-meta-title">
+                <p id="ads-meta-title" className="m-0 mb-2 flex flex-wrap items-center gap-x-2 text-[12px] text-slate-500">
+                  <span className="font-semibold text-slate-700">From Meta</span>
+                  <span>Spend in {spend.currency || "each campaign's own currency"}, sales in {currency}: they aren't added together.</span>
+                  {spend.read_at && <span>Read {new Date(spend.read_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.</span>}
+                </p>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <Stat
+                    label="Ad spend"
+                    value={totals.ad_spend !== null && totals.ad_spend !== undefined ? spendMoney(totals.ad_spend, spend.currency) : spend.currency ? '—' : 'Several currencies'}
+                    sub={totals.ad_spend === null && !spend.currency ? 'See each campaign below' : 'What Meta charged in these days'}
+                  />
+                  <Stat
+                    label="Cost per order"
+                    value={spendMoney(totals.cost_per_order, spend.currency)}
+                    sub={totals.cost_per_order === null && spend.status === 'partial' ? "Some ads have no spend, so it isn't worked out" : 'Spend divided by chat orders'}
+                  />
+                  <Stat label="Meta purchases" value={totals.meta_purchases === null ? '—' : formatCount(totals.meta_purchases)} sub="On Messenger, as Meta credits them" />
+                  <Stat label="Website purchases" value={totals.meta_website_purchases === null ? '—' : formatCount(totals.meta_website_purchases)} sub="Counted by your Meta pixel, not LyfFlow orders" />
+                </div>
+              </section>
+            )}
             {purchasesLine}
 
             {!sharingSetUp && sharingCard}
@@ -337,66 +404,86 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
               </div>
             </Card>
 
-            <Card title="Ads" hint="Sorted by chats. Use the ad ID to find an ad and its spend in Ads Manager.">
-              <div className="-mx-1 overflow-x-auto px-1">
-                <table className="w-full min-w-[640px] border-collapse text-left text-[13px]">
-                  <thead>
-                    <tr className="border-b border-solid border-slate-200 text-[12px] text-slate-500">
-                      <th scope="col" className="py-2 pr-3 font-medium">Ad</th>
-                      <th scope="col" className="px-3 py-2 text-right font-medium">Chats</th>
-                      <th scope="col" className="px-3 py-2 text-right font-medium">Orders</th>
-                      <th scope="col" className="px-3 py-2 text-right font-medium">Sales</th>
-                      <th scope="col" className="py-2 pl-3 text-right font-medium">Chats that ordered</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ads.map((ad) => {
-                      const verdict = VERDICTS[ad.verdict] || VERDICTS.not_enough_data;
-                      const link = postUrl(ad.post_id);
-                      return (
-                        <tr key={ad.ad_id} className={`border-b border-solid border-slate-100 align-top last:border-0 ${adFilter === ad.ad_id ? 'bg-emerald-50/60' : ''}`}>
-                          <td className="py-3 pr-3">
-                            <p className="m-0 font-semibold text-slate-900 [overflow-wrap:anywhere]">{ad.title || <span className="font-mono text-[12.5px]">Ad {ad.ad_id}</span>}</p>
-                            <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-2 text-[11.5px] text-slate-400">
-                              {ad.title && <span className="font-mono">ID {ad.ad_id}</span>}
-                              {link && (
-                                <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-semibold text-slate-500 hover:text-slate-900 hover:underline">
-                                  Post <ExternalLink size={11} aria-hidden="true" />
-                                </a>
-                              )}
-                              {ad.orders > 0 && (
-                                <button type="button" onClick={() => showAdOrders(ad.ad_id)} className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline">
-                                  See orders
-                                </button>
-                              )}
-                            </p>
-                            <p className={`m-0 mt-1.5 flex items-center gap-1.5 text-[12px] ${verdict.tone}`}>
-                              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${verdict.dot}`} aria-hidden="true" />
-                              {verdict.text(ad)}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3 text-right tabular-nums text-slate-700">{formatCount(ad.chats)}</td>
-                          <td className="px-3 py-3 text-right tabular-nums text-slate-900">
-                            <span className="font-semibold">{formatCount(ad.orders)}</span>
-                            {ad.orders_after_comment > 0 && <span className="block text-[11.5px] text-slate-400">{formatCount(ad.orders_after_comment)} after a comment</span>}
-                            {ad.purchases_sent > 0 && <span className="block text-[11.5px] text-slate-400">{formatCount(ad.purchases_sent)} sent to Meta</span>}
-                          </td>
-                          <td className="px-3 py-3 text-right tabular-nums text-slate-700">{formatMoney(ad.sales, currency)}</td>
-                          <td className="py-3 pl-3 text-right tabular-nums text-slate-700">{formatPct(ad.chat_to_order_rate)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="m-0 mt-3 flex gap-1.5 text-[11.5px] leading-relaxed text-slate-500">
-                <Info size={13} className="mt-[2px] shrink-0" aria-hidden="true" />
-                <span>
-                  The verdict compares how well each ad turns chats into orders against your other ads. It doesn't know what an ad costs:
-                  an ad marked worse can still be cheap per order, so check it in Ads Manager before changing it.
-                </span>
-              </p>
-            </Card>
+            {campaigns && campaigns.length > 0 ? (
+              <Card title="Campaigns" hint="Sorted by chats. Chats, orders and sales are LyfFlow's; spend and purchases are Meta's. Click an Orders number to list those orders.">
+                <AdsCampaignTree
+                  campaigns={campaigns}
+                  salesCurrency={currency}
+                  metaShown={metaShown}
+                  pageFiltered={Boolean(selectedPageId)}
+                  activeFilter={orderFilter}
+                  onShowOrders={showOrders}
+                />
+                <p className="m-0 mt-3 flex gap-1.5 text-[11.5px] leading-relaxed text-slate-500">
+                  <Info size={13} className="mt-[2px] shrink-0" aria-hidden="true" />
+                  <span>
+                    The verdict compares how well each ad turns chats into orders against your other ads. Cost per order counts chat orders only:
+                    a campaign that mostly sells on your website reads high, so compare its spend with its website purchases.
+                  </span>
+                </p>
+              </Card>
+            ) : (
+              <Card title="Ads" hint="Sorted by chats. Use the ad ID to find an ad and its spend in Ads Manager.">
+                <div className="-mx-1 overflow-x-auto px-1">
+                  <table className="w-full min-w-[640px] border-collapse text-left text-[13px]">
+                    <thead>
+                      <tr className="border-b border-solid border-slate-200 text-[12px] text-slate-500">
+                        <th scope="col" className="py-2 pr-3 font-medium">Ad</th>
+                        <th scope="col" className="px-3 py-2 text-right font-medium">Chats</th>
+                        <th scope="col" className="px-3 py-2 text-right font-medium">Orders</th>
+                        <th scope="col" className="px-3 py-2 text-right font-medium">Sales</th>
+                        <th scope="col" className="py-2 pl-3 text-right font-medium">Chats that ordered</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ads.map((ad) => {
+                        const verdict = VERDICTS[ad.verdict] || VERDICTS.not_enough_data;
+                        const link = postUrl(ad.post_id);
+                        return (
+                          <tr key={ad.ad_id} className={`border-b border-solid border-slate-100 align-top last:border-0 ${orderFilter?.kind === 'ad' && orderFilter.id === ad.ad_id ? 'bg-emerald-50/60' : ''}`}>
+                            <td className="py-3 pr-3">
+                              <p className="m-0 font-semibold text-slate-900 [overflow-wrap:anywhere]">{ad.title || <span className="font-mono text-[12.5px]">Ad {ad.ad_id}</span>}</p>
+                              <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-2 text-[11.5px] text-slate-400">
+                                {ad.title && <span className="font-mono">ID {ad.ad_id}</span>}
+                                {link && (
+                                  <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-semibold text-slate-500 hover:text-slate-900 hover:underline">
+                                    Post <ExternalLink size={11} aria-hidden="true" />
+                                  </a>
+                                )}
+                                {ad.orders > 0 && (
+                                  <button type="button" onClick={() => showOrders({ kind: 'ad', id: ad.ad_id, label: adLabel(ad) })} className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline">
+                                    See orders
+                                  </button>
+                                )}
+                              </p>
+                              <p className={`m-0 mt-1.5 flex items-center gap-1.5 text-[12px] ${verdict.tone}`}>
+                                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${verdict.dot}`} aria-hidden="true" />
+                                {verdict.text(ad)}
+                              </p>
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums text-slate-700">{formatCount(ad.chats)}</td>
+                            <td className="px-3 py-3 text-right tabular-nums text-slate-900">
+                              <span className="font-semibold">{formatCount(ad.orders)}</span>
+                              {ad.orders_after_comment > 0 && <span className="block text-[11.5px] text-slate-400">{formatCount(ad.orders_after_comment)} after a comment</span>}
+                              {ad.purchases_sent > 0 && <span className="block text-[11.5px] text-slate-400">{formatCount(ad.purchases_sent)} sent to Meta</span>}
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums text-slate-700">{formatMoney(ad.sales, currency)}</td>
+                            <td className="py-3 pl-3 text-right tabular-nums text-slate-700">{formatPct(ad.chat_to_order_rate)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="m-0 mt-3 flex gap-1.5 text-[11.5px] leading-relaxed text-slate-500">
+                  <Info size={13} className="mt-[2px] shrink-0" aria-hidden="true" />
+                  <span>
+                    The verdict compares how well each ad turns chats into orders against your other ads. It doesn't know what an ad costs:
+                    an ad marked worse can still be cheap per order, so check it in Ads Manager before changing it.
+                  </span>
+                </p>
+              </Card>
+            )}
 
             <div ref={ordersRef} className="scroll-mt-4">
               <Card
@@ -404,8 +491,8 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
                 hint={`${formatDayRange(data.range.start_date, data.range.end_date)}${ordersPagination ? ` · ${formatCount(ordersPagination.total)} ${ordersPagination.total === 1 ? 'order' : 'orders'}` : ''}`}
                 action={filteredAd && (
                   <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-emerald-50 py-1 pl-2.5 pr-1 text-[12px] font-semibold text-emerald-800">
-                    <span className="truncate">{adName(filteredAd)}</span>
-                    <button type="button" onClick={() => setAdFilter(null)} aria-label="Show orders from every ad" className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-100">
+                    <span className="truncate"><span className="font-normal opacity-70">{FILTER_KINDS[orderFilter.kind]}: </span>{filterLabel}</span>
+                    <button type="button" onClick={() => setOrderFilter(null)} aria-label="Show orders from every ad" className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-100">
                       <X size={12} />
                     </button>
                   </span>
@@ -416,7 +503,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
                 )}
                 {orderRows.length === 0 ? (
                   <p className="m-0 py-6 text-center text-[13px] text-slate-500">
-                    {ordersLoading ? 'Loading orders…' : filteredAd ? 'No orders from this ad in these days.' : 'No orders from ads in these days.'}
+                    {ordersLoading ? 'Loading orders…' : filteredAd ? `No orders from this ${FILTER_KINDS[orderFilter.kind]?.toLowerCase() || 'ad'} in these days.` : 'No orders from ads in these days.'}
                   </p>
                 ) : (
                   <div className="space-y-4">
@@ -438,7 +525,12 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
                                   <span className="block truncate font-semibold text-slate-900">{order.order_id} · {order.contact_name || 'Customer'}</span>
                                   <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-slate-500">
                                     <span className="inline-flex items-center gap-1"><source.icon size={12} aria-hidden="true" />{source.label}</span>
-                                    {!filteredAd && <span className="truncate">{order.ad_title || `Ad ${order.ad_id}`}</span>}
+                                    {orderFilter?.kind !== 'ad' && (
+                                      <span className="truncate">
+                                        {order.campaign_name && orderFilter?.kind !== 'campaign' && orderFilter?.kind !== 'ad_set' && <span className="text-slate-400">{order.campaign_name} › </span>}
+                                        {order.ad_name || order.ad_title || `Ad ${order.ad_id}`}
+                                      </span>
+                                    )}
                                   </span>
                                 </button>
                                 {purchase && (
@@ -491,11 +583,15 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
               <ul className="m-0 mt-2 list-disc space-y-1 pl-5 leading-relaxed">
                 <li>An order belongs to the ad the customer last tapped in the 7 days before ordering, or, if they tapped none, the ad whose post they commented on. Cancelled and deleted orders are left out.</li>
                 <li>A customer who tapped an ad three times is one chat. A chat that came from two ads counts once in "Chats from ads", so the ad rows can add up to more.</li>
-                <li>An ad is listed once a customer has opened a chat from it. An ad that brought no chat isn't known to LyfFlow.</li>
+                <li>An ad is counted once a customer has opened a chat from it. An ad that brought no chat is known only through Meta's figures and is listed under its ad set with 0 chats.</li>
                 <li>A customer who saw an ad and wrote to the page on their own counts as a customer without an ad.</li>
                 <li>Orders after a comment are counted for Facebook pages only, while the comment agent is on for the page.</li>
                 <li>Every Send-message ad is listed, whatever its campaign type: Meta doesn't send the campaign with the click.</li>
-                <li>Sales are order totals with delivery. Ad spend isn't read yet; find it in Ads Manager with the ad ID.</li>
+                <li>Sales are order totals with delivery, in {currency}. Ad spend and cost per order are in the ad account's currency and are read from Meta each time (kept 15 minutes), never stored.</li>
+                <li>A campaign's or ad set's spend is Meta's own figure: it also covers ads that brought no chat and archived ads, so the ads shown can add up to less.</li>
+                <li>Meta purchases are Meta's own count, from every source that reports to it, so they can differ from the purchases LyfFlow sent, either way.</li>
+                <li>A day of spend is a day in the ad account's timezone (set in Ads Manager); a day of chats and orders is a day in {timeZone || "the business's timezone"}. When they differ, the edges of the days don't cover exactly the same hours.</li>
+                <li>With a page filter, a campaign or ad set that also has ads of another page shows no spend: Meta doesn't split spend by page.</li>
               </ul>
             </details>
           </div>

@@ -1,16 +1,5 @@
 // An order's purchase as sent to Meta (meta_purchase_status, _sent_at, _error). The system
 // sends it 30 minutes after the order; null means the page wasn't sending purchases then.
-import { startFacebookConnect } from '../services/api';
-import { META_ADS_CONNECT_ENABLED } from '../config/env';
-import { isInstagram } from './platforms';
-
-const MOCK_MODE = typeof window !== 'undefined' && window.location.search.includes('mock=true');
-
-/** "Connect ads" exists only where the Meta app has page_events (always in mock). Owner only. */
-export const ADS_CONNECT_AVAILABLE = META_ADS_CONNECT_ENABLED || MOCK_MODE;
-
-/** The owner's "Connect ads": the normal connect redirect plus page_events. */
-export const connectAds = (pages = []) => startFacebookConnect({ includeInstagram: pages.some(page => isInstagram(page.platform)), includeAds: true });
 
 const time = (iso) => {
   if (!iso) return '';
@@ -47,12 +36,14 @@ export function metaPurchaseLabel(order) {
   }
 }
 
-/** What the owner can do about a purchase error, from its wording: 'connect_ads', 'reconnect' or null. */
+/**
+ * What the owner can do about a purchase error, from its wording: 'reconnect' or null.
+ * Reasons the owner can act on end in "Reconnect the page"; ones from before 2026-11-12
+ * may still say "Use "Connect ads" again", which now means the same normal reconnect.
+ */
 export function metaPurchaseFix(error) {
   if (!error) return null;
-  if (/connect ads/i.test(error)) return 'connect_ads';
-  if (/reconnect the page/i.test(error)) return 'reconnect';
-  return null;
+  return /reconnect the page|connect ads/i.test(error) ? 'reconnect' : null;
 }
 
 export const META_PURCHASE_TONES = {
