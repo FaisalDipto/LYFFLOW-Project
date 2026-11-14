@@ -69,6 +69,7 @@ const MOCK_ORDER_NAMES = [
   'Tasnim Rahman', 'Arif Hossain', 'Mithila Chowdhury', 'Imran Kabir', 'Sumaiya Begum', 'Shakil Uddin',
 ];
 const MOCK_ORDER_STATUSES = ['delivered', 'delivered', 'delivered', 'pending', 'new', 'in_review', 'hold', 'cancelled'];
+const MOCK_ORDER_AREAS = ['Dhanmondi, Dhaka', 'Mirpur 10, Dhaka', 'Uttara Sector 7, Dhaka', 'Agrabad, Chattogram', 'Zindabazar, Sylhet', 'Gulshan 2, Dhaka'];
 const MOCK_ORDERS = (() => {
   const orders = [];
   for (let day = 0; day < 31; day += 1) {
@@ -84,6 +85,10 @@ const MOCK_ORDERS = (() => {
         created_by: n % 4 === 3 ? 'manual' : 'ai',
         total: (450 + ((n * 389) % 3600)).toFixed(2),
         contact_name: MOCK_ORDER_NAMES[(n * 5 + day) % MOCK_ORDER_NAMES.length],
+        // Saved in international form, as the backend keeps phones.
+        contact_phone: `+8801${7 + (n % 3)}${String(10000000 + ((n * 7919) % 89999999)).slice(0, 8)}`,
+        contact_email: n % 3 === 0 ? `${MOCK_ORDER_NAMES[(n * 5 + day) % MOCK_ORDER_NAMES.length].split(' ')[0].toLowerCase()}${n}@example.com` : null,
+        delivery_address: `House ${1 + (n % 40)}, Road ${1 + (n % 12)}, ${MOCK_ORDER_AREAS[n % MOCK_ORDER_AREAS.length]}`,
         created_at: new Date(MOCK_LOADED_AT - day * 86400000 - Math.floor((i * 86400000) / perDay) - ((n * 13) % 40) * 60000).toISOString(),
       });
     }
@@ -149,13 +154,39 @@ const mockConversationOrders = {
 
 // Filters and pages the mock orders the way the endpoint does: page_id and status
 // filters, then an opaque cursor (here, the offset of the next page).
+// `search` on the order list and export, as the backend matches it: any of order number,
+// name, phone, email or address contains the text (case ignored, outer spaces trimmed).
+// A Bangladesh number typed with its local 0 (01712...) finds the saved +8801712....
+// Empty gives 422; over 255 characters gives Pydantic's 422 list.
+const mockOrderSearch = (params) => {
+  if (!params.has('search')) return null;
+  const raw = params.get('search');
+  if (raw.length === 0) mockErrorWith(422, 'query.search: String should have at least 1 character');
+  if (raw.length > 255) mockErrorWith(422, 'query.search: String should have at most 255 characters');
+  const text = raw.trim().toLowerCase();
+  const local = /^0\d+$/.test(text) ? `+880${text.slice(1)}` : null;
+  return (order) => ['order_id', 'contact_name', 'contact_phone', 'contact_email', 'delivery_address']
+    .some(field => {
+      const value = String(order[field] || '').toLowerCase();
+      return value.includes(text) || (local && value.includes(local));
+    });
+};
+const mockOrdersMatching = (params) => {
+  const search = mockOrderSearch(params);
+  const created = (order) => order.created_at.slice(0, 10);
+  return MOCK_ORDERS.filter(order =>
+    (!params.get('page_id') || order.page_id === params.get('page_id')) &&
+    (!params.get('status') || order.status === params.get('status')) &&
+    (!params.get('created_by') || order.created_by === params.get('created_by')) &&
+    (!params.get('start_date') || created(order) >= params.get('start_date')) &&
+    (!params.get('end_date') || created(order) <= params.get('end_date')) &&
+    (!search || search(order)));
+};
 const mockOrdersPage = (endpoint) => {
   const params = new URLSearchParams(endpoint.split('?')[1] || '');
   const pageSize = Number(params.get('page_size')) || 20;
   const offset = Number(params.get('cursor')) || 0;
-  const matching = MOCK_ORDERS.filter(order =>
-    (!params.get('page_id') || order.page_id === params.get('page_id')) &&
-    (!params.get('status') || order.status === params.get('status')));
+  const matching = mockOrdersMatching(params);
   const hasMore = offset + pageSize < matching.length;
   return {
     orders: matching.slice(offset, offset + pageSize),
@@ -2889,8 +2920,15 @@ const apiDownload = async (endpoint, fallbackFilename) => {
       emptyZip.set([0x50, 0x4b, 0x05, 0x06]);
       return { blob: new Blob([emptyZip], { type: 'application/zip' }), filename: fallbackFilename.replace(/\.zip$/, '-mock.zip') };
     }
-    // A stand-in so the download path is testable; not a real spreadsheet.
-    const rows = 'order_id,status,contact_name,total\nORD-1001,new,John Doe,1250.00\nORD-1002,pending,Jane Smith,2400.00\n';
+    // A stand-in so the download path is testable; not a real spreadsheet. The order
+    // export holds the orders that match its filters and search, like the real one.
+    const exportParams = endpoint.startsWith('/v1/pages/orders/export') ? new URLSearchParams(endpoint.split('?')[1] || '') : null;
+    const exported = exportParams ? mockOrdersMatching(exportParams) : [];
+    if (exportParams && exported.length > 10000) mockErrorWith(400, 'Too many orders');
+    const csv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const rows = exportParams
+      ? ['order_id,status,contact_name,contact_phone,contact_email,delivery_address,total', ...exported.map(order => [order.order_id, order.status, order.contact_name, order.contact_phone, order.contact_email, order.delivery_address, order.total].map(csv).join(','))].join('\n')
+      : 'order_id,status,contact_name,total\nORD-1001,new,John Doe,1250.00\nORD-1002,pending,Jane Smith,2400.00\n';
     return {
       blob: new Blob([rows], { type: 'text/csv' }),
       filename: fallbackFilename.replace(/\.xlsx$/, '-mock.csv'),
@@ -3785,14 +3823,17 @@ export const apiService = {
   }),
 
   // Captured customer orders
-  getCustomerOrders: ({ page_id, status, cursor, page_size } = {}) => {
+  // `search` (1-255 characters) narrows the other filters to orders whose number, name,
+  // phone, email or address contains it; left out when blank (empty gives 422).
+  getCustomerOrders: ({ page_id, status, cursor, page_size, search } = {}, { signal } = {}) => {
     const q = new URLSearchParams();
     if (page_id) q.set('page_id', page_id);
     if (status) q.set('status', status);
+    if (search && search.trim()) q.set('search', search.trim());
     if (cursor) q.set('cursor', cursor);
     if (page_size) q.set('page_size', page_size);
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return apiFetch(`/v1/pages/orders${qs}`);
+    return apiFetch(`/v1/pages/orders${qs}`, { signal });
   },
   getCustomerOrder: (orderId) => apiFetch(`/v1/pages/orders/${encodeURIComponent(orderId)}`),
   // Orders placed in one conversation, newest first, as full order details
@@ -3807,10 +3848,12 @@ export const apiService = {
     return apiFetch(`/v1/pages/orders/conversation/${encodeURIComponent(conversationId)}${qs}`);
   },
   // Streams matching orders back as a generated .xlsx; every filter is optional.
-  exportCustomerOrders: ({ page_id, status, created_by, start_date, end_date } = {}) => {
+  // The same `search` as the list, so the file holds the orders on screen.
+  exportCustomerOrders: ({ page_id, status, created_by, start_date, end_date, search } = {}) => {
     const q = new URLSearchParams();
     if (page_id) q.set('page_id', page_id);
     if (status) q.set('status', status);
+    if (search && search.trim()) q.set('search', search.trim());
     if (created_by) q.set('created_by', created_by);
     if (start_date) q.set('start_date', start_date);
     if (end_date) q.set('end_date', end_date);

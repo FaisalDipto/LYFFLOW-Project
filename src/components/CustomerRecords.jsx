@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { itemDiscount, orderDiscountTotal } from '../utils/discounts';
 import { META_PURCHASE_TONES, metaPurchaseLabel } from '../utils/metaPurchase';
 import MetaPurchaseFix from './MetaPurchaseFix';
-import { Users, Phone, Mail, Calendar, Eye, Pencil, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download, Trash2 } from 'lucide-react';
+import { Users, Phone, Mail, Calendar, Eye, Pencil, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download, Trash2, Search } from 'lucide-react';
 import { apiService } from '../services/api';
 import { saveBlob } from '../utils/download';
 import { formatOrderAmount, parseOrderAmount, recordStatusClass, renderOrderSourceBadge } from './customerRecordUtils';
@@ -62,6 +62,20 @@ const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null, onR
   const [isPaginating, setIsPaginating] = useState(false);
 
   const [filterStatus, setFilterStatus] = useState('');
+  // Order search (orders only): what's typed, and the trimmed text the list was asked for
+  // after a short pause. Blank means no search at all (the API refuses an empty one).
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [matchTotal, setMatchTotal] = useState(null);
+  const requestSeqRef = useRef(0);
+  const searchText = recordType === 'order' ? appliedSearch : '';
+
+  useEffect(() => {
+    if (recordType !== 'order') return undefined;
+    const next = searchInput.trim();
+    const timer = setTimeout(() => setAppliedSearch(next), next ? 350 : 0);
+    return () => clearTimeout(timer);
+  }, [searchInput, recordType]);
   
   const [selectedRecord, setSelectedRecord] = useState(null);
   const { isOwner, business } = useBusiness();
@@ -96,7 +110,7 @@ const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null, onR
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState('');
   const [exportDone, setExportDone] = useState('');
-  const [exportFilters, setExportFilters] = useState({ page_id: '', status: '', created_by: '', start_date: '', end_date: '' });
+  const [exportFilters, setExportFilters] = useState({ page_id: '', status: '', created_by: '', start_date: '', end_date: '', search: '' });
   const exportPanelRef = useRef(null);
 
   // The export panel seeds from whatever the list is currently showing, then the
@@ -108,6 +122,8 @@ const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null, onR
       created_by: '',
       start_date: '',
       end_date: '',
+      // The list's search, so the file holds the orders on screen.
+      search: searchText,
     });
     setExportError('');
     setExportDone('');
@@ -145,12 +161,15 @@ const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null, onR
         created_by: exportFilters.created_by || undefined,
         start_date: exportFilters.start_date || undefined,
         end_date: exportFilters.end_date || undefined,
+        search: exportFilters.search || undefined,
       });
       saveBlob(blob, filename);
       setExportDone(filename);
     } catch (error) {
       console.error('Failed to export orders:', error);
-      setExportError(error?.message || 'Could not generate the export. Please try again.');
+      setExportError(error?.status === 400 && /too many/i.test(error?.message || '')
+        ? 'More than 10,000 orders match. Narrow the filters, dates or search, then try again.'
+        : error?.message || 'Could not generate the export. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -164,11 +183,14 @@ const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null, onR
   };
 
   const fetchRecords = useCallback(async (cursor = null) => {
+    // A newer request (the search changed while this one was out) wins.
+    const seq = ++requestSeqRef.current;
     if (cursor) {
       setIsPaginating(true);
     } else {
       setIsLoading(true);
       setRecords([]);
+      setMatchTotal(null);
     }
 
     try {
@@ -176,9 +198,12 @@ const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null, onR
       const response = await request({
         page_id: selectedPageId || undefined,
         status: filterStatus || undefined,
+        // Orders only; a changed search starts again from the first page (no cursor).
+        ...(searchText ? { search: searchText } : {}),
         cursor,
         page_size: 20,
       });
+      if (seq !== requestSeqRef.current) return;
       const data = response?.data || response;
       const collection = recordType === 'lead'
         ? (data?.leads || data?.customer_leads)
@@ -190,13 +215,17 @@ const CustomerRecords = ({ pages, recordType, focusRequest, onOpenAd = null, onR
       setRecords(prev => cursor ? [...prev, ...nextRecords] : nextRecords);
       setNextCursor(data?.pagination?.next_cursor || null);
       setHasMore(Boolean(data?.pagination?.has_more));
+      if (typeof data?.pagination?.total === 'number') setMatchTotal(data.pagination.total);
     } catch (error) {
+      if (seq !== requestSeqRef.current) return;
       console.error(`Failed to fetch customer ${recordType}s:`, error);
     } finally {
-      setIsLoading(false);
-      setIsPaginating(false);
+      if (seq === requestSeqRef.current) {
+        setIsLoading(false);
+        setIsPaginating(false);
+      }
     }
-  }, [selectedPageId, recordType, filterStatus]);
+  }, [selectedPageId, recordType, filterStatus, searchText]);
 
   useEffect(() => {
     fetchRecords();
@@ -437,6 +466,31 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
       {/* The top bar already names the section, so this is just the filter toolbar. */}
       <div className="records-toolbar border-b border-slate-200 bg-white px-6 py-4 md:px-8">
         <div className="flex flex-wrap items-center justify-end gap-3">
+          {recordType === 'order' && (
+            <div className="order-search relative mr-auto flex min-w-[220px] max-w-md flex-1 items-center">
+              <Search size={16} className="pointer-events-none absolute left-3 text-slate-400" aria-hidden="true" />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape' && searchInput) { e.stopPropagation(); setSearchInput(''); } }}
+                maxLength={255}
+                placeholder="Search order no., name, phone, email or address"
+                aria-label="Search orders"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white focus:ring-2 focus:ring-emerald-100 [&::-webkit-search-cancel-button]:hidden"
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                >
+                  {isLoading && searchText ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
             <select
               value={selectedPageId}
@@ -512,6 +566,24 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                   </div>
 
                   <div className="space-y-3">
+                    {exportFilters.search && (
+                      <div>
+                        <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Search</span>
+                        <span className="export-search flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 py-1.5 pl-2.5 pr-1 text-xs font-bold text-emerald-800">
+                          <Search size={12} className="shrink-0" aria-hidden="true" />
+                          <span className="min-w-0 flex-1 truncate">&ldquo;{exportFilters.search}&rdquo;</span>
+                          <button
+                            type="button"
+                            onClick={() => setExportFilters(prev => ({ ...prev, search: '' }))}
+                            aria-label="Export without the search"
+                            title="Export without the search"
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-700 hover:bg-emerald-100"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400" htmlFor="export-page">Page</label>
                       <select
@@ -619,6 +691,18 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
             <Loader2 className="animate-spin mb-4" size={32} />
             <p>Loading records...</p>
           </div>
+        ) : records.length === 0 && searchText ? (
+          <div className="order-search-empty flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-slate-400">
+            <Search className="mb-4 opacity-30" size={40} />
+            <p className="m-0 font-medium text-slate-600">No orders match &ldquo;{searchText}&rdquo;{selectedPageId || filterStatus ? ' with these filters' : ''}.</p>
+            <p className="m-0 mt-1.5 max-w-md text-sm leading-relaxed">
+              Search looks at the order number, name, phone, email and delivery address, not products or notes.
+              For a phone, the local number works in Bangladesh (01712345678); elsewhere, type it without the leading 0.
+            </p>
+            <button type="button" onClick={() => setSearchInput('')} className="mt-4 rounded-xl border border-solid border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:border-emerald-200 hover:text-emerald-700">
+              Clear search
+            </button>
+          </div>
         ) : records.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-white border border-slate-200 rounded-3xl border-dashed">
             <Users className="opacity-20 mb-4" size={48} />
@@ -626,6 +710,13 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
             <p className="text-sm">Try adjusting the status filter or wait for the AI to capture new {recordType}s.</p>
           </div>
         ) : (
+          <>
+          {searchText && matchTotal !== null && (
+            <p className="order-search-count mb-3 mt-0 text-[13px] text-slate-500" aria-live="polite">
+              <span className="font-semibold text-slate-800">{matchTotal.toLocaleString()} {matchTotal === 1 ? 'order matches' : 'orders match'}</span> &ldquo;{searchText}&rdquo;
+              {matchTotal > records.length ? ` · showing ${records.length}` : ''}
+            </p>
+          )}
           <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -730,6 +821,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
               </div>
             )}
           </div>
+          </>
         )}
       </div>
 
