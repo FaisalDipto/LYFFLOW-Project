@@ -144,3 +144,19 @@
 .pp-logout svg { color: var(--pp-danger); }
 .pp-logout:hover { background: var(--pp-danger-hover); color: var(--pp-danger); }
 .pp-logout:hover svg { color: var(--pp-danger); }
+
+/* Your status (online / offline) */
+.pp-presence { padding-bottom: 0; }
+.pp-presence + .pp-appearance { padding-top: 10px; }
+.pp-presence-dot { width: 8px; height: 8px; border-radius: 999px; border: 1.5px solid var(--pp-muted); }
+.pp-presence-dot.is-online { border-color: #10b981; background: #10b981; }
+.pp-segmented button:disabled { cursor: wait; opacity: 0.6; }
+
+/* Phones: rows and menu items big enough for a thumb, and the panel scrolls when tall. */
+@media (max-width: 640px) {
+  .pp-panel { max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain; }
+  .pp-segmented button { height: 36px; padding: 0 12px; }
+  .pp-menu-item { height: 44px; }
+  .pp-link { padding: 8px 10px; }
+  .pp-icon-button { width: 40px; height: 40px; }
+}

@@ -12,8 +12,11 @@ body.dashboard-route .material-symbols-outlined {
 
 .dashboard-layout {
   display: flex;
+  /* dvh: on phones 100vh is taller than what the browser's bars leave, which hid the
+     bottom of the chat (the reply box) under the toolbar. */
   height: 100vh;
-  width: 100vw;
+  height: 100dvh;
+  width: 100%;
   background-color: #f8fafc; /* Very light cool gray background for main app */
   overflow: hidden;
   font-family: var(--dashboard-font-ui);
@@ -1276,5 +1279,34 @@ body.dashboard-route > .fixed .font-black {
   .page-sync-spinner,
   .page-sync-shimmer {
     animation: none;
+  }
+}
+
+/* Touch screens have no hover: the reply-to button would never show, so keep it visible
+   (quietly) and big enough to tap. */
+@media (hover: none) {
+  .dashboard-layout .message-quote-button {
+    opacity: 0.6;
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* iPhone Safari zooms the page when a field under 16px gets focus (and stays zoomed).
+   Touch screens get 16px fields instead of disabling pinch-zoom for everyone. */
+@media (pointer: coarse) {
+  body.dashboard-route textarea,
+  body.dashboard-route select,
+  body.dashboard-route input:not([type]),
+  body.dashboard-route input[type='text'],
+  body.dashboard-route input[type='search'],
+  body.dashboard-route input[type='email'],
+  body.dashboard-route input[type='tel'],
+  body.dashboard-route input[type='number'],
+  body.dashboard-route input[type='url'],
+  body.dashboard-route input[type='password'],
+  body.dashboard-route input[type='date'],
+  body.dashboard-route input[type='time'] {
+    font-size: 16px !important;
   }
 }

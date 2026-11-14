@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, ChartColumnIncreasing, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug, Tag, Megaphone, ExternalLink, ShoppingBag, BellRing } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, ChartColumnIncreasing, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug, Tag, Megaphone, ExternalLink, ShoppingBag, BellRing, MoreVertical, UserPlus } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -55,6 +55,7 @@ import AgentDiscounts from '../components/dashboard/AgentDiscounts';
 import AgentFollowUps from '../components/dashboard/AgentFollowUps';
 import OnlineStatusToggle from '../components/dashboard/OnlineStatusToggle';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { examplesToRows, exampleProblems, RESPONSE_FORMAT_MAX, rowsToExamples, sameExamples } from '../utils/agentReplyStyle';
 import PlatformMark from '../components/PlatformMark';
 import { isInstagram } from '../utils/platforms';
@@ -836,7 +837,7 @@ const formatListTime = (rawTime) => {
 // The inbox page picker's value for every page of the business (GET /v1/conversations).
 const ALL_PAGES = 'all';
 
-const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
+const ConversationList = ({ pages, user, focusRequest, onNavigate, onMobileChatChange }) => {
   const [selectedPageId, setSelectedPageId] = useState('');
   // The page picker: one page's id, or ALL_PAGES for every page of the business.
   const listPageId = selectedPageId && selectedPageId !== ALL_PAGES ? selectedPageId : null;
@@ -912,6 +913,11 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const [loading, setLoading] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  // Customer details: a column beside the chat from 1280px, a sheet over it below that.
+  const isWideProfile = useMediaQuery('(min-width: 1280px)');
+  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
+  const chatMenuRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
   const [conversationsPagination, setConversationsPagination] = useState(null);
@@ -941,6 +947,43 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   }, [activeContact?.conversation_id, activeContact?.id]);
 
   const activeConversationId = activeContact?.conversation_id || activeContact?.id || null;
+  const isChatPaused = Boolean(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed);
+  const profileOpen = isWideProfile ? isProfileVisible : isProfileSheetOpen;
+  // With the details column beside it the chat is narrower: the header's button labels
+  // wait for more room so the customer's name isn't squeezed.
+  const headerLabelsAt = isWideProfile && isProfileVisible && !isManualOrderOpen ? '2xl:inline' : 'lg:inline';
+  const openProfile = () => (isWideProfile ? setIsProfileVisible(true) : setIsProfileSheetOpen(true));
+  const toggleProfile = () => (isWideProfile ? setIsProfileVisible(open => !open) : setIsProfileSheetOpen(open => !open));
+  const assigneeLabel = (() => {
+    const assigneeId = activeContact?.assigned_to_member_id;
+    if (!assigneeId) return 'Unassigned';
+    if (assigneeId === team.currentMemberId) return 'Assigned to you';
+    const member = team.byMemberId.get(assigneeId);
+    return member ? `Assigned to ${memberShortName(member)}` : 'Assigned to a teammate';
+  })();
+
+  // An open chat on a phone hides the dashboard's top bar: the chat header has a back button.
+  const mobileChatOpen = mobileShowChat && Boolean(activeContact);
+  useEffect(() => {
+    onMobileChatChange?.(mobileChatOpen);
+    return () => onMobileChatChange?.(false);
+  }, [mobileChatOpen, onMobileChatChange]);
+
+  // The phone's actions menu closes on a tap outside or Escape; the details sheet on Escape.
+  useEffect(() => {
+    if (!isChatMenuOpen) return undefined;
+    const close = (event) => { if (!chatMenuRef.current?.contains(event.target)) setIsChatMenuOpen(false); };
+    const onKey = (event) => { if (event.key === 'Escape') setIsChatMenuOpen(false); };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', onKey); };
+  }, [isChatMenuOpen]);
+  useEffect(() => {
+    if (!isProfileSheetOpen || isWideProfile) return undefined;
+    const onKey = (event) => { if (event.key === 'Escape') setIsProfileSheetOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isProfileSheetOpen, isWideProfile]);
   // Products staff said a customer photo shows (several allowed), by
   // `${conversationId}:${attachmentId}`. The API can't read labels back, so they're kept
   // while the inbox is open, which is what lets each chip's × remove its label.
@@ -1992,7 +2035,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                     onClick={() => {
                        if (activityId) {
                          setSelectedMessageActivityId(activityId);
-                         setIsProfileVisible(true);
+                         openProfile();
                        }
                     }}
                     title={activityId ? "View AI Activity" : ""}
@@ -2066,19 +2109,20 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     <div className="flex h-full w-full flex-1 animate-fade-in-up overflow-hidden bg-[#eef2f5]">
       {/* Conversation List Column */}
       <main className={`shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white ${mobileShowChat ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] xl:w-[380px]`}>
-        <div className="border-b border-slate-200 p-4 md:p-5">
-          <header className="mb-4 flex items-center justify-between gap-3">
+        <div className="inbox-list-head border-b border-slate-200 px-3 pb-3 pt-3 md:p-5">
+          {/* On phones the top bar already says Conversations: just the count and the page. */}
+          <header className="mb-3 flex items-center justify-between gap-3 md:mb-4">
             <div className="min-w-0">
-              <div className="mb-1 flex items-center gap-2">
+              <div className="flex items-center gap-2 md:mb-1">
                 <p className="m-0 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Inbox</p>
                 <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-black text-slate-500">{contacts.length}</span>
               </div>
-              <h1 className="m-0 font-['Epilogue'] text-2xl font-black tracking-tight text-slate-950">Conversations</h1>
+              <h1 className="m-0 hidden font-['Epilogue'] text-2xl font-black tracking-tight text-slate-950 md:block">Conversations</h1>
             </div>
             <div className="relative page-dropdown-container">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`relative z-0 flex h-9 max-w-[150px] items-center gap-2 rounded-lg border bg-white px-2.5 shadow-sm transition-colors ${pickedPageNeedsReauth ? 'border-amber-300 text-amber-700 hover:border-amber-400 hover:bg-amber-50' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                className={`relative z-0 flex h-10 max-w-[170px] items-center gap-2 rounded-lg border bg-white px-2.5 shadow-sm transition-colors md:h-9 md:max-w-[150px] ${pickedPageNeedsReauth ? 'border-amber-300 text-amber-700 hover:border-amber-400 hover:bg-amber-50' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
                 aria-expanded={isDropdownOpen}
                 aria-haspopup="menu"
               >
@@ -2190,7 +2234,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                 key={option.value}
                 aria-selected={queue === option.value}
                 onClick={() => { setQueue(option.value); if (option.value !== 'mine') setQueueMemberId(''); }}
-                className={`-mb-px border-0 border-b-2 border-solid px-2.5 pb-2 pt-1 text-[12px] font-bold transition-colors ${queue === option.value ? 'border-emerald-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                className={`-mb-px border-0 border-b-2 border-solid px-2.5 pb-2.5 pt-2 text-[12.5px] font-bold transition-colors md:pb-2 md:pt-1 md:text-[12px] ${queue === option.value ? 'border-emerald-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
               >
                 {option.value === 'mine' && queueMember ? 'Assigned' : option.label}
               </button>
@@ -2223,7 +2267,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                 type="button"
                 key={option.value}
                 onClick={() => { setHumanNeededFilter(option.value); if (option.value !== 'human') setInboxCategory('all'); }}
-                className={`h-8 rounded-lg px-2 text-[11px] font-bold transition-all ${(inboxCategory !== 'all' ? option.value === 'human' : humanNeededFilter === option.value) ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                className={`h-9 rounded-lg px-2 text-[12px] font-bold transition-all md:h-8 md:text-[11px] ${(inboxCategory !== 'all' ? option.value === 'human' : humanNeededFilter === option.value) ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                 aria-pressed={inboxCategory !== 'all' ? option.value === 'human' : humanNeededFilter === option.value}
               >
                 {option.label}
@@ -2367,60 +2411,73 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       <section className={`min-w-0 flex-1 flex-col overflow-hidden bg-white ${mobileShowChat ? 'flex' : 'hidden md:flex'}`}>
         {activeContact ? (
           <>
-            <header className="z-10 flex min-h-[72px] items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-3 md:px-5 lg:px-6">
-              <div className="flex min-w-0 items-center gap-3">
+            <header className="chat-header z-10 flex min-h-[60px] items-center justify-between gap-2 border-b border-slate-200 bg-white px-2 py-2 md:min-h-[72px] md:gap-3 md:px-5 md:py-3 lg:px-6">
+              <div className="flex min-w-0 flex-1 items-center gap-1 md:gap-3">
                 {/* Mobile back button */}
                 <button
-                  onClick={() => setMobileShowChat(false)}
-                  className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 md:hidden"
+                  type="button"
+                  onClick={() => { setMobileShowChat(false); setIsProfileSheetOpen(false); }}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 md:hidden"
                   aria-label="Back to conversations"
                 >
                   <span className="material-symbols-outlined text-xl">arrow_back</span>
                 </button>
-                <div className="relative shrink-0">
-                  {renderAvatar(activeContact, "h-10 w-10 rounded-xl")}
-                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="m-0 truncate font-['Epilogue'] text-[15px] font-black tracking-tight text-slate-900 md:text-base">
-                    {resolveContactName(activeContact, UNKNOWN_CUSTOMER)}
-                  </h2>
-                  <div className="mt-0.5 flex items-center gap-2">
-                    {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? (
-                      <>
-                        <p className="flex shrink-0 items-center gap-1 text-[9px] font-black uppercase tracking-[0.12em] text-rose-600 md:text-[10px]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                          Human handling
-                        </p>
-                        {activeContact?.is_human_needed && activeContact?.handover_category && (
-                          <span className="handover-category-badge truncate rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
-                            {handoverCategoryLabel(activeContact.handover_category)}
+                {/* The customer: tap for their details (the profile column, or a sheet on smaller screens). */}
+                <button
+                  type="button"
+                  onClick={toggleProfile}
+                  aria-label={`Customer details for ${resolveContactName(activeContact, UNKNOWN_CUSTOMER)}`}
+                  aria-expanded={profileOpen}
+                  className="chat-header-contact flex min-w-0 items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 text-left transition-colors hover:bg-slate-50 md:gap-3"
+                >
+                  <span className="relative shrink-0">
+                    {renderAvatar(activeContact, "h-10 w-10 rounded-xl")}
+                    <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-['Epilogue'] text-[15px] font-black tracking-tight text-slate-900 md:text-base">
+                      {resolveContactName(activeContact, UNKNOWN_CUSTOMER)}
+                    </span>
+                    <span className="mt-0.5 flex min-w-0 items-center gap-2">
+                      {isChatPaused ? (
+                        <>
+                          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.1em] text-rose-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                            Human handling
                           </span>
-                        )}
-                      </>
-                    ) : (
-                      <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-600 md:text-[10px]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        AI responding
-                      </p>
-                    )}
-                  </div>
-                </div>
+                          {activeContact?.is_human_needed && activeContact?.handover_category && (
+                            <span className="handover-category-badge hidden truncate rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 sm:inline">
+                              {handoverCategoryLabel(activeContact.handover_category)}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="flex items-center gap-1 whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-600">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          AI responding
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                </button>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <ConversationAssignee
-                  assigneeId={activeContact?.assigned_to_member_id || null}
-                  team={team}
-                  canAssign={canManage}
-                  busy={assigningConversationId === activeConversationId}
-                  onAssign={handleAssign}
-                />
+              <div className="flex shrink-0 items-center gap-1 md:gap-2">
+                <div className="hidden md:block">
+                  <ConversationAssignee
+                    assigneeId={activeContact?.assigned_to_member_id || null}
+                    team={team}
+                    canAssign={canManage}
+                    busy={assigningConversationId === activeConversationId}
+                    onAssign={handleAssign}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => setIsManualOrderOpen(open => !open)}
                   disabled={!(activeContact?.conversation_id || activeContact?.id)}
                   aria-pressed={isManualOrderOpen}
-                  className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 md:px-3 ${
+                  aria-label="New order"
+                  className={`hidden h-9 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 md:flex ${
                     isManualOrderOpen
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'
@@ -2428,32 +2485,66 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                   title="Create a manual order for this conversation"
                 >
                   <span className="material-symbols-outlined text-[16px]">add_shopping_cart</span>
-                  <span className="hidden lg:inline">New order</span>
+                  <span className={`hidden ${headerLabelsAt}`}>New order</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleToggleAIPause}
-                  className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black transition-colors md:px-3 ${
-                    (activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed)
+                  aria-label={isChatPaused ? 'Resume AI replies' : 'Take over from the AI'}
+                  className={`flex h-10 w-10 items-center justify-center gap-1.5 rounded-lg border border-solid text-[11px] font-black transition-colors md:h-9 md:w-auto md:px-3 ${
+                    isChatPaused
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600'
                   }`}
-                  title={(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'Resume AI replies' : 'Pause AI replies'}
+                  title={isChatPaused ? 'Resume AI replies' : 'Pause AI replies'}
                 >
-                  <span className="material-symbols-outlined text-[16px]">
-                    {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'smart_toy' : 'front_hand'}
+                  <span className="material-symbols-outlined text-[18px] md:text-[16px]">
+                    {isChatPaused ? 'smart_toy' : 'front_hand'}
                   </span>
-                  <span className="hidden lg:inline">
-                    {(activeContact?.is_paused !== undefined ? activeContact.is_paused : activeContact?.is_human_needed) ? 'Resume AI' : 'Take over'}
+                  <span className={`hidden ${headerLabelsAt}`}>
+                    {isChatPaused ? 'Resume AI' : 'Take over'}
                   </span>
                 </button>
                 <button
-                  onClick={() => setIsProfileVisible(!isProfileVisible)}
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${isProfileVisible ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-                  title={isProfileVisible ? "Hide Profile" : "Show Profile"}
+                  type="button"
+                  onClick={toggleProfile}
+                  aria-label={profileOpen ? 'Hide customer details' : 'Show customer details'}
+                  aria-pressed={profileOpen}
+                  className={`hidden h-9 w-9 items-center justify-center rounded-lg border transition-colors md:flex ${profileOpen ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                  title={profileOpen ? 'Hide customer details' : 'Show customer details'}
                 >
                   <span className="material-symbols-outlined text-[19px]">person</span>
                 </button>
+                {/* Phones: the rest of the actions in one menu. */}
+                <div className="relative md:hidden" ref={chatMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsChatMenuOpen(open => !open)}
+                    aria-label="More actions"
+                    aria-haspopup="menu"
+                    aria-expanded={isChatMenuOpen}
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg border border-solid transition-colors ${isChatMenuOpen ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200 bg-white text-slate-600'}`}
+                  >
+                    <MoreVertical size={18} aria-hidden="true" />
+                  </button>
+                  {isChatMenuOpen && (
+                    <div role="menu" className="chat-actions-menu absolute right-0 top-[calc(100%+6px)] z-50 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+                      <button type="button" role="menuitem" onClick={() => { setIsChatMenuOpen(false); openProfile(); }} className="flex min-h-[44px] w-full items-center gap-3 border-0 bg-white px-3.5 text-left text-[14px] font-semibold text-slate-800 hover:bg-slate-50">
+                        <UserRound size={17} className="shrink-0 text-slate-500" aria-hidden="true" /> Customer details
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => { setIsChatMenuOpen(false); openProfile(); }} className="flex min-h-[44px] w-full items-center gap-3 border-0 bg-white px-3.5 text-left text-[14px] font-semibold text-slate-800 hover:bg-slate-50">
+                        <UserPlus size={17} className="shrink-0 text-slate-500" aria-hidden="true" />
+                        <span className="min-w-0 flex-1">
+                          Assign
+                          <span className="block truncate text-[12px] font-medium text-slate-500">{assigneeLabel}</span>
+                        </span>
+                      </button>
+                      <button type="button" role="menuitem" disabled={!(activeContact?.conversation_id || activeContact?.id)} onClick={() => { setIsChatMenuOpen(false); setIsManualOrderOpen(true); }} className="flex min-h-[44px] w-full items-center gap-3 border-0 bg-white px-3.5 text-left text-[14px] font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50">
+                        <ShoppingCart size={17} className="shrink-0 text-slate-500" aria-hidden="true" /> New order
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </header>
 
@@ -2492,7 +2583,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               )}
             </div>
 
-            <footer className="border-t border-slate-200 bg-white p-3 md:p-4 lg:px-6">
+            <footer className="border-t border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:p-4 lg:px-6">
               {(windowState === 'human' || windowState === 'closed') && (
                 <div className="mx-auto mb-2 max-w-4xl">
                   <MessagingWindowNotice status={windowStatus.data} />
@@ -2534,8 +2625,27 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
       )}
 
       {/* Profile Right Sidebar - hidden on mobile */}
-        {isProfileVisible && !isManualOrderOpen && (
-          <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white animate-fade-in-right xl:flex">
+        {activeContact && (isWideProfile ? isProfileVisible && !isManualOrderOpen : isProfileSheetOpen) && (
+          <>
+          {!isWideProfile && (
+            <div className="conversation-profile-backdrop fixed inset-0 z-[9989] bg-slate-900/40 animate-fade-in" onClick={() => setIsProfileSheetOpen(false)} aria-hidden="true" />
+          )}
+          <aside
+            role={isWideProfile ? undefined : 'dialog'}
+            aria-modal={isWideProfile ? undefined : true}
+            aria-label="Customer details"
+            className={isWideProfile
+              ? 'flex w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white animate-fade-in-right'
+              : 'conversation-profile-sheet fixed inset-y-0 right-0 z-[9990] flex w-full max-w-[400px] flex-col overflow-y-auto overscroll-contain bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl animate-fade-in-right'}
+          >
+            {!isWideProfile && (
+              <div className="sticky top-0 z-10 flex min-h-[56px] items-center justify-between gap-2 border-b border-slate-200 bg-white/95 px-4 backdrop-blur">
+                <p className="m-0 text-[15px] font-bold text-slate-900">Customer details</p>
+                <button type="button" onClick={() => setIsProfileSheetOpen(false)} aria-label="Close customer details" className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+                  <X size={20} />
+                </button>
+              </div>
+            )}
             {selectedMessageActivityId ? (
               <div className="p-5 flex flex-col h-full">
                 <button 
@@ -2639,6 +2749,20 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
               </div>
 
               <div className="space-y-8">
+                {/* Phones: assignment lives here, the chat header has no room for it. */}
+                <section className="conversation-assign-row flex items-center justify-between gap-3 rounded-xl border border-solid border-slate-200 px-3 py-2.5 md:hidden" aria-label="Assignment">
+                  <span className="min-w-0">
+                    <span className="block text-[12px] font-semibold text-slate-500">Assigned to</span>
+                    <span className="block truncate text-[14px] font-semibold text-slate-900">{assigneeLabel === 'Assigned to you' ? 'You' : assigneeLabel.replace(/^Assigned to /, '')}</span>
+                  </span>
+                  <ConversationAssignee
+                    assigneeId={activeContact?.assigned_to_member_id || null}
+                    team={team}
+                    canAssign={canManage}
+                    busy={assigningConversationId === activeConversationId}
+                    onAssign={handleAssign}
+                  />
+                </section>
                 {activeContact?.ad_id && (() => {
                   const postUrl = adPostUrl(activeContact, pages?.find(p => p.page_id === (activeContact.page_id || activePageId)));
                   return (
@@ -2740,6 +2864,7 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
             </div>
           ) : null}
         </aside>
+          </>
       )}
 
       {/* Manual order creation - takes the profile sidebar's slot so the chat stays usable */}
@@ -3339,8 +3464,7 @@ const Knowledge = ({ namespaces, onUpdate, activeSection }) => {
   const namespaceControls = (
     <>
       <label
-        className="relative flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-slate-200 bg-white transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/60"
-        style={{ width: '280px', maxWidth: '100%', flex: '0 1 280px' }}
+        className="relative flex h-10 min-w-0 flex-1 items-center overflow-hidden rounded-lg border border-slate-200 bg-white transition focus-within:border-emerald-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-100/60 sm:w-[280px] sm:max-w-full sm:flex-none"
       >
         <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">database</span>
         <select
@@ -7340,6 +7464,8 @@ export default function Dashboard() {
   // Active business from the session and the caller's role in it.
   const [business, setBusiness] = useState(null);
   const [role, setRole] = useState(null);
+  // A chat open on a phone: the top bar steps aside (the chat has its own header).
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
   // The member's own online status in the active business (heartbeat every 5 minutes).
   const presence = useOnlineStatus(business?.business_id || null);
   const [pages, setPages] = useState([]);
@@ -7674,7 +7800,7 @@ export default function Dashboard() {
           </Suspense>
         </div>}
         {visitedTabsRef.current.has('conversation') && <div style={{ display: activeTab === 'conversation' ? 'contents' : 'none' }}>
-          <ConversationList pages={pages} user={user} focusRequest={notificationFocus} onNavigate={handleNotificationNavigate} />
+          <ConversationList pages={pages} user={user} focusRequest={notificationFocus} onNavigate={handleNotificationNavigate} onMobileChatChange={setMobileChatOpen} />
         </div>}
         {visitedTabsRef.current.has('comments') && <div style={{ display: activeTab === 'comments' ? 'contents' : 'none' }}>
           <Suspense fallback={<AppLoadingScreen />}>
@@ -7879,7 +8005,7 @@ export default function Dashboard() {
 
       {/* Main Content Area */}
       <main className="dashboard-main">
-        <header className="dashboard-top-navbar">
+        <header className={`dashboard-top-navbar ${activeTab === 'conversation' && mobileChatOpen ? 'max-md:!hidden' : ''}`}>
           <div className="flex min-w-0 items-center gap-3">
             <button
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
@@ -7907,7 +8033,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             <OnlineStatusToggle presence={presence} />
             <NotificationBell
               isOpen={isNotificationsOpen}
@@ -7916,7 +8042,7 @@ export default function Dashboard() {
             />
             <button
               type="button"
-              className="dashboard-theme-toggle"
+              className="dashboard-theme-toggle max-sm:!hidden"
               onClick={toggleTheme}
               aria-label={`${isDark ? 'Dark' : 'Light'} mode. Switch to ${isDark ? 'light' : 'dark'} mode`}
               title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
@@ -7955,7 +8081,7 @@ export default function Dashboard() {
                 <span className="block max-w-[160px] truncate text-[13px] font-semibold text-slate-900">{displayUserName}</span>
                 <span className="mt-0.5 block text-[11px] font-medium text-slate-500">{currentPlanName ? `${currentPlanName} plan` : (ROLE_LABELS[role] || 'Workspace')}</span>
               </span>
-              <ChevronDown size={15} className={`shrink-0 text-slate-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={15} className={`hidden shrink-0 text-slate-400 transition-transform sm:block ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
           </div>
         </header>
@@ -7983,6 +8109,7 @@ export default function Dashboard() {
             onOpenSubscription={role === 'owner' ? () => setActiveTab('subscription') : null}
             onSwitchBusiness={() => navigate('/businesses')}
             onLogout={() => setIsLogoutModalOpen(true)}
+            presence={presence}
           />
 
           {/* ── Revoked Pages Warning Modal (post-reauth) ── */}

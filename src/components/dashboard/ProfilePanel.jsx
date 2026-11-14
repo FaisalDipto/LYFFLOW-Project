@@ -26,7 +26,7 @@ const Avatar = ({ user, initial, size }) => {
  */
 export default function ProfilePanel({
   open, onClose, anchorRef, user, business, role, planName, isDark, onToggleTheme,
-  onOpenSettings, onOpenSubscription, onSwitchBusiness, onLogout,
+  onOpenSettings, onOpenSubscription, onSwitchBusiness, onLogout, presence = null,
 }) {
   const panelRef = useRef(null);
   const displayName = user?.display_name || user?.email || 'User';
@@ -100,6 +100,21 @@ export default function ProfilePanel({
               {onOpenSubscription && <button type="button" className="pp-link" onClick={run(onOpenSubscription)}>Manage</button>}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Online status: the header has its own switch from tablet width; phones use this one. */}
+      {presence && presence.status !== 'unavailable' && (
+        <div className="pp-appearance pp-presence">
+          <span className="pp-section-label" id="pp-presence-label">Your status</span>
+          <div className="pp-segmented" role="radiogroup" aria-labelledby="pp-presence-label" aria-busy={presence.busy || presence.status === 'loading'}>
+            <button type="button" role="radio" aria-checked={presence.isOnline} disabled={presence.busy || presence.status === 'loading'} onClick={() => { if (!presence.isOnline) presence.setOnline(true); }}>
+              <span className="pp-presence-dot is-online" aria-hidden="true" /> Online
+            </button>
+            <button type="button" role="radio" aria-checked={!presence.isOnline} disabled={presence.busy || presence.status === 'loading'} onClick={() => { if (presence.isOnline) presence.setOnline(false); }}>
+              <span className="pp-presence-dot" aria-hidden="true" /> Offline
+            </button>
+          </div>
         </div>
       )}
 

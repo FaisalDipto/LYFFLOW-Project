@@ -515,44 +515,50 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
                             const source = SOURCES[order.ad_source] || SOURCES.message_ad;
                             const purchase = metaPurchaseLabel(order);
                             return (
-                              <li key={order.customer_order_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-[13px]">
-                                <button
-                                  type="button"
-                                  onClick={() => onNavigate?.({ tab: 'customer-orders', recordType: 'order', recordId: order.customer_order_id })}
-                                  className="min-w-0 flex-1 text-left"
-                                  title="Open the order"
-                                >
-                                  <span className="block truncate font-semibold text-slate-900">{order.order_id} · {order.contact_name || 'Customer'}</span>
-                                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-slate-500">
-                                    <span className="inline-flex items-center gap-1"><source.icon size={12} aria-hidden="true" />{source.label}</span>
-                                    {orderFilter?.kind !== 'ad' && (
-                                      <span className="truncate">
-                                        {order.campaign_name && orderFilter?.kind !== 'campaign' && orderFilter?.kind !== 'ad_set' && <span className="text-slate-400">{order.campaign_name} › </span>}
-                                        {order.ad_name || order.ad_title || `Ad ${order.ad_id}`}
-                                      </span>
-                                    )}
-                                  </span>
-                                </button>
-                                {purchase && (
-                                  <HoverTip
-                                    text={purchase.error ? `${purchase.long}: ${purchase.error}` : purchase.long}
-                                    className={`inline-flex items-center gap-1 text-[11.5px] font-semibold ${META_PURCHASE_TONES[purchase.tone]}`}
-                                  >
-                                    <Send size={11} aria-hidden="true" />{purchase.short}
-                                  </HoverTip>
-                                )}
-                                {purchase?.error && <MetaPurchaseFix error={purchase.error} isOwner={isOwner} pages={pages} onReconnect={onReconnect} className="text-[11.5px]" />}
-                                <span className={`rounded-md border border-solid px-1.5 py-0.5 text-[10.5px] font-semibold capitalize ${recordStatusClass(order.status)}`}>{String(order.status || '').replace(/_/g, ' ')}</span>
-                                <span className="w-24 text-right font-semibold tabular-nums text-slate-900">{formatMoney(order.total, currency)}</span>
-                                {order.conversation_id && (
+                              <li key={order.customer_order_id} className="ads-order-row px-3 py-3 text-[13px] md:flex md:items-center md:gap-3 md:py-2.5">
+                                {/* Phones: order and total on top, statuses and Open chat below; one line from tablet width. */}
+                                <div className="flex min-w-0 items-start gap-3 md:flex-1">
                                   <button
                                     type="button"
-                                    onClick={() => onNavigate?.({ tab: 'conversation', pageId: order.page_id, conversationId: order.conversation_id })}
-                                    className="text-[12px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline"
+                                    onClick={() => onNavigate?.({ tab: 'customer-orders', recordType: 'order', recordId: order.customer_order_id })}
+                                    className="min-w-0 flex-1 text-left"
+                                    title="Open the order"
                                   >
-                                    Open chat
+                                    <span className="block truncate font-semibold text-slate-900">{order.order_id} · {order.contact_name || 'Customer'}</span>
+                                    <span className="mt-0.5 flex min-w-0 items-center gap-x-2 text-[12px] text-slate-500">
+                                      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap"><source.icon size={12} aria-hidden="true" />{source.label}</span>
+                                      {orderFilter?.kind !== 'ad' && (
+                                        <span className="min-w-0 truncate">
+                                          {order.campaign_name && orderFilter?.kind !== 'campaign' && orderFilter?.kind !== 'ad_set' && <span className="text-slate-400">{order.campaign_name} › </span>}
+                                          {order.ad_name || order.ad_title || `Ad ${order.ad_id}`}
+                                        </span>
+                                      )}
+                                    </span>
                                   </button>
-                                )}
+                                  <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-slate-900 md:hidden">{formatMoney(order.total, currency)}</span>
+                                </div>
+                                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 md:mt-0 md:shrink-0 md:flex-nowrap">
+                                  {purchase && (
+                                    <HoverTip
+                                      text={purchase.error ? `${purchase.long}: ${purchase.error}` : purchase.long}
+                                      className={`inline-flex items-center gap-1 whitespace-nowrap text-[11.5px] font-semibold ${META_PURCHASE_TONES[purchase.tone]}`}
+                                    >
+                                      <Send size={11} aria-hidden="true" />{purchase.short}
+                                    </HoverTip>
+                                  )}
+                                  {purchase?.error && <MetaPurchaseFix error={purchase.error} isOwner={isOwner} pages={pages} onReconnect={onReconnect} className="text-[11.5px]" />}
+                                  <span className={`whitespace-nowrap rounded-md border border-solid px-1.5 py-0.5 text-[10.5px] font-semibold capitalize ${recordStatusClass(order.status)}`}>{String(order.status || '').replace(/_/g, ' ')}</span>
+                                  <span className="hidden w-24 text-right font-semibold tabular-nums text-slate-900 md:inline">{formatMoney(order.total, currency)}</span>
+                                  {order.conversation_id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onNavigate?.({ tab: 'conversation', pageId: order.page_id, conversationId: order.conversation_id })}
+                                      className="ml-auto inline-flex h-9 items-center whitespace-nowrap rounded-lg px-2 text-[12.5px] font-semibold text-emerald-700 hover:bg-emerald-50 hover:text-emerald-900 md:ml-0 md:h-auto md:px-0 md:text-[12px] md:hover:bg-transparent md:hover:underline"
+                                    >
+                                      Open chat
+                                    </button>
+                                  )}
+                                </div>
                               </li>
                             );
                           })}

@@ -12,6 +12,8 @@ const sinceText = (iso, now) => {
 /**
  * Header switch for the member's own online status (every member, owner included). Online
  * time is what the owner sees per day; a member put offline by the backend is told so here.
+ * Phones use the switch in the account panel (the avatar's dot shows the status); the
+ * notice still shows, as a banner under the top bar.
  * @param {{ presence: ReturnType<import('../../hooks/useOnlineStatus').useOnlineStatus> }} props
  */
 export default function OnlineStatusToggle({ presence }) {
@@ -38,7 +40,7 @@ export default function OnlineStatusToggle({ presence }) {
         aria-pressed={isOnline}
         aria-label={isOnline ? 'You are online. Go offline' : 'You are offline. Go online'}
         title={title}
-        className={`online-status-toggle flex h-9 items-center gap-2 rounded-full border px-3 text-[12px] font-bold transition disabled:cursor-wait ${isOnline
+        className={`online-status-toggle hidden h-9 items-center gap-2 rounded-full border px-3 text-[12px] font-bold transition disabled:cursor-wait sm:flex ${isOnline
           ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
           : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800'}`}
       >
@@ -49,7 +51,7 @@ export default function OnlineStatusToggle({ presence }) {
       </button>
 
       {(wasTimedOut || error) && !isOnline && (
-        <div role="alert" className="online-status-notice absolute right-0 top-[calc(100%+8px)] z-[1200] w-[280px] rounded-xl border border-solid border-slate-200 bg-white p-3 text-left shadow-xl">
+        <div role="alert" className="online-status-notice fixed left-3 right-3 top-[68px] z-[1200] rounded-xl border border-solid border-slate-200 bg-white p-3 text-left shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-[calc(100%+8px)] sm:w-[280px]">
           <div className="flex items-start gap-2">
             <p className="m-0 flex-1 text-[12.5px] leading-relaxed text-slate-600">
               {error || (

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { itemDiscount, orderDiscountTotal } from '../utils/discounts';
 import { META_PURCHASE_TONES, metaPurchaseLabel } from '../utils/metaPurchase';
 import MetaPurchaseFix from './MetaPurchaseFix';
+import { formatPhone } from '../utils/phone';
 import { Users, Phone, Mail, Calendar, Eye, Pencil, Filter, Loader2, X, ShoppingCart, Target, Truck, MapPin, Copy, Check, Download, Trash2, Search } from 'lucide-react';
 import { apiService } from '../services/api';
 import { saveBlob } from '../utils/download';
@@ -464,10 +465,10 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
     <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden relative">
       {pushNotice && <Toast tone={pushNotice.tone} message={pushNotice.text} onDismiss={dismissPushNotice} />}
       {/* The top bar already names the section, so this is just the filter toolbar. */}
-      <div className="records-toolbar border-b border-slate-200 bg-white px-6 py-4 md:px-8">
+      <div className="records-toolbar border-b border-slate-200 bg-white px-3 py-3 sm:px-6 sm:py-4 md:px-8">
         <div className="flex flex-wrap items-center justify-end gap-3">
           {recordType === 'order' && (
-            <div className="order-search relative mr-auto flex min-w-[220px] max-w-md flex-1 items-center">
+            <div className="order-search relative mr-auto flex w-full items-center sm:w-auto sm:min-w-[220px] sm:max-w-md sm:flex-1">
               <Search size={16} className="pointer-events-none absolute left-3 text-slate-400" aria-hidden="true" />
               <input
                 type="search"
@@ -477,7 +478,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                 maxLength={255}
                 placeholder="Search order no., name, phone, email or address"
                 aria-label="Search orders"
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white focus:ring-2 focus:ring-emerald-100 [&::-webkit-search-cancel-button]:hidden"
+                className="h-10 w-full min-w-0 text-ellipsis rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm font-medium text-slate-800 outline-none transition placeholder:text-ellipsis placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white focus:ring-2 focus:ring-emerald-100 [&::-webkit-search-cancel-button]:hidden"
               />
               {searchInput && (
                 <button
@@ -491,14 +492,15 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
               )}
             </div>
           )}
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+          <div className="flex min-w-0 grow basis-[140px] items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-none sm:basis-auto">
             <select
               value={selectedPageId}
               onChange={e => {
                 setSelectedPageId(e.target.value);
                 closeRecordModal();
               }}
-              className="bg-transparent border-none text-sm font-bold focus:ring-0 text-slate-700 cursor-pointer p-0 pl-1 pr-8 outline-none"
+              aria-label="Page"
+              className="w-full min-w-0 cursor-pointer border-none bg-transparent p-0 pl-1 pr-8 text-sm font-bold text-slate-700 outline-none focus:ring-0"
             >
               <option value="">All pages</option>
               {pages?.map(page => (
@@ -509,12 +511,14 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
             </select>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-            <Filter size={16} className="text-slate-400" />
+          {/* Sized to its longest label and never squeezed, so "All Statuses" always shows whole. */}
+          <div className="flex shrink-0 grow basis-auto items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-none">
+            <Filter size={16} className="shrink-0 text-slate-400" aria-hidden="true" />
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="bg-transparent border-none text-sm font-medium focus:ring-0 text-slate-700 cursor-pointer p-0 pl-1 pr-8"
+              aria-label="Status"
+              className="w-full min-w-0 cursor-pointer border-none bg-transparent p-0 pl-1 pr-8 text-sm font-medium text-slate-700 focus:ring-0"
             >
               <option value="">All Statuses</option>
               {statusOptions.map(status => (
@@ -685,7 +689,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 md:p-8">
+      <div className="flex-1 overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 md:p-8">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-400">
             <Loader2 className="animate-spin mb-4" size={32} />
@@ -718,23 +722,81 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
             </p>
           )}
           <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Phones: one card per record. The name and its actions share the top line, so
+                the details below get the card's full width instead of a squeezed table cell. */}
+            <ul className="records-cards m-0 list-none divide-y divide-slate-100 p-0 md:hidden">
+              {records.map(record => {
+                const isOrder = record.type === 'order';
+                const date = record.created_at ? new Date(record.created_at).toLocaleDateString() : '';
+                return (
+                  <li key={record.id}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleSelectRecord(record)}
+                      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSelectRecord(record); } }}
+                      aria-label={`Open ${isOrder ? 'order' : 'lead'} ${isOrder ? (record.order_id || record.id) : ''} for ${record.contact_name || 'Unknown User'}`.replace(/\s+/g, ' ')}
+                      className="block px-4 py-3.5 text-left transition-colors active:bg-slate-50"
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="m-0 truncate text-[15px] font-bold text-slate-800">{record.contact_name || 'Unknown User'}</p>
+                          <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
+                            {isOrder && <span className="order-row-id font-mono font-semibold">{record.order_id || record.id}</span>}
+                            {!isOrder && <span className="inline-flex items-center gap-1 font-semibold capitalize">{getTypeIcon(record.type)}{record.type}</span>}
+                            {date && <span>{date}</span>}
+                          </p>
+                        </div>
+                        <div className="-mr-1.5 -mt-1 flex shrink-0 items-center gap-1" onClick={e => e.stopPropagation()}>
+                          {isOrder && wooState === 'connected' && (
+                            <WooPushButton
+                              orderId={record.id}
+                              onNotify={(tone, text) => setPushNotice({ tone, text })}
+                              onPushed={() => { if (selectedRecord?.id === record.id) refreshSelectedOrder(); }}
+                            />
+                          )}
+                          <RowActionsMenu
+                            actions={getRowActions(record)}
+                            label={`Actions for ${record.contact_name || record.order_id || record.id}`}
+                          />
+                        </div>
+                      </div>
+                      {(record.contact_email || record.contact_phone) && (
+                        <div className="mt-2 flex flex-col gap-1 text-[13px] text-slate-600">
+                          {record.contact_phone && <span className="flex items-center gap-1.5 tabular-nums"><Phone size={13} className="shrink-0 text-slate-400" aria-hidden="true" />{formatPhone(record.contact_phone)}</span>}
+                          {record.contact_email && <span className="flex min-w-0 items-center gap-1.5"><Mail size={13} className="shrink-0 text-slate-400" aria-hidden="true" /><span className="truncate">{record.contact_email}</span></span>}
+                        </div>
+                      )}
+                      <div className="mt-2.5 flex items-center justify-between gap-3">
+                        {isOrder
+                          ? <span className="text-[15px] font-bold tabular-nums text-slate-900">{formatOrderAmount(record.total, currency)}</span>
+                          : <span />}
+                        <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-bold capitalize ${recordStatusClass(record.status)}`}>
+                          {record.status?.replaceAll('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                    {recordType !== 'order' && <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Reference</th>}
+                    <th className="p-3 text-xs font-bold uppercase tracking-wider text-slate-500 md:p-4">Contact</th>
+                    {recordType !== 'order' && <th className="hidden p-4 text-xs font-bold uppercase tracking-wider text-slate-500 md:table-cell">Reference</th>}
                     {recordType === 'order' ? (
                       <>
-                        <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Source</th>
-                        <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
+                        <th className="hidden p-4 text-xs font-bold uppercase tracking-wider text-slate-500 md:table-cell">Source</th>
+                        <th className="hidden p-4 text-xs font-bold uppercase tracking-wider text-slate-500 md:table-cell">Total</th>
                       </>
                     ) : (
-                      <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                      <th className="hidden p-4 text-xs font-bold uppercase tracking-wider text-slate-500 md:table-cell">Type</th>
                     )}
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-12">Action</th>
+                    <th className="hidden p-4 text-xs font-bold uppercase tracking-wider text-slate-500 md:table-cell">Status</th>
+                    <th className="hidden p-4 text-xs font-bold uppercase tracking-wider text-slate-500 md:table-cell">Date</th>
+                    <th className="w-12 p-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 md:p-4"><span className="sr-only md:not-sr-only">Action</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -744,52 +806,55 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                       className="hover:bg-slate-50 transition-colors cursor-pointer group"
                       onClick={() => handleSelectRecord(record)}
                     >
-                      <td className="p-4">
-                        <div className="flex flex-col">
+                      <td className="p-3 md:p-4">
+                        <div className="flex min-w-0 flex-col">
                           <span className="font-bold text-slate-800">{record.contact_name || 'Unknown User'}</span>
                           {record.type === 'order' && (
                             <span className="order-row-id mt-0.5 font-mono text-xs font-semibold text-slate-500">{record.order_id || record.id}</span>
                           )}
-                          <span className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                            {record.contact_email && <><Mail size={12}/> {record.contact_email}</>}
-                            {record.contact_phone && <><span className="mx-1">•</span> <Phone size={12}/> {record.contact_phone}</>}
-                          </span>
+                          {(record.contact_email || record.contact_phone) && (
+                            <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-slate-500">
+                              {record.contact_email && <span className="inline-flex min-w-0 items-center gap-1 [overflow-wrap:anywhere]"><Mail size={12} aria-hidden="true" /> {record.contact_email}</span>}
+                              {record.contact_email && record.contact_phone && <span className="mx-1 hidden sm:inline" aria-hidden="true">•</span>}
+                              {record.contact_phone && <span className="inline-flex items-center gap-1"><Phone size={12} aria-hidden="true" /> {record.contact_phone}</span>}
+                            </span>
+                          )}
                         </div>
                       </td>
                       {recordType !== 'order' && (
-                        <td className="p-4">
+                        <td className="hidden p-4 md:table-cell">
                           <span className="text-sm text-slate-500 font-mono">{record.id}</span>
                         </td>
                       )}
                       {recordType === 'order' ? (
                         <>
-                          <td className="p-4">
+                          <td className="hidden p-4 md:table-cell">
                             {renderOrderSourceBadge(record.created_by)}
                           </td>
-                          <td className="p-4">
+                          <td className="hidden p-4 md:table-cell">
                             <span className="text-sm font-bold text-slate-800">
                               {formatOrderAmount(record.total, currency)}
                             </span>
                           </td>
                         </>
                       ) : (
-                        <td className="p-4">
+                        <td className="hidden p-4 md:table-cell">
                           <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 capitalize">
                             {getTypeIcon(record.type)}
                             {record.type}
                           </div>
                         </td>
                       )}
-                      <td className="p-4">
+                      <td className="hidden p-4 md:table-cell">
                         <span className={`px-2.5 py-1 rounded-md text-xs font-bold border capitalize ${recordStatusClass(record.status)}`}>
                           {record.status?.replaceAll('_', ' ')}
                         </span>
                       </td>
-                      <td className="p-4 text-sm text-slate-500 font-medium">
+                      <td className="hidden p-4 text-sm font-medium text-slate-500 md:table-cell">
                         {record.created_at ? new Date(record.created_at).toLocaleDateString() : '—'}
                       </td>
-                      <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="p-2 text-right align-top md:p-4 md:align-middle" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-col items-end justify-end gap-1.5 md:flex-row md:items-center">
                           {record.type === 'order' && wooState === 'connected' && (
                             <WooPushButton
                               orderId={record.id}
@@ -827,9 +892,10 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
 
       {/* Expanded Record Modal */}
       {selectedRecord && (
-        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 animate-fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-scale-in">
-            <div className="p-6 md:p-8 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
+        <div className="absolute inset-0 z-[100] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={selectedRecord.type === 'order' ? 'Order details' : 'Lead details'}>
+          {/* Phones: a full-height sheet; larger screens: a centred dialog. */}
+          <div className="flex h-full w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl animate-scale-in sm:h-auto sm:max-h-[90vh] sm:rounded-[2rem]">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/50 p-4 sm:p-6 md:p-8">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-xl font-black text-slate-800">{selectedRecord.contact_name || 'Customer Details'}</h3>
@@ -861,7 +927,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
               </button>
             </div>
 
-            <div className="p-6 md:p-8 flex-1 overflow-y-auto space-y-6">
+            <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:space-y-6 sm:p-6 md:p-8">
               {isDetailLoading ? (
                 <div className="flex flex-col items-center justify-center h-48 text-slate-400">
                   <Loader2 className="animate-spin mb-3" size={28} />
@@ -1214,14 +1280,15 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
               )}
             </div>
 
-            <div className="p-6 md:p-8 border-t border-slate-100 bg-white flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-bold text-slate-600">Status:</span>
+            <div className="flex flex-col gap-3 border-t border-slate-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-6 md:p-8">
+              <div className="flex min-w-0 items-center gap-3">
+                <label htmlFor="record-status" className="text-sm font-bold text-slate-600">Status:</label>
                 <select
+                  id="record-status"
                   value={selectedRecord.status}
                   onChange={(e) => handleUpdateStatus(selectedRecord.id, e.target.value)}
                   disabled={isUpdatingStatus || isDetailLoading}
-                  className={`border-2 rounded-xl px-4 py-2 text-sm font-bold cursor-pointer transition-colors outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${recordStatusClass(selectedRecord.status)} ${isUpdatingStatus || isDetailLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`min-w-0 flex-1 cursor-pointer rounded-xl border-2 px-4 py-2 text-sm font-bold capitalize outline-none transition-colors focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 sm:flex-none ${recordStatusClass(selectedRecord.status)} ${isUpdatingStatus || isDetailLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {(selectedRecord.type === 'lead' ? LEAD_STATUSES : ORDER_STATUSES).map(status => (
                     <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
@@ -1229,13 +1296,13 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                 </select>
                 {isUpdatingStatus && <Loader2 className="animate-spin text-slate-400" size={16} />}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
                 {selectedRecord.type === 'order' && (
                   <button
                     type="button"
                     onClick={() => setEditingOrder(selectedRecord)}
                     disabled={isDetailLoading}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-emerald-300 hover:text-emerald-700 text-slate-700 font-bold rounded-xl transition-colors text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-solid border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition-colors hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto sm:py-2.5"
                   >
                     <Pencil size={15} />
                     Edit
@@ -1243,7 +1310,7 @@ const statusOptions = recordType === 'lead' ? LEAD_STATUSES : ORDER_STATUSES;
                 )}
                 <button 
                   onClick={closeRecordModal}
-                  className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm"
+                  className={`h-11 rounded-xl bg-slate-100 px-6 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-200 sm:h-auto sm:py-2.5 ${selectedRecord.type === 'order' ? '' : 'col-span-2'}`}
                 >
                   Close
                 </button>

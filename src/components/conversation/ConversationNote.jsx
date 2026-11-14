@@ -79,7 +79,7 @@ export default function ConversationNote({ pageId, conversationId, note, onSaved
             type="button"
             onClick={() => save(draft)}
             disabled={!isDirty || tooLong || status === 'saving'}
-            className="h-7 rounded-md bg-emerald-600 px-3 font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 rounded-md bg-emerald-600 px-3.5 font-semibold text-white md:h-7 md:px-3 transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {status === 'saving' ? 'Saving…' : 'Save note'}
           </button>

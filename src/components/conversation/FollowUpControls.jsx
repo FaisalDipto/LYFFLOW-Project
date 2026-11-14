@@ -21,9 +21,9 @@ const Switch = ({ checked, disabled, onChange, label }) => (
     aria-label={label}
     disabled={disabled}
     onClick={() => onChange(!checked)}
-    className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${checked ? 'bg-emerald-500' : 'bg-slate-300'}`}
+    className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 md:h-5 md:w-9 ${checked ? 'bg-emerald-500' : 'bg-slate-300'}`}
   >
-    <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : ''}`} />
+    <span className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform md:h-4 md:w-4 ${checked ? 'translate-x-5 md:translate-x-4' : ''}`} />
   </button>
 );
 

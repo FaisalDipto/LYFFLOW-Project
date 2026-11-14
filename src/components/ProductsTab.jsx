@@ -661,16 +661,17 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
       setBulkSaving(false);
     }
   };
+  // Phones: tick, the product (with its code, price and stock under the name), actions.
   const gridCols = canManage
-    ? 'grid-cols-[44px_2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px]'
-    : 'grid-cols-[2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px]';
+    ? 'grid-cols-[32px_minmax(0,1fr)_auto] md:grid-cols-[44px_2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px]'
+    : 'grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[2.6fr_1.4fr_1.1fr_1.8fr_1.5fr_1.5fr_1.4fr_100px]';
 
   return (
     <>
       <div className="products-tab w-full">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          {toolbarStart && <div className="flex min-w-0 flex-wrap items-center gap-2">{toolbarStart}</div>}
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          {toolbarStart && <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-wrap">{toolbarStart}</div>}
+          <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
             <div className="relative w-full sm:w-[420px]">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
               <input
@@ -693,13 +694,13 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                 </button>
               )}
             </div>
-            <div className="relative">
+            <div className="relative min-w-0 grow basis-[calc(50%-0.25rem)] sm:grow-0 sm:basis-auto">
               <select
                 value={availabilityFilter}
                 onChange={(e) => setAvailabilityFilter(e.target.value)}
                 aria-label="Filter by availability"
                 style={{ backgroundImage: 'none' }}
-                className="products-filter-select h-10 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 cursor-pointer appearance-none pl-3 pr-9 outline-none"
+                className="products-filter-select h-10 w-full rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 cursor-pointer appearance-none pl-3 pr-9 outline-none"
               >
                 <option value="all">All products</option>
                 <option value="available">Available (In Stock)</option>
@@ -707,13 +708,13 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
               </select>
               <span className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">expand_more</span>
             </div>
-            <div className="relative">
+            <div className="relative min-w-0 grow basis-[calc(50%-0.25rem)] sm:grow-0 sm:basis-auto">
               <select
                 value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
                 aria-label="Filter by source"
                 style={{ backgroundImage: 'none' }}
-                className="products-filter-select h-10 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 cursor-pointer appearance-none pl-3 pr-9 outline-none"
+                className="products-filter-select h-10 w-full rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 cursor-pointer appearance-none pl-3 pr-9 outline-none"
               >
                 <option value="all">All Sources</option>
                 <option value="manual">Manual</option>
@@ -786,21 +787,21 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
         {/* Data Table */}
         <div className="products-table animate-fade-in-up overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto w-full no-scrollbar">
-            <div className="min-w-[1040px] w-full">
-              <div className={`products-table-header grid ${gridCols} gap-4 p-5 text-[10px] font-black tracking-[0.2em] text-emerald-700 uppercase bg-emerald-50 border-b border-emerald-100 shadow-sm`}>
+            <div className="w-full md:min-w-[1040px]">
+              <div className={`products-table-header grid ${gridCols} items-center gap-3 border-b border-emerald-100 bg-emerald-50 p-3 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700 shadow-sm md:gap-4 md:p-5`}>
                 {canManage && (
-                  <div className="flex items-center justify-center">
-                    <input type="checkbox" checked={allSelected} onChange={toggleAllSelected} disabled={products.length === 0} aria-label="Select all products on this page" className="h-4 w-4 cursor-pointer rounded border-slate-300 text-emerald-600 focus:ring-emerald-400" />
-                  </div>
+                  <label className="-m-2 flex min-h-[40px] cursor-pointer items-center justify-center p-2">
+                    <input type="checkbox" checked={allSelected} onChange={toggleAllSelected} disabled={products.length === 0} aria-label="Select all products on this page" className="h-5 w-5 cursor-pointer rounded border-slate-300 text-emerald-600 focus:ring-emerald-400 md:h-4 md:w-4" />
+                  </label>
                 )}
-                <div className={`${canManage ? '' : 'pl-6 '}flex items-center`}>Product Name</div>
-                <div className="flex items-center">Code</div>
-                <div className="flex items-center">Type</div>
-                <div className="flex items-center">Price</div>
-                <div className="flex items-center">Stock</div>
-                <div className="flex items-center">Status</div>
-                <div className="flex items-center">Assets</div>
-                <div className="text-right pr-6 flex items-center justify-end">Actions</div>
+                <div className={`${canManage ? '' : 'md:pl-6 '}flex items-center`}>Product Name</div>
+                <div className="hidden items-center md:flex">Code</div>
+                <div className="hidden items-center md:flex">Type</div>
+                <div className="hidden items-center md:flex">Price</div>
+                <div className="hidden items-center md:flex">Stock</div>
+                <div className="hidden items-center md:flex">Status</div>
+                <div className="hidden items-center md:flex">Assets</div>
+                <div className="flex items-center justify-end pr-1 text-right md:pr-6"><span className="sr-only md:not-sr-only">Actions</span></div>
               </div>
 
         <div className="products-table-body divide-y divide-slate-100">
@@ -822,14 +823,14 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
             </div>
           ) : (
             products.map((product) => (
-              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className={`products-table-row grid ${gridCols} gap-4 p-5 items-center hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer ${selectedIds.has(product.product_id) ? 'bg-emerald-50/50' : ''}`}>
+              <div key={product.product_id} onClick={() => handleViewProduct(product.product_id)} className={`products-table-row grid ${gridCols} items-center gap-3 p-3 md:gap-4 md:p-5 hover:bg-emerald-50/30 transition-all group duration-300 cursor-pointer ${selectedIds.has(product.product_id) ? 'bg-emerald-50/50' : ''}`}>
                 {canManage && (
-                  <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={selectedIds.has(product.product_id)} onChange={() => toggleSelected(product.product_id)} aria-label={`Select ${product.name}`} className="h-4 w-4 cursor-pointer rounded border-slate-300 text-emerald-600 focus:ring-emerald-400" />
-                  </div>
+                  <label className="-m-2 flex min-h-[44px] cursor-pointer items-center justify-center p-2" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedIds.has(product.product_id)} onChange={() => toggleSelected(product.product_id)} aria-label={`Select ${product.name}`} className="h-5 w-5 cursor-pointer rounded border-slate-300 text-emerald-600 focus:ring-emerald-400 md:h-4 md:w-4" />
+                  </label>
                 )}
-                <div className={`${canManage ? '' : 'pl-6 '}flex min-w-0 items-center gap-2 pr-4 text-sm font-bold text-slate-800 group-hover:text-emerald-700 transition-colors`}>
-                  <span className="truncate">{product.name}</span>
+                <div className={`${canManage ? '' : 'md:pl-6 '}flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold text-slate-800 transition-colors group-hover:text-emerald-700 md:flex-nowrap md:pr-4`}>
+                  <span className="min-w-0 truncate">{product.name}</span>
                   {describeProductLimit(knownLimits.get(product.product_id), currency) && (
                     <span
                       className="products-limit-chip inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-700"
@@ -840,26 +841,35 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                       <Tag size={12} strokeWidth={2.4} aria-hidden="true" />
                     </span>
                   )}
+                  {/* Phones: the columns that don't fit, under the name. */}
+                  <span className="products-row-summary flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-500 md:hidden">
+                    <span className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[11px]">{product.code || 'N/A'}</span>
+                    <ProductPrice regularPrice={product.regular_price} salePrice={product.sale_price} currency={product.currency || currency} size="sm" />
+                    <span className={normalizeStockStatus(product.stock_status) === 'out_of_stock' ? 'text-red-600' : normalizeStockStatus(product.stock_status) === 'on_backorder' ? 'text-amber-600' : ''}>
+                      {stockLabel(product.stock_status)}{product.stock_quantity !== null && product.stock_quantity !== undefined ? ` · ${product.stock_quantity}` : ''}
+                    </span>
+                    {!product.availability && <span className="font-semibold text-red-600">Unavailable</span>}
+                  </span>
                 </div>
-                <div className="text-sm text-slate-500 font-mono text-xs bg-slate-100 px-2 py-1 rounded-md inline-block w-fit border border-slate-200 shadow-sm">
+                <div className="hidden w-fit rounded-md border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-xs text-slate-500 shadow-sm md:inline-block">
                   {product.code || 'N/A'}
                 </div>
-                <div className="text-sm text-slate-500 truncate pr-2 font-medium">
+                <div className="hidden truncate pr-2 text-sm font-medium text-slate-500 md:block">
                   {product.product_type === 'variable' ? 'Variable' : product.product_type ? product.product_type.charAt(0).toUpperCase() + product.product_type.slice(1) : 'Simple'}
                 </div>
-                <div>
+                <div className="hidden md:block">
                   <ProductPrice regularPrice={product.regular_price} salePrice={product.sale_price} currency={product.currency || currency} size="sm" />
                 </div>
-                <div className="text-sm font-medium text-slate-600">
+                <div className="hidden text-sm font-medium text-slate-600 md:block">
                   <span className={normalizeStockStatus(product.stock_status) === 'out_of_stock' ? 'text-red-600' : normalizeStockStatus(product.stock_status) === 'on_backorder' ? 'text-amber-600' : ''}>{stockLabel(product.stock_status)}</span>
                   {product.stock_quantity !== null && product.stock_quantity !== undefined && <span className="text-slate-400"> · {product.stock_quantity}</span>}
                 </div>
-                <div className="flex items-center">
+                <div className="hidden items-center md:flex">
                   <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm ${product.availability ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
                     {product.availability ? 'Available' : 'Unavailable'}
                   </span>
                 </div>
-                <div className="flex gap-1.5 items-center">
+                <div className="hidden items-center gap-1.5 md:flex">
                   {product.primary_assets && product.primary_assets.length > 0 ? (
                     product.primary_assets.map((asset, i) => (
                       <div key={i} className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200 overflow-hidden shadow-sm group-hover:border-emerald-200 transition-colors" title={asset.original_filename}>
@@ -876,12 +886,12 @@ const ProductsTab = ({ selectedNamespaceId, toolbarStart = null }) => {
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">0 assets</span>
                   )}
                 </div>
-                <div className="text-right pr-6 flex items-center justify-end gap-2 transition-opacity">
+                <div className="flex items-center justify-end gap-1.5 pr-0 text-right transition-opacity md:gap-2 md:pr-6">
                   {canManage && <>
-                  <button onClick={(e) => { e.stopPropagation(); handleEditProductClick(product); }} className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-colors" title="Edit">
+                  <button onClick={(e) => { e.stopPropagation(); handleEditProductClick(product); }} className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-500 transition-colors hover:bg-blue-500 hover:text-white md:h-8 md:w-8" title="Edit" aria-label={`Edit ${product.name}`}>
                     <Edit3 size={16} />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product.product_id); }} className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors" title="Delete">
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product.product_id); }} className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-500 transition-colors hover:bg-red-500 hover:text-white md:h-8 md:w-8" title="Delete" aria-label={`Delete ${product.name}`}>
                     <Trash2 size={16} />
                   </button>
                   </>}
