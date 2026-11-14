@@ -424,23 +424,42 @@ const MOCK_AD_REFERRALS = {
   conv_6: { ad_id: '120215555555555555', ad_post_id: null, ad_title: null },
 };
 const MOCK_NO_AD = { ad_id: null, ad_post_id: null, ad_title: null };
+// Follow-ups (SalesBot's settings, see mockFollowUpSettings): in conv_6 the agent answered a
+// minute after the customer, reminder 1 went out 2 hours later and reminder 2 is waiting.
+// follow_up_anchor (the agent's last message) and follow_up_index (the waiting step) are mock
+// bookkeeping for Skip. Tasnim (conv_7) has follow-ups switched off for her chat.
+const MOCK_CONV6_ANCHOR = MOCK_LOADED_AT - 189 * 60000;
+const MOCK_FOLLOW_UPS = {
+  conv_6: {
+    follow_up_anchor: MOCK_CONV6_ANCHOR, follow_up_index: 1, next_follow_up_at: new Date(MOCK_CONV6_ANCHOR + 480 * 60000).toISOString(),
+    updated_time: new Date(MOCK_CONV6_ANCHOR + 120 * 60000).toISOString(),
+    last_message: { message: 'Hi! Just checking in: the blue one is still in stock, and delivery inside Dhaka is free. Shall I keep one for you?', role: 'page', created_at: new Date(MOCK_CONV6_ANCHOR + 120 * 60000).toISOString(), has_attachment: false },
+  },
+  conv_7: { is_follow_up_enabled: false },
+};
 let mockInbox = [
   { conversation_id: 'conv_1', name: 'John Doe', snippet: 'Hello, I need help with my order.', profile_pic_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', is_human_needed: false, human_needed_reason: null, assigned_to_member_id: MOCK_CURRENT_MEMBER_ID, last_customer_at: MOCK_LOADED_AT },
   { conversation_id: 'conv_2', name: 'Jane Smith', snippet: 'Is the product in stock?', profile_pic_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', is_human_needed: true, human_needed_reason: 'Asked for a bulk discount', handover_category: 'bulk_custom_or_pricing', assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 30 * MOCK_HOUR },
   { conversation_id: 'conv_3', name: 'Rahim Uddin', snippet: 'Can I change the delivery address?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Escalated for pricing negotiation', handover_category: null, assigned_to_member_id: 'mem_2', note: 'Prefers delivery after 6 pm. Call before sending COD.', last_customer_at: MOCK_LOADED_AT - 3 * MOCK_HOUR },
   // Saved while the page's token was failing: Meta couldn't give the name yet.
-  { conversation_id: 'conv_6', name: '', snippet: 'Hi, do you have this in blue?', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 20 * 60000 },
+  // The customer went quiet after the agent's answer: follow-up 1 went out, 2 is waiting (MOCK_FOLLOW_UPS).
+  { conversation_id: 'conv_6', name: '', snippet: 'Hi, do you have this in blue?', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 190 * 60000 },
   { conversation_id: 'conv_4', name: 'Nadia Islam', snippet: 'Thanks, I will think about it.', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 9 * 24 * MOCK_HOUR },
   // The Instagram account (page_3), so the all-pages inbox mixes pages.
   { conversation_id: 'conv_7', page_id: 'page_3', name: 'Tasnim Rahman', snippet: 'Is the tote available in black?', profile_pic_url: null, is_human_needed: false, human_needed_reason: null, assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 35 * 60000 },
   { conversation_id: 'conv_8', page_id: 'page_3', name: 'Rafsan Chowdhury', snippet: 'Can I pay on delivery?', profile_pic_url: null, is_human_needed: true, human_needed_reason: 'Asked about payment options', handover_category: 'order_status_or_delivery', assigned_to_member_id: null, last_customer_at: MOCK_LOADED_AT - 5 * MOCK_HOUR },
-].map(conversation => ({ page_id: 'page_1', ...MOCK_NO_AD, ...MOCK_AD_REFERRALS[conversation.conversation_id], ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString() }));
+].map(conversation => ({
+  page_id: 'page_1', ...MOCK_NO_AD, ...MOCK_AD_REFERRALS[conversation.conversation_id], is_follow_up_enabled: true, next_follow_up_at: null,
+  ...conversation, updated_time: new Date(conversation.last_customer_at).toISOString(), ...MOCK_FOLLOW_UPS[conversation.conversation_id],
+}));
 // As the API returns it (last_customer_at is mock bookkeeping).
 const mockInboxItem = (conversation) => {
   const item = { ...conversation };
   item.last_message = item.last_message || { message: item.snippet, role: 'user', created_at: item.updated_time, has_attachment: false };
   delete item.last_customer_at;
   delete item.snippet;
+  delete item.follow_up_anchor;
+  delete item.follow_up_index;
   return item;
 };
 // Live stream frames in mock mode (see notificationStream's mock source).
@@ -451,7 +470,7 @@ const mockMessage = (fields) => ({
   message_id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, message: null, role: 'user', has_attachment: false,
   attachments: [], is_ai_msg: false, created_at: new Date().toISOString(), agent_activity_id: null, sent_by_member_id: null,
   is_delivered: false, delivered_at: null, is_read: false, read_at: null, is_deleted: false, deleted_at: null, reaction: null,
-  reply_to: null,
+  reply_to: null, follow_up_step: null,
   ...fields,
 });
 // A customer who writes in for the first time while the dashboard is open (?mockLive=true).
@@ -477,6 +496,8 @@ const startMockLiveScript = () => {
   setTimeout(() => { mockInbox = [...mockInbox, { ...mockNewConversation, last_customer_at: Date.now(), updated_time: new Date().toISOString() }]; }, 16900);
   mockPush('inbox_message', { conversation_id: 'conv_5', page_id: 'page_1', message: mockMessage({ message_id: 'live_3', message: mockNewConversation.snippet, created_at: new Date(Date.now() + 17000).toISOString() }) }, 17000);
   mockPush('inbox_message', { conversation_id: 'conv_9', page_id: 'page_2', message: mockMessage({ message_id: 'live_4', message: 'Another page: must not appear' }) }, 18000);
+  // The waiting reminder in conv_6 moves later (say night hours), as the send job reports it.
+  mockPush('conversation_update', { conversation_id: 'conv_6', page_id: 'page_1', fields: { next_follow_up_at: new Date(Date.now() + 9 * MOCK_HOUR).toISOString() } }, 20000);
 };
 // Owner dashboard (GET /v1/dashboard/*). ?mockDashboard=empty is a brand-new business;
 // ?mockDashboard=error fails the overview (500) and the AI view (429); ?mockDashboard=missing
@@ -1153,6 +1174,35 @@ const MOCK_AGENT_DISCOUNTS = {
     ],
   },
 };
+// Mirrors the backend's checks on follow_up_settings (422 with its message) and returns the
+// settings as stored: blank texts as null, times with seconds.
+const mockCheckFollowUps = (settings, fail422) => {
+  const where = 'body.follow_up_settings';
+  if (typeof settings.is_enabled !== 'boolean') fail422(`${where}.is_enabled: Field required`);
+  const steps = settings.steps || [];
+  if (!steps.length || steps.length > 3) fail422(`${where}.steps: List should have at least 1 item and at most 3 items`);
+  steps.forEach((step, index) => {
+    const delay = step.delay_minutes;
+    if (!Number.isInteger(delay) || delay < 30 || delay > 1380) fail422(`${where}.steps.${index}.delay_minutes: Input should be between 30 and 1380`);
+    if (index > 0 && delay < steps[index - 1].delay_minutes + 60) fail422(`${where}.steps: each step must come at least 60 minutes after the one before`);
+    if ((step.fixed_text || '').length > 500) fail422(`${where}.steps.${index}.fixed_text: String should have at most 500 characters`);
+    if ((step.instruction || '').length > 300) fail422(`${where}.steps.${index}.instruction: String should have at most 300 characters`);
+  });
+  const start = settings.night_hours_start || null;
+  const end = settings.night_hours_end || null;
+  const isTime = (value) => /^\d{2}:\d{2}(:\d{2})?$/.test(value);
+  const withSeconds = (value) => (value && value.length === 5 ? `${value}:00` : value);
+  if ((start && !isTime(start)) || (end && !isTime(end))) fail422(`${where}: Input should be a valid time`);
+  if (Boolean(start) !== Boolean(end)) fail422(`${where}: night_hours_start and night_hours_end must be set together`);
+  if (start && withSeconds(start) === withSeconds(end)) fail422(`${where}: night hours must start and end at different times`);
+  const blank = (text) => (typeof text === 'string' && text.trim() ? text : null);
+  return {
+    is_enabled: settings.is_enabled,
+    steps: steps.map(step => ({ delay_minutes: step.delay_minutes, fixed_text: blank(step.fixed_text), instruction: blank(step.instruction) })),
+    night_hours_start: withSeconds(start), night_hours_end: withSeconds(end),
+    use_discounts: settings.use_discounts !== false,
+  };
+};
 // Mirrors the backend's checks on negotiation_rules and coupons (422 with its message).
 const mockCheckDiscounts = (body, fail422) => {
   const listFor = { categories: 'categories', tags: 'tags', listed_products: 'product_codes' };
@@ -1221,8 +1271,27 @@ const mockPromptPreview = (agent) => {
   ];
   return sections.join('\n\n');
 };
+// Follow-ups: SalesBot sends three reminders; SupportBot never sends any (Support agents
+// can't); ShopHelper existed before the release, so it's off (null), it has no discounts
+// (plain reminders, with the suggested rule to start from) and is on UTC.
+const MOCK_SUGGESTED_RULE = { ...MOCK_DISCOUNT_CONDITIONS, name: 'Default', scope: 'all_products', discount_kind: 'percent', first_offer: '5', max_discount: '10', max_discount_amount: null };
+const MOCK_FOLLOW_UP_DEFAULTS = { is_enabled: true, steps: [{ delay_minutes: 120, fixed_text: null, instruction: null }], night_hours_start: '23:00:00', night_hours_end: '08:00:00', use_discounts: true };
+const MOCK_FOLLOW_UP_SETTINGS = {
+  agent_1: {
+    is_enabled: true,
+    steps: [
+      { delay_minutes: 120, fixed_text: null, instruction: 'Mention free delivery inside Dhaka' },
+      { delay_minutes: 480, fixed_text: null, instruction: null },
+      { delay_minutes: 1200, fixed_text: 'Hi again! Your item is still saved for you. Just reply here whenever you\'re ready.', instruction: null },
+    ],
+    night_hours_start: '23:00:00', night_hours_end: '08:00:00', use_discounts: true,
+  },
+};
+mockAgents.push({ agent_id: 'agent_3', name: 'ShopHelper', agent_name: 'ShopHelper', role: 'General', agent_role: 'General', agent_tone: 'Friendly', agent_language: 'Mimic User Language', agent_timezone: 'UTC', human_handover_sign: '#pause', comment_instruction: null });
 mockAgents = mockAgents.map(agent => ({
   ...agent,
+  follow_up_settings: MOCK_FOLLOW_UP_SETTINGS[agent.agent_id] ?? null,
+  suggested_negotiation_rule: MOCK_SUGGESTED_RULE,
   negotiation_rules: MOCK_AGENT_DISCOUNTS[agent.agent_id]?.negotiation_rules || [],
   coupons: MOCK_AGENT_DISCOUNTS[agent.agent_id]?.coupons || [],
   response_format: agent.response_format || MOCK_REPLY_STYLE_DEFAULTS.format,
@@ -1808,11 +1877,15 @@ const requestApi = async (endpoint, options = {}) => {
       for (let day = 0; day < 31; day += 1) {
         const perDay = 18 + ((day * 7 + seed * 3) % 23);
         for (let i = 0; i < perDay; i += 1) {
+          // Mostly replies; some follow-up runs (one in four decided not to send) and comment work.
+          const type = i % 11 === 4 ? 'follow_up' : i % 13 === 6 ? 'comment' : 'inbox';
           agent_activities.push({
             activity_id: `act_${seed}_${day}_${i}`,
+            activity_type: type,
+            ...(type === 'follow_up' ? { additional_data: { sent: (day + i) % 4 !== 0, step: 1 + (day % 3) } } : {}),
             response_time_ms: 900 + i * 40,
             status: i % 7 === 3 ? 'failed' : 'success',
-            is_human_handover: i % 9 === 5,
+            is_human_handover: type === 'inbox' && i % 9 === 5,
             created_at: new Date(Date.now() - day * 86400000 - Math.floor((i * 86400000) / perDay) - ((i * 37 + seed * 11) % 50) * 60000).toISOString(),
           });
         }
@@ -2145,10 +2218,41 @@ const requestApi = async (endpoint, options = {}) => {
       const conversation = mockInbox.find(item => item.conversation_id === conversationInfoMatch[1]);
       if (conversation) return mockInboxItem(conversation);
     }
+    // Follow-ups in one chat. Skip plans the next step of SalesBot's settings from the
+    // agent's last message, never sooner than 60 minutes, and drops it past Meta's 24 hours
+    // minus the 1-hour margin.
+    const followUpMatch = endpoint.match(/^\/v1\/page\/([^/]+)\/conversations\/([^/]+)\/follow-up(\/skip)?$/);
+    if (followUpMatch && ((method === 'PATCH' && !followUpMatch[3]) || (method === 'POST' && followUpMatch[3]))) {
+      const [, pageId, conversationId, skip] = followUpMatch.map(part => (part ? decodeURIComponent(part) : part));
+      const conversation = mockInbox.find(item => item.conversation_id === conversationId);
+      if (!conversation || conversation.page_id !== pageId) mockErrorWith(404, 'Conversation not found on this page');
+      let changes;
+      if (skip) {
+        changes = {};
+        if (conversation.next_follow_up_at) {
+          const steps = mockAgents.find(agent => agent.agent_id === 'agent_1')?.follow_up_settings?.steps || [];
+          const index = (conversation.follow_up_index ?? 0) + 1;
+          const deadline = conversation.last_customer_at + 23 * MOCK_HOUR;
+          const due = steps[index] ? Math.max((conversation.follow_up_anchor ?? Date.now()) + steps[index].delay_minutes * 60000, Date.now() + 60 * 60000) : null;
+          // SalesBot's night hours (23:00 to 08:00, Asia/Dhaka = UTC+6): a reminder due then waits until 08:00.
+          const dhakaHour = due ? new Date(due + 6 * MOCK_HOUR).getUTCHours() : 0;
+          const morning = due && (dhakaHour >= 23 || dhakaHour < 8)
+            ? (() => { const day = new Date(due + 6 * MOCK_HOUR + (dhakaHour >= 23 ? 24 * MOCK_HOUR : 0)); day.setUTCHours(8, 0, 0, 0); return day.getTime() - 6 * MOCK_HOUR; })()
+            : due;
+          changes = { follow_up_index: index, next_follow_up_at: morning && morning <= deadline ? new Date(morning).toISOString() : null };
+        }
+      } else {
+        const { is_follow_up_enabled: isEnabled } = JSON.parse(requestOptions.body || '{}');
+        if (typeof isEnabled !== 'boolean') mockErrorWith(422, 'body.is_follow_up_enabled: Field required');
+        changes = { is_follow_up_enabled: isEnabled, ...(isEnabled ? {} : { next_follow_up_at: null }) };
+      }
+      mockInbox = mockInbox.map(item => (item.conversation_id === conversationId ? { ...item, ...changes } : item));
+      return mockInboxItem(mockInbox.find(item => item.conversation_id === conversationId));
+    }
     const pauseMatch = endpoint.match(/^\/v1\/agent\/page\/[^/]+\/conversation\/([^/]+)\/pause$/);
     if (pauseMatch && method === 'PATCH') {
       const body = JSON.parse(requestOptions.body || '{}');
-      mockInbox = mockInbox.map(item => (item.conversation_id === pauseMatch[1] ? { ...item, is_human_needed: Boolean(body.pause_status) } : item));
+      mockInbox = mockInbox.map(item => (item.conversation_id === pauseMatch[1] ? { ...item, is_human_needed: Boolean(body.pause_status), ...(body.pause_status ? { next_follow_up_at: null } : {}) } : item));
       return body;
     }
     const shortThreadMatch = endpoint.match(/^\/v1\/page\/page_[13]\/conversation\/(conv_[2-4678])(?:\?|$)/);
@@ -2160,6 +2264,13 @@ const requestApi = async (endpoint, options = {}) => {
         { id: `${conversation.conversation_id}_2`, message_id: `${conversation.conversation_id}_2`, role: 'page', is_ai_msg: true, message: 'Thanks for reaching out! Let me check that for you.', created_at: at(-3), is_delivered: true, delivered_at: at(-3), is_read: true, read_at: at(-2) },
         { id: `${conversation.conversation_id}_1`, message_id: `${conversation.conversation_id}_1`, role: 'user', is_ai_msg: false, message: 'Hi there', created_at: at(-4) },
       ];
+      if (conversation.conversation_id === 'conv_6') {
+        const sent = (minutes) => ({ is_delivered: true, delivered_at: at(minutes), is_read: false, read_at: null });
+        messages.unshift(
+          { id: 'conv_6_5', message_id: 'conv_6_5', role: 'page', is_ai_msg: true, follow_up_step: 1, agent_activity_id: 'act_fu_conv6', message: MOCK_FOLLOW_UPS.conv_6.last_message.message, created_at: at(121), ...sent(121) },
+          { id: 'conv_6_4', message_id: 'conv_6_4', role: 'page', is_ai_msg: true, follow_up_step: null, message: 'Yes, it comes in blue too: ৳990, and delivery inside Dhaka is free. Would you like one?', created_at: at(1), ...sent(1), is_read: true, read_at: at(2) },
+        );
+      }
       return { messages, pagination: { has_more: false, next_cursor: null, page_size: messages.length, total: messages.length } };
     }
     // Visual-match labels: att_img_2 is "not processed yet" (422) so that state shows too.
@@ -2233,6 +2344,9 @@ const requestApi = async (endpoint, options = {}) => {
         // Omitted means the backend default; null (or '') turns it off.
         human_handover_sign: body.human_handover_sign === undefined ? '#pause' : (body.human_handover_sign || null),
         namespace_id: null, total_dialog: 0, handover_count: 0, created_at: now, updated_at: now,
+        // New Sales and General agents start with follow-ups on; Support agents never send them.
+        follow_up_settings: /support/i.test(body.agent_role || '') ? null : MOCK_FOLLOW_UP_DEFAULTS,
+        suggested_negotiation_rule: MOCK_SUGGESTED_RULE, negotiation_rules: [], coupons: [],
       };
       mockAgents = [...mockAgents, created];
       return created;
@@ -2258,6 +2372,7 @@ const requestApi = async (endpoint, options = {}) => {
       }
       if ('human_handover_sign' in body) body.human_handover_sign = body.human_handover_sign || null;
       mockCheckDiscounts(body, fail422);
+      if ('follow_up_settings' in body && body.follow_up_settings !== null) body.follow_up_settings = mockCheckFollowUps(body.follow_up_settings, fail422);
       if (typeof body.comment_instruction === 'string' && body.comment_instruction.length > 1000) {
         const error = new Error('body.comment_instruction: String should have at most 1000 characters');
         error.status = 422;
@@ -3385,6 +3500,18 @@ export const apiService = {
   setConversationPauseStatus: (pageId, conversationId, pauseStatus) => apiFetch(`/v1/agent/page/${pageId}/conversation/${conversationId}/pause`, {
     method: 'PATCH',
     body: JSON.stringify({ pause_status: pauseStatus }),
+  }),
+  // Follow-ups in one chat (any member; 60 a minute). Both return the updated
+  // ConversationInfo. Switching off clears next_follow_up_at; switching on plans nothing
+  // until the agent's next reply. Skip drops the waiting reminder and plans the next step
+  // (never sooner than 60 minutes), or null after the last one; with none waiting, or one
+  // already being sent, nothing changes and it still answers 200.
+  setConversationFollowUp: (pageId, conversationId, isEnabled) => apiFetch(`/v1/page/${encodeURIComponent(pageId)}/conversations/${encodeURIComponent(conversationId)}/follow-up`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_follow_up_enabled: Boolean(isEnabled) }),
+  }),
+  skipConversationFollowUp: (pageId, conversationId) => apiFetch(`/v1/page/${encodeURIComponent(pageId)}/conversations/${encodeURIComponent(conversationId)}/follow-up/skip`, {
+    method: 'POST',
   }),
 
   // Integrations

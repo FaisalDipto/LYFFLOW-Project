@@ -258,3 +258,7 @@ select.ad-input { padding-right: 28px; cursor: pointer; }
   .ad-grid { grid-template-columns: minmax(0, 1fr); }
   .ad-item-summary { white-space: normal; }
 }
+
+/* The suggested rule an agent without discounts starts from (from Follow-ups). */
+.ad-note-suggested { border-color: color-mix(in srgb, var(--ad-accent) 35%, var(--ad-line)); background: var(--ad-accent-soft); }
+.ad-note-suggested svg { color: var(--ad-accent); }

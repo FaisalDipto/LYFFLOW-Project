@@ -253,19 +253,24 @@ const couponsPayload = (coupons) => coupons.map(couponToPayload);
 /**
  * Discounts for one agent: negotiation rules (hidden from customers) and coupons.
  * Saves both lists through PATCH /v1/agent/update/{agent_id}.
+ * `suggestedRule` (the agent's suggested_negotiation_rule) starts an agent with no rules
+ * and no coupons from that rule, unsaved: nothing is stored until the owner saves.
  * @param {{ agent: object, currency: string, onClose: () => void,
- *   onSave: (changes: object) => Promise<object|void> }} props
+ *   onSave: (changes: object) => Promise<object|void>, suggestedRule?: object|null }} props
  */
-export default function AgentDiscounts({ agent, currency = 'BDT', onClose, onSave }) {
+export default function AgentDiscounts({ agent, currency = 'BDT', onClose, onSave, suggestedRule = null }) {
   const timeZone = agent.agent_timezone;
   const initial = useMemo(() => ({
     rules: (agent.negotiation_rules || []).map(ruleToDraft),
     coupons: (agent.coupons || []).map(coupon => couponToDraft(coupon, timeZone)),
   }), [agent, timeZone]);
+  const [suggested] = useState(() => (
+    suggestedRule && !initial.rules.length && !initial.coupons.length ? ruleToDraft(suggestedRule) : null
+  ));
   const [tab, setTab] = useState('rules');
-  const [rules, setRules] = useState(initial.rules);
+  const [rules, setRules] = useState(suggested ? [suggested] : initial.rules);
   const [coupons, setCoupons] = useState(initial.coupons);
-  const [openKey, setOpenKey] = useState(null);
+  const [openKey, setOpenKey] = useState(suggested?.key ?? null);
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -440,6 +445,12 @@ export default function AgentDiscounts({ agent, currency = 'BDT', onClose, onSav
 
         <div className="ad-body">
           {isPreview ? <PromptPreview agentId={agent.agent_id} reloadKey={savedVersion} dirty={dirty} /> : <>
+          {isRules && suggested && rules.some(rule => rule.key === suggested.key) && rulesChanged && (
+            <div className="ad-note ad-note-suggested">
+              <Info size={15} strokeWidth={1.75} aria-hidden="true" />
+              <p>A suggested rule to start from: {describeRuleDiscount(suggested, currency)} on all products. Change it if you like (for example to a fixed amount in {currency}), then save to turn it on.</p>
+            </div>
+          )}
           <div className="ad-note">
             <Info size={15} strokeWidth={1.75} aria-hidden="true" />
             {isRules ? (

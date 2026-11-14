@@ -1,4 +1,4 @@
-﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, ChartColumnIncreasing, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug, Tag, Megaphone, ExternalLink, ShoppingBag } from 'lucide-react';
+﻿import { ArrowLeftRight, Book, Hourglass, Building2, Check, CheckCheck, CheckCircle2, Clock3, Film, Image as ImageIcon, Mic, Paperclip, Reply, TriangleAlert, ChevronDown, ClipboardList, CreditCard, Headphones, HelpCircle, Inbox, Layers, LayoutDashboard, ChartColumnIncreasing, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap, Mail, Menu, MessageCircleWarning, MessageSquare, MessageSquareText, Moon, Settings, ShieldCheck, ShoppingCart, Sun, Target, Trash2, TrendingUp, User, UserRound, Users, X, Zap, Package, FileText, Truck, Bike, PackageCheck, Plug, Tag, Megaphone, ExternalLink, ShoppingBag, BellRing } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import '@fontsource-variable/hanken-grotesk';
@@ -47,9 +47,12 @@ import ReplyComposer from '../components/conversation/ReplyComposer';
 import LinkPreview, { LinkifiedText } from '../components/conversation/LinkPreview';
 import ProductCardsMessage from '../components/conversation/ProductCardsMessage';
 import ConversationNote from '../components/conversation/ConversationNote';
+import { FollowUpBar, FollowUpSection } from '../components/conversation/FollowUpControls';
+import { isSupportAgent } from '../utils/followUps';
 import ImageProductLabel from '../components/conversation/ImageProductLabel';
 import AgentReplyStyle from '../components/AgentReplyStyle';
 import AgentDiscounts from '../components/dashboard/AgentDiscounts';
+import AgentFollowUps from '../components/dashboard/AgentFollowUps';
 import { examplesToRows, exampleProblems, RESPONSE_FORMAT_MAX, rowsToExamples, sameExamples } from '../utils/agentReplyStyle';
 import PlatformMark from '../components/PlatformMark';
 import { isInstagram } from '../utils/platforms';
@@ -897,6 +900,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
   const [assigningConversationId, setAssigningConversationId] = useState(null);
   const [windowRefreshKey, setWindowRefreshKey] = useState(0);
   const [inboxNotice, setInboxNotice] = useState(null);
+  // Follow-ups in the open chat: which call is running, and the line after a Skip.
+  const [followUpBusy, setFollowUpBusy] = useState(null);
+  const [followUpNotice, setFollowUpNotice] = useState(null);
   const dismissInboxNotice = useCallback(() => setInboxNotice(null), []);
   const { canManage } = useBusiness();
   const team = useTeamMembers(user?.email);
@@ -1434,6 +1440,8 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
 
     try {
       await apiService.setConversationPauseStatus(activePageId, convId, newStatus);
+      // A chat handed to a person drops its waiting reminder (the stream says so too).
+      if (newStatus) applyContactChanges(convId, { next_follow_up_at: null });
     } catch (err) {
       console.error("Failed to toggle AI pause status:", err);
       // Revert on error
@@ -1446,6 +1454,64 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
     }
   };
 
+
+  // Follow-ups in one chat: the switch and Skip. Both answer with the updated
+  // ConversationInfo; only its follow-up fields are taken from it.
+  const followUpFields = (info, fallback) => ({
+    is_follow_up_enabled: info && 'is_follow_up_enabled' in info ? info.is_follow_up_enabled : fallback.is_follow_up_enabled,
+    next_follow_up_at: info && 'next_follow_up_at' in info ? info.next_follow_up_at : fallback.next_follow_up_at,
+  });
+  const followUpErrorText = (err) => (err?.status === 429 ? 'Too many changes at once. Try again in a minute.'
+    : err?.status === 403 ? "You can't change follow-ups for this chat."
+      : err?.status === 404 ? 'This chat is no longer on this page.'
+        : err?.message || "Couldn't change follow-ups. Try again.");
+
+  const handleFollowUpToggle = async (enabled) => {
+    if (!activePageId || !activeConversationId || followUpBusy) return;
+    const convId = activeConversationId;
+    const previous = { is_follow_up_enabled: activeContact?.is_follow_up_enabled ?? true, next_follow_up_at: activeContact?.next_follow_up_at ?? null };
+    setFollowUpBusy('toggle');
+    setFollowUpNotice(null);
+    // Switching off clears the waiting reminder; switching on plans nothing by itself.
+    applyContactChanges(convId, { is_follow_up_enabled: enabled, ...(enabled ? {} : { next_follow_up_at: null }) });
+    try {
+      const info = await apiService.setConversationFollowUp(activePageId, convId, enabled);
+      applyContactChanges(convId, followUpFields(info, { is_follow_up_enabled: enabled, next_follow_up_at: enabled ? previous.next_follow_up_at : null }));
+    } catch (err) {
+      applyContactChanges(convId, previous);
+      setInboxNotice({ tone: 'error', text: followUpErrorText(err) });
+    } finally {
+      setFollowUpBusy(null);
+    }
+  };
+
+  const handleFollowUpSkip = async () => {
+    if (!activePageId || !activeConversationId || followUpBusy) return;
+    const convId = activeConversationId;
+    const skipped = activeContact?.next_follow_up_at || null;
+    setFollowUpBusy('skip');
+    setFollowUpNotice(null);
+    try {
+      const info = await apiService.skipConversationFollowUp(activePageId, convId);
+      const fields = followUpFields(info, { is_follow_up_enabled: activeContact?.is_follow_up_enabled ?? true, next_follow_up_at: null });
+      applyContactChanges(convId, fields);
+      if (skipped && fields.next_follow_up_at === skipped) {
+        // Unchanged: the server had already picked it up to send. It shows in the thread when it goes out.
+        setFollowUpNotice({ conversationId: convId, text: "This one was already being sent, so it couldn't be skipped." });
+        setTimeout(() => {
+          apiService.getConversationInfo(convId)
+            .then(fresh => applyContactChanges(convId, followUpFields(fresh, fields)))
+            .catch(() => {});
+        }, 5000);
+      } else {
+        setFollowUpNotice({ conversationId: convId, text: fields.next_follow_up_at ? 'Skipped. The next reminder takes its place.' : 'Skipped. No more reminders are waiting in this chat.' });
+      }
+    } catch (err) {
+      setInboxNotice({ tone: 'error', text: followUpErrorText(err) });
+    } finally {
+      setFollowUpBusy(null);
+    }
+  };
 
   // What to tell the agent when a reply is refused.
   const replyErrorMessage = (err) => {
@@ -1931,6 +1997,11 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                     <span className="material-symbols-outlined" style={{ fontSize: '9px' }}>smart_toy</span>AI
                   </span>
                 )}
+              {msg.follow_up_step != null && (
+                <span className="message-follow-up inline-flex items-center gap-0.5 rounded-full bg-indigo-100 px-1.5 py-0.5 font-bold text-indigo-700" style={{ fontSize: '9px' }} title="A reminder the agent sent because the customer stopped replying">
+                  <BellRing size={9} strokeWidth={2.5} aria-hidden="true" />Follow-up {msg.follow_up_step}
+                </span>
+              )}
               {!isAiSource && senderName && (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-100 px-1.5 py-0.5 font-bold text-sky-700" style={{ fontSize: '9px' }} title="Sent by a team member">
                   <span className="material-symbols-outlined" style={{ fontSize: '9px' }}>person</span>{senderName}
@@ -2424,6 +2495,13 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                   <MessagingWindowNotice status={windowStatus.data} />
                 </div>
               )}
+              <FollowUpBar
+                contact={activeContact}
+                busy={followUpBusy}
+                notice={followUpNotice?.conversationId === activeConversationId ? followUpNotice.text : null}
+                onSkip={handleFollowUpSkip}
+                onToggle={handleFollowUpToggle}
+              />
               <ReplyComposer
                 key={activeConversationId}
                 disabled={windowState === 'closed'}
@@ -2586,6 +2664,9 @@ const ConversationList = ({ pages, user, focusRequest, onNavigate }) => {
                     note={activeContact?.note ?? null}
                     onSaved={updated => applyContactChanges(activeConversationId, { note: updated?.note ?? null })}
                   />
+                )}
+                {activeConversationId && activePageId && (
+                  <FollowUpSection contact={activeContact} busy={followUpBusy} onToggle={handleFollowUpToggle} onSkip={handleFollowUpSkip} />
                 )}
                 {(activeContact?.conversation_id || activeContact?.id) && (
                   <Suspense fallback={null}>
@@ -3880,6 +3961,17 @@ const AgentLog = ({ agents }) => {
     pending: { bg: 'bg-amber-100',   text: 'text-amber-700',   dot: 'bg-amber-400',   label: 'Pending' },
   };
   const getStatusCfg = (s) => statusConfig[s?.toLowerCase()] || { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400', label: s || '—' };
+  // activity_type: a reply (rows before the release count as one), comment work, or a
+  // follow-up run, which is a row even when the agent chose not to send.
+  const activityTypeLabel = (act) => {
+    const type = act?.activity_type || 'inbox';
+    if (type === 'follow_up') {
+      const notSent = act.additional_data?.sent === false;
+      return { label: notSent ? 'Follow-up · not sent' : 'Follow-up', className: notSent ? 'bg-slate-100 text-slate-500' : 'bg-indigo-100 text-indigo-700', title: notSent ? 'The agent decided a reminder made no sense here. Nothing was sent or charged.' : 'A reminder to a customer who stopped replying' };
+    }
+    if (type === 'comment') return { label: 'Comment', className: 'bg-violet-100 text-violet-700', title: 'Comment moderation or cleanup' };
+    return { label: 'Reply', className: 'bg-slate-100 text-slate-600', title: 'A reply to a customer message' };
+  };
 
   const fmt = (ts) => {
     if (!ts) return '—';
@@ -3960,9 +4052,15 @@ const AgentLog = ({ agents }) => {
                 onClick={() => handleRowClick(act)}
                 className="grid grid-cols-[1.5fr_1.5fr_1.2fr_1fr_1.5fr] gap-4 items-center px-6 py-4 border-b border-[#f0f2f4] last:border-0 hover:bg-[#f7f9fb] cursor-pointer transition-colors group"
               >
-                {/* Activity ID */}
-                <span className="font-mono text-xs text-slate-500 font-semibold truncate" title={act.activity_id}>
-                  {act.activity_id ? (act.activity_id.length > 12 ? `${act.activity_id.slice(0, 8)}...` : act.activity_id) : '—'}
+                {/* Activity ID and type */}
+                <span className="flex min-w-0 flex-col items-start gap-1">
+                  <span className="max-w-full font-mono text-xs text-slate-500 font-semibold truncate" title={act.activity_id}>
+                    {act.activity_id ? (act.activity_id.length > 12 ? `${act.activity_id.slice(0, 8)}...` : act.activity_id) : '—'}
+                  </span>
+                  {(() => {
+                    const type = activityTypeLabel(act);
+                    return <span className={`activity-type rounded-full px-2 py-0.5 text-[10px] font-bold ${type.className}`} title={type.title}>{type.label}</span>;
+                  })()}
                 </span>
                 {/* Status */}
                 <div className="flex items-center gap-2.5">
@@ -4054,6 +4152,7 @@ const AgentLog = ({ agents }) => {
                   <ul className="space-y-3">
                     {[
                       { label: 'Activity ID',    value: selectedActivity.activity_id, alwaysShow: true },
+                      { label: 'Type',           value: activityTypeLabel(selectedActivity).label, alwaysShow: true },
                       { label: 'Agent Name',     value: selectedActivity.agent_name },
                       { label: 'Status',         value: selectedActivity.status, alwaysShow: true },
                       { label: 'Response Time',  value: selectedActivity.response_time_ms != null ? `${(selectedActivity.response_time_ms / 1000).toFixed(2)} s` : '—', alwaysShow: true },
@@ -4277,6 +4376,10 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
   const [customizingAvatarAgent, setCustomizingAvatarAgent] = useState(null);
   const [commentRulesAgent, setCommentRulesAgent] = useState(null);
   const [discountsAgent, setDiscountsAgent] = useState(null);
+  // From Follow-ups, for an agent without discounts: the discounts dialog starts from
+  // the agent's suggested_negotiation_rule (nothing is saved until the owner saves).
+  const [discountsSuggestion, setDiscountsSuggestion] = useState(null);
+  const [followUpsAgent, setFollowUpsAgent] = useState(null);
   const [commentRulesDraft, setCommentRulesDraft] = useState(null);
   const [commentInstructionDraft, setCommentInstructionDraft] = useState('');
   const [savingCommentRules, setSavingCommentRules] = useState(false);
@@ -4429,6 +4532,17 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
     };
     if (onAgentEdited) onAgentEdited(agent.agent_id, saved);
     addToast('Discounts saved', 'success');
+  };
+
+  // follow_up_settings is sent whole (null turns follow-ups off). A stored value the
+  // backend no longer accepts comes back as null, so keep what the response says.
+  const saveAgentFollowUps = async (settings) => {
+    const agent = followUpsAgent;
+    const response = await apiService.updateAgent(agent.agent_id, { follow_up_settings: settings });
+    const saved = response && 'follow_up_settings' in response ? response.follow_up_settings : settings;
+    if (onAgentEdited) onAgentEdited(agent.agent_id, { follow_up_settings: saved });
+    setFollowUpsAgent(prev => (prev ? { ...prev, follow_up_settings: saved } : prev));
+    addToast(saved?.is_enabled ? 'Follow-ups saved' : 'Follow-ups are off', 'success');
   };
 
   const handleUnassignNamespace = async (agentId) => {
@@ -5477,8 +5591,19 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
                       )}
                     </button>
                     <button
+                      onClick={(e) => { e.stopPropagation(); setFollowUpsAgent(agent); }}
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-200"
+                      title="Reminders to customers who stopped replying"
+                    >
+                      <BellRing size={14} strokeWidth={2.2} aria-hidden="true" />
+                      Follow-ups
+                      {agent.follow_up_settings?.is_enabled && !isSupportAgent(agent) && (
+                        <span className="rounded-full bg-emerald-100 px-1.5 text-[9px] font-black text-emerald-700">On</span>
+                      )}
+                    </button>
+                    <button
                       onClick={() => handleEditClick(agent)}
-                      className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-2 text-[11px] font-bold text-white transition hover:bg-slate-800"
+                      className="col-span-2 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-2 text-[11px] font-bold text-white transition hover:bg-slate-800"
                     >
                       Configure <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </button>
@@ -5500,8 +5625,24 @@ const AgentPanel = ({ user, pages, namespaces, onUpdate, onAgentCreated, onAgent
             key={discountsAgent.agent_id}
             agent={discountsAgent}
             currency={business?.currency || 'BDT'}
-            onClose={() => setDiscountsAgent(null)}
+            onClose={() => { setDiscountsAgent(null); setDiscountsSuggestion(null); }}
             onSave={saveAgentDiscounts}
+            suggestedRule={discountsSuggestion}
+          />
+        )}
+        {followUpsAgent && (
+          <AgentFollowUps
+            key={followUpsAgent.agent_id}
+            agent={followUpsAgent}
+            onClose={() => setFollowUpsAgent(null)}
+            onSave={saveAgentFollowUps}
+            onEditAgent={() => { const agent = followUpsAgent; setFollowUpsAgent(null); handleEditClick(agent); }}
+            onOpenDiscounts={() => {
+              const agent = agents.find(item => item.agent_id === followUpsAgent.agent_id) || followUpsAgent;
+              setFollowUpsAgent(null);
+              setDiscountsSuggestion(agent.suggested_negotiation_rule || null);
+              setDiscountsAgent(agent);
+            }}
           />
         )}
         {assignNamespacePortal}

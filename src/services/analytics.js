@@ -188,7 +188,8 @@ export async function loadMessageActivity(agents, range) {
   // Every agent failing is an error to show, not an empty chart.
   if (agentList.length > 0 && loaded.length === 0) throw failures[0].reason;
 
-  loaded.flatMap(result => result.items).forEach(activity => {
+  // Replies only: follow-up runs and comment work are rows of their own (activity_type).
+  loaded.flatMap(result => result.items).filter(activity => (activity.activity_type || 'inbox') === 'inbox').forEach(activity => {
     const bucket = byKey.get(bucketKey(parseTimestamp(activity.created_at), size));
     if (!bucket) return;
     if (activity.status === 'failed') bucket.unreplied += 1;

@@ -1,0 +1,128 @@
+/* Follow-ups dialog. Builds on AgentDiscounts.css (same overlay, panel, fields and
+   colour variables), so it follows the dashboard theme the same way. */
+
+.fu-panel { width: 680px; }
+
+.fu-switch {
+  position: relative; flex-shrink: 0; width: 40px; height: 22px; padding: 0;
+  border: 0; border-radius: 999px; background: var(--ad-line-strong); cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+.fu-switch span {
+  position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 999px;
+  background: #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); transition: transform 0.18s ease;
+}
+.fu-switch[aria-checked='true'] { background: var(--ad-accent); }
+.fu-switch[aria-checked='true'] span { transform: translateX(18px); }
+.fu-switch:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.fu-main {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 16px; border: 1px solid var(--ad-line); border-radius: 12px; background: var(--ad-card);
+}
+.fu-main-title { font-size: 14px; font-weight: 600; color: var(--ad-text); }
+.fu-main-sub { margin-top: 2px !important; font-size: 12.5px; color: var(--ad-text-2); }
+
+.fu-settings { transition: opacity 0.18s ease; }
+.fu-settings.is-off { opacity: 0.55; }
+
+/* Timeline: 0 to 24 hours after the last message */
+.fu-timeline { margin: 22px 4px 4px; }
+.fu-track {
+  position: relative; height: 6px; margin: 30px 0 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--ad-accent) 18%, var(--ad-seg));
+}
+.fu-margin {
+  position: absolute; top: 0; right: 0; bottom: 0; border-radius: 0 999px 999px 0;
+  background: repeating-linear-gradient(135deg, var(--ad-line-strong) 0 3px, transparent 3px 6px);
+}
+.fu-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; }
+.fu-dot {
+  display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px;
+  border: 2px solid var(--ad-bg); background: var(--ad-accent); color: var(--ad-bg);
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.fu-marker-label {
+  position: absolute; bottom: 24px; white-space: nowrap; font-size: 11.5px; font-weight: 600; color: var(--ad-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.fu-scale { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: 11.5px; font-weight: 600; color: var(--ad-muted); }
+.fu-scale span { display: flex; flex-direction: column; gap: 1px; }
+.fu-scale small { font-size: 11px; font-weight: 500; }
+.fu-scale-mid { align-items: center; }
+.fu-scale-end { align-items: flex-end; text-align: right; }
+
+/* Sections */
+.fu-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 10px; }
+.fu-section-title { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 13.5px; font-weight: 600; color: var(--ad-text); }
+.fu-section-title svg { color: var(--ad-muted); }
+.fu-section-note { font-size: 12px; color: var(--ad-muted); }
+
+/* Reminders */
+.fu-steps { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.fu-step { border: 1px solid var(--ad-line); border-radius: 12px; background: var(--ad-bg); }
+.fu-step[data-invalid='true'] { border-color: color-mix(in srgb, var(--ad-danger) 45%, var(--ad-line)); }
+.fu-step-head { display: flex; align-items: center; gap: 9px; padding: 9px 10px 0 14px; min-height: 30px; }
+.fu-step-number {
+  display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px;
+  background: var(--ad-accent-soft); color: var(--ad-accent); font-size: 11px; font-weight: 700;
+}
+.fu-step-title { flex: 1; font-size: 13px; font-weight: 600; color: var(--ad-text); }
+.fu-step-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 14px; padding: 10px 14px 14px; }
+.fu-delay { display: flex; gap: 8px; }
+.fu-delay .ad-unit { width: 92px; }
+.fu-textarea { height: auto; min-height: 44px; padding: 8px 11px; line-height: 1.5; resize: vertical; font-family: inherit; }
+.fu-field-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.fu-count { flex-shrink: 0; font-size: 11px; color: var(--ad-muted); font-variant-numeric: tabular-nums; }
+.fu-optional { margin-left: 4px; font-weight: 500; color: var(--ad-muted); }
+
+/* Night hours */
+.fu-night { display: flex; flex-direction: column; gap: 8px; }
+.fu-night-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; }
+.fu-night-field { display: flex; flex-direction: column; gap: 5px; width: 132px; }
+.fu-night-zone { display: flex; flex-direction: column; gap: 5px; }
+.fu-zone {
+  display: inline-flex; align-items: center; height: 36px; padding: 0 11px; border-radius: 9px; background: var(--ad-seg);
+  font-size: 13px; font-weight: 550; color: var(--ad-text);
+}
+.fu-night-off { margin-top: -2px !important; }
+.fu-warn {
+  display: flex; align-items: flex-start; gap: 7px; padding: 8px 10px; border-radius: 9px;
+  background: var(--ad-warn-soft); color: var(--ad-warn); font-size: 12px; line-height: 1.45;
+}
+.fu-warn svg { flex-shrink: 0; margin-top: 1px; }
+
+.fu-link {
+  padding: 0; border: 0; background: transparent; color: var(--ad-accent);
+  font-size: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+.fu-link:hover { color: var(--ad-text); }
+.fu-plain {
+  padding: 9px 11px; border: 1px dashed var(--ad-line-strong); border-radius: 10px;
+  font-size: 12.5px; line-height: 1.5; color: var(--ad-text-2);
+}
+
+/* Fixed rules */
+.fu-rules { margin-top: 22px; border: 1px solid var(--ad-line); border-radius: 12px; background: var(--ad-card); }
+.fu-rules summary {
+  display: flex; align-items: center; gap: 8px; padding: 11px 13px; list-style: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--ad-text-2);
+}
+.fu-rules summary::-webkit-details-marker { display: none; }
+.fu-rules summary:hover { color: var(--ad-text); }
+.fu-rules-chevron { margin-left: auto; color: var(--ad-muted); transition: transform 0.2s ease; }
+.fu-rules[open] .fu-rules-chevron { transform: rotate(180deg); }
+.fu-rules-body { padding: 0 14px 12px 36px; }
+.fu-rules-head { margin: 6px 0 4px !important; font-size: 12px; font-weight: 600; color: var(--ad-text); }
+.fu-rules ul { margin: 0 0 8px; padding-left: 16px; }
+.fu-rules li { font-size: 12.5px; line-height: 1.55; color: var(--ad-text-2); }
+.fu-rules li + li { margin-top: 3px; }
+
+@media (max-width: 640px) {
+  .fu-step-body { grid-template-columns: minmax(0, 1fr); }
+  .fu-scale small { display: none; }
+}
+
+/* The browser's time picker follows the dialog's theme. */
+.fu-night input[type='time'] { color-scheme: light; }
+html[data-dashboard-theme='dark'] .fu-night input[type='time'] { color-scheme: dark; }
