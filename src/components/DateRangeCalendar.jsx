@@ -29,12 +29,13 @@ const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 
 const addMonths = (date, count) => new Date(date.getFullYear(), date.getMonth() + count, 1);
 
-const DateRangeCalendar = ({ startDate = '', endDate = '', maxDate = '', onChange }) => {
+const DateRangeCalendar = ({ startDate = '', endDate = '', minDate = '', maxDate = '', onChange }) => {
   const [viewMonth, setViewMonth] = useState(() =>
     startOfMonth(fromIso(startDate) || fromIso(endDate) || new Date())
   );
 
   const max = fromIso(maxDate);
+  const min = fromIso(minDate);
   const start = fromIso(startDate);
   const end = fromIso(endDate);
 
@@ -67,10 +68,11 @@ const DateRangeCalendar = ({ startDate = '', endDate = '', maxDate = '', onChang
 
   const isSameDay = (a, b) => Boolean(a && b) && a.getTime() === b.getTime();
   const isInRange = (date) => Boolean(start && end) && date > start && date < end;
-  const isDisabled = (date) => Boolean(max) && date > max;
+  const isDisabled = (date) => (Boolean(max) && date > max) || (Boolean(min) && date < min);
 
   const monthLabel = viewMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' });
   const canGoForward = !max || startOfMonth(addMonths(viewMonth, 1)) <= startOfMonth(max);
+  const canGoBack = !min || startOfMonth(addMonths(viewMonth, -1)) >= startOfMonth(min);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-2.5">
@@ -78,8 +80,9 @@ const DateRangeCalendar = ({ startDate = '', endDate = '', maxDate = '', onChang
         <button
           type="button"
           onClick={() => setViewMonth(prev => addMonths(prev, -1))}
+          disabled={!canGoBack}
           aria-label="Previous month"
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <ChevronLeft size={15} />
         </button>

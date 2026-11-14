@@ -1,0 +1,61 @@
+/* Online time grid: one hue from light to dark by hours online in a day; 0 is the empty
+   cell. Its own steps in dark mode, chosen against the dark surface. Both ramps pass the
+   dataviz ordinal checks (monotone lightness, visible steps, light end clears the surface). */
+.team-online-time {
+  --tot-0: #eef1f4;
+  --tot-1: #62c599;
+  --tot-2: #3aac7e;
+  --tot-3: #1f8f64;
+  --tot-4: #11714d;
+  --tot-5: #095037;
+  --tot-ring: rgba(15, 23, 42, 0.06);
+  --tot-bar: #e7ebef;
+  --tot-bar-fill: #1f8f64;
+  --tot-today: #0f766e;
+}
+html[data-dashboard-theme='dark'] .team-online-time {
+  --tot-0: #1d1d1d;
+  --tot-1: #1f6b4c;
+  --tot-2: #23805b;
+  --tot-3: #2ba270;
+  --tot-4: #48c58d;
+  --tot-5: #8be3b9;
+  --tot-ring: rgba(255, 255, 255, 0.05);
+  --tot-bar: #262626;
+  --tot-bar-fill: #34c38b;
+  --tot-today: #5eead4;
+}
+
+.tot-table { min-width: 520px; }
+.tot-member-col { width: 1%; min-width: 180px; max-width: 240px; }
+.tot-member-col > span { max-width: 240px; }
+.tot-total-col { width: 1%; min-width: 96px; white-space: nowrap; }
+.tot-day-head { min-width: 22px; padding-left: 2px; padding-right: 2px; font-variant-numeric: tabular-nums; }
+.tot-day-head.is-today { color: var(--tot-today); font-weight: 700; }
+.tot-cell-wrap { padding-left: 2px; padding-right: 2px; }
+/* Over two weeks: narrower days so 30 of them fit beside the names and totals. */
+.tot-table.is-compact .tot-day-head { min-width: 15px; padding-left: 1px; padding-right: 1px; font-size: 10px; }
+.tot-table.is-compact .tot-cell-wrap { padding-left: 1px; padding-right: 1px; }
+.tot-table.is-compact .tot-member-col { min-width: 150px; }
+.tot-table.is-compact .tot-member-col > span { max-width: 190px; }
+
+.tot-cell {
+  display: inline-block; width: 100%; min-width: 18px; max-width: 34px; height: 24px; border-radius: 4px;
+  background: var(--tot-0); box-shadow: inset 0 0 0 1px var(--tot-ring); vertical-align: middle;
+}
+.tot-cell.is-compact { min-width: 12px; height: 20px; border-radius: 3px; }
+.tot-cell.is-key { width: 12px; min-width: 12px; height: 12px; border-radius: 3px; }
+.tot-level-0 { background: var(--tot-0); }
+.tot-level-1 { background: var(--tot-1); }
+.tot-level-2 { background: var(--tot-2); }
+.tot-level-3 { background: var(--tot-3); }
+.tot-level-4 { background: var(--tot-4); }
+.tot-level-5 { background: var(--tot-5); }
+.tot-cell:hover { outline: 2px solid var(--tot-today); outline-offset: 1px; }
+
+.tot-bar { position: relative; width: 100%; height: 4px; border-radius: 999px; background: var(--tot-bar); overflow: hidden; }
+.tot-bar > span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--tot-bar-fill); }
+
+@media (forced-colors: active) {
+  .tot-cell { forced-color-adjust: none; border: 1px solid CanvasText; }
+}

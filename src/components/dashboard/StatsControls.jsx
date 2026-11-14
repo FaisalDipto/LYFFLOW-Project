@@ -2,7 +2,7 @@
 // and the comparison arrow for one figure.
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, CalendarDays, ChevronDown } from 'lucide-react';
-import { MAX_PERIOD_DAYS, formatDayRange, periodDays } from '../../utils/ownerDashboard';
+import { MAX_PERIOD_DAYS, formatDay, formatDayRange, periodDays } from '../../utils/ownerDashboard';
 import { PERIODS } from '../../utils/statsPeriods';
 import DateRangeCalendar from '../DateRangeCalendar';
 
@@ -52,8 +52,9 @@ export const PageSelect = ({ pages, value, onChange }) => (
 );
 
 // Custom range: a calendar of past days and today (in the business timezone), at most
-// 30 days counting both ends. One click and Apply is a single day.
-export const CustomRange = ({ active, range, today, onApply }) => {
+// 30 days counting both ends. One click and Apply is a single day. `minDate` is the
+// earliest day there is data for (`minDateNote` says why), when there is one.
+export const CustomRange = ({ active, range, today, onApply, minDate = '', minDateNote = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState({ start_date: '', end_date: '' });
   const containerRef = useRef(null);
@@ -78,6 +79,7 @@ export const CustomRange = ({ active, range, today, onApply }) => {
   const draftDays = draft.start_date ? periodDays(draft.start_date, draftEnd) : 0;
   const tooLong = draftDays > MAX_PERIOD_DAYS;
   const inFuture = Boolean(draftEnd) && draftEnd > today;
+  const tooEarly = Boolean(minDate) && Boolean(draft.start_date) && draft.start_date < minDate;
 
   return (
     <div ref={containerRef} className="relative">
@@ -95,9 +97,11 @@ export const CustomRange = ({ active, range, today, onApply }) => {
       </button>
       {isOpen && (
         <div role="dialog" aria-label="Choose days" className="absolute right-0 top-[calc(100%+6px)] z-[1100] w-[272px] rounded-xl border border-solid border-slate-200 bg-white p-2 text-left shadow-xl">
-          <DateRangeCalendar startDate={draft.start_date} endDate={draft.end_date} maxDate={today} onChange={setDraft} />
-          <p className={`mb-2 mt-2 text-[11.5px] font-medium ${tooLong || inFuture ? 'text-rose-600' : 'text-slate-500'}`}>
-            {tooLong
+          <DateRangeCalendar startDate={draft.start_date} endDate={draft.end_date} minDate={minDate} maxDate={today} onChange={setDraft} />
+          <p className={`mb-2 mt-2 text-[11.5px] font-medium ${tooLong || inFuture || tooEarly ? 'text-rose-600' : 'text-slate-500'}`}>
+            {tooEarly
+              ? (minDateNote || `Pick ${formatDay(minDate)} or a later day.`)
+              : tooLong
               ? `Pick ${MAX_PERIOD_DAYS} days or fewer (this is ${draftDays}).`
               : inFuture
                 ? 'Pick today or an earlier day.'
@@ -108,7 +112,7 @@ export const CustomRange = ({ active, range, today, onApply }) => {
           <button
             type="button"
             onClick={() => { onApply({ start_date: draft.start_date, end_date: draftEnd }); setIsOpen(false); }}
-            disabled={!draft.start_date || tooLong || inFuture}
+            disabled={!draft.start_date || tooLong || inFuture || tooEarly}
             className="h-9 w-full rounded-lg bg-emerald-600 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {draft.start_date && draftDays === 1 ? 'Show this day' : 'Apply range'}

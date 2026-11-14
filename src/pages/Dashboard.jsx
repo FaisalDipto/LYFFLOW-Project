@@ -53,6 +53,8 @@ import ImageProductLabel from '../components/conversation/ImageProductLabel';
 import AgentReplyStyle from '../components/AgentReplyStyle';
 import AgentDiscounts from '../components/dashboard/AgentDiscounts';
 import AgentFollowUps from '../components/dashboard/AgentFollowUps';
+import OnlineStatusToggle from '../components/dashboard/OnlineStatusToggle';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { examplesToRows, exampleProblems, RESPONSE_FORMAT_MAX, rowsToExamples, sameExamples } from '../utils/agentReplyStyle';
 import PlatformMark from '../components/PlatformMark';
 import { isInstagram } from '../utils/platforms';
@@ -98,6 +100,7 @@ import ProfilePanel from '../components/dashboard/ProfilePanel';
 import SavedBadge from '../components/SavedBadge';
 const ProductSalesStatistics = lazy(() => import('../components/dashboard/ProductSalesStatistics'));
 const AdsStatistics = lazy(() => import('../components/dashboard/AdsStatistics'));
+const TeamOnlineTime = lazy(() => import('../components/dashboard/TeamOnlineTime'));
 const PlatformsCatalog = lazy(() => import('../components/dashboard/PlatformsCatalog'));
 
 const AGENT_INSTRUCTIONS_LIMIT = 1500;
@@ -7337,6 +7340,8 @@ export default function Dashboard() {
   // Active business from the session and the caller's role in it.
   const [business, setBusiness] = useState(null);
   const [role, setRole] = useState(null);
+  // The member's own online status in the active business (heartbeat every 5 minutes).
+  const presence = useOnlineStatus(business?.business_id || null);
   const [pages, setPages] = useState([]);
   const [namespaces, setNamespaces] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -7645,6 +7650,11 @@ export default function Dashboard() {
             />
           </Suspense>
         </div>}
+        {visitedTabsRef.current.has('online-time') && role === 'owner' && <div style={{ display: activeTab === 'online-time' ? 'contents' : 'none' }}>
+          <Suspense fallback={<AppLoadingScreen />}>
+            <TeamOnlineTime isActive={activeTab === 'online-time'} />
+          </Suspense>
+        </div>}
         {visitedTabsRef.current.has('channels') && <div style={{ display: activeTab === 'channels' ? 'contents' : 'none' }}>
           <Channels user={user} pages={pages} onNavigate={setActiveTab} onUpdate={refreshPages} onAddPage={(options) => setPreReauthModal(options?.includeInstagram ? { includeInstagram: true } : true)} syncStatus={pageSync.status} onRetrySync={retryPageSync} />
         </div>}
@@ -7737,6 +7747,8 @@ export default function Dashboard() {
         children: [
           { id: 'product-sales', icon: ShoppingBag, label: 'Product Sales' },
           { id: 'ads', icon: Megaphone, label: 'Ads' },
+          // Online time per member: the owner's only (admins get 403).
+          ...(role === 'owner' ? [{ id: 'online-time', icon: Clock3, label: 'Online Time' }] : []),
         ],
       }]
       : [{ id: 'product-sales', icon: ChartColumnIncreasing, label: 'Product Sales' }]),
@@ -7896,6 +7908,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <OnlineStatusToggle presence={presence} />
             <NotificationBell
               isOpen={isNotificationsOpen}
               onOpenChange={setIsNotificationsOpen}
@@ -7932,6 +7945,12 @@ export default function Dashboard() {
                 )}
                 <span className="relative z-0">{userInitial}</span>
               </div>
+              {presence.status === 'ready' && (
+                <span
+                  className={`-ml-3.5 mt-5 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-solid border-white ${presence.isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                  aria-hidden="true"
+                />
+              )}
               <span className="hidden min-w-0 text-left sm:block">
                 <span className="block max-w-[160px] truncate text-[13px] font-semibold text-slate-900">{displayUserName}</span>
                 <span className="mt-0.5 block text-[11px] font-medium text-slate-500">{currentPlanName ? `${currentPlanName} plan` : (ROLE_LABELS[role] || 'Workspace')}</span>

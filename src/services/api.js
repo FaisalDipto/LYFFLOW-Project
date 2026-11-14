@@ -606,6 +606,78 @@ const mockProductSales = (endpoint) => {
 // GET /v1/statistics/ads and /ads/orders (owners and admins). ?mockDashboard=empty is a
 // business with no ad data yet, =error a 500; ?mockRole=member gets 403.
 const mockDhakaDate = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: MOCK_DASHBOARD_TZ }).format(new Date(iso));
+// Online status of the signed-in member (PUT .../me/online-status, POST .../me/heartbeat).
+// Starts offline. ?mockPresence=online starts online (since 09:00 today);
+// ?mockPresence=expired puts the member offline 20 s after they go online, as the backend
+// does after 11 minutes without a heartbeat (the dashboard then beats every 15 s).
+const MOCK_PRESENCE = MOCK_LOAD_PARAMS.get('mockPresence') || '';
+const mockPresence = { is_online: false, online_since: null };
+if (MOCK_PRESENCE === 'online') {
+  mockPresence.is_online = true;
+  mockPresence.online_since = new Date(Date.parse(`${mockDhakaDate(new Date(MOCK_LOADED_AT).toISOString())}T09:00:00+06:00`)).toISOString();
+}
+let mockPresenceExpiry = null;
+const mockPresenceReply = () => ({ is_online: mockPresence.is_online, online_since: mockPresence.online_since });
+const mockSetPresence = (isOnline) => {
+  if (isOnline && !mockPresence.is_online) {
+    mockPresence.is_online = true;
+    mockPresence.online_since = new Date().toISOString();
+    if (MOCK_PRESENCE === 'expired') {
+      clearTimeout(mockPresenceExpiry);
+      mockPresenceExpiry = setTimeout(() => { mockPresence.is_online = false; mockPresence.online_since = null; }, 20000);
+    }
+  } else if (!isOnline) {
+    mockPresence.is_online = false;
+    mockPresence.online_since = null;
+  }
+  return mockPresenceReply();
+};
+// GET /v1/business/members/online-time (owner only): each member's online seconds per
+// day in the business timezone, kept 90 days. Alice works most days, Rafi part time,
+// and a removed member (old.hand@example.com) has time 20 to 40 days ago only.
+const MOCK_ONLINE_MEMBERS = [
+  { member_id: 'mem_2', invited_email: 'alice@example.com', is_online: true, hours: (n) => (n % 7 === 5 ? 0 : 6 + ((n * 5) % 4) + (n % 3) * 0.25) },
+  { member_id: 'mem_1', invited_email: 'demo@lyfflow.com', is_online: null, hours: (n) => (n % 7 === 6 ? 0 : 2 + ((n * 3) % 5) * 0.5) },
+  { member_id: 'mem_4', invited_email: 'rafi@example.com', is_online: false, hours: (n) => (n % 2 ? 0 : 3 + (n % 5) * 0.4) },
+  { member_id: 'mem_old', invited_email: 'old.hand@example.com', is_online: false, hours: (n) => (n >= 20 && n <= 40 && n % 3 ? 5 : 0) },
+];
+const mockOnlineTime = (endpoint) => {
+  const params = new URLSearchParams(endpoint.split('?')[1] || '');
+  const fail = (status, message) => mockDashboardError(status, message);
+  if ((new URLSearchParams(window.location.search).get('mockRole') || 'owner') !== 'owner') fail(403, 'Only the business owner can see online time.');
+  const today = mockDhakaDate(new Date().toISOString());
+  const start = params.get('start_date') || mockDayShift(today, -29);
+  const end = params.get('end_date') || today;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) fail(422, 'Dates must be YYYY-MM-DD.');
+  if (end < start) fail(422, 'end_date must not be before start_date.');
+  if (end > today) fail(422, 'end_date cannot be in the future.');
+  const days = Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1;
+  if (days > 30) fail(422, 'The range can be at most 30 days.');
+  if (start < mockDayShift(today, -89)) fail(422, 'Online time is kept for 90 days: start_date can be at most 89 days before today.');
+  const members = MOCK_ONLINE_MEMBERS.map(member => {
+    const list = [];
+    for (let i = 0; i < days; i += 1) {
+      const day = mockDayShift(start, i);
+      const back = Math.round((Date.parse(today) - Date.parse(day)) / 86400000);
+      let seconds = Math.round(member.hours(back) * 3600);
+      // Today counts only up to now, and the signed-in owner's open stretch grows live.
+      if (back === 0) {
+        const nowHours = (Date.now() + 6 * 3600000) % 86400000 / 3600000;
+        seconds = Math.min(seconds, Math.max(0, Math.round((nowHours - 9) * 3600)));
+        if (member.member_id === 'mem_1') seconds = mockPresence.is_online ? Math.round((Date.now() - Date.parse(mockPresence.online_since)) / 1000) : 0;
+      }
+      if (seconds > 0) list.push({ day, online_seconds: seconds });
+    }
+    const total = list.reduce((sum, item) => sum + item.online_seconds, 0);
+    const isOnline = member.member_id === 'mem_1' ? mockPresence.is_online : Boolean(member.is_online);
+    return { member_id: member.member_id, invited_email: member.invited_email, is_online: isOnline, online_seconds: total, days: list };
+  })
+    // Removed members are listed only with time in these days.
+    .filter(member => member.member_id !== 'mem_old' || member.online_seconds > 0)
+    .sort((a, b) => b.online_seconds - a.online_seconds);
+  if (MOCK_DASHBOARD_MODE === 'empty') members.forEach(member => { member.online_seconds = 0; member.days = []; member.is_online = false; });
+  return { start_date: start, end_date: end, timezone: MOCK_DASHBOARD_TZ, members };
+};
 const mockAdsRange = (params, { defaultToday = false } = {}) => {
   const fail = (status, message) => mockDashboardError(status, message);
   const startParam = params.get('start_date');
@@ -1355,6 +1427,7 @@ const mockData = {
     { member_id: 'mem_2', invited_email: 'alice@example.com', role: 'admin', status: 'active', joined_at: '2026-09-10T00:00:00.000Z' },
     { member_id: 'mem_4', invited_email: 'rafi@example.com', role: 'member', status: 'active', joined_at: '2026-09-18T00:00:00.000Z' },
     { member_id: 'mem_3', invited_email: 'bob@example.com', role: 'member', status: 'invited', joined_at: null },
+    { member_id: 'mem_old', invited_email: 'old.hand@example.com', role: 'member', status: 'revoked', joined_at: '2026-09-05T00:00:00.000Z' },
   ],
   '/v1/business/pages': [
     // page_1 sends its orders to Meta as purchases (?mockAdsConnect=required: not yet, and
@@ -1719,6 +1792,13 @@ const requestApi = async (endpoint, options = {}) => {
     }
     const switchMatch = endpoint.match(/^\/v1\/businesses\/([^/]+)\/switch$/);
     if (switchMatch) return { business_id: switchMatch[1], role: mockRole };
+    if (endpoint === '/v1/business/members/me/online-status' && method === 'PUT') {
+      const { is_online: isOnline } = JSON.parse(requestOptions.body || '{}');
+      if (typeof isOnline !== 'boolean') mockErrorWith(422, 'body.is_online: Input should be a valid boolean');
+      return mockSetPresence(isOnline);
+    }
+    if (endpoint === '/v1/business/members/me/heartbeat' && method === 'POST') return mockPresenceReply();
+    if (endpoint.startsWith('/v1/business/members/online-time') && method === 'GET') return mockOnlineTime(endpoint);
     if (endpoint === '/v1/business/members/invite') {
       const body = JSON.parse(requestOptions.body || '{}');
       return { member_id: 'mem_new', invited_email: body.email, role: body.role, status: 'invited', invite_link: `${window.location.origin}/invite?token=mock-token` };
@@ -2717,8 +2797,13 @@ export const clearStaticCache = () => {
   staticInFlight.clear();
 };
 
+// Writes that change nothing cached: the member's own online status and heartbeat (sent
+// every few minutes) must not drop the business, its members or the short-lived GETs.
+const KEEPS_ALL_CACHES = ['/v1/business/members/me/'];
+
 const invalidateStaticAfterWrite = (endpoint, method) => {
   const path = pathOf(endpoint);
+  if (KEEPS_ALL_CACHES.some(prefix => path.startsWith(prefix))) return;
   if (CLEARS_ALL_STATIC.some(prefix => path.startsWith(prefix)) || (path === '/v1/business' && method === 'DELETE')) {
     clearStaticCache();
     return;
@@ -3096,6 +3181,24 @@ export const apiService = {
 
   // Business members & invites
   getBusinessMembers: () => apiFetch('/v1/business/members'),
+  // The signed-in member's online status in the active business (every member). Both
+  // answer { is_online, online_since }; online_since is when the current stretch began.
+  setMyOnlineStatus: (isOnline) => apiFetch('/v1/business/members/me/online-status', {
+    method: 'PUT',
+    body: JSON.stringify({ is_online: Boolean(isOnline) }),
+    preserveGetCache: true,
+  }),
+  // "Still here": on load and every 5 minutes while online. Never puts anyone online; with
+  // no call for 11 minutes the backend puts the member offline as of their last call.
+  sendOnlineHeartbeat: () => apiFetch('/v1/business/members/me/heartbeat', { method: 'POST', preserveGetCache: true }),
+  // Online seconds per member and day (owner only). Dates in the business timezone, at most
+  // 30 days, starting no more than 89 days before today; default the last 30 days.
+  getMemberOnlineTime: ({ startDate = null, endDate = null } = {}, { signal } = {}) => {
+    const q = new URLSearchParams();
+    if (startDate && endDate) { q.set('start_date', startDate); q.set('end_date', endDate); }
+    const qs = q.toString();
+    return apiFetch(`/v1/business/members/online-time${qs ? `?${qs}` : ''}`, { signal });
+  },
   inviteBusinessMember: (email, role) => apiFetch('/v1/business/members/invite', {
     method: 'POST',
     body: JSON.stringify({ email, role }),
