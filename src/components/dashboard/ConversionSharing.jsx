@@ -27,16 +27,33 @@ export default function ConversionSharing({ pages = [], isOwner = false, onPages
   const [state, setState] = useState({});
   const facebookPages = pages.filter(page => !isInstagram(page.platform));
 
-  const toggle = async (page, next) => {
+  const isEnabled = (page) => state[page.page_id]?.enabled ?? Boolean(page.is_conversion_sharing_enabled);
+  const onCount = facebookPages.filter(isEnabled).length;
+  const allOn = facebookPages.length > 0 && onCount === facebookPages.length;
+  const anySaving = facebookPages.some(page => state[page.page_id]?.saving);
+
+  // One page's switch. `refresh` re-reads the pages (the dataset id appears once it's on);
+  // "all pages" refreshes once at the end instead.
+  const toggle = async (page, next, { refresh = true } = {}) => {
     setState(current => ({ ...current, [page.page_id]: { saving: true, enabled: next, error: null } }));
     try {
       const response = await apiService.setConversionSharing(page.page_id, next);
       setState(current => ({ ...current, [page.page_id]: { saving: false, enabled: response?.is_conversion_sharing_enabled ?? next, error: null } }));
-      // The pages list carries the dataset id once it exists.
-      onPagesChanged?.();
+      if (refresh) onPagesChanged?.();
+      return true;
     } catch (error) {
       setState(current => ({ ...current, [page.page_id]: { saving: false, enabled: undefined, error: switchError(error) } }));
+      return false;
     }
+  };
+
+  // Every Facebook page on (or off). Each page is saved on its own, so one that can't
+  // (it needs a reconnect, say) shows its own error and the rest still change.
+  const toggleAll = async (next) => {
+    const changing = facebookPages.filter(page => isEnabled(page) !== next);
+    if (changing.length === 0) return;
+    const results = await Promise.all(changing.map(page => toggle(page, next, { refresh: false })));
+    if (results.some(Boolean)) onPagesChanged?.();
   };
 
   // Reconnecting is the owner's, as everywhere else.
@@ -65,9 +82,32 @@ export default function ConversionSharing({ pages = [], isOwner = false, onPages
         <p className="m-0 rounded-xl bg-slate-50 px-3 py-3 text-[13px] text-slate-500">Connect a Facebook page to send its orders to Meta. Instagram accounts can't.</p>
       ) : (
         <ul className="m-0 list-none divide-y divide-slate-100 rounded-xl border border-solid border-slate-200 p-0">
+          {facebookPages.length > 1 && (
+            <li className="conversion-sharing-all flex items-center gap-3 rounded-t-xl bg-slate-50 px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="m-0 text-[13px] font-semibold text-slate-900">All Facebook pages</p>
+                <p className="m-0 mt-0.5 text-[12px] text-slate-500">
+                  {allOn ? 'Every page sends its orders to Meta' : onCount === 0 ? 'No page sends its orders yet' : `${onCount} of ${facebookPages.length} pages send their orders`}
+                </p>
+              </div>
+              {anySaving && <Loader2 size={15} className="animate-spin text-slate-400" aria-hidden="true" />}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={allOn ? 'true' : onCount > 0 ? 'mixed' : 'false'}
+                aria-label={allOn ? 'Stop sending orders to Meta for every page' : 'Send orders to Meta for every page'}
+                title={allOn ? 'Turn off for every page' : 'Turn on for every page'}
+                disabled={anySaving}
+                onClick={() => toggleAll(!allOn)}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-wait disabled:opacity-60 ${allOn ? 'bg-emerald-500' : onCount > 0 ? 'bg-emerald-300' : 'bg-slate-300'}`}
+              >
+                <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${allOn ? 'translate-x-5' : onCount > 0 ? 'translate-x-2.5' : ''}`} />
+              </button>
+            </li>
+          )}
           {facebookPages.map((page) => {
             const local = state[page.page_id] || {};
-            const enabled = local.enabled ?? Boolean(page.is_conversion_sharing_enabled);
+            const enabled = isEnabled(page);
             return (
               <li key={page.page_id} className="px-3 py-3">
                 <div className="flex items-center gap-3">

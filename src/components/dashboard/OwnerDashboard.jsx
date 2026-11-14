@@ -845,8 +845,7 @@ const BusyHours = ({ busyHours, isDark }) => {
 };
 
 const GrowthSection = ({ data, palette, currency, isDark, onViewProductSales }) => {
-  const { pages, busy_hours: busyHours, handovers_by_hour: handoversByHour, top_products: products, new_vs_returning: newVsReturning } = data;
-  const hourData = handoversByHour.map((count, hour) => ({ label: `${String(hour).padStart(2, '0')}:00`, value: count }));
+  const { pages, busy_hours: busyHours, top_products: products, new_vs_returning: newVsReturning } = data;
   return (
     <div className="space-y-3">
       <Card title="Pages">
@@ -883,24 +882,9 @@ const GrowthSection = ({ data, palette, currency, isDark, onViewProductSales }) 
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-5">
-        <Card className="xl:col-span-3" title="Busy hours" hint="Customer messages by weekday and hour, in your business timezone. Plan staffing and campaigns around the darkest cells.">
-          <BusyHours busyHours={busyHours} isDark={isDark} />
-        </Card>
-        <Card className="xl:col-span-2" title="Handovers by hour" hint="Handovers the AI decided, per hour of the day. The peaks show when your team is needed most.">
-          <div className="h-[180px]">
-            <RevealOnView className="h-full"><ResponsiveContainer width="100%" height="100%">
-              <BarChart data={hourData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} barCategoryGap="18%">
-                <CartesianGrid vertical={false} stroke={palette.grid} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: palette.axis, fontSize: 10 }} interval={5} />
-                <YAxis tickLine={false} axisLine={false} width={28} allowDecimals={false} tick={{ fill: palette.axis, fontSize: 10 }} />
-                <Tooltip cursor={{ fill: palette.cursor }} content={<ChartTooltip format={value => `${formatCount(value)} handovers`} />} />
-                <Bar dataKey="value" name="Handovers" fill={palette.series[1]} radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer></RevealOnView>
-          </div>
-        </Card>
-      </div>
+      <Card title="Busy hours" hint="Customer messages by weekday and hour, in your business timezone. Plan staffing and campaigns around the darkest cells.">
+        <BusyHours busyHours={busyHours} isDark={isDark} />
+      </Card>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <Card title="Top products" hint="Most units ordered, from orders that weren't cancelled. Revenue is unit price × quantity, before delivery.">
