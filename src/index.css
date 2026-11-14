@@ -26,6 +26,24 @@
   src: url('/fonts/material-symbols-home.woff2') format('woff2');
 }
 
+/* The registered legal name, লিফফ্লো (see src/config/company.js): Noto Sans Bengali
+   (SIL Open Font License) cut down to just its letters, about 5 KB. Bangla characters
+   only, so it never touches other text. */
+@font-face {
+  font-family: 'Noto Sans Bengali Legal';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/noto-sans-bengali-legal-name.woff2') format('woff2');
+  unicode-range: U+0980-09FF;
+}
+
+/* Same size and colour as the text around it; the system Bangla fonts are the fallback. */
+.legal-name {
+  font-family: 'Noto Sans Bengali Legal', 'Noto Sans Bengali', 'Kohinoor Bangla', 'Bangla Sangam MN', 'Nirmala UI', 'Vrinda', sans-serif;
+  font-weight: 400;
+}
+
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';
   font-weight: normal;

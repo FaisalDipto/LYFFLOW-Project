@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import logoImg from '../assets/logo-mark.svg';
 import titleImg from '../assets/title.webp';
+import LegalName from './LegalName';
+import { BRAND_NAME } from '../config/company';
 
 export default function Footer() {
   return (
@@ -14,7 +16,8 @@ export default function Footer() {
             <img src={titleImg} alt="LYFFLOW" width="88" height="18" loading="lazy" decoding="async" style={{ height: '18px', width: 'auto', filter: 'brightness(0) saturate(100%) invert(59%) sepia(72%) saturate(450%) hue-rotate(100deg) brightness(95%) contrast(90%)' }} />
           </Link>
           </div>
-          <p className="font-['Inter'] text-on-surface-variant text-sm">© {new Date().getFullYear()} LYFFLOW, Inc. All rights reserved.</p>
+          {/* The registered legal name: Meta Business Verification looks for it on the site. */}
+          <p className="font-['Inter'] text-on-surface-variant text-sm">© {new Date().getFullYear()} <LegalName /> ({BRAND_NAME}). All rights reserved.</p>
         </div>
         <div className="flex flex-wrap justify-center gap-10">
           <Link className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" to="legal#privacy_policy_and_security">Privacy Policy</Link>

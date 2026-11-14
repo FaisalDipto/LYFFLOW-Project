@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import LegalName from './LegalName';
+import { BRAND_NAME } from '../config/company';
 
 export default function LegalCenter() {
   const [activeSection, setActiveSection] = useState("sec-1");
@@ -132,6 +134,9 @@ export default function LegalCenter() {
           <p className="mt-6 text-on-surface-variant font-medium text-lg">
             <strong>Effective Date:</strong> April 16, 2026 <br />
             <strong>Last Updated:</strong> April 16, 2026
+          </p>
+          <p className="legal-operator mt-4 text-on-surface-variant text-lg">
+            {BRAND_NAME} is a service operated by <LegalName /> ("{BRAND_NAME}", "we", "us").
           </p>
         </header>
 

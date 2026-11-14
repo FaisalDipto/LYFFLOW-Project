@@ -80,14 +80,14 @@ const ChartTooltip = ({ active, payload, label, format }) => {
 // are missing. `fix` is what fixes it: a reconnect (owner) or trying again.
 const SPEND_NOTICES = {
   partial: { tone: 'info', text: 'Ad spend is missing for some ads. The rows without a figure show which.' },
-  reconnect_required: { tone: 'warn', fix: 'reconnect', text: "LyfFlow can't read your ad spend: the page's Facebook login has expired or didn't allow access to ads. Reconnect the page and allow access to ads." },
+  reconnect_required: { tone: 'warn', fix: 'reconnect', text: "Lyfflow can't read your ad spend: the page's Facebook login has expired or didn't allow access to ads. Reconnect the page and allow access to ads." },
   no_ad_account_access: { tone: 'warn', fix: 'reconnect', text: "The Facebook account that connected the page can't see the ad account, so there's no ad spend here. Reconnect with an account that can see it in Ads Manager." },
   unavailable: { tone: 'warn', fix: 'retry', text: "Ad spend isn't available right now: Meta didn't answer in time. Chats, orders and sales are up to date. Try again in a minute." },
 };
 
 /**
  * Ads (GET /v1/statistics/ads and /ads/orders): per campaign, ad set and Send-message ad,
- * the chats it opened, the orders that followed and sales (LyfFlow's), next to Meta's spend,
+ * the chats it opened, the orders that followed and sales (Lyfflow's), next to Meta's spend,
  * cost per order and purchase counts, read live from Meta; plus the orders themselves.
  * Owners and admins only.
  * @param {{ pages?: object[], isActive?: boolean, isDark?: boolean, isOwner?: boolean,
@@ -317,7 +317,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
               <Megaphone size={28} className="text-slate-400" aria-hidden="true" />
               <p className="m-0 mt-3 text-[15px] font-semibold text-slate-900">No chats from ads {period.phrase === 'today' ? 'today' : `in ${period.phrase}`}</p>
               <p className="m-0 mt-1 max-w-md text-[13px] leading-relaxed text-slate-500">
-                An ad shows up here once a customer opens a chat from a Send-message ad. LyfFlow started counting when this section went live,
+                An ad shows up here once a customer opens a chat from a Send-message ad. Lyfflow started counting when this section went live,
                 so older ad chats aren't included. {Number(totals?.all_orders) > 0 && `${formatCount(totals.all_orders)} ${totals.all_orders === 1 ? 'order' : 'orders'} in these days came without an ad.`}
               </p>
             </div>
@@ -362,7 +362,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
                     sub={totals.cost_per_order === null && spend.status === 'partial' ? "Some ads have no spend, so it isn't worked out" : 'Spend divided by chat orders'}
                   />
                   <Stat label="Meta purchases" value={totals.meta_purchases === null ? '—' : formatCount(totals.meta_purchases)} sub="On Messenger, as Meta credits them" />
-                  <Stat label="Website purchases" value={totals.meta_website_purchases === null ? '—' : formatCount(totals.meta_website_purchases)} sub="Counted by your Meta pixel, not LyfFlow orders" />
+                  <Stat label="Website purchases" value={totals.meta_website_purchases === null ? '—' : formatCount(totals.meta_website_purchases)} sub="Counted by your Meta pixel, not Lyfflow orders" />
                 </div>
               </section>
             )}
@@ -405,7 +405,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
             </Card>
 
             {campaigns && campaigns.length > 0 ? (
-              <Card title="Campaigns" hint="Sorted by chats. Chats, orders and sales are LyfFlow's; spend and purchases are Meta's. Click an Orders number to list those orders.">
+              <Card title="Campaigns" hint="Sorted by chats. Chats, orders and sales are Lyfflow's; spend and purchases are Meta's. Click an Orders number to list those orders.">
                 <AdsCampaignTree
                   campaigns={campaigns}
                   salesCurrency={currency}
@@ -595,7 +595,7 @@ export default function AdsStatistics({ pages = [], isActive = true, isDark = fa
                 <li>Every Send-message ad is listed, whatever its campaign type: Meta doesn't send the campaign with the click.</li>
                 <li>Sales are order totals with delivery, in {currency}. Ad spend and cost per order are in the ad account's currency and are read from Meta each time (kept 15 minutes), never stored.</li>
                 <li>A campaign's or ad set's spend is Meta's own figure: it also covers ads that brought no chat and archived ads, so the ads shown can add up to less.</li>
-                <li>Meta purchases are Meta's own count, from every source that reports to it, so they can differ from the purchases LyfFlow sent, either way.</li>
+                <li>Meta purchases are Meta's own count, from every source that reports to it, so they can differ from the purchases Lyfflow sent, either way.</li>
                 <li>A day of spend is a day in the ad account's timezone (set in Ads Manager); a day of chats and orders is a day in {timeZone || "the business's timezone"}. When they differ, the edges of the days don't cover exactly the same hours.</li>
                 <li>With a page filter, a campaign or ad set that also has ads of another page shows no spend: Meta doesn't split spend by page.</li>
               </ul>

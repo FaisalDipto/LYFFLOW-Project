@@ -5,7 +5,7 @@ import { VERDICTS, adLabel, adSetLabel, campaignLabel, postUrl, spendMoney } fro
 import HoverTip from '../HoverTip';
 
 /**
- * The campaign tree of GET /v1/statistics/ads (campaign > ad set > ad), with LyfFlow's chats,
+ * The campaign tree of GET /v1/statistics/ads (campaign > ad set > ad), with Lyfflow's chats,
  * orders and sales next to Meta's spend and purchase counts. Spend is in each campaign's
  * own currency (`currency`), sales in the business's. A row's Orders number opens its
  * orders (campaign_id, ad_set_id or ad_id); the group with no campaign isn't a link.
@@ -61,7 +61,7 @@ export default function AdsCampaignTree({ campaigns, salesCurrency, metaShown, p
               </p>
               <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-2 text-[11.5px] text-slate-400">
                 {id && <span className="font-mono">ID {id}</span>}
-                {level === 'campaign' && row.campaign_id === null && <span>LyfFlow hasn't read these ads' campaign from Meta yet.</span>}
+                {level === 'campaign' && row.campaign_id === null && <span>Lyfflow hasn't read these ads' campaign from Meta yet.</span>}
                 {isAd && row.title && row.name && row.title !== row.name && <span title="The headline the customer tapped">“{row.title}”</span>}
                 {link && (
                   <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-semibold text-slate-500 hover:text-slate-900 hover:underline">
@@ -130,7 +130,7 @@ export default function AdsCampaignTree({ campaigns, salesCurrency, metaShown, p
               <HoverTip text="What Meta charged, in the ad account's currency. A campaign's or ad set's spend also covers ads with no chat and archived ads, so the rows below can add up to less." className="cursor-help underline decoration-dotted underline-offset-2">Ad spend</HoverTip>
             </th>
             <th scope="col" className="py-2 pl-2 text-right font-medium">
-              <HoverTip text="Purchases Meta credits to the row: on Messenger, and on your website (counted by your Meta pixel, not part of LyfFlow's orders). Meta counts every source that reports to it, so this isn't a receipt of what LyfFlow sent." className="cursor-help underline decoration-dotted underline-offset-2">Meta purchases</HoverTip>
+              <HoverTip text="Purchases Meta credits to the row: on Messenger, and on your website (counted by your Meta pixel, not part of Lyfflow's orders). Meta counts every source that reports to it, so this isn't a receipt of what Lyfflow sent." className="cursor-help underline decoration-dotted underline-offset-2">Meta purchases</HoverTip>
             </th>
           </tr>
         </thead>

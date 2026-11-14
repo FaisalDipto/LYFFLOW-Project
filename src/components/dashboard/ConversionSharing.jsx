@@ -7,7 +7,7 @@ import { isInstagram } from '../../utils/platforms';
 // 412s are fixed by a normal reconnect: the connect asks for page_events since 2026-11-12.
 const switchError = (error) => {
   const code = error?.code || error?.message || '';
-  if (error?.status === 412 && code.includes('ads_connect_required')) return { kind: 'reconnect', text: "This page hasn't allowed LyfFlow to send purchases to Meta yet (it was connected before this could be asked, or the permission was unticked). Reconnect the page and keep that permission." };
+  if (error?.status === 412 && code.includes('ads_connect_required')) return { kind: 'reconnect', text: "This page hasn't allowed Lyfflow to send purchases to Meta yet (it was connected before this could be asked, or the permission was unticked). Reconnect the page and keep that permission." };
   if (error?.status === 412 && code.includes('page_reconnect_required')) return { kind: 'reconnect', text: "The page's connection to Meta has expired. Reconnect the page, then turn this on." };
   if (error?.status === 422) return { kind: null, text: "Instagram accounts can't send purchases to Meta." };
   if (error?.status === 404) return { kind: null, text: 'This page is no longer part of this business.' };
@@ -114,7 +114,7 @@ export default function ConversionSharing({ pages = [], isOwner = false, onPages
                   <div className="min-w-0 flex-1">
                     <p className="m-0 truncate text-[13.5px] font-semibold text-slate-900">{page.name || page.page_name || page.page_id}</p>
                     <p className="m-0 mt-0.5 text-[12px] text-slate-500">
-                      {enabled ? 'Every new order is sent to Meta' : 'Off: orders stay in LyfFlow'}
+                      {enabled ? 'Every new order is sent to Meta' : 'Off: orders stay in Lyfflow'}
                       {page.meta_dataset_id && (
                         <span className="ml-1.5 font-mono text-[11px] text-slate-400" title="Find the same purchases under this dataset in Meta Events Manager">
                           · Dataset {page.meta_dataset_id}

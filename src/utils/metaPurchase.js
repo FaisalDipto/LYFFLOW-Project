@@ -20,7 +20,7 @@ export function metaPurchaseLabel(order) {
       // Still pending well after the 30 minutes: Meta can't be reached and the system keeps trying.
       const late = Date.now() - Date.parse(order.created_at || '') > 45 * 60000;
       return late
-        ? { short: 'Waiting for Meta', long: "Not sent yet: Meta couldn't be reached. LyfFlow tries again every hour for 7 days", tone: 'muted', error: null }
+        ? { short: 'Waiting for Meta', long: "Not sent yet: Meta couldn't be reached. Lyfflow tries again every hour for 7 days", tone: 'muted', error: null }
         : { short: 'To Meta soon', long: 'Will be sent to Meta 30 minutes after the order', tone: 'muted', error: null };
     }
     case 'sent': {

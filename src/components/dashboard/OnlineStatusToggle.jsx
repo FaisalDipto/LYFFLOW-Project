@@ -57,7 +57,7 @@ export default function OnlineStatusToggle({ presence }) {
               {error || (
                 <>
                   <span className="block font-semibold text-slate-900">You're offline now</span>
-                  LyfFlow didn't hear from this dashboard for a while (the tab was closed or the computer slept), so your online time stopped at your last activity.
+                  Lyfflow didn't hear from this dashboard for a while (the tab was closed or the computer slept), so your online time stopped at your last activity.
                 </>
               )}
             </p>

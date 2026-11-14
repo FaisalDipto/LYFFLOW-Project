@@ -112,7 +112,7 @@ const MOCK_ADS = [
   { ad_id: '120214433221100998', title: 'Free delivery inside Dhaka', name: 'Free delivery - carousel', post_id: '104857600654321_5544332211', page_id: 'page_2', campaign_id: '120210000000000002', ad_set_id: '120210000000000021', chatsPerDay: 4, weight: 1, cpc: 0.08 },
   { ad_id: '120213131313131313', title: 'Free delivery this week', name: 'Free delivery - story', post_id: null, page_id: 'page_2', campaign_id: '120210000000000001', ad_set_id: '120210000000000012', chatsPerDay: 2, weight: 1, cpc: 0.07 },
 ];
-// Ads Meta reports that never opened a chat in LyfFlow: in the tree only, with 0 chats.
+// Ads Meta reports that never opened a chat in Lyfflow: in the tree only, with 0 chats.
 const MOCK_META_ONLY_ADS = [
   { ad_id: '120215151515151515', name: 'Carousel - 3 bags', campaign_id: '120210000000000001', ad_set_id: '120210000000000011', spendPerDay: 0.6, websitePerDay: 0.1 },
   { ad_id: '120216161616161616', name: 'New arrivals - collection', campaign_id: '120210000000000002', ad_set_id: '120210000000000021', spendPerDay: 1.9, websitePerDay: 1.3 },

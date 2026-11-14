@@ -15,7 +15,7 @@ const Switch = ({ checked, onChange, label, disabled }) => (
   </button>
 );
 
-// Who gets a follow-up and what the agent does: fixed by LyfFlow, listed for the owner.
+// Who gets a follow-up and what the agent does: fixed by Lyfflow, listed for the owner.
 const WHO_RULES = [
   'Only customers who showed interest: in the last 24 hours the agent looked up a product, your knowledge or a discount, or showed a product.',
   'Only when the customer is the quiet one. If their message is the newest, they are waiting for you and no follow-up goes out.',

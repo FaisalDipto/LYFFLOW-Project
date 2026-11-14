@@ -601,8 +601,8 @@ const AiSection = ({ data, palette, timeZone, onOpenChat }) => {
         <Card title="Speed and failures">
           <dl className="m-0 grid grid-cols-1 gap-2.5 text-[13px]">
             <MetricLine label="AI first reply" hint="Median first-reply time when the AI answered first." value={formatDuration(times.ai_median_seconds)} />
-            <MetricLine label="Your team's first reply" hint="Median first-reply time when your team answered first from the LyfFlow inbox." value={formatDuration(times.team_median_seconds)} />
-            <MetricLine label="Replies from outside LyfFlow" hint="Median first-reply time when the first reply came from the Meta inbox or a Meta automation (instant reply, away message). They can't be told apart." value={formatDuration(times.outside_app_median_seconds)} />
+            <MetricLine label="Your team's first reply" hint="Median first-reply time when your team answered first from the Lyfflow inbox." value={formatDuration(times.team_median_seconds)} />
+            <MetricLine label="Replies from outside Lyfflow" hint="Median first-reply time when the first reply came from the Meta inbox or a Meta automation (instant reply, away message). They can't be told apart." value={formatDuration(times.outside_app_median_seconds)} />
             <MetricLine label="Handover to a person's reply" hint="Median time from a handover to the first reply that didn't come from the AI." value={formatDuration(times.handover_to_human_reply_median_seconds)} />
             <MetricLine label="Handovers not answered" hint="Handovers nobody answered before the AI's next turn or within 7 days. For a period ending today this drops as your team replies." value={formatCount(times.handovers_without_human_reply)} />
           </dl>
@@ -689,7 +689,7 @@ const AiSection = ({ data, palette, timeZone, onOpenChat }) => {
             </div>
           )}
           <p className="mb-0 mt-3 text-[12px] text-slate-500">
-            {formatCount(data.unattributed_human_replies)} replies came from outside LyfFlow (Meta Business Suite, the Messenger app or Meta automations) and can't be linked to a member.
+            {formatCount(data.unattributed_human_replies)} replies came from outside Lyfflow (Meta Business Suite, the Messenger app or Meta automations) and can't be linked to a member.
           </p>
         </Card>
       </div>

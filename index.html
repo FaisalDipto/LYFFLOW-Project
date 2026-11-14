@@ -30,9 +30,23 @@
         "description": "AI customer messaging automation for Facebook Messenger, Instagram, and WhatsApp."
       }
     </script>
+    <!-- The company behind LYFFLOW, as registered (same name as src/config/company.js). -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "LYFFLOW",
+        "legalName": "লিফফ্লো",
+        "url": "https://www.lyfflow.com/",
+        "logo": "https://www.lyfflow.com/favicon.svg"
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Shown until the app loads (React replaces it), so the legal name is in the page's
+         HTML for checks that don't run JavaScript, such as Meta Business Verification.
+         Same wording as the site footer. -->
+    <div id="root"><p style="position:fixed;left:0;right:0;bottom:16px;margin:0;text-align:center;font:400 13px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;color:#64748b">© <span lang="bn">লিফফ্লো</span> (LYFFLOW). All rights reserved.</p></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

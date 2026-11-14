@@ -238,7 +238,7 @@ export default function TeamOnlineTime({ isActive = true }) {
               <summary className="cursor-pointer font-semibold text-slate-800">How online time is counted</summary>
               <ul className="m-0 mt-2 list-disc space-y-1 pl-5 leading-relaxed">
                 <li>Each member marks themselves online or offline with the switch at the top of the dashboard, separately in each business.</li>
-                <li>When a member closes the tab or their computer sleeps, they're put offline after 11 minutes, and their time ends at their last activity, not when LyfFlow noticed.</li>
+                <li>When a member closes the tab or their computer sleeps, they're put offline after 11 minutes, and their time ends at their last activity, not when Lyfflow noticed.</li>
                 <li>Time online across midnight is split between the two days{timeZone ? `, in ${timeZone}` : ''}. A member online right now counts up to now.</li>
                 <li>Online time is kept for 90 days. Removed members are listed only when they have time in these days; pending invitations aren't.</li>
               </ul>
